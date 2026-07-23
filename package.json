@@ -1,0 +1,17 @@
+{
+  "name": "school-management-system",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "db:generate": "npm --workspace=@school/shared run db:generate",
+    "db:push": "npm --workspace=@school/shared run db:push"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
