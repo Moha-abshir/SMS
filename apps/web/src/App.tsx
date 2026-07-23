@@ -1,0 +1,40 @@
+import React, { useState } from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { ThemeProvider } from './context/ThemeContext';
+import { LoginPage } from './modules/auth/LoginPage';
+import { DashboardPage } from './modules/dashboard/DashboardPage';
+
+export const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    const saved = localStorage.getItem('auth_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleLoginSuccess = (user: any, token: string) => {
+    localStorage.setItem('auth_user', JSON.stringify(user));
+    localStorage.setItem('auth_token', token);
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_token');
+    setCurrentUser(null);
+  };
+
+  return (
+    <ThemeProvider>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+        {!currentUser ? (
+          <LoginPage onLoginSuccess={handleLoginSuccess} />
+        ) : (
+          <DashboardPage user={currentUser} onLogout={handleLogout} />
+        )}
+        <ToastContainer position="top-right" autoClose={3500} theme="colored" />
+      </div>
+    </ThemeProvider>
+  );
+};
+
+export default App;
