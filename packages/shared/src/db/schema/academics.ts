@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, date, integer, decimal, boolean, pgEnum } from 'drizzle-orm/pg-core';
-import { users } from './users';
-import { classes, students, subjects } from './admissions';
+import { users } from './users.js';
+import { classes, students, subjects } from './admissions.js';
 
 export const examStatusEnum = pgEnum('exam_status', ['DRAFT', 'MARKS_ENTRY', 'PENDING_DEPUTY_APPROVAL', 'LOCKED']);
 export const unlockRequestStatusEnum = pgEnum('unlock_request_status', ['PENDING', 'APPROVED', 'REJECTED']);

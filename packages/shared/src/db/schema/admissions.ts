@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, timestamp, date, integer, pgEnum } from 'drizzle-orm/pg-core';
-import { users } from './users';
+import { users } from './users.js';
 
 export const levelCategoryEnum = pgEnum('level_category', ['PRIMARY', 'JUNIOR', 'PPE']);
 export const studentStatusEnum = pgEnum('student_status', ['ACTIVE', 'TRANSFERRED', 'EXPELLED', 'GRADUATED']);

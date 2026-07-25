@@ -1,4 +1,4 @@
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 export class EmailService {
   static async sendOtpEmail(toEmail: string, recipientName: string, otp: string): Promise<boolean> {

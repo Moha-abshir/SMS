@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, text, timestamp, date, decimal, pgEnum } from 'drizzle-orm/pg-core';
-import { users } from './users';
-import { classes, students, levelCategoryEnum } from './admissions';
-import { academicTerms } from './academics';
+import { users } from './users.js';
+import { classes, students, levelCategoryEnum } from './admissions.js';
+import { academicTerms } from './academics.js';
 
 export const paymentMethodEnum = pgEnum('payment_method', ['CASH', 'MANUAL_MPESA', 'MPESA_STK_PUSH', 'BANK_DEPOSIT']);
 

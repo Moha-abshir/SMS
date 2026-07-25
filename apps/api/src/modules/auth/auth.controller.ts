@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db } from '../../config/db';
-import { env } from '../../config/env';
+import { db } from '../../config/db.js';
+import { env } from '../../config/env.js';
 import { users, roles, loginSchema, verifyOtpSchema, eq } from '@school/shared';
-import { EmailService } from '../../services/email.service';
+import { EmailService } from '../../services/email.service.js';
 
 export class AuthController {
   static async login(req: Request, res: Response) {

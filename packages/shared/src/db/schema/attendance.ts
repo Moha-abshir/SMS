@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, date, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
-import { users } from './users';
-import { classes, students, guardians } from './admissions';
+import { users } from './users.js';
+import { classes, students, guardians } from './admissions.js';
 
 export const attendanceStatusEnum = pgEnum('attendance_status', ['PRESENT', 'ABSENT', 'EXCUSED', 'LATE']);
 export const smsStatusEnum = pgEnum('sms_status', ['SENT', 'FAILED', 'PENDING']);

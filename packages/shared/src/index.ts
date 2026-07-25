@@ -1,5 +1,5 @@
-export * from './db/schema';
-export * from './validators';
-export * from './types';
+export * from './db/schema/index.js';
+export * from './validators/index.js';
+export * from './types/index.js';
 export { drizzle } from 'drizzle-orm/postgres-js';
 export { eq, and, or, sql, desc, asc } from 'drizzle-orm';

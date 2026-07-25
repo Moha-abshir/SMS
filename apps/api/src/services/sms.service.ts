@@ -1,4 +1,4 @@
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 export class SmsService {
   static async sendAbsenceAlert(toPhone: string, studentName: string, consecutiveDays: number): Promise<boolean> {

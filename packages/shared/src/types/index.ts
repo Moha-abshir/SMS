@@ -1,4 +1,4 @@
-export * from '../validators';
+export * from '../validators/index.js';
 
 export type LevelCategory = 'PRIMARY' | 'JUNIOR' | 'PPE';
 export type StudentStatus = 'ACTIVE' | 'TRANSFERRED' | 'EXPELLED' | 'GRADUATED';

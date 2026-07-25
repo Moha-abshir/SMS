@@ -1,5 +1,5 @@
-import app from './app';
-import { env } from './config/env';
+import app from './app.js';
+import { env } from './config/env.js';
 
 const PORT = parseInt(env.PORT, 10);
 
