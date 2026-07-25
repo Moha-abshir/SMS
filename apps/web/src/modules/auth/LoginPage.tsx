@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -29,17 +30,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      const response = await axios.post(`${apiUrl}/api/auth/login`, { email, password });
+      const data = response.data;
 
       if (data.requires2FA) {
         toast.info('2FA verification code sent to your email address!');
@@ -64,15 +56,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setOtpLoading(true);
     try {
       const apiUrl = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/auth/verify-2fa`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp: otpCode }),
-      });
+      const response = await axios.post(`${apiUrl}/api/auth/verify-2fa`, { email, otp: otpCode });
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data.success) {
         toast.success(`Welcome back, ${data.user.firstName}!`);
         onLoginSuccess(data.user, data.tokens.accessToken);
         setShowOtpModal(false);
