@@ -4,7 +4,14 @@ import authRoutes from './modules/auth/auth.routes.js';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://eldoret-muslim-academy.vercel.app',
+    process.env.FRONTEND_URL || ''
+  ].filter(Boolean),
+  credentials: true,
+}));
 app.use(express.json());
 
 // Health check endpoint
