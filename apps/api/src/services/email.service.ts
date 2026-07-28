@@ -35,9 +35,15 @@ export class EmailService {
         }),
       });
 
-      return response.ok;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Brevo API Error] Status ${response.status}:`, errorText);
+        return false;
+      }
+
+      return true;
     } catch (error) {
-      console.error('Failed to send Brevo OTP email:', error);
+      console.error('[Brevo Error] Failed to send OTP email:', error);
       return false;
     }
   }
