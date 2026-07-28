@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
+import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db.js';
 import { env } from '../../config/env.js';
@@ -22,8 +22,8 @@ export class AuthController {
         return res.status(403).json({ success: false, message: 'Account is deactivated. Contact Head Teacher.' });
       }
 
-      // Verify bcrypt password hash
-      const isValidPassword = await bcrypt.compare(parsed.password, user.passwordHash);
+      // Verify argon2 password hash
+      const isValidPassword = await argon2.verify(user.passwordHash, parsed.password);
       if (!isValidPassword) {
         return res.status(401).json({ success: false, message: 'Invalid email address or password' });
       }

@@ -13,5 +13,12 @@
   },
   "devDependencies": {
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2"
+  },
+  "allowScripts": {
+    "argon2@0.45.1": true
   }
 }
