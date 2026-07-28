@@ -19,9 +19,9 @@ export const permissions = pgTable('permissions', {
 export const rolePermissions = pgTable('role_permissions', {
   roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
   permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.roleId, table.permissionId] }),
-}));
+}, (table) => [
+  primaryKey({ columns: [table.roleId, table.permissionId] }),
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
