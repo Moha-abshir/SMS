@@ -153,7 +153,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  Proceed to 2FA <ArrowRight className="w-4 h-4" />
+                  Proceed <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
@@ -199,7 +199,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-slate-400 dark:text-slate-600">
-        &copy; {new Date().getFullYear()} School Management System. Argon2 & Brevo 2FA Secured.
+        &copy; {new Date().getFullYear()} ELDORET MUSLIM ACADEMY
       </footer>
     </div>
   );
