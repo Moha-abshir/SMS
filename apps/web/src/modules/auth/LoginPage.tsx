@@ -39,9 +39,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         setShowOtpModal(true);
       }
     } catch (error: any) {
-      // Demo / offline fallback simulation for initial preview
-      toast.info('Initial server setup mode: Opening 2FA OTP verification modal');
-      setShowOtpModal(true);
+      const message = error.response?.data?.message || 'Unable to reach the server. Please try again later.';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -66,15 +65,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         setShowOtpModal(false);
         return;
       }
-    } catch (err) {
-      // Preview fallback demo session
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Verification failed. Please try again.';
+      toast.error(message);
+      setOtpLoading(false);
     }
-
-    // Demo fallback for initial dev testing
-    toast.success('2FA verification successful!');
-    onLoginSuccess({ email, firstName: 'Head', lastName: 'Teacher', role: 'HEAD_TEACHER' }, 'demo-token');
-    setShowOtpModal(false);
-    setOtpLoading(false);
   };
 
   return (
