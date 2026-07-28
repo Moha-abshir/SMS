@@ -117,4 +117,43 @@ export class AuthController {
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
+
+  static async resendOtp(req: Request, res: Response) {
+    try {
+      const email = req.body.email;
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email is required' });
+      }
+
+      const userList = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+      if (userList.length === 0) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      const user = userList[0];
+      if (!user.isActive) {
+        return res.status(403).json({ success: false, message: 'Account is deactivated' });
+      }
+
+      // Generate 6-digit 2FA OTP code
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+      await db.update(users)
+        .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
+        .where(eq(users.id, user.id));
+
+      // Send Brevo OTP Email
+      const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);
+
+      return res.status(200).json({
+        success: true,
+        message: 'A new 2FA OTP code has been sent to your email.',
+        emailSent,
+      });
+    } catch (error: any) {
+      console.error('Resend OTP error:', error);
+      return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
 }
