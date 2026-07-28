@@ -2,3 +2,4 @@ node_modules
 dist
 .env
 *.log
+\n# Local Seed Script\napps/api/src/scripts/seed.ts
