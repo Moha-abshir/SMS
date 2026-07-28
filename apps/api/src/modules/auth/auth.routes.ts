@@ -4,7 +4,7 @@ import { userRateLimiter } from '../../middleware/auth.js';
 
 const router = Router();
 
-router.post('/login', userRateLimiter(5, 60000), AuthController.login);
-router.post('/verify-2fa', userRateLimiter(5, 60000), AuthController.verify2FA);
+router.post('/login', userRateLimiter, AuthController.login);
+router.post('/verify-2fa', userRateLimiter, AuthController.verify2FA);
 
 export default router;

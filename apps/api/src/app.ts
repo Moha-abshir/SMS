@@ -1,6 +1,8 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import compression from 'compression';
+import { pinoHttp } from 'pino-http';
 import authRoutes from './modules/auth/auth.routes.js';
 
 const app = express();
@@ -14,7 +16,14 @@ app.use(cors({
   ].filter(Boolean),
   credentials: true,
 }));
+app.use(compression());
 app.use(express.json());
+app.use(pinoHttp({
+  transport: {
+    target: 'pino-pretty',
+    options: { colorize: true, ignore: 'pid,hostname' }
+  }
+}));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

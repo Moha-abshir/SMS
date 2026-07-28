@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { env } from '../config/env.js';
 
 export interface AuthenticatedUser {
@@ -18,35 +19,17 @@ declare global {
   }
 }
 
-// Memory map for User-Identifier Rate Limiting (NEVER IP-BASED)
-const userRateLimits = new Map<string, { count: number; resetTime: number }>();
-
-export function userRateLimiter(maxRequests = 10, windowMs = 60000) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const userIdentifier = req.body?.email || req.user?.email || 'anonymous_user';
-
-    const now = Date.now();
-    const limitData = userRateLimits.get(userIdentifier) || { count: 0, resetTime: now + windowMs };
-
-    if (now > limitData.resetTime) {
-      limitData.count = 1;
-      limitData.resetTime = now + windowMs;
-    } else {
-      limitData.count += 1;
-    }
-
-    userRateLimits.set(userIdentifier, limitData);
-
-    if (limitData.count > maxRequests) {
-      return res.status(429).json({
-        success: false,
-        message: 'Too many attempts for this user account. Please try again after 1 minute.',
-      });
-    }
-
-    next();
-  };
-}
+export const userRateLimiter = rateLimit({
+  windowMs: 60 * 2000, // 2 minute
+  max: 10, // Limit each user to 10 requests per `window`
+  message: {
+    success: false,
+    message: 'Too many attempts for this user account. Please try again after 1 minute.',
+  },
+  keyGenerator: (req) => {
+    return req.body?.email || req.user?.email || req.ip || 'anonymous_user';
+  },
+});
 
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
