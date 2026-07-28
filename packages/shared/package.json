@@ -13,8 +13,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "db:generate": "drizzle-kit generate:pg",
-    "db:push": "drizzle-kit push:pg"
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
@@ -22,7 +22,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.20.14",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^5.3.3"
   }
 }
