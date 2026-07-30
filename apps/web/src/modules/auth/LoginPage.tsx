@@ -30,7 +30,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
+      let apiUrl = import.meta.env.VITE_API_URL || '';
+      if (apiUrl && !apiUrl.startsWith('http')) apiUrl = `https://${apiUrl}`;
       const response = await axios.post(`${apiUrl}/api/auth/login`, { email, password });
       const data = response.data;
 
@@ -55,7 +56,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
     setOtpLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
+      let apiUrl = import.meta.env.VITE_API_URL || '';
+      if (apiUrl && !apiUrl.startsWith('http')) apiUrl = `https://${apiUrl}`;
       const response = await axios.post(`${apiUrl}/api/auth/verify-2fa`, { email, otp: otpCode });
       const data = response.data;
 
@@ -74,7 +76,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const handleResendOtp = async () => {
     setResendLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
+      let apiUrl = import.meta.env.VITE_API_URL || '';
+      if (apiUrl && !apiUrl.startsWith('http')) apiUrl = `https://${apiUrl}`;
       const response = await axios.post(`${apiUrl}/api/auth/resend-otp`, { email });
       if (response.data.success) {
         toast.success('A new verification code has been sent to your email.');
