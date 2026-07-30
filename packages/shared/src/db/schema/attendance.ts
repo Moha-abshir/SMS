@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, date, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, date, integer, boolean, pgEnum, unique } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { classes, students, guardians } from './admissions.js';
 
@@ -11,9 +11,12 @@ export const attendanceRegisters = pgTable('attendance_registers', {
   date: date('date').notNull(),
   takenById: uuid('taken_by_id').notNull().references(() => users.id),
   isSubmitted: boolean('is_submitted').default(true).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('class_date_uq').on(table.classId, table.date)
+]);
 
 export const attendanceRecords = pgTable('attendance_records', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -21,6 +24,9 @@ export const attendanceRecords = pgTable('attendance_records', {
   studentId: uuid('student_id').notNull().references(() => students.id),
   status: attendanceStatusEnum('status').notNull(),
   remarks: text('remarks'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });
 
 export const absenceSmsLogs = pgTable('absence_sms_logs', {
@@ -31,5 +37,8 @@ export const absenceSmsLogs = pgTable('absence_sms_logs', {
   consecutiveAbsences: integer('consecutive_absences').notNull(),
   smsMessage: text('sms_message').notNull(),
   status: smsStatusEnum('status').default('PENDING').notNull(),
-  sentAt: timestamp('sent_at').defaultNow().notNull(),
+  sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, date, integer, decimal, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, date, integer, decimal, boolean, pgEnum, unique } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { classes, students, subjects } from './admissions.js';
 
@@ -12,7 +12,12 @@ export const academicTerms = pgTable('academic_terms', {
   startDate: date('start_date').notNull(),
   endDate: date('end_date').notNull(),
   isCurrent: boolean('is_current').default(false).notNull(),
-});
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('year_term_uq').on(table.year, table.termNumber)
+]);
 
 export const catAssessments = pgTable('cat_assessments', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -22,7 +27,9 @@ export const catAssessments = pgTable('cat_assessments', {
   catNumber: integer('cat_number').notNull(), // 1, 2, 3
   maxMarks: integer('max_marks').default(100).notNull(),
   createdById: uuid('created_by_id').notNull().references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });
 
 export const catScores = pgTable('cat_scores', {
@@ -30,16 +37,22 @@ export const catScores = pgTable('cat_scores', {
   catId: uuid('cat_id').notNull().references(() => catAssessments.id, { onDelete: 'cascade' }),
   studentId: uuid('student_id').notNull().references(() => students.id),
   marksObtained: decimal('marks_obtained', { precision: 5, scale: 2 }).notNull(),
-  percentage: decimal('percentage', { precision: 5, scale: 2 }).notNull(),
   remarks: text('remarks'),
-});
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('cat_student_uq').on(table.catId, table.studentId)
+]);
 
 export const examinations = pgTable('examinations', {
   id: uuid('id').defaultRandom().primaryKey(),
   termId: uuid('term_id').notNull().references(() => academicTerms.id),
   title: varchar('title', { length: 100 }).notNull(),
   status: examStatusEnum('status').default('DRAFT').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });
 
 export const examScores = pgTable('exam_scores', {
@@ -49,12 +62,16 @@ export const examScores = pgTable('exam_scores', {
   subjectId: uuid('subject_id').notNull().references(() => subjects.id),
   marksObtained: decimal('marks_obtained', { precision: 5, scale: 2 }).notNull(),
   maxMarks: integer('max_marks').default(100).notNull(),
-  percentage: decimal('percentage', { precision: 5, scale: 2 }).notNull(),
   cbcRubricLevel: varchar('cbc_rubric_level', { length: 10 }), // EE (4), ME (3), AE (2), BE (1)
   juniorPoints: integer('junior_points'), // 8 to 1 points
   teacherRemarks: text('teacher_remarks'),
   enteredById: uuid('entered_by_id').notNull().references(() => users.id),
-});
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('exam_student_subject_uq').on(table.examId, table.studentId, table.subjectId)
+]);
 
 export const reportCardLocks = pgTable('report_card_locks', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -62,8 +79,13 @@ export const reportCardLocks = pgTable('report_card_locks', {
   classId: uuid('class_id').notNull().references(() => classes.id),
   isLocked: boolean('is_locked').default(false).notNull(),
   lockedById: uuid('locked_by_id').references(() => users.id),
-  lockedAt: timestamp('locked_at'),
-});
+  lockedAt: timestamp('locked_at', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('term_class_lock_uq').on(table.termId, table.classId)
+]);
 
 export const reportUnlockRequests = pgTable('report_unlock_requests', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -73,6 +95,7 @@ export const reportUnlockRequests = pgTable('report_unlock_requests', {
   reason: text('reason').notNull(),
   approvedById: uuid('approved_by_id').references(() => users.id),
   status: unlockRequestStatusEnum('status').default('PENDING').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });

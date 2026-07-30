@@ -10,7 +10,9 @@ export const auditLogs = pgTable('audit_logs', {
   oldValues: jsonb('old_values'),
   newValues: jsonb('new_values'),
   userIdentifier: varchar('user_identifier', { length: 100 }).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });
 
 export const systemSettings = pgTable('system_settings', {
@@ -21,4 +23,7 @@ export const systemSettings = pgTable('system_settings', {
   contactEmail: varchar('contact_email', { length: 100 }),
   logoUrl: text('logo_url'),
   absenceSmsThreshold: integer('absence_sms_threshold').default(3).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 });

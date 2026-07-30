@@ -1,5 +1,6 @@
 CREATE TYPE "public"."exam_status" AS ENUM('DRAFT', 'MARKS_ENTRY', 'PENDING_DEPUTY_APPROVAL', 'LOCKED');--> statement-breakpoint
 CREATE TYPE "public"."unlock_request_status" AS ENUM('PENDING', 'APPROVED', 'REJECTED');--> statement-breakpoint
+CREATE TYPE "public"."gender" AS ENUM('MALE', 'FEMALE');--> statement-breakpoint
 CREATE TYPE "public"."level_category" AS ENUM('PRIMARY', 'JUNIOR', 'PPE');--> statement-breakpoint
 CREATE TYPE "public"."student_status" AS ENUM('ACTIVE', 'TRANSFERRED', 'EXPELLED', 'GRADUATED');--> statement-breakpoint
 CREATE TYPE "public"."attendance_status" AS ENUM('PRESENT', 'ABSENT', 'EXCUSED', 'LATE');--> statement-breakpoint
@@ -11,7 +12,11 @@ CREATE TABLE "academic_terms" (
 	"term_number" integer NOT NULL,
 	"start_date" date NOT NULL,
 	"end_date" date NOT NULL,
-	"is_current" boolean DEFAULT false NOT NULL
+	"is_current" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "year_term_uq" UNIQUE("year","term_number")
 );
 --> statement-breakpoint
 CREATE TABLE "cat_assessments" (
@@ -22,7 +27,9 @@ CREATE TABLE "cat_assessments" (
 	"cat_number" integer NOT NULL,
 	"max_marks" integer DEFAULT 100 NOT NULL,
 	"created_by_id" uuid NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "cat_scores" (
@@ -30,9 +37,12 @@ CREATE TABLE "cat_scores" (
 	"cat_id" uuid NOT NULL,
 	"student_id" uuid NOT NULL,
 	"marks_obtained" numeric(5, 2) NOT NULL,
-	"percentage" numeric(5, 2) NOT NULL,
-	"remarks" text
-);l
+	"remarks" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "cat_student_uq" UNIQUE("cat_id","student_id")
+);
 --> statement-breakpoint
 CREATE TABLE "exam_scores" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -41,11 +51,14 @@ CREATE TABLE "exam_scores" (
 	"subject_id" uuid NOT NULL,
 	"marks_obtained" numeric(5, 2) NOT NULL,
 	"max_marks" integer DEFAULT 100 NOT NULL,
-	"percentage" numeric(5, 2) NOT NULL,
 	"cbc_rubric_level" varchar(10),
 	"junior_points" integer,
 	"teacher_remarks" text,
-	"entered_by_id" uuid NOT NULL
+	"entered_by_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "exam_student_subject_uq" UNIQUE("exam_id","student_id","subject_id")
 );
 --> statement-breakpoint
 CREATE TABLE "examinations" (
@@ -53,7 +66,9 @@ CREATE TABLE "examinations" (
 	"term_id" uuid NOT NULL,
 	"title" varchar(100) NOT NULL,
 	"status" "exam_status" DEFAULT 'DRAFT' NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "report_card_locks" (
@@ -62,7 +77,11 @@ CREATE TABLE "report_card_locks" (
 	"class_id" uuid NOT NULL,
 	"is_locked" boolean DEFAULT false NOT NULL,
 	"locked_by_id" uuid,
-	"locked_at" timestamp
+	"locked_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "term_class_lock_uq" UNIQUE("term_id","class_id")
 );
 --> statement-breakpoint
 CREATE TABLE "report_unlock_requests" (
@@ -73,8 +92,9 @@ CREATE TABLE "report_unlock_requests" (
 	"reason" text NOT NULL,
 	"approved_by_id" uuid,
 	"status" "unlock_request_status" DEFAULT 'PENDING' NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "classes" (
@@ -83,8 +103,9 @@ CREATE TABLE "classes" (
 	"level_category" "level_category" NOT NULL,
 	"numeric_order" integer NOT NULL,
 	"class_teacher_id" uuid,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "classes_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
@@ -94,11 +115,11 @@ CREATE TABLE "guardians" (
 	"phone_number" varchar(20) NOT NULL,
 	"id_number" varchar(50) NOT NULL,
 	"email" varchar(255),
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_by" uuid,
-	"deleted_at" timestamp,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "guardians_id_number_unique" UNIQUE("id_number")
 );
 --> statement-breakpoint
@@ -107,8 +128,10 @@ CREATE TABLE "secondary_guardians" (
 	"student_id" uuid NOT NULL,
 	"guardian_id" uuid NOT NULL,
 	"relationship" varchar(50) NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "student_guardian_uq" UNIQUE("student_id","guardian_id")
 );
 --> statement-breakpoint
 CREATE TABLE "students" (
@@ -117,18 +140,18 @@ CREATE TABLE "students" (
 	"first_name" varchar(100) NOT NULL,
 	"middle_name" varchar(100),
 	"last_name" varchar(100) NOT NULL,
-	"gender" varchar(10) NOT NULL,
+	"gender" "gender" NOT NULL,
 	"assessment_number" varchar(50),
 	"previous_grade" varchar(50),
 	"class_id" uuid NOT NULL,
 	"primary_guardian_id" uuid NOT NULL,
 	"admission_date" date NOT NULL,
 	"status" "student_status" DEFAULT 'ACTIVE' NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_by" uuid,
-	"deleted_at" timestamp,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "students_admission_number_unique" UNIQUE("admission_number")
 );
 --> statement-breakpoint
@@ -137,6 +160,9 @@ CREATE TABLE "subjects" (
 	"code" varchar(20) NOT NULL,
 	"name" varchar(100) NOT NULL,
 	"level_category" "level_category" NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "subjects_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
@@ -146,8 +172,10 @@ CREATE TABLE "teacher_subject_allocations" (
 	"class_id" uuid NOT NULL,
 	"subject_id" uuid NOT NULL,
 	"academic_year" integer NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "teacher_alloc_uq" UNIQUE("teacher_id","class_id","subject_id","academic_year")
 );
 --> statement-breakpoint
 CREATE TABLE "absence_sms_logs" (
@@ -158,7 +186,10 @@ CREATE TABLE "absence_sms_logs" (
 	"consecutive_absences" integer NOT NULL,
 	"sms_message" text NOT NULL,
 	"status" "sms_status" DEFAULT 'PENDING' NOT NULL,
-	"sent_at" timestamp DEFAULT now() NOT NULL
+	"sent_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "attendance_records" (
@@ -166,7 +197,10 @@ CREATE TABLE "attendance_records" (
 	"register_id" uuid NOT NULL,
 	"student_id" uuid NOT NULL,
 	"status" "attendance_status" NOT NULL,
-	"remarks" text
+	"remarks" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "attendance_registers" (
@@ -175,8 +209,10 @@ CREATE TABLE "attendance_registers" (
 	"date" date NOT NULL,
 	"taken_by_id" uuid NOT NULL,
 	"is_submitted" boolean DEFAULT true NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "class_date_uq" UNIQUE("class_id","date")
 );
 --> statement-breakpoint
 CREATE TABLE "audit_logs" (
@@ -188,7 +224,9 @@ CREATE TABLE "audit_logs" (
 	"old_values" jsonb,
 	"new_values" jsonb,
 	"user_identifier" varchar(100) NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "system_settings" (
@@ -198,13 +236,26 @@ CREATE TABLE "system_settings" (
 	"contact_phone" varchar(50),
 	"contact_email" varchar(100),
 	"logo_url" text,
-	"absence_sms_threshold" integer DEFAULT 3 NOT NULL
+	"absence_sms_threshold" integer DEFAULT 3 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "expense_categories" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" varchar(100) NOT NULL,
+	"description" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "expense_categories_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
 CREATE TABLE "expenses" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"voucher_number" varchar(50) NOT NULL,
-	"category" varchar(100) NOT NULL,
+	"category_id" uuid NOT NULL,
 	"title" varchar(200) NOT NULL,
 	"description" text,
 	"amount" numeric(10, 2) NOT NULL,
@@ -213,8 +264,9 @@ CREATE TABLE "expenses" (
 	"approved_by_id" uuid,
 	"recorded_by_id" uuid NOT NULL,
 	"expense_date" date NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "expenses_voucher_number_unique" UNIQUE("voucher_number")
 );
 --> statement-breakpoint
@@ -229,7 +281,10 @@ CREATE TABLE "fee_payments" (
 	"bank_ref_number" varchar(50),
 	"paid_by" varchar(100) NOT NULL,
 	"recorded_by_id" uuid NOT NULL,
-	"payment_date" timestamp DEFAULT now() NOT NULL,
+	"payment_date" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "fee_payments_receipt_number_unique" UNIQUE("receipt_number")
 );
 --> statement-breakpoint
@@ -237,7 +292,10 @@ CREATE TABLE "fee_structure_items" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"fee_structure_id" uuid NOT NULL,
 	"title" varchar(100) NOT NULL,
-	"amount" numeric(10, 2) NOT NULL
+	"amount" numeric(10, 2) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "fee_structures" (
@@ -246,18 +304,25 @@ CREATE TABLE "fee_structures" (
 	"level_category" "level_category" NOT NULL,
 	"class_id" uuid NOT NULL,
 	"total_amount" numeric(10, 2) NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "term_class_uq" UNIQUE("term_id","class_id")
 );
 --> statement-breakpoint
 CREATE TABLE "student_bills" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"student_id" uuid NOT NULL,
 	"term_id" uuid NOT NULL,
+	"title" varchar(150) NOT NULL,
 	"billed_amount" numeric(10, 2) NOT NULL,
 	"waiver_amount" numeric(10, 2) DEFAULT '0.00' NOT NULL,
 	"net_amount" numeric(10, 2) NOT NULL,
 	"paid_amount" numeric(10, 2) DEFAULT '0.00' NOT NULL,
-	"balance" numeric(10, 2) NOT NULL
+	"balance" numeric(10, 2) NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "permissions" (
@@ -265,6 +330,9 @@ CREATE TABLE "permissions" (
 	"code" varchar(100) NOT NULL,
 	"category" varchar(50) NOT NULL,
 	"description" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "permissions_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
@@ -272,9 +340,11 @@ CREATE TABLE "refresh_tokens" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"token_hash" text NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"revoked_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"revoked_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "refresh_tokens_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
@@ -289,8 +359,9 @@ CREATE TABLE "roles" (
 	"name" varchar(50) NOT NULL,
 	"description" text,
 	"is_system_default" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "roles_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
@@ -302,19 +373,20 @@ CREATE TABLE "users" (
 	"middle_name" varchar(100),
 	"last_name" varchar(100) NOT NULL,
 	"phone_number" varchar(20) NOT NULL,
-	"date_of_employment" timestamp,
+	"date_of_employment" timestamp with time zone,
 	"salary_amount" numeric(10, 2),
 	"role_id" uuid NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"two_factor_otp" varchar(10),
-	"two_factor_expires_at" timestamp,
-	"last_login_at" timestamp,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"two_factor_expires_at" timestamp with time zone,
+	"last_login_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" uuid,
 	"updated_by" uuid,
-	"deleted_at" timestamp,
-	CONSTRAINT "users_email_unique" UNIQUE("email")
+	"deleted_at" timestamp with time zone,
+	CONSTRAINT "users_email_unique" UNIQUE("email"),
+	CONSTRAINT "users_phone_number_unique" UNIQUE("phone_number")
 );
 --> statement-breakpoint
 ALTER TABLE "cat_assessments" ADD CONSTRAINT "cat_assessments_term_id_academic_terms_id_fk" FOREIGN KEY ("term_id") REFERENCES "public"."academic_terms"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -336,10 +408,14 @@ ALTER TABLE "report_unlock_requests" ADD CONSTRAINT "report_unlock_requests_term
 ALTER TABLE "report_unlock_requests" ADD CONSTRAINT "report_unlock_requests_requested_by_id_users_id_fk" FOREIGN KEY ("requested_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "report_unlock_requests" ADD CONSTRAINT "report_unlock_requests_approved_by_id_users_id_fk" FOREIGN KEY ("approved_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "classes" ADD CONSTRAINT "classes_class_teacher_id_users_id_fk" FOREIGN KEY ("class_teacher_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guardians" ADD CONSTRAINT "guardians_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guardians" ADD CONSTRAINT "guardians_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secondary_guardians" ADD CONSTRAINT "secondary_guardians_student_id_students_id_fk" FOREIGN KEY ("student_id") REFERENCES "public"."students"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secondary_guardians" ADD CONSTRAINT "secondary_guardians_guardian_id_guardians_id_fk" FOREIGN KEY ("guardian_id") REFERENCES "public"."guardians"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "students" ADD CONSTRAINT "students_class_id_classes_id_fk" FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "students" ADD CONSTRAINT "students_primary_guardian_id_guardians_id_fk" FOREIGN KEY ("primary_guardian_id") REFERENCES "public"."guardians"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "students" ADD CONSTRAINT "students_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "students" ADD CONSTRAINT "students_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "teacher_subject_allocations" ADD CONSTRAINT "teacher_subject_allocations_teacher_id_users_id_fk" FOREIGN KEY ("teacher_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "teacher_subject_allocations" ADD CONSTRAINT "teacher_subject_allocations_class_id_classes_id_fk" FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "teacher_subject_allocations" ADD CONSTRAINT "teacher_subject_allocations_subject_id_subjects_id_fk" FOREIGN KEY ("subject_id") REFERENCES "public"."subjects"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -350,6 +426,7 @@ ALTER TABLE "attendance_records" ADD CONSTRAINT "attendance_records_student_id_s
 ALTER TABLE "attendance_registers" ADD CONSTRAINT "attendance_registers_class_id_classes_id_fk" FOREIGN KEY ("class_id") REFERENCES "public"."classes"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attendance_registers" ADD CONSTRAINT "attendance_registers_taken_by_id_users_id_fk" FOREIGN KEY ("taken_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_actor_id_users_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "expenses" ADD CONSTRAINT "expenses_category_id_expense_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."expense_categories"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expenses" ADD CONSTRAINT "expenses_approved_by_id_users_id_fk" FOREIGN KEY ("approved_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "expenses" ADD CONSTRAINT "expenses_recorded_by_id_users_id_fk" FOREIGN KEY ("recorded_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fee_payments" ADD CONSTRAINT "fee_payments_student_id_students_id_fk" FOREIGN KEY ("student_id") REFERENCES "public"."students"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
