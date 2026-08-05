@@ -3,6 +3,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { LoginPage } from './modules/auth/LoginPage';
+import { AcceptInvitationPage } from './modules/auth/AcceptInvitationPage';
 import { DashboardPage } from './modules/dashboard/DashboardPage';
 
 export const App: React.FC = () => {
@@ -23,10 +24,14 @@ export const App: React.FC = () => {
     setCurrentUser(null);
   };
 
+  const currentPath = window.location.pathname;
+
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
-        {!currentUser ? (
+        {currentPath === '/accept-invitation' ? (
+          <AcceptInvitationPage />
+        ) : !currentUser ? (
           <LoginPage onLoginSuccess={handleLoginSuccess} />
         ) : (
           <DashboardPage user={currentUser} onLogout={handleLogout} />

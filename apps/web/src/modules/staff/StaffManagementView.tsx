@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -11,7 +11,7 @@ export const StaffManagementView: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Modal states
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   
@@ -21,11 +21,16 @@ export const StaffManagementView: React.FC = () => {
   // Form states
   const [formData, setFormData] = useState({
     firstName: '',
+    middleName: '',
     lastName: '',
     email: '',
     phoneNumber: '',
-    roleId: '', // Ideally fetched from DB, but we will mock or type the roles
-    salaryAmount: ''
+    nationalId: '',
+    address: '',
+    tscNumber: '',
+    roleId: '',
+    salaryAmount: '',
+    salaryPaymentDay: ''
   });
 
   const fetchStaff = async () => {
@@ -48,20 +53,22 @@ export const StaffManagementView: React.FC = () => {
     fetchStaff();
   }, []);
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
+  const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // In a real scenario, we'd fetch the roleId from a /api/roles endpoint.
-      // For Phase 1 demo, we'll assume a hardcoded role ID for 'TEACHER' if left blank.
-      const payload = { ...formData };
-      const res = await apiClient.post('/api/staff', payload);
+      const payload = { 
+        ...formData,
+        salaryPaymentDay: formData.salaryPaymentDay ? parseInt(formData.salaryPaymentDay) : null
+      };
       
-      toast.success(`Staff added! Default password: ${res.data.defaultPassword}`, { autoClose: false });
-      setShowAddModal(false);
-      setFormData({ firstName: '', lastName: '', email: '', phoneNumber: '', roleId: '', salaryAmount: '' });
+      const res = await apiClient.post('/api/staff/invitations', payload);
+      
+      toast.success(res.data.emailSent ? 'Invitation sent successfully!' : 'Invitation created, but failed to send email. Check API key.', { autoClose: false });
+      setShowInviteModal(false);
+      resetForm();
       fetchStaff();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add staff');
+      toast.error(error.response?.data?.message || 'Failed to send invitation');
     }
   };
 
@@ -91,23 +98,58 @@ export const StaffManagementView: React.FC = () => {
 
   const handleResetPassword = async () => {
     try {
-      const res = await apiClient.post(`/api/staff/${selectedStaff.id}/reset-password`);
-      toast.success(`Password reset successful! New password: ${res.data.defaultPassword}`, { autoClose: false });
+      const res = await apiClient.post(`/api/staff/\${selectedStaff.id}/reset-password`);
+      toast.success(`Password reset successful! New password: \${res.data.defaultPassword}`, { autoClose: false });
       setShowResetModal(false);
     } catch (error) {
       toast.error('Failed to reset password');
     }
   };
 
+  const handleResendInvitation = async (invitationId: string) => {
+    try {
+      const res = await apiClient.post(`/api/staff/invitations/\${invitationId}/resend`);
+      toast.success(res.data.emailSent ? 'Invitation resent successfully!' : 'Invitation resent, but email failed to send.');
+      fetchStaff();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to resend invitation');
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this invitation?")) return;
+    try {
+      await apiClient.post(`/api/staff/invitations/\${invitationId}/cancel`);
+      toast.success('Invitation cancelled successfully');
+      fetchStaff();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to cancel invitation');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ 
+      firstName: '', middleName: '', lastName: '', 
+      email: '', phoneNumber: '', nationalId: '', address: '', tscNumber: '',
+      roleId: roles.length > 0 ? roles[0].id : '', 
+      salaryAmount: '', salaryPaymentDay: '' 
+    });
+  };
+
   const openEditModal = (staffMember: any) => {
     setSelectedStaff(staffMember);
     setFormData({
       firstName: staffMember.firstName,
+      middleName: staffMember.middleName || '',
       lastName: staffMember.lastName,
       email: staffMember.email,
       phoneNumber: staffMember.phoneNumber,
+      nationalId: staffMember.nationalId || '',
+      address: staffMember.address || '',
+      tscNumber: staffMember.tscNumber || '',
       roleId: staffMember.roleId,
-      salaryAmount: staffMember.salaryAmount || ''
+      salaryAmount: staffMember.salaryAmount || '',
+      salaryPaymentDay: staffMember.salaryPaymentDay?.toString() || ''
     });
     setShowEditModal(true);
   };
@@ -115,6 +157,40 @@ export const StaffManagementView: React.FC = () => {
   const openResetModal = (staffMember: any) => {
     setSelectedStaff(staffMember);
     setShowResetModal(true);
+  };
+
+  const getStatusBadge = (s: any) => {
+    if (!s.isInvitation) {
+      return (
+        <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max \${s.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+          {s.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+          {s.isActive ? 'Active' : 'Inactive'}
+        </span>
+      );
+    } else {
+      switch (s.invitationStatus) {
+        case 'PENDING':
+          return (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <MailWarning className="w-3 h-3" /> Pending Invitation
+            </span>
+          );
+        case 'EXPIRED':
+          return (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              <Clock className="w-3 h-3" /> Expired
+            </span>
+          );
+        case 'CANCELLED':
+          return (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              <Ban className="w-3 h-3" /> Cancelled
+            </span>
+          );
+        default:
+          return null;
+      }
+    }
   };
 
   return (
@@ -127,16 +203,16 @@ export const StaffManagementView: React.FC = () => {
       <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
         <div>
           <h2 className="text-xl font-bold">Staff Directory</h2>
-          <p className="text-sm text-slate-500">Manage school employees and accounts</p>
+          <p className="text-sm text-slate-500">Manage school employees and invitations</p>
         </div>
         <button
           onClick={() => {
-            setFormData({ firstName: '', lastName: '', email: '', phoneNumber: '', roleId: roles.length > 0 ? roles[0].id : '', salaryAmount: '' });
-            setShowAddModal(true);
+            resetForm();
+            setShowInviteModal(true);
           }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-md shadow-blue-500/20"
         >
-          <Plus className="w-4 h-4" /> Add Staff
+          <Plus className="w-4 h-4" /> Invite Staff
         </button>
       </div>
 
@@ -159,7 +235,7 @@ export const StaffManagementView: React.FC = () => {
                 </tr>
               ) : staff.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">No staff found. Add some test data!</td>
+                  <td colSpan={5} className="p-8 text-center text-slate-500">No staff found. Send an invitation!</td>
                 </tr>
               ) : (
                 staff.map((s) => (
@@ -177,34 +253,56 @@ export const StaffManagementView: React.FC = () => {
                       <div className="text-xs text-slate-500">{s.phoneNumber}</div>
                     </td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max ${s.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                        {s.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-                        {s.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      {getStatusBadge(s)}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditModal(s)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          title="Edit Details"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openResetModal(s)}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                          title="Reset Password"
-                        >
-                          <KeyRound className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(s)}
-                          className={`p-1.5 transition-colors ${s.isActive ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
-                          title={s.isActive ? "Deactivate Account" : "Activate Account"}
-                        >
-                          <ShieldAlert className="w-4 h-4" />
-                        </button>
+                        {!s.isInvitation ? (
+                          <>
+                            <button
+                              onClick={() => openEditModal(s)}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              title="Edit Details"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => openResetModal(s)}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                              title="Reset Password"
+                            >
+                              <KeyRound className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(s)}
+                              className={`p-1.5 transition-colors \${s.isActive ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
+                              title={s.isActive ? "Deactivate Account" : "Activate Account"}
+                            >
+                              <ShieldAlert className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {(s.invitationStatus === 'PENDING' || s.invitationStatus === 'EXPIRED') && (
+                              <>
+                                <button
+                                  onClick={() => handleResendInvitation(s.id)}
+                                  className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  title="Resend Invitation"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleCancelInvitation(s.id)}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                  title="Cancel Invitation"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -215,9 +313,14 @@ export const StaffManagementView: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Staff Modal */}
-      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Staff">
-        <form onSubmit={handleAddSubmit} className="space-y-4">
+      {/* Invite Staff Modal */}
+      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite New Staff">
+        <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-2">
+          
+          <div className="pb-2 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Personal Details</h3>
+          </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
@@ -228,34 +331,75 @@ export const StaffManagementView: React.FC = () => {
               <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
+              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
+              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+          </div>
+          
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Address</label>
+            <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+          </div>
+
+          <div className="pb-2 pt-4 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Professional Details</h3>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Email Address * (For Invitation)</label>
             <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
-            <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
+              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
+                <option value="" disabled>Select a role</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number (Required for Teachers)</label>
+              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
-            <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
-              <option value="" disabled>Select a role</option>
-              {roles.map(r => (
-                <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
-              ))}
-            </select>
+
+          <div className="pb-2 pt-4 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Financial Details</h3>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl">Add Staff</button>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Salary Amount (KSH)</label>
+              <input type="number" value={formData.salaryAmount} onChange={e => setFormData({...formData, salaryAmount: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Payment Day (1-31)</label>
+              <input type="number" min="1" max="31" value={formData.salaryPaymentDay} onChange={e => setFormData({...formData, salaryPaymentDay: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
+            <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
+              <Send className="w-4 h-4" /> Send Invitation
+            </button>
           </div>
         </form>
       </Modal>
 
       {/* Edit Staff Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Staff Details">
-        <form onSubmit={handleEditSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-2">
+           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
               <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
@@ -265,22 +409,34 @@ export const StaffManagementView: React.FC = () => {
               <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
+              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
+              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
+          </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
             <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
-            <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
-            <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
-              <option value="" disabled>Select a role</option>
-              {roles.map(r => (
-                <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
+              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
+                <option value="" disabled>Select a role</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number</label>
+              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
