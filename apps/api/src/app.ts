@@ -4,6 +4,7 @@ import cors from 'cors';
 import compression from 'compression';
 import { pinoHttp } from 'pino-http';
 import authRoutes from './modules/auth/auth.routes.js';
+import staffRoutes from './modules/staff/staff.routes.js';
 
 const app = express();
 
@@ -32,5 +33,6 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/staff', staffRoutes);
 
 export default app;
