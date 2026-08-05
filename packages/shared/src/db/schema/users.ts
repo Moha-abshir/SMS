@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, primaryKey, integer } from 'drizzle-orm/pg-core';
 
 export const roles = pgTable('roles', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -36,9 +36,13 @@ export const users = pgTable('users', {
   firstName: varchar('first_name', { length: 100 }).notNull(),
   middleName: varchar('middle_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }).notNull(),
+  nationalId: varchar('national_id', { length: 50 }).notNull().unique(),
+  address: text('address'),
+  tscNumber: varchar('tsc_number', { length: 50 }).unique(),
   phoneNumber: varchar('phone_number', { length: 20 }).notNull().unique(),
   dateOfEmployment: timestamp('date_of_employment', { withTimezone: true, mode: 'date' }),
   salaryAmount: decimal('salary_amount', { precision: 10, scale: 2 }),
+  salaryPaymentDay: integer('salary_payment_day'),
   roleId: uuid('role_id').notNull().references(() => roles.id),
   isActive: boolean('is_active').default(true).notNull(),
   twoFactorOtp: varchar('two_factor_otp', { length: 10 }),
@@ -60,4 +64,27 @@ export const refreshTokens = pgTable('refresh_tokens', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+});
+
+export const invitations = pgTable('invitations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  firstName: varchar('first_name', { length: 100 }).notNull(),
+  middleName: varchar('middle_name', { length: 100 }),
+  lastName: varchar('last_name', { length: 100 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  phoneNumber: varchar('phone_number', { length: 20 }).notNull(),
+  nationalId: varchar('national_id', { length: 50 }).notNull(),
+  address: text('address'),
+  tscNumber: varchar('tsc_number', { length: 50 }),
+  salaryAmount: decimal('salary_amount', { precision: 10, scale: 2 }),
+  salaryPaymentDay: integer('salary_payment_day'),
+  roleId: uuid('role_id').notNull().references(() => roles.id),
+  invitedBy: uuid('invited_by').notNull().references(() => users.id),
+  invitationTokenHash: text('invitation_token_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true, mode: 'date' }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true, mode: 'date' }),
+  status: varchar('status', { length: 50 }).default('PENDING').notNull(), // PENDING, ACCEPTED, EXPIRED, CANCELLED
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
 });
