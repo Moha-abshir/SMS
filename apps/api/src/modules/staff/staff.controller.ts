@@ -22,23 +22,7 @@ export class StaffController {
     }
   }
 
-  static async createStaff(req: Request, res: Response) {
-    try {
-      const result = await StaffService.createStaff(req.body);
-      res.status(201).json({ 
-        success: true, 
-        message: 'Staff created successfully', 
-        data: result.staff, 
-        defaultPassword: result.defaultPassword 
-      });
-    } catch (error: any) {
-      console.error('Error creating staff:', error);
-      if (error.code === '23505') { // postgres unique violation
-        return res.status(400).json({ success: false, message: 'Email or phone number already exists' });
-      }
-      res.status(500).json({ success: false, message: 'Failed to create staff' });
-    }
-  }
+
 
   static async updateStaff(req: Request, res: Response) {
     try {

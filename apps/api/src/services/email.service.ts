@@ -47,4 +47,53 @@ export class EmailService {
       return false;
     }
   }
+
+  static async sendInvitationEmail(toEmail: string, recipientName: string, roleName: string, inviteUrl: string, expiryDate: string): Promise<boolean> {
+    if (!env.BREVO_API_KEY) {
+      console.log(`[Brevo Log Fallback] Invitation Link for ${toEmail}: ${inviteUrl}`);
+      return true;
+    }
+
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': env.BREVO_API_KEY,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: 'School Management System', email: env.BREVO_SENDER_EMAIL },
+          to: [{ email: toEmail, name: recipientName }],
+          subject: 'You have been invited to join the School Management System',
+          htmlContent: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #0F172A; background-color: #F8FAFC;">
+              <div style="max-width: 480px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0;">
+                <h2 style="color: #2563EB; margin-top: 0;">School Management System</h2>
+                <p>Hello ${recipientName},</p>
+                <p>You have been invited to join the system as a <strong>${roleName.replace('_', ' ')}</strong>.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${inviteUrl}" style="background-color: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Accept Invitation</a>
+                </div>
+                <p style="color: #64748B; font-size: 13px;">This personal invitation link will expire on ${expiryDate}. Do not share this link with anyone.</p>
+                <p style="color: #64748B; font-size: 13px;">If you cannot click the button, copy and paste this URL into your browser:</p>
+                <p style="color: #64748B; font-size: 12px; word-break: break-all;">${inviteUrl}</p>
+              </div>
+            </div>
+          `,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Brevo API Error] Status ${response.status}:`, errorText);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[Brevo Error] Failed to send Invitation email:', error);
+      return false;
+    }
+  }
 }

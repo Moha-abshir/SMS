@@ -1,6 +1,6 @@
 import argon2 from 'argon2';
 import { db } from '../../config/db.js';
-import { users, roles, eq, desc } from '@school/shared';
+import { users, roles, eq, desc, invitations, ne, sql } from '@school/shared';
 
 export class StaffService {
   static async getAllRoles() {
@@ -26,27 +26,40 @@ export class StaffService {
       .from(users)
       .innerJoin(roles, eq(users.roleId, roles.id))
       .orderBy(desc(users.createdAt));
-    return staffList;
+      
+    const invitationList = await db
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        firstName: invitations.firstName,
+        middleName: invitations.middleName,
+        lastName: invitations.lastName,
+        phoneNumber: invitations.phoneNumber,
+        dateOfEmployment: sql<Date | null>`null`.as('dateOfEmployment'), // Invitations haven't started yet
+        salaryAmount: invitations.salaryAmount,
+        isActive: sql<boolean>`false`.as('isActive'), // Treat pending invitations as inactive
+        lastLoginAt: sql<Date | null>`null`.as('lastLoginAt'),
+        roleId: invitations.roleId,
+        roleName: roles.name,
+        invitationStatus: invitations.status,
+        expiresAt: invitations.expiresAt,
+        createdAt: invitations.createdAt,
+      })
+      .from(invitations)
+      .innerJoin(roles, eq(invitations.roleId, roles.id))
+      .where(ne(invitations.status, 'ACCEPTED'))
+      .orderBy(desc(invitations.createdAt));
+
+    // Map both lists to a unified format
+    const unifiedStaff = [
+      ...staffList.map(s => ({ ...s, isInvitation: false, invitationStatus: null })),
+      ...invitationList.map(i => ({ ...i, isInvitation: true }))
+    ];
+
+    // Sort by createdAt desc (we could do this more accurately but this is fine for UI merging)
+    return unifiedStaff;
   }
 
-  static async createStaff(data: any) {
-    const defaultPassword = 'Password123!';
-    const passwordHash = await argon2.hash(defaultPassword);
-    
-    const newStaff = await db.insert(users).values({
-      firstName: data.firstName,
-      lastName: data.lastName,
-      middleName: data.middleName || null,
-      email: data.email.toLowerCase(),
-      phoneNumber: data.phoneNumber,
-      roleId: data.roleId,
-      salaryAmount: data.salaryAmount ? data.salaryAmount.toString() : null,
-      dateOfEmployment: data.dateOfEmployment ? new Date(data.dateOfEmployment) : null,
-      passwordHash,
-    }).returning();
-    
-    return { staff: newStaff[0], defaultPassword };
-  }
 
   static async updateStaff(id: string, data: any) {
     const updateData: any = {

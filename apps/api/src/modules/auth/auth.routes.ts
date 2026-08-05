@@ -8,4 +8,8 @@ router.post('/login', userRateLimiter, AuthController.login);
 router.post('/verify-2fa', userRateLimiter, AuthController.verify2FA);
 router.post('/resend-otp', userRateLimiter, AuthController.resendOtp);
 
+import { InvitationsController } from '../staff/invitations.controller.js';
+router.post('/invitations/validate', userRateLimiter, InvitationsController.validateInvitation);
+router.post('/invitations/accept', userRateLimiter, InvitationsController.acceptInvitation);
+
 export default router;
