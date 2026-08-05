@@ -2,6 +2,16 @@ import { Request, Response } from 'express';
 import { StaffService } from './staff.service.js';
 
 export class StaffController {
+  static async getRoles(req: Request, res: Response) {
+    try {
+      const roles = await StaffService.getAllRoles();
+      res.json({ success: true, data: roles });
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      res.status(500).json({ success: false, message: 'Failed to fetch roles' });
+    }
+  }
+
   static async getAllStaff(req: Request, res: Response) {
     try {
       const staff = await StaffService.getAllStaff();

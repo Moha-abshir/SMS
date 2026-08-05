@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal';
 
 export const StaffManagementView: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -30,8 +31,12 @@ export const StaffManagementView: React.FC = () => {
   const fetchStaff = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/api/staff');
-      setStaff(res.data.data);
+      const [staffRes, rolesRes] = await Promise.all([
+        apiClient.get('/api/staff'),
+        apiClient.get('/api/staff/roles')
+      ]);
+      setStaff(staffRes.data.data);
+      setRoles(rolesRes.data.data);
     } catch (error) {
       toast.error('Failed to load staff directory');
     } finally {
@@ -126,7 +131,7 @@ export const StaffManagementView: React.FC = () => {
         </div>
         <button
           onClick={() => {
-            setFormData({ firstName: '', lastName: '', email: '', phoneNumber: '', roleId: '', salaryAmount: '' });
+            setFormData({ firstName: '', lastName: '', email: '', phoneNumber: '', roleId: roles.length > 0 ? roles[0].id : '', salaryAmount: '' });
             setShowAddModal(true);
           }}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-md shadow-blue-500/20"
@@ -231,10 +236,14 @@ export const StaffManagementView: React.FC = () => {
             <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
             <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
           </div>
-          {/* We assume role selection will be implemented later, for now we will let the backend handle it or user enter an ID */}
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Role ID *</label>
-            <input type="text" required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} placeholder="Paste Role UUID" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
+            <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
+              <option value="" disabled>Select a role</option>
+              {roles.map(r => (
+                <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
@@ -263,6 +272,15 @@ export const StaffManagementView: React.FC = () => {
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
             <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
+            <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
+              <option value="" disabled>Select a role</option>
+              {roles.map(r => (
+                <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>

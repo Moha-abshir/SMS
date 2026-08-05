@@ -3,6 +3,10 @@ import { db } from '../../config/db.js';
 import { users, roles, eq, desc } from '@school/shared';
 
 export class StaffService {
+  static async getAllRoles() {
+    return await db.select({ id: roles.id, name: roles.name }).from(roles).orderBy(desc(roles.createdAt));
+  }
+
   static async getAllStaff() {
     const staffList = await db
       .select({

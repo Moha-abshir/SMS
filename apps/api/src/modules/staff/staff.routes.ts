@@ -7,6 +7,7 @@ const router = Router();
 // Apply auth middleware to all staff routes
 router.use(authenticate);
 
+router.get('/roles', StaffController.getRoles);
 router.get('/', StaffController.getAllStaff);
 router.post('/', StaffController.createStaff);
 router.put('/:id', StaffController.updateStaff);
