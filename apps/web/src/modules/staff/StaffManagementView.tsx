@@ -98,8 +98,8 @@ export const StaffManagementView: React.FC = () => {
 
   const handleResetPassword = async () => {
     try {
-      const res = await apiClient.post(`/api/staff/\${selectedStaff.id}/reset-password`);
-      toast.success(`Password reset successful! New password: \${res.data.defaultPassword}`, { autoClose: false });
+      const res = await apiClient.post(`/api/staff/${selectedStaff.id}/reset-password`);
+      toast.success(`Password reset successful! New password: ${res.data.defaultPassword}`, { autoClose: false });
       setShowResetModal(false);
     } catch (error) {
       toast.error('Failed to reset password');
@@ -108,7 +108,7 @@ export const StaffManagementView: React.FC = () => {
 
   const handleResendInvitation = async (invitationId: string) => {
     try {
-      const res = await apiClient.post(`/api/staff/invitations/\${invitationId}/resend`);
+      const res = await apiClient.post(`/api/staff/invitations/${invitationId}/resend`);
       toast.success(res.data.emailSent ? 'Invitation resent successfully!' : 'Invitation resent, but email failed to send.');
       fetchStaff();
     } catch (error: any) {
@@ -119,7 +119,7 @@ export const StaffManagementView: React.FC = () => {
   const handleCancelInvitation = async (invitationId: string) => {
     if (!window.confirm("Are you sure you want to cancel this invitation?")) return;
     try {
-      await apiClient.post(`/api/staff/invitations/\${invitationId}/cancel`);
+      await apiClient.post(`/api/staff/invitations/${invitationId}/cancel`);
       toast.success('Invitation cancelled successfully');
       fetchStaff();
     } catch (error: any) {

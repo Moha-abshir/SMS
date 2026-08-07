@@ -142,8 +142,7 @@ export class InvitationsService {
    */
   static async resendInvitation(invitationId: string, frontendUrl: string) {
     const inv = await db.query.invitations.findFirst({
-      where: eq(invitations.id, invitationId),
-      with: { role: true } // We need role name for the email. Wait, relational queries might not be setup.
+      where: eq(invitations.id, invitationId)
     });
 
     if (!inv) throw new Error('Invitation not found');
