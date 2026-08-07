@@ -4,9 +4,9 @@ import { InvitationsService } from './invitations.service.js';
 export class InvitationsController {
   static async createInvitation(req: Request, res: Response) {
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      // For now we mock the invitedBy user ID, assuming the head teacher's ID is available in req.user
-      const invitedById = (req as any).user?.id || '00000000-0000-0000-0000-000000000000'; // Fallback for dev without full auth middleware yet
+      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://eldoret-muslim-academy.vercel.app';
+      const invitedById = (req as any).user?.id || '00000000-0000-0000-0000-000000000000';
       
       const result = await InvitationsService.createInvitation(req.body, invitedById, frontendUrl);
       res.status(201).json({ 
@@ -23,7 +23,8 @@ export class InvitationsController {
 
   static async resendInvitation(req: Request, res: Response) {
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://eldoret-muslim-academy.vercel.app';
       const result = await InvitationsService.resendInvitation(req.params.id, frontendUrl);
       res.json({ success: true, message: 'Invitation resent successfully', data: result });
     } catch (error: any) {
