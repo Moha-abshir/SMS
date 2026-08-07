@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, date, decimal, pgEnum, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, date, decimal, pgEnum, unique, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { classes, students, levelCategoryEnum } from './admissions.js';
 import { academicTerms } from './academics.js';
@@ -24,7 +24,8 @@ export const feeStructures = pgTable('fee_structures', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 }, (table) => [
-  unique('term_class_uq').on(table.termId, table.classId)
+  unique('term_class_uq').on(table.termId, table.classId),
+  index('fee_structures_term_class_idx').on(table.termId, table.classId),
 ]);
 
 export const feeStructureItems = pgTable('fee_structure_items', {
@@ -35,7 +36,9 @@ export const feeStructureItems = pgTable('fee_structure_items', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('fee_structure_items_fee_structure_id_idx').on(table.feeStructureId),
+]);
 
 export const studentBills = pgTable('student_bills', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -50,7 +53,10 @@ export const studentBills = pgTable('student_bills', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('student_bills_student_id_idx').on(table.studentId),
+  index('student_bills_term_id_idx').on(table.termId),
+]);
 
 export const feePayments = pgTable('fee_payments', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -67,7 +73,11 @@ export const feePayments = pgTable('fee_payments', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('fee_payments_student_id_idx').on(table.studentId),
+  index('fee_payments_bill_id_idx').on(table.billId),
+  index('fee_payments_payment_date_idx').on(table.paymentDate),
+]);
 
 export const expenses = pgTable('expenses', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -84,4 +94,7 @@ export const expenses = pgTable('expenses', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('expenses_category_id_idx').on(table.categoryId),
+  index('expenses_expense_date_idx').on(table.expenseDate),
+]);

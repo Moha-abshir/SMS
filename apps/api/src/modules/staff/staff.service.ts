@@ -8,47 +8,49 @@ export class StaffService {
   }
 
   static async getAllStaff() {
-    const staffList = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        middleName: users.middleName,
-        lastName: users.lastName,
-        phoneNumber: users.phoneNumber,
-        dateOfEmployment: users.dateOfEmployment,
-        salaryAmount: users.salaryAmount,
-        isActive: users.isActive,
-        lastLoginAt: users.lastLoginAt,
-        roleId: users.roleId,
-        roleName: roles.name,
-      })
-      .from(users)
-      .innerJoin(roles, eq(users.roleId, roles.id))
-      .orderBy(desc(users.createdAt));
-      
-    const invitationList = await db
-      .select({
-        id: invitations.id,
-        email: invitations.email,
-        firstName: invitations.firstName,
-        middleName: invitations.middleName,
-        lastName: invitations.lastName,
-        phoneNumber: invitations.phoneNumber,
-        dateOfEmployment: sql<Date | null>`null`.as('dateOfEmployment'), // Invitations haven't started yet
-        salaryAmount: invitations.salaryAmount,
-        isActive: sql<boolean>`false`.as('isActive'), // Treat pending invitations as inactive
-        lastLoginAt: sql<Date | null>`null`.as('lastLoginAt'),
-        roleId: invitations.roleId,
-        roleName: roles.name,
-        invitationStatus: invitations.status,
-        expiresAt: invitations.expiresAt,
-        createdAt: invitations.createdAt,
-      })
-      .from(invitations)
-      .innerJoin(roles, eq(invitations.roleId, roles.id))
-      .where(ne(invitations.status, 'ACCEPTED'))
-      .orderBy(desc(invitations.createdAt));
+    const [staffList, invitationList] = await Promise.all([
+      db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          middleName: users.middleName,
+          lastName: users.lastName,
+          phoneNumber: users.phoneNumber,
+          dateOfEmployment: users.dateOfEmployment,
+          salaryAmount: users.salaryAmount,
+          isActive: users.isActive,
+          lastLoginAt: users.lastLoginAt,
+          roleId: users.roleId,
+          roleName: roles.name,
+        })
+        .from(users)
+        .innerJoin(roles, eq(users.roleId, roles.id))
+        .orderBy(desc(users.createdAt)),
+
+      db
+        .select({
+          id: invitations.id,
+          email: invitations.email,
+          firstName: invitations.firstName,
+          middleName: invitations.middleName,
+          lastName: invitations.lastName,
+          phoneNumber: invitations.phoneNumber,
+          dateOfEmployment: sql<Date | null>`null`.as('dateOfEmployment'), // Invitations haven't started yet
+          salaryAmount: invitations.salaryAmount,
+          isActive: sql<boolean>`false`.as('isActive'), // Treat pending invitations as inactive
+          lastLoginAt: sql<Date | null>`null`.as('lastLoginAt'),
+          roleId: invitations.roleId,
+          roleName: roles.name,
+          invitationStatus: invitations.status,
+          expiresAt: invitations.expiresAt,
+          createdAt: invitations.createdAt,
+        })
+        .from(invitations)
+        .innerJoin(roles, eq(invitations.roleId, roles.id))
+        .where(ne(invitations.status, 'ACCEPTED'))
+        .orderBy(desc(invitations.createdAt)),
+    ]);
 
     // Map both lists to a unified format
     const unifiedStaff = [

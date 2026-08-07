@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, date, integer, boolean, pgEnum, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, date, integer, boolean, pgEnum, unique, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 import { classes, students, guardians } from './admissions.js';
 
@@ -15,7 +15,8 @@ export const attendanceRegisters = pgTable('attendance_registers', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 }, (table) => [
-  unique('class_date_uq').on(table.classId, table.date)
+  unique('class_date_uq').on(table.classId, table.date),
+  index('attendance_registers_class_date_idx').on(table.classId, table.date),
 ]);
 
 export const attendanceRecords = pgTable('attendance_records', {
@@ -27,7 +28,11 @@ export const attendanceRecords = pgTable('attendance_records', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('attendance_records_register_id_idx').on(table.registerId),
+  index('attendance_records_student_id_idx').on(table.studentId),
+  index('attendance_records_status_idx').on(table.status),
+]);
 
 export const absenceSmsLogs = pgTable('absence_sms_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -41,4 +46,8 @@ export const absenceSmsLogs = pgTable('absence_sms_logs', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('absence_sms_logs_student_id_idx').on(table.studentId),
+  index('absence_sms_logs_guardian_id_idx').on(table.guardianId),
+  index('absence_sms_logs_sent_at_idx').on(table.sentAt),
+]);

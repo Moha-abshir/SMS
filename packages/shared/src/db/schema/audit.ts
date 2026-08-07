@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, jsonb, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, jsonb, integer, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 
 export const auditLogs = pgTable('audit_logs', {
@@ -13,7 +13,11 @@ export const auditLogs = pgTable('audit_logs', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('audit_logs_actor_id_idx').on(table.actorId),
+  index('audit_logs_entity_name_entity_id_idx').on(table.entityName, table.entityId),
+  index('audit_logs_created_at_idx').on(table.createdAt),
+]);
 
 export const systemSettings = pgTable('system_settings', {
   id: uuid('id').defaultRandom().primaryKey(),

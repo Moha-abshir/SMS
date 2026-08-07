@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, primaryKey, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, primaryKey, integer, index } from 'drizzle-orm/pg-core';
 
 export const roles = pgTable('roles', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -23,11 +23,10 @@ export const permissions = pgTable('permissions', {
 export const rolePermissions = pgTable('role_permissions', {
   roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
   permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
-}, (table) => {
-  return {
-    pk: primaryKey({ columns: [table.roleId, table.permissionId] }),
-  };
-});
+}, (table) => [
+  primaryKey({ columns: [table.roleId, table.permissionId] }),
+  index('role_permissions_role_id_idx').on(table.roleId),
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -53,7 +52,11 @@ export const users = pgTable('users', {
   createdBy: uuid('created_by'), // Will manually link to avoid circular reference issues if any, but Drizzle supports self-referencing. Wait, let me add it.
   updatedBy: uuid('updated_by'),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('users_role_id_idx').on(table.roleId),
+  index('users_is_active_idx').on(table.isActive),
+  index('users_created_at_idx').on(table.createdAt),
+]);
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -64,7 +67,10 @@ export const refreshTokens = pgTable('refresh_tokens', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('refresh_tokens_user_id_idx').on(table.userId),
+  index('refresh_tokens_expires_at_idx').on(table.expiresAt),
+]);
 
 export const invitations = pgTable('invitations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -87,4 +93,11 @@ export const invitations = pgTable('invitations', {
   status: varchar('status', { length: 50 }).default('PENDING').notNull(), // PENDING, ACCEPTED, EXPIRED, CANCELLED
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
-});
+}, (table) => [
+  index('invitations_role_id_idx').on(table.roleId),
+  index('invitations_invited_by_idx').on(table.invitedBy),
+  index('invitations_status_idx').on(table.status),
+  index('invitations_created_at_idx').on(table.createdAt),
+  index('invitations_email_idx').on(table.email),
+  index('invitations_token_hash_idx').on(table.invitationTokenHash),
+]);

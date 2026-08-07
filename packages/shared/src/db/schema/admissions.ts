@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, date, integer, pgEnum, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, date, integer, pgEnum, unique, index } from 'drizzle-orm/pg-core';
 import { users } from './users.js';
 
 export const levelCategoryEnum = pgEnum('level_category', ['PRIMARY', 'JUNIOR', 'PPE']);
@@ -16,7 +16,10 @@ export const guardians = pgTable('guardians', {
   createdBy: uuid('created_by').references(() => users.id),
   updatedBy: uuid('updated_by').references(() => users.id),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('guardians_phone_number_idx').on(table.phoneNumber),
+  index('guardians_created_at_idx').on(table.createdAt),
+]);
 
 export const classes = pgTable('classes', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -27,7 +30,10 @@ export const classes = pgTable('classes', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('classes_class_teacher_id_idx').on(table.classTeacherId),
+  index('classes_numeric_order_idx').on(table.numericOrder),
+]);
 
 export const students = pgTable('students', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -47,7 +53,12 @@ export const students = pgTable('students', {
   createdBy: uuid('created_by').references(() => users.id),
   updatedBy: uuid('updated_by').references(() => users.id),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('students_class_id_idx').on(table.classId),
+  index('students_primary_guardian_id_idx').on(table.primaryGuardianId),
+  index('students_status_idx').on(table.status),
+  index('students_first_name_last_name_idx').on(table.firstName, table.lastName),
+]);
 
 export const secondaryGuardians = pgTable('secondary_guardians', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -58,7 +69,9 @@ export const secondaryGuardians = pgTable('secondary_guardians', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 }, (table) => [
-  unique('student_guardian_uq').on(table.studentId, table.guardianId)
+  unique('student_guardian_uq').on(table.studentId, table.guardianId),
+  index('secondary_guardians_student_id_idx').on(table.studentId),
+  index('secondary_guardians_guardian_id_idx').on(table.guardianId),
 ]);
 
 export const subjects = pgTable('subjects', {
@@ -69,7 +82,10 @@ export const subjects = pgTable('subjects', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
-});
+}, (table) => [
+  index('subjects_code_idx').on(table.code),
+  index('subjects_level_category_idx').on(table.levelCategory),
+]);
 
 export const teacherSubjectAllocations = pgTable('teacher_subject_allocations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -81,5 +97,8 @@ export const teacherSubjectAllocations = pgTable('teacher_subject_allocations', 
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
 }, (table) => [
-  unique('teacher_alloc_uq').on(table.teacherId, table.classId, table.subjectId, table.academicYear)
+  unique('teacher_alloc_uq').on(table.teacherId, table.classId, table.subjectId, table.academicYear),
+  index('teacher_alloc_teacher_id_idx').on(table.teacherId),
+  index('teacher_alloc_class_id_idx').on(table.classId),
+  index('teacher_alloc_subject_id_idx').on(table.subjectId),
 ]);
