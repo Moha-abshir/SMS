@@ -95,13 +95,13 @@ export class AuthController {
         permissions: [], // Will populate based on role_permissions
       };
 
-      const accessToken = jwt.sign(payload, env.JWT_SECRET, { expiresIn: '8h' });
-      const refreshToken = jwt.sign({ id: user.id }, env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
 
       return res.status(200).json({
         success: true,
         message: 'Login successful',
-        tokens: { accessToken, refreshToken },
+        token,
+        tokens: { accessToken: token },
         user: {
           id: user.id,
           email: user.email,

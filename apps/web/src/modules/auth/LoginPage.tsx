@@ -63,7 +63,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       if (data.success) {
         toast.success(`Welcome back, ${data.user.firstName}!`);
-        onLoginSuccess(data.user, data.tokens.accessToken);
+        onLoginSuccess(data.user, data.token || data.tokens?.accessToken);
         return;
       }
     } catch (err: any) {
