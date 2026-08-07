@@ -357,7 +357,7 @@ export const StaffManagementView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
               <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
                 <option value="" disabled>Select a role</option>
@@ -366,9 +366,9 @@ export const StaffManagementView: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number (Required for Teachers)</label>
-              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            <div className="flex flex-col justify-end">
+              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Required for Teachers)</span></label>
+              <input type="text" placeholder="e.g. 123456" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
 
@@ -424,7 +424,7 @@ export const StaffManagementView: React.FC = () => {
             <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
               <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
                 <option value="" disabled>Select a role</option>
@@ -433,8 +433,8 @@ export const StaffManagementView: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number</label>
+            <div className="flex flex-col justify-end">
+              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Teachers)</span></label>
               <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
