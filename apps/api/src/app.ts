@@ -11,7 +11,7 @@ const app = express();
 app.use(helmet());
 app.use(cors({
   origin: [
-    'http://localhost:5173',
+    'http://localhost:3000',
     'https://eldoret-muslim-academy.vercel.app',
     process.env.FRONTEND_URL || ''
   ].filter(Boolean),

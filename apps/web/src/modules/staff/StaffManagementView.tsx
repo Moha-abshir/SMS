@@ -368,7 +368,7 @@ export const StaffManagementView: React.FC = () => {
             </div>
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Required for Teachers)</span></label>
-              <input type="text" placeholder="e.g. 123456" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
 
