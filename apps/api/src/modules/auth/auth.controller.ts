@@ -92,6 +92,7 @@ export class AuthController {
         email: user.email,
         roleId: user.roleId,
         roleName: roleName,
+        tokenVersion: user.tokenVersion,
         permissions: [], // Will populate based on role_permissions
       };
 

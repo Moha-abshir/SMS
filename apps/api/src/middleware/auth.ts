@@ -2,12 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env.js';
+import { db } from '../config/db.js';
+import { users, eq } from '@school/shared';
 
 export interface AuthenticatedUser {
   id: string;
   email: string;
   roleId: string;
   roleName: string;
+  tokenVersion: number;
   permissions: string[];
 }
 
@@ -31,7 +34,7 @@ export const userRateLimiter = rateLimit({
   },
 });
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Authentication token missing or invalid' });
@@ -40,6 +43,13 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as AuthenticatedUser;
+    
+    // Instant session revocation check
+    const [userRecord] = await db.select({ tokenVersion: users.tokenVersion, isActive: users.isActive }).from(users).where(eq(users.id, decoded.id));
+    if (!userRecord || !userRecord.isActive || (decoded.tokenVersion && decoded.tokenVersion !== userRecord.tokenVersion)) {
+      return res.status(401).json({ success: false, message: 'Session revoked or expired. Please log in again.' });
+    }
+
     req.user = decoded;
     next();
   } catch (error) {

@@ -46,6 +46,7 @@ export const users = pgTable('users', {
   isActive: boolean('is_active').default(true).notNull(),
   twoFactorOtp: varchar('two_factor_otp', { length: 10 }),
   twoFactorExpiresAt: timestamp('two_factor_expires_at', { withTimezone: true, mode: 'date' }),
+  tokenVersion: integer('token_version').default(1).notNull(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
@@ -100,4 +101,19 @@ export const invitations = pgTable('invitations', {
   index('invitations_created_at_idx').on(table.createdAt),
   index('invitations_email_idx').on(table.email),
   index('invitations_token_hash_idx').on(table.invitationTokenHash),
+]);
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+}, (table) => [
+  index('password_reset_tokens_token_hash_idx').on(table.tokenHash),
+  index('password_reset_tokens_user_id_idx').on(table.userId),
+  index('password_reset_tokens_expires_at_idx').on(table.expiresAt),
 ]);

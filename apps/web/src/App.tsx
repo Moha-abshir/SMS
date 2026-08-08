@@ -4,6 +4,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { LoginPage } from './modules/auth/LoginPage';
 import { AcceptInvitationPage } from './modules/auth/AcceptInvitationPage';
+import { ResetPasswordPage } from './modules/auth/ResetPasswordPage';
 import { DashboardPage } from './modules/dashboard/DashboardPage';
 
 export const App: React.FC = () => {
@@ -31,6 +32,8 @@ export const App: React.FC = () => {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
         {currentPath === '/accept-invitation' ? (
           <AcceptInvitationPage />
+        ) : currentPath === '/reset-password' ? (
+          <ResetPasswordPage />
         ) : !currentUser ? (
           <LoginPage onLoginSuccess={handleLoginSuccess} />
         ) : (

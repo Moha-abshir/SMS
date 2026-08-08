@@ -9,7 +9,12 @@ router.post('/verify-2fa', userRateLimiter, AuthController.verify2FA);
 router.post('/resend-otp', userRateLimiter, AuthController.resendOtp);
 
 import { InvitationsController } from '../staff/invitations.controller.js';
+import { PasswordResetController } from './passwordReset.controller.js';
+
 router.post('/invitations/validate', userRateLimiter, InvitationsController.validateInvitation);
 router.post('/invitations/accept', userRateLimiter, InvitationsController.acceptInvitation);
+
+router.post('/password-reset/verify', userRateLimiter, PasswordResetController.verifyToken);
+router.post('/password-reset/complete', userRateLimiter, PasswordResetController.completePasswordReset);
 
 export default router;

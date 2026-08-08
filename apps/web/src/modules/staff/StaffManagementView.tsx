@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -14,6 +14,9 @@ export const StaffManagementView: React.FC = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [show2FaResetModal, setShow2FaResetModal] = useState(false);
+  const [adminPasswordConfirm, setAdminPasswordConfirm] = useState('');
+  const [submitting2Fa, setSubmitting2Fa] = useState(false);
   
   // Selected staff for edit/reset
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
@@ -98,11 +101,34 @@ export const StaffManagementView: React.FC = () => {
 
   const handleResetPassword = async () => {
     try {
-      const res = await apiClient.post(`/api/staff/${selectedStaff.id}/reset-password`);
-      toast.success(`Password reset successful! New password: ${res.data.defaultPassword}`, { autoClose: false });
+      const res = await apiClient.post(`/api/staff/${selectedStaff.id}/password-reset-request`);
+      toast.success(`Password reset email sent to ${selectedStaff.email}`);
       setShowResetModal(false);
-    } catch (error) {
-      toast.error('Failed to reset password');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to initiate password reset');
+    }
+  };
+
+  const handle2FaReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPasswordConfirm) {
+      toast.error('Please enter your Head Teacher password to confirm.');
+      return;
+    }
+
+    setSubmitting2Fa(true);
+    try {
+      await apiClient.post(`/api/staff/${selectedStaff.id}/2fa-reset`, {
+        adminPasswordConfirm,
+      });
+      toast.success('2FA configuration reset successfully. Staff member will be required to re-verify upon next sign-in.');
+      setShow2FaResetModal(false);
+      setAdminPasswordConfirm('');
+      fetchStaff();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to reset 2FA');
+    } finally {
+      setSubmitting2Fa(false);
     }
   };
 
@@ -162,10 +188,17 @@ export const StaffManagementView: React.FC = () => {
   const getStatusBadge = (s: any) => {
     if (!s.isInvitation) {
       return (
-        <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max \${s.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-          {s.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-          {s.isActive ? 'Active' : 'Inactive'}
-        </span>
+        <div className="flex flex-col gap-1 items-start">
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max ${s.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+            {s.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
+            {s.isActive ? 'Active' : 'Inactive'}
+          </span>
+          {s.twoFactorResetRequired && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+              2FA: Setup Required
+            </span>
+          )}
+        </div>
       );
     } else {
       switch (s.invitationStatus) {
@@ -269,13 +302,13 @@ export const StaffManagementView: React.FC = () => {
                             <button
                               onClick={() => openResetModal(s)}
                               className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                              title="Reset Password"
+                              title="Initiate Password Reset"
                             >
                               <KeyRound className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleToggleStatus(s)}
-                              className={`p-1.5 transition-colors \${s.isActive ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
+                              className={`p-1.5 transition-colors ${s.isActive ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
                               title={s.isActive ? "Deactivate Account" : "Activate Account"}
                             >
                               <ShieldAlert className="w-4 h-4" />
@@ -446,14 +479,21 @@ export const StaffManagementView: React.FC = () => {
       </Modal>
 
       {/* Reset Password Modal */}
-      <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} title="Reset Password">
+      <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} title="Initiate Password Reset">
         <div className="space-y-4">
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 rounded-xl text-sm">
-            Are you sure you want to reset the password for <strong>{selectedStaff?.firstName} {selectedStaff?.lastName}</strong>? This will invalidate their current password and generate a new temporary password.
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300 rounded-xl text-sm leading-relaxed border border-blue-200 dark:border-blue-800">
+            Send a secure, passwordless reset email link to <strong>{selectedStaff?.firstName} {selectedStaff?.lastName}</strong> ({selectedStaff?.email})?
+            <ul className="mt-2 space-y-1 text-xs text-blue-700 dark:text-blue-400 list-disc list-inside">
+              <li>The link will expire in 60 minutes.</li>
+              <li>You (Head Teacher) will not see or set their password.</li>
+              <li>All their existing active sessions will be logged out upon completion.</li>
+            </ul>
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={() => setShowResetModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
-            <button onClick={handleResetPassword} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl">Yes, Reset Password</button>
+            <button onClick={handleResetPassword} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
+              <Send className="w-4 h-4" /> Send Reset Link
+            </button>
           </div>
         </div>
       </Modal>

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { InvitationsController } from './invitations.controller.js';
 import { StaffController } from './staff.controller.js';
-import { authenticate } from '../../middleware/auth.js';
+import { PasswordResetController } from '../auth/passwordReset.controller.js';
+import { TwoFactorResetController } from '../auth/twoFactorReset.controller.js';
+import { authenticate, authorizePermission } from '../../middleware/auth.js';
 
 const router = Router();
 
@@ -14,9 +16,11 @@ router.post('/invitations', InvitationsController.createInvitation);
 router.post('/invitations/:id/resend', InvitationsController.resendInvitation);
 router.post('/invitations/:id/cancel', InvitationsController.cancelInvitation);
 
-// Legacy routes (we might keep update/toggle/reset for ACTIVE staff)
+// Administrator-Initiated Password Reset
+router.post('/:id/password-reset-request', authorizePermission('users.password_reset'), PasswordResetController.initiatePasswordReset);
+
+// Staff Detail Management
 router.put('/:id', StaffController.updateStaff);
 router.patch('/:id/status', StaffController.toggleStatus);
-router.post('/:id/reset-password', StaffController.resetPassword);
 
 export default router;
