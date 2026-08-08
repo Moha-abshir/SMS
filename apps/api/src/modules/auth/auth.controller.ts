@@ -82,9 +82,9 @@ export class AuthController {
       const roleList = await db.select().from(roles).where(eq(roles.id, user.roleId));
       const roleName = roleList[0]?.name || 'STAFF';
 
-      // Clear OTP & update lastLoginAt
+      // Clear OTP, reset twoFactorResetRequired flag & update lastLoginAt
       await db.update(users)
-        .set({ twoFactorOtp: null, twoFactorExpiresAt: null, lastLoginAt: new Date() })
+        .set({ twoFactorOtp: null, twoFactorExpiresAt: null, twoFactorResetRequired: false, lastLoginAt: new Date() })
         .where(eq(users.id, user.id));
 
       const payload = {

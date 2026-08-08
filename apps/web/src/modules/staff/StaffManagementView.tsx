@@ -307,6 +307,17 @@ export const StaffManagementView: React.FC = () => {
                               <KeyRound className="w-4 h-4" />
                             </button>
                             <button
+                              onClick={() => {
+                                setSelectedStaff(s);
+                                setAdminPasswordConfirm('');
+                                setShow2FaResetModal(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                              title="Reset 2FA Configuration"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => handleToggleStatus(s)}
                               className={`p-1.5 transition-colors ${s.isActive ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
                               title={s.isActive ? "Deactivate Account" : "Activate Account"}
@@ -496,6 +507,50 @@ export const StaffManagementView: React.FC = () => {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Reset 2FA Modal */}
+      <Modal isOpen={show2FaResetModal} onClose={() => setShow2FaResetModal(false)} title="Reset Two-Factor Authentication (2FA)">
+        <form onSubmit={handle2FaReset} className="space-y-4">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-300 rounded-xl text-sm leading-relaxed border border-amber-200 dark:border-amber-800">
+            <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-400 mb-1">
+              <AlertTriangle className="w-4 h-4" /> Security Confirmation
+            </div>
+            Reset 2FA configuration for <strong>{selectedStaff?.firstName} {selectedStaff?.lastName}</strong> ({selectedStaff?.email})?
+            <ul className="mt-2 space-y-1 text-xs text-amber-700 dark:text-amber-400 list-disc list-inside">
+              <li>All active authentication sessions for this user will be revoked immediately.</li>
+              <li>The staff member will be required to re-verify via a new email OTP upon next sign-in.</li>
+            </ul>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              Re-enter Head Teacher Password *
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="password"
+                required
+                value={adminPasswordConfirm}
+                onChange={(e) => setAdminPasswordConfirm(e.target.value)}
+                placeholder="Enter your current password"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={() => setShow2FaResetModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
+            <button
+              type="submit"
+              disabled={submitting2Fa}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50"
+            >
+              {submitting2Fa ? 'Resetting 2FA...' : 'Confirm & Reset 2FA'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
     </motion.div>

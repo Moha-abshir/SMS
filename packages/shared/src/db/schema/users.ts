@@ -46,6 +46,7 @@ export const users = pgTable('users', {
   isActive: boolean('is_active').default(true).notNull(),
   twoFactorOtp: varchar('two_factor_otp', { length: 10 }),
   twoFactorExpiresAt: timestamp('two_factor_expires_at', { withTimezone: true, mode: 'date' }),
+  twoFactorResetRequired: boolean('two_factor_reset_required').default(false).notNull(),
   tokenVersion: integer('token_version').default(1).notNull(),
   lastLoginAt: timestamp('last_login_at', { withTimezone: true, mode: 'date' }),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
