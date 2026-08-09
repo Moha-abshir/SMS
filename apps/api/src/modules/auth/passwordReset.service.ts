@@ -4,6 +4,7 @@ import { db } from '../../config/db.js';
 import { users, passwordResetTokens, eq, and, isNull } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
 import { AuditService } from '../../services/audit.service.js';
+import { invalidateUserSessionCache } from '../../middleware/auth.js';
 
 export class PasswordResetService {
   /**
@@ -150,6 +151,8 @@ export class PasswordResetService {
       tokenVersion: targetUser.tokenVersion + 1,
       updatedAt: new Date(),
     }).where(eq(users.id, targetUser.id));
+
+    invalidateUserSessionCache(targetUser.id);
 
     // 3. Mark token as used
     await db.update(passwordResetTokens).set({

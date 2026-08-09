@@ -2,9 +2,19 @@ import argon2 from 'argon2';
 import { db } from '../../config/db.js';
 import { users, roles, eq, desc, invitations, ne, sql } from '@school/shared';
 
+let cachedRoles: { id: string; name: string }[] | null = null;
+let rolesCachedAt = 0;
+
 export class StaffService {
   static async getAllRoles() {
-    return await db.select({ id: roles.id, name: roles.name }).from(roles).orderBy(desc(roles.createdAt));
+    const now = Date.now();
+    if (cachedRoles && (now - rolesCachedAt < 600000)) { // 10 minutes cache
+      return cachedRoles;
+    }
+    const rolesList = await db.select({ id: roles.id, name: roles.name }).from(roles).orderBy(desc(roles.createdAt));
+    cachedRoles = rolesList;
+    rolesCachedAt = now;
+    return rolesList;
   }
 
   static async getAllStaff() {
@@ -20,6 +30,7 @@ export class StaffService {
           dateOfEmployment: users.dateOfEmployment,
           salaryAmount: users.salaryAmount,
           isActive: users.isActive,
+          twoFactorResetRequired: users.twoFactorResetRequired,
           lastLoginAt: users.lastLoginAt,
           roleId: users.roleId,
           roleName: roles.name,
@@ -39,6 +50,7 @@ export class StaffService {
           dateOfEmployment: sql<Date | null>`null`.as('dateOfEmployment'), // Invitations haven't started yet
           salaryAmount: invitations.salaryAmount,
           isActive: sql<boolean>`false`.as('isActive'), // Treat pending invitations as inactive
+          twoFactorResetRequired: sql<boolean>`false`.as('twoFactorResetRequired'),
           lastLoginAt: sql<Date | null>`null`.as('lastLoginAt'),
           roleId: invitations.roleId,
           roleName: roles.name,

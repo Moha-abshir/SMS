@@ -34,6 +34,18 @@ export const userRateLimiter = rateLimit({
   },
 });
 
+// In-memory session validation cache (15 seconds TTL) to eliminate DB latency on every API request
+interface CachedSession {
+  tokenVersion: number;
+  isActive: boolean;
+  cachedAt: number;
+}
+const userSessionCache = new Map<string, CachedSession>();
+
+export function invalidateUserSessionCache(userId: string) {
+  userSessionCache.delete(userId);
+}
+
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -44,9 +56,22 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as AuthenticatedUser;
     
-    // Instant session revocation check
-    const [userRecord] = await db.select({ tokenVersion: users.tokenVersion, isActive: users.isActive }).from(users).where(eq(users.id, decoded.id));
-    if (!userRecord || !userRecord.isActive || (decoded.tokenVersion && decoded.tokenVersion !== userRecord.tokenVersion)) {
+    // Check in-memory cache before hitting database
+    const now = Date.now();
+    const cached = userSessionCache.get(decoded.id);
+    let userRecord = cached && (now - cached.cachedAt < 15000) ? cached : null;
+
+    if (!userRecord) {
+      const [dbUser] = await db.select({ tokenVersion: users.tokenVersion, isActive: users.isActive }).from(users).where(eq(users.id, decoded.id));
+      if (!dbUser) {
+        return res.status(401).json({ success: false, message: 'User account not found' });
+      }
+      userRecord = { tokenVersion: dbUser.tokenVersion, isActive: dbUser.isActive, cachedAt: now };
+      userSessionCache.set(decoded.id, userRecord);
+    }
+
+    if (!userRecord.isActive || (decoded.tokenVersion && decoded.tokenVersion !== userRecord.tokenVersion)) {
+      userSessionCache.delete(decoded.id);
       return res.status(401).json({ success: false, message: 'Session revoked or expired. Please log in again.' });
     }
 

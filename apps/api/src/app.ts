@@ -16,6 +16,7 @@ app.use(cors({
     process.env.FRONTEND_URL || ''
   ].filter(Boolean),
   credentials: true,
+  maxAge: 86400, // Cache preflight OPTIONS request for 24 hours
 }));
 app.use(compression());
 app.use(express.json());

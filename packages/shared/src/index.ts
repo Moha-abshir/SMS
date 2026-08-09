@@ -2,4 +2,4 @@ export * from './db/schema/index.js';
 export * from './validators/index.js';
 export * from './types/index.js';
 export { drizzle } from 'drizzle-orm/postgres-js';
-export { eq, and, or, sql, desc, asc, ne, inArray, isNull, isNotNull } from 'drizzle-orm';
+export { eq, and, or, sql, desc, asc, ne, inArray, isNull, isNotNull, not } from 'drizzle-orm';

@@ -3,6 +3,7 @@ import { db } from '../../config/db.js';
 import { users, eq } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
 import { AuditService } from '../../services/audit.service.js';
+import { invalidateUserSessionCache } from '../../middleware/auth.js';
 
 export class TwoFactorResetService {
   /**
@@ -36,6 +37,8 @@ export class TwoFactorResetService {
       tokenVersion: targetUser.tokenVersion + 1, // Instantly revokes all active JWT sessions
       updatedAt: new Date(),
     }).where(eq(users.id, targetUser.id));
+
+    invalidateUserSessionCache(targetUser.id);
 
     // 4. Audit Log
     await AuditService.log({
