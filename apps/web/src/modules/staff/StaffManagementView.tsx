@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -573,17 +573,53 @@ export const StaffManagementView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                Confirm New Email Address *
-              </label>
-              <input
-                type="email"
-                required
-                value={confirmNewEmailInput}
-                onChange={(e) => setConfirmNewEmailInput(e.target.value)}
-                placeholder="Re-enter new email address"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  Confirm New Email Address *
+                </label>
+                {confirmNewEmailInput.length > 0 && (
+                  <span className={`text-[11px] font-semibold flex items-center gap-1 ${
+                    newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`}>
+                    {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Emails match
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-3.5 h-3.5" /> Emails do not match
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="email"
+                  required
+                  value={confirmNewEmailInput}
+                  onChange={(e) => setConfirmNewEmailInput(e.target.value)}
+                  placeholder="Re-enter new email address"
+                  className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-xl px-4 py-2 pr-10 text-sm outline-none transition-all ${
+                    confirmNewEmailInput.length > 0
+                      ? newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
+                        ? 'border-emerald-500 ring-1 ring-emerald-500/30'
+                        : 'border-amber-500 ring-1 ring-amber-500/30'
+                      : 'border-slate-200 dark:border-slate-800 focus:border-blue-500'
+                  }`}
+                />
+                {confirmNewEmailInput.length > 0 && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-amber-500" />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -606,8 +642,13 @@ export const StaffManagementView: React.FC = () => {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={submittingEmailChange}
-                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 disabled:opacity-50"
+                disabled={
+                  submittingEmailChange ||
+                  confirmNewEmailInput.length === 0 ||
+                  newEmailInput.trim().toLowerCase() !== confirmNewEmailInput.trim().toLowerCase() ||
+                  !emailChangeAdminPassword
+                }
+                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submittingEmailChange ? 'Sending Link...' : 'Dispatch Email Recovery Link'}
               </button>
