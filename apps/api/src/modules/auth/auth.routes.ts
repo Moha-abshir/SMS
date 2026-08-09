@@ -10,11 +10,15 @@ router.post('/resend-otp', userRateLimiter, AuthController.resendOtp);
 
 import { InvitationsController } from '../staff/invitations.controller.js';
 import { PasswordResetController } from './passwordReset.controller.js';
+import { EmailChangeController } from './emailChange.controller.js';
 
 router.post('/invitations/validate', userRateLimiter, InvitationsController.validateInvitation);
 router.post('/invitations/accept', userRateLimiter, InvitationsController.acceptInvitation);
 
 router.post('/password-reset/verify', userRateLimiter, PasswordResetController.verifyToken);
 router.post('/password-reset/complete', userRateLimiter, PasswordResetController.completePasswordReset);
+
+router.post('/email-change/verify', userRateLimiter, EmailChangeController.verifyToken);
+router.post('/email-change/complete', userRateLimiter, EmailChangeController.completeEmailChange);
 
 export default router;

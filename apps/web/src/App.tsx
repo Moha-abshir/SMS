@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { LoginPage } from './modules/auth/LoginPage';
 import { AcceptInvitationPage } from './modules/auth/AcceptInvitationPage';
 import { ResetPasswordPage } from './modules/auth/ResetPasswordPage';
+import { VerifyEmailChangePage } from './modules/auth/VerifyEmailChangePage';
 import { DashboardPage } from './modules/dashboard/DashboardPage';
 
 export const App: React.FC = () => {
@@ -34,6 +35,8 @@ export const App: React.FC = () => {
           <AcceptInvitationPage />
         ) : currentPath === '/reset-password' ? (
           <ResetPasswordPage />
+        ) : currentPath === '/verify-email-change' ? (
+          <VerifyEmailChangePage />
         ) : !currentUser ? (
           <LoginPage onLoginSuccess={handleLoginSuccess} />
         ) : (
