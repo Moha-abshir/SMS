@@ -551,7 +551,7 @@ export const StaffManagementView: React.FC = () => {
 
           {/* RIGHT PANEL: Email Recovery & Address Change */}
           <form onSubmit={handleInitiateEmailChange} className="space-y-4 pt-4 md:pt-0 pl-0 md:pl-4">
-            <div className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2 font-bold text-blue-600 dark:text-blue-400">
               <Mail className="w-5 h-5" /> Email Recovery & Address Change
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -581,7 +581,7 @@ export const StaffManagementView: React.FC = () => {
                   <span className={`text-[11px] font-semibold flex items-center gap-1 ${
                     newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
                       ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-amber-600 dark:text-amber-400'
+                      : 'text-rose-500 dark:text-rose-400'
                   }`}>
                     {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
                       <>
@@ -606,7 +606,7 @@ export const StaffManagementView: React.FC = () => {
                     confirmNewEmailInput.length > 0
                       ? newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
                         ? 'border-emerald-500 ring-1 ring-emerald-500/30'
-                        : 'border-amber-500 ring-1 ring-amber-500/30'
+                        : 'border-rose-500 ring-1 ring-rose-500/30'
                       : 'border-slate-200 dark:border-slate-800 focus:border-blue-500'
                   }`}
                 />
@@ -615,7 +615,7 @@ export const StaffManagementView: React.FC = () => {
                     {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                     ) : (
-                      <XCircle className="w-4 h-4 text-amber-500" />
+                      <XCircle className="w-4 h-4 text-rose-500" />
                     )}
                   </div>
                 )}
@@ -648,7 +648,7 @@ export const StaffManagementView: React.FC = () => {
                   newEmailInput.trim().toLowerCase() !== confirmNewEmailInput.trim().toLowerCase() ||
                   !emailChangeAdminPassword
                 }
-                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submittingEmailChange ? 'Sending Link...' : 'Dispatch Email Recovery Link'}
               </button>
