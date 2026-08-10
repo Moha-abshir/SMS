@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { EmploymentContractModal } from './EmploymentContractModal';
 
 export const StaffManagementView: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
@@ -15,6 +16,16 @@ export const StaffManagementView: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [show2FaResetModal, setShow2FaResetModal] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
+
+  const currentUser = (() => {
+    try {
+      const saved = localStorage.getItem('auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  })();
   const [adminPasswordConfirm, setAdminPasswordConfirm] = useState('');
   const [submitting2Fa, setSubmitting2Fa] = useState(false);
   
@@ -323,6 +334,16 @@ export const StaffManagementView: React.FC = () => {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedStaff(s);
+                            setShowContractModal(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          title="Employment Contract Preview & Print"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </button>
                         {!s.isInvitation ? (
                           <>
                             <button
@@ -701,6 +722,14 @@ export const StaffManagementView: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Employment Contract Modal */}
+      <EmploymentContractModal
+        isOpen={showContractModal}
+        onClose={() => setShowContractModal(false)}
+        staff={selectedStaff}
+        currentUser={currentUser}
+      />
 
     </motion.div>
   );
