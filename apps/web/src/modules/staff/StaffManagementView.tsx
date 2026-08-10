@@ -177,6 +177,30 @@ export const StaffManagementView: React.FC = () => {
     });
   };
 
+  const handlePreviewContractFromInvite = () => {
+    if (!formData.firstName || !formData.lastName) {
+      toast.error('Please enter at least First Name and Last Name to preview the contract.');
+      return;
+    }
+
+    const selectedRole = roles.find(r => r.id === formData.roleId);
+    const draftStaff = {
+      firstName: formData.firstName,
+      middleName: formData.middleName,
+      lastName: formData.lastName,
+      nationalId: formData.nationalId,
+      address: formData.address,
+      tscNumber: formData.tscNumber,
+      roleName: selectedRole ? selectedRole.name : 'Teacher',
+      salaryAmount: formData.salaryAmount,
+      salaryPaymentDay: formData.salaryPaymentDay,
+      dateOfEmployment: new Date()
+    };
+
+    setSelectedStaff(draftStaff);
+    setShowContractModal(true);
+  };
+
   const openEditModal = (staffMember: any) => {
     setSelectedStaff(staffMember);
     setFormData({
@@ -487,6 +511,13 @@ export const StaffManagementView: React.FC = () => {
 
           <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
             <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
+            <button
+              type="button"
+              onClick={handlePreviewContractFromInvite}
+              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors"
+            >
+              <FileText className="w-4 h-4 text-blue-500" /> Preview Contract
+            </button>
             <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
               <Send className="w-4 h-4" /> Send Invitation
             </button>
