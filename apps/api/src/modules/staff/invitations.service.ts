@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import argon2 from 'argon2';
 import { db } from '../../config/db.js';
-import { users, invitations, roles, eq, or, and, ne, inArray } from '@school/shared';
+import { users, invitations, roles, invitationSubjects, userSubjects, eq, or, and, ne, inArray } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
 
 export class InvitationsService {
@@ -123,6 +123,16 @@ export class InvitationsService {
       expiresAt,
       status: 'PENDING'
     }).returning();
+
+    // 5.1 Insert assigned subjects if provided
+    if (Array.isArray(data.subjectIds) && data.subjectIds.length > 0) {
+      await db.insert(invitationSubjects).values(
+        data.subjectIds.map((subId: string) => ({
+          invitationId: newInvitation.id,
+          subjectId: subId,
+        }))
+      );
+    }
 
     // 6. Send Email
     const inviteUrl = `${frontendUrl}/accept-invitation?email=${encodeURIComponent(newInvitation.email)}&token=${rawToken}`;
@@ -264,6 +274,21 @@ export class InvitationsService {
       isActive: true, // User is active upon acceptance
       dateOfEmployment: new Date(), // Set employment date to today
     }).returning();
+
+    // 3.1 Copy invitation subjects to user subjects
+    const invSubjectsList = await db
+      .select({ subjectId: invitationSubjects.subjectId })
+      .from(invitationSubjects)
+      .where(eq(invitationSubjects.invitationId, inv.id));
+
+    if (invSubjectsList.length > 0) {
+      await db.insert(userSubjects).values(
+        invSubjectsList.map(s => ({
+          userId: newUser.id,
+          subjectId: s.subjectId,
+        }))
+      );
+    }
 
     // 4. Mark Invitation as Accepted
     await db.update(invitations).set({

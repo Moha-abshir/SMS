@@ -1,4 +1,5 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, decimal, primaryKey, integer, index } from 'drizzle-orm/pg-core';
+import { subjects } from './admissions.js';
 
 export const roles = pgTable('roles', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -135,4 +136,24 @@ export const emailChangeTokens = pgTable('email_change_tokens', {
   index('email_change_tokens_user_id_idx').on(table.userId),
   index('email_change_tokens_new_email_idx').on(table.newEmail),
   index('email_change_tokens_expires_at_idx').on(table.expiresAt),
+]);
+
+export const userSubjects = pgTable('user_subjects', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.subjectId] }),
+  index('user_subjects_user_id_idx').on(table.userId),
+  index('user_subjects_subject_id_idx').on(table.subjectId),
+]);
+
+export const invitationSubjects = pgTable('invitation_subjects', {
+  invitationId: uuid('invitation_id').notNull().references(() => invitations.id, { onDelete: 'cascade' }),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.invitationId, table.subjectId] }),
+  index('invitation_subjects_invitation_id_idx').on(table.invitationId),
+  index('invitation_subjects_subject_id_idx').on(table.subjectId),
 ]);

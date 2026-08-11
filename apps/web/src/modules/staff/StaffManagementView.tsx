@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { EmploymentContractModal } from './EmploymentContractModal';
+import { SubjectManagementModal } from './SubjectManagementModal';
 
 export const StaffManagementView: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modal states
@@ -17,6 +20,7 @@ export const StaffManagementView: React.FC = () => {
   const [showResetModal, setShowResetModal] = useState(false);
   const [show2FaResetModal, setShow2FaResetModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
 
   const currentUser = (() => {
     try {
@@ -54,12 +58,14 @@ export const StaffManagementView: React.FC = () => {
   const fetchStaff = async () => {
     try {
       setLoading(true);
-      const [staffRes, rolesRes] = await Promise.all([
+      const [staffRes, rolesRes, subjectsRes] = await Promise.all([
         apiClient.get('/api/staff'),
-        apiClient.get('/api/staff/roles')
+        apiClient.get('/api/staff/roles'),
+        apiClient.get('/api/subjects').catch(() => ({ data: { data: [] } }))
       ]);
       setStaff(staffRes.data.data);
       setRoles(rolesRes.data.data);
+      setSubjects(subjectsRes.data.data || []);
     } catch (error) {
       toast.error('Failed to load staff directory');
     } finally {
@@ -71,12 +77,26 @@ export const StaffManagementView: React.FC = () => {
     fetchStaff();
   }, []);
 
+  const isTeachingRole = (roleId: string) => {
+    const r = roles.find(role => role.id === roleId);
+    if (!r) return true;
+    const name = r.name.toUpperCase();
+    return ['TEACHER', 'SUBJECT_TEACHER', 'CLASS_TEACHER', 'HOD', 'DEPUTY_HEAD', 'HEAD_TEACHER'].some(roleName => name.includes(roleName));
+  };
+
+  const toggleSubjectSelection = (subjectId: string) => {
+    setSelectedSubjectIds(prev => 
+      prev.includes(subjectId) ? prev.filter(id => id !== subjectId) : [...prev, subjectId]
+    );
+  };
+
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const payload = { 
         ...formData,
-        salaryPaymentDay: formData.salaryPaymentDay ? parseInt(formData.salaryPaymentDay) : null
+        salaryPaymentDay: formData.salaryPaymentDay ? parseInt(formData.salaryPaymentDay) : null,
+        subjectIds: isTeachingRole(formData.roleId) ? selectedSubjectIds : []
       };
       
       const res = await apiClient.post('/api/staff/invitations', payload);
@@ -93,7 +113,11 @@ export const StaffManagementView: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.put(`/api/staff/${selectedStaff.id}`, formData);
+      const payload = {
+        ...formData,
+        subjectIds: isTeachingRole(formData.roleId) ? selectedSubjectIds : []
+      };
+      await apiClient.put(`/api/staff/${selectedStaff.id}`, payload);
       toast.success('Staff details updated');
       setShowEditModal(false);
       fetchStaff();
@@ -169,6 +193,7 @@ export const StaffManagementView: React.FC = () => {
   };
 
   const resetForm = () => {
+    setSelectedSubjectIds([]);
     setFormData({ 
       firstName: '', middleName: '', lastName: '', 
       email: '', phoneNumber: '', nationalId: '', address: '', tscNumber: '',
@@ -203,6 +228,7 @@ export const StaffManagementView: React.FC = () => {
 
   const openEditModal = (staffMember: any) => {
     setSelectedStaff(staffMember);
+    setSelectedSubjectIds(staffMember.assignedSubjects ? staffMember.assignedSubjects.map((s: any) => s.id) : []);
     setFormData({
       firstName: staffMember.firstName,
       middleName: staffMember.middleName || '',
@@ -306,15 +332,23 @@ export const StaffManagementView: React.FC = () => {
           <h2 className="text-xl font-bold">Staff Directory</h2>
           <p className="text-sm text-slate-500">Manage school employees and invitations</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowInviteModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-md shadow-blue-500/20"
-        >
-          <Plus className="w-4 h-4" /> Invite Staff
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSubjectModal(true)}
+            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors"
+          >
+            <BookOpen className="w-4 h-4 text-blue-500" /> Manage Subjects
+          </button>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowInviteModal(true);
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-md shadow-blue-500/20"
+          >
+            <Plus className="w-4 h-4" /> Invite Staff
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -345,9 +379,20 @@ export const StaffManagementView: React.FC = () => {
                       {s.firstName} {s.lastName}
                     </td>
                     <td className="p-4">
-                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-semibold">
-                        {s.roleName}
-                      </span>
+                      <div className="space-y-1">
+                        <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-semibold inline-block">
+                          {s.roleName}
+                        </span>
+                        {s.assignedSubjects && s.assignedSubjects.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {s.assignedSubjects.map((sub: any) => (
+                              <span key={sub.id} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono font-bold rounded">
+                                {sub.code}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4">
                       <div className="text-slate-900 dark:text-white">{s.email}</div>
@@ -494,6 +539,40 @@ export const StaffManagementView: React.FC = () => {
             </div>
           </div>
 
+          {isTeachingRole(formData.roleId) && (
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-bold text-slate-500">
+                Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
+              </label>
+              {subjects.length === 0 ? (
+                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                  No subjects registered yet. Use "Manage Subjects" button to register school subjects.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-h-36 overflow-y-auto">
+                  {subjects.map((sub) => {
+                    const isSelected = selectedSubjectIds.includes(sub.id);
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => toggleSubjectSelection(sub.id)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                        }`}
+                      >
+                        <span className="font-mono font-bold text-[10px] opacity-80">{sub.code}</span>
+                        <span>{sub.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="pb-2 pt-4 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Financial Details</h3>
           </div>
@@ -567,6 +646,40 @@ export const StaffManagementView: React.FC = () => {
               <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
+
+          {isTeachingRole(formData.roleId) && (
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-bold text-slate-500">
+                Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
+              </label>
+              {subjects.length === 0 ? (
+                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                  No subjects registered yet. Use "Manage Subjects" button to register school subjects.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-h-36 overflow-y-auto">
+                  {subjects.map((sub) => {
+                    const isSelected = selectedSubjectIds.includes(sub.id);
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => toggleSubjectSelection(sub.id)}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                        }`}
+                      >
+                        <span className="font-mono font-bold text-[10px] opacity-80">{sub.code}</span>
+                        <span>{sub.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
             <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl">Save Changes</button>
@@ -760,6 +873,13 @@ export const StaffManagementView: React.FC = () => {
         onClose={() => setShowContractModal(false)}
         staff={selectedStaff}
         currentUser={currentUser}
+      />
+
+      {/* School Subject Management Modal */}
+      <SubjectManagementModal
+        isOpen={showSubjectModal}
+        onClose={() => setShowSubjectModal(false)}
+        onSubjectsUpdated={fetchStaff}
       />
 
     </motion.div>

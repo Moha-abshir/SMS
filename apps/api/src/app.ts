@@ -5,6 +5,7 @@ import compression from 'compression';
 import { pinoHttp } from 'pino-http';
 import authRoutes from './modules/auth/auth.routes.js';
 import staffRoutes from './modules/staff/staff.routes.js';
+import subjectsRoutes from './modules/subjects/subjects.routes.js';
 
 const app = express();
 
@@ -35,5 +36,6 @@ app.get('/api/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/subjects', subjectsRoutes);
 
 export default app;
