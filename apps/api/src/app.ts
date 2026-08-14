@@ -13,6 +13,7 @@ import admissionsRoutes from './modules/admissions/admissions.routes.js';
 import officialLettersRoutes from './modules/official-letters/officialLetters.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import allocationsRoutes from './modules/allocations/allocations.routes.js';
+import leaveRequestsRoutes from './modules/leave-requests/leaveRequests.routes.js';
 
 const app = express();
 
@@ -51,5 +52,6 @@ app.use('/api/admissions', admissionsRoutes);
 app.use('/api/official-letters', officialLettersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/allocations', allocationsRoutes);
+app.use('/api/leave-requests', leaveRequestsRoutes);
 
 export default app;
