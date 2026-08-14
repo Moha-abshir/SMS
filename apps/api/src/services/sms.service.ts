@@ -1,39 +1,59 @@
-import { env } from '../config/env.js';
+import { db } from '../config/db.js';
+import { absenceSmsLogs } from '@school/shared';
 
 export class SmsService {
-  static async sendAbsenceAlert(toPhone: string, studentName: string, consecutiveDays: number): Promise<boolean> {
-    const message = `Dear Guardian, ${studentName} has been absent from school for ${consecutiveDays} consecutive day(s). Please contact the Deputy Head Teacher immediately.`;
-
-    if (!env.AFRICAS_TALKING_API_KEY) {
-      console.log(`[Africa's Talking Log Fallback] SMS to ${toPhone}: ${message}`);
-      return true;
-    }
+  /**
+   * Send SMS via Africa's Talking REST API (or simulated gateway in dev environment)
+   */
+  static async sendSms(toPhone: string, message: string, studentId: string, guardianId: string) {
+    let status: 'SENT' | 'FAILED' = 'SENT';
 
     try {
-      const url = env.AFRICAS_TALKING_USERNAME === 'sandbox' 
-        ? 'https://api.sandbox.africastalking.com/version1/messaging' 
-        : 'https://api.africastalking.com/version1/messaging';
+      const apiKey = process.env.AFRICASTALKING_API_KEY;
+      const username = process.env.AFRICASTALKING_USERNAME || 'sandbox';
 
-      const body = new URLSearchParams({
-        username: env.AFRICAS_TALKING_USERNAME,
-        to: toPhone,
-        message: message,
-      });
+      if (apiKey && apiKey !== 'sandbox') {
+        // Live Africa's Talking SMS API Call
+        const params = new URLSearchParams();
+        params.append('username', username);
+        params.append('to', toPhone);
+        params.append('message', message);
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'apiKey': env.AFRICAS_TALKING_API_KEY,
-        },
-        body: body.toString(),
-      });
+        const response = await fetch('https://api.africastalking.com/version1/messaging', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'apiKey': apiKey,
+            'Accept': 'application/json',
+          },
+          body: params.toString(),
+        });
 
-      return response.ok;
-    } catch (error) {
-      console.error('Failed to send Africa\'s Talking SMS:', error);
-      return false;
+        if (!response.ok) {
+          status = 'FAILED';
+        }
+      } else {
+        // Development / Sandbox Log Simulation
+        console.log(`[SMS SANDBOX] Sending to ${toPhone}: "${message}"`);
+        status = 'SENT';
+      }
+    } catch (err: any) {
+      status = 'FAILED';
     }
+
+    // Log SMS delivery to absence_sms_logs
+    const [log] = await db
+      .insert(absenceSmsLogs)
+      .values({
+        studentId,
+        guardianId,
+        phoneNumber: toPhone,
+        consecutiveAbsences: 1,
+        smsMessage: message,
+        status,
+      })
+      .returning();
+
+    return log;
   }
 }

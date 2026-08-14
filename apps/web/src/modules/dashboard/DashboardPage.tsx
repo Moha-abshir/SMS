@@ -10,6 +10,7 @@ import { OfficialLetterView } from '../letters/OfficialLetterView';
 import { AllocationView } from '../allocations/AllocationView';
 import { LeaveManagementView } from '../leave/LeaveManagementView';
 import { InventoryView } from '../inventory/InventoryView';
+import { AttendanceOversightView } from '../attendance/AttendanceOversightView';
 
 interface DashboardPageProps {
   user: any;
@@ -129,6 +130,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
+            {activeView === 'attendance_oversight' && (
+              <motion.div
+                key="attendance_oversight"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <AttendanceOversightView />
+              </motion.div>
+            )}
+
             {activeView === 'staff' && (
               <motion.div
                 key="staff"
@@ -142,7 +155,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}
