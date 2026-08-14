@@ -108,9 +108,9 @@ export const OfficialLetterView: React.FC = () => {
             <FileText className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">Official School Letter Generator</h2>
+            <h2 className="text-xl font-bold">Official Letter Generator & Archive</h2>
             <p className="text-xs text-blue-100 mt-0.5">
-              Draft pre-formatted letters on official school letterhead and print clean A4 documents.
+              Draft formal letters on official school letterhead and store archived communications.
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export const OfficialLetterView: React.FC = () => {
         </button>
       </div>
 
-      {/* Official Letters Archive */}
+      {/* Letters List Table */}
       <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <FileText className="w-4 h-4 text-blue-600" />
@@ -134,10 +134,10 @@ export const OfficialLetterView: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="py-3.5 px-4">Letter Title</th>
+                <th className="py-3.5 px-4">Date</th>
+                <th className="py-3.5 px-4">Subject Title</th>
                 <th className="py-3.5 px-4">Recipient Name</th>
-                <th className="py-3.5 px-4">Date Generated</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4">Recipient Address</th>
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
             </thead>
@@ -145,31 +145,35 @@ export const OfficialLetterView: React.FC = () => {
               {letters.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-slate-400 italic">
-                    No official letters generated yet. Click "Generate New Letter" to draft one.
+                    No official letters generated yet. Click "Generate New Letter" to create your first letterhead.
                   </td>
                 </tr>
               ) : (
-                letters.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{row.title}</td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">{row.recipientName || 'To Whom It May Concern'}</td>
-                    <td className="py-3.5 px-4 text-slate-500">{new Date(row.letterDate).toLocaleDateString()}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-[10px] font-extrabold rounded-full">
-                        {row.status}
-                      </span>
+                letters.map((letItem) => (
+                  <tr key={letItem.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-slate-500">
+                      {new Date(letItem.letterDate).toLocaleDateString()}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                      {letItem.title}
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300">
+                      {letItem.recipientName || 'N/A'}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-500">
+                      {letItem.recipientAddress || 'N/A'}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          onClick={() => handleOpenPrintPreview(row.id)}
-                          className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold text-xs rounded-lg flex items-center gap-1 transition-colors"
+                          onClick={() => handleOpenPrintPreview(letItem.id)}
+                          className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1"
                         >
                           <Eye className="w-3.5 h-3.5" /> Preview / Print
                         </button>
                         <button
-                          onClick={() => handleDeleteLetter(row.id)}
-                          className="p-1 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                          onClick={() => handleDeleteLetter(letItem.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -188,12 +192,12 @@ export const OfficialLetterView: React.FC = () => {
         <form onSubmit={handleCreateLetter} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Letter Title / Subject *
+              Letter Title / Subject Line *
             </label>
             <input
               type="text"
               required
-              placeholder="e.g. Recommendation Letter / Official Notice"
+              placeholder="e.g. Official Recommendation Letter for Learner Transfer"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
@@ -279,16 +283,22 @@ export const OfficialLetterView: React.FC = () => {
             <div className="p-8 bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-lg max-w-2xl mx-auto space-y-6 print:shadow-none print:border-0 print:p-0">
               {/* Header Letterhead */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-                <div className="flex items-center justify-center gap-2">
-                  <School className="w-8 h-8 text-blue-700" />
-                  <h1 className="text-xl font-extrabold uppercase tracking-wide text-slate-900">
-                    {printModalData.settings.schoolName || 'ELDORET MUSLIM ACADEMY'}
-                  </h1>
+                <div className="flex items-center justify-center gap-3">
+                  {printModalData.settings.logoUrl ? (
+                    <img src={printModalData.settings.logoUrl} alt="Logo" className="w-14 h-14 object-contain" />
+                  ) : (
+                    <School className="w-10 h-10 text-blue-700" />
+                  )}
+                  <div className="text-left">
+                    <h1 className="text-xl font-extrabold uppercase tracking-wide text-slate-900">
+                      {printModalData.settings.schoolName || 'ELDORET MUSLIM ACADEMY'}
+                    </h1>
+                    <p className="text-xs font-semibold italic text-slate-600">
+                      "{printModalData.settings.schoolMotto || 'Excellence in Knowledge & Virtue'}"
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs font-semibold italic text-slate-600">
-                  "{printModalData.settings.schoolMotto || 'Excellence in Knowledge & Virtue'}"
-                </p>
-                <p className="text-[11px] text-slate-600">
+                <p className="text-[11px] text-slate-600 pt-1">
                   {printModalData.settings.poBox || 'P.O. Box 1234 - 30100, Eldoret'} | {printModalData.settings.county || 'Uasin Gishu County'}
                 </p>
                 <p className="text-[11px] text-slate-600">

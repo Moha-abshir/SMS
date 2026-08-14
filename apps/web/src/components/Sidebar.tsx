@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   ShieldCheck, Settings, FileText, Package, Calendar, Clock, LogOut,
   ChevronLeft, ChevronRight, Menu, X, School
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { apiClient } from '../lib/apiClient';
 
 export interface NavItem {
   id: string;
@@ -23,8 +24,19 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, onLogout }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
 
   const userRole = user?.roleName || user?.role || 'HEAD_TEACHER';
+
+  useEffect(() => {
+    apiClient.get('/api/settings/public').then((res) => {
+      if (res.data.data) {
+        if (res.data.data.logoUrl) setLogoUrl(res.data.data.logoUrl);
+        if (res.data.data.schoolName) setSchoolName(res.data.data.schoolName);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Navigation Items defined per system role
   const allNavItems: NavItem[] = [
@@ -37,11 +49,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
     { id: 'allocations', label: 'Class & Teacher Allocations', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { id: 'inventory', label: 'School Inventory', icon: Package, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD'] },
     { id: 'leave_requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD'] },
-    { id: 'examinations', label: 'Examinations & DoS', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { id: 'exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { id: 'invigilation', label: 'Invigilator Allocations', icon: ShieldCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { id: 'marking_allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { id: 'report_locks', label: 'Report Card Locks', icon: Settings, roles: ['HEAD_TEACHER', 'DOS'] },
+    { id: 'subject_analytics', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { id: 'finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
-    { id: 'attendance', label: 'Attendance & Registers', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'CLASS_TEACHER', 'SECRETARY'] },
-    { id: 'events_meetings', label: 'Calendar & Minutes', icon: Calendar, roles: ['HEAD_TEACHER', 'SECRETARY'] },
-    { id: 'audit', label: 'Audit Logs', icon: ShieldCheck, roles: ['HEAD_TEACHER'] },
+    { id: 'attendance_oversight', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },
   ];
 
   // Filter items based on logged in user role (HEAD_TEACHER has override access)
@@ -63,10 +77,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
-              EMA
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md overflow-hidden p-0.5">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <School className="w-4 h-4" />
+              )}
             </div>
-            <span className="text-sm font-bold text-slate-900 dark:text-white">Eldoret Muslim Academy</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-white">{schoolName}</span>
           </div>
         </div>
         <ThemeToggle />
@@ -90,33 +108,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
         <div>
           <div className="p-4 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-9 h-9 shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-                <School className="w-5 h-5" />
+              <div className="w-9 h-9 shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20 overflow-hidden p-1">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="School Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <School className="w-5 h-5" />
+                )}
               </div>
               {(!collapsed || mobileOpen) && (
                 <div className="min-w-0">
                   <h2 className="text-xs font-extrabold tracking-tight text-slate-900 dark:text-white truncate">
-                    Eldoret Muslim Academy
+                    {schoolName}
                   </h2>
-                  <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded inline-block mt-0.5">
-                    {userRole.replace('_', ' ')}
-                  </p>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold block">
+                    SMS Portal
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Desktop Collapse Toggle */}
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
-              title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+              className="hidden lg:flex p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
             >
               {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1 max-h-[calc(100vh-140px)] overflow-y-auto hide-scrollbar">
+          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-180px)]">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeView === item.id;
@@ -127,49 +147,56 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
                     onNavigate(item.id);
                     setMobileOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs transition-all ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 font-bold'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                   title={collapsed ? item.label : undefined}
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  {(!collapsed || mobileOpen) && <span className="truncate">{item.label}</span>}
+                  {(!collapsed || mobileOpen) && <span>{item.label}</span>}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Bottom User Info & Footer */}
+        {/* Footer User Info & Logout */}
         <div className="p-3 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
           {(!collapsed || mobileOpen) && (
-            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between">
-              <div className="min-w-0">
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+                {user?.firstName ? user.firstName[0] : 'U'}
+              </div>
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
-              </div>
-              <div className="hidden lg:block">
-                <ThemeToggle />
+                <p className="text-[10px] text-slate-400 font-semibold truncate uppercase">
+                  {userRole.replace(/_/g, ' ')}
+                </p>
               </div>
             </div>
           )}
 
-          <button
-            onClick={onLogout}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors ${
-              collapsed && !mobileOpen ? 'justify-center' : ''
-            }`}
-            title="Logout"
-          >
-            <LogOut className="w-4 h-4 text-red-500 shrink-0" />
-            {(!collapsed || mobileOpen) && <span>Logout</span>}
-          </button>
+          <div className="flex items-center justify-between gap-2">
+            {(!collapsed || mobileOpen) && <ThemeToggle />}
+            <button
+              onClick={onLogout}
+              className={`flex items-center gap-2 p-2.5 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors ${
+                collapsed && !mobileOpen ? 'w-full justify-center' : 'flex-1'
+              }`}
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+              {(!collapsed || mobileOpen) && <span>Sign Out</span>}
+            </button>
+          </div>
         </div>
       </aside>
     </>
   );
 };
+
+export default Sidebar;

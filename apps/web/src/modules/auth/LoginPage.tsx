@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { apiClient } from '../../lib/apiClient';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any, token: string) => void;
@@ -15,11 +16,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // School Public Info & Logo
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
+
   // View State
   const [view, setView] = useState<'login' | 'otp'>('login');
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+
+  useEffect(() => {
+    apiClient.get('/api/settings/public').then((res) => {
+      if (res.data.data) {
+        if (res.data.data.logoUrl) setLogoUrl(res.data.data.logoUrl);
+        if (res.data.data.schoolName) setSchoolName(res.data.data.schoolName);
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,11 +109,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       {/* Top Navbar */}
       <header className="px-6 py-4 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-            <GraduationCap className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 overflow-hidden p-1">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <School className="w-6 h-6" />
+            )}
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">School Management System</h1>
+            <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{schoolName}</h1>
             <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">CBC Primary & Junior Secondary</p>
           </div>
         </div>
@@ -116,10 +134,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         >
           {/* School Uniform Blue Accent Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-blue-600/10 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto mb-4">
-              <ShieldCheck className="w-8 h-8" />
+            <div className="w-20 h-20 rounded-2xl bg-blue-600/10 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto mb-4 overflow-hidden p-2 shadow-inner">
+              {logoUrl ? (
+                <img src={logoUrl} alt="School Crest Logo" className="w-full h-full object-contain" />
+              ) : (
+                <ShieldCheck className="w-10 h-10" />
+              )}
             </div>
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Staff Portal Sign In</h2>
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">{schoolName} Staff Portal</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter your registered email and password</p>
           </div>
 
@@ -159,10 +181,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors focus:outline-none"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
@@ -170,94 +191,84 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
-                    Proceed <ArrowRight className="w-4 h-4" />
+                    <span>Sign In to Workstation</span>
+                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
           ) : (
-            <motion.form 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              onSubmit={handleVerifyOtp} 
-              className="space-y-4"
-            >
-              <div className="text-center py-2">
-                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Key className="w-6 h-6" />
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  We have sent a 6-digit verification code to <span className="font-semibold text-blue-600 dark:text-blue-400">{email || 'your email'}</span>.
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  This code expires in 5 minutes.
-                </p>
+            <form onSubmit={handleVerifyOtp} className="space-y-5">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 rounded-xl text-xs text-blue-800 dark:text-blue-300">
+                A 6-digit 2FA verification code was sent to <strong className="font-bold">{email}</strong>.
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 text-center">
-                  6-Digit OTP Code
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                  Enter 6-Digit 2FA Code
                 </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
-                  className="w-full text-center text-2xl font-mono tracking-[0.5em] py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none text-slate-900 dark:text-white transition-all"
-                />
+                <div className="relative">
+                  <Key className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    required
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 text-center font-mono tracking-widest font-bold text-lg transition-all"
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={otpLoading}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all"
+              >
+                {otpLoading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span>Verify 2FA Code & Sign In</span>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
                 <button
-                  type="submit"
-                  disabled={otpLoading || otpCode.length !== 6}
-                  className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50"
+                  type="button"
+                  onClick={() => setView('login')}
+                  className="hover:underline font-bold text-slate-700 dark:text-slate-300"
                 >
-                  {otpLoading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    'Verify & Log In'
-                  )}
+                  ← Back to Sign In
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendLoading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium text-sm rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center gap-1"
                 >
-                  {resendLoading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  Resend Code
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setView('login')}
-                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 underline underline-offset-2 text-center mt-2"
-                >
-                  Back to Login
+                  <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
+                  <span>Resend Code</span>
                 </button>
               </div>
-            </motion.form>
+            </form>
           )}
         </motion.div>
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400 dark:text-slate-600">
-        &copy; {new Date().getFullYear()} ELDORET MUSLIM ACADEMY
+      <footer className="py-4 text-center text-xs text-slate-400 z-10">
+        © 2026 {schoolName}. All rights reserved. Powered by AGY SMS.
       </footer>
     </div>
   );
 };
+
+export default LoginPage;
