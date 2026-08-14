@@ -9,6 +9,7 @@ import { StudentAdmissionView } from '../admissions/StudentAdmissionView';
 import { OfficialLetterView } from '../letters/OfficialLetterView';
 import { AllocationView } from '../allocations/AllocationView';
 import { LeaveManagementView } from '../leave/LeaveManagementView';
+import { InventoryView } from '../inventory/InventoryView';
 
 interface DashboardPageProps {
   user: any;
@@ -116,6 +117,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
+            {activeView === 'inventory' && (
+              <motion.div
+                key="inventory"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <InventoryView />
+              </motion.div>
+            )}
+
             {activeView === 'staff' && (
               <motion.div
                 key="staff"
@@ -129,7 +142,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}

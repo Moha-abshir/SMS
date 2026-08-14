@@ -14,6 +14,7 @@ import officialLettersRoutes from './modules/official-letters/officialLetters.ro
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import allocationsRoutes from './modules/allocations/allocations.routes.js';
 import leaveRequestsRoutes from './modules/leave-requests/leaveRequests.routes.js';
+import inventoryRoutes from './modules/inventory/inventory.routes.js';
 
 const app = express();
 
@@ -53,5 +54,6 @@ app.use('/api/official-letters', officialLettersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/allocations', allocationsRoutes);
 app.use('/api/leave-requests', leaveRequestsRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 export default app;
