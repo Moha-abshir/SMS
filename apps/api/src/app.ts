@@ -7,6 +7,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import staffRoutes from './modules/staff/staff.routes.js';
 import subjectsRoutes from './modules/subjects/subjects.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
+import academicTermsRoutes from './modules/academic-terms/academicTerms.routes.js';
 
 const app = express();
 
@@ -39,5 +40,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/academic-terms', academicTermsRoutes);
 
 export default app;
