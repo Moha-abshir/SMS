@@ -1,0 +1,1448 @@
+All of the Roles that will interact with the system
+1. Headteacher
+2. Deputy Headteacher
+3. Director of Studies
+4. Secretary
+5. Bursar
+6. Teachers. Grouped into two: Class Teacher and subject teacher.
+
+=========================================
+1. Everything the Headteacher Does 
+=========================================
+adding new teachers to the system. Staff in general. This is already acquired.
+Removal or editing of the teachers details in the system. Already archieved.
+
+Admitting. expelling and approaval of transfer Students
+
+Final exam report locking. (Explained in detailed later on in the doc)
+
+High level summeries of the school. You will have a concrete idea of what to include in this page once I finish writing this document.
+
+Can record and view fee payment.
+
+The headteacher said that he needs access to a unique official letter format of any official letter that he wants to write. Instead of him writing the letter from scratch. It should have the necessary header format (logo, name, address, contact info. i.e official letter format). He only edits the body. He only supposed to sign it after printing. After printing, the entire document should be stored for easy record keeping.
+
+Can see the entire school performance. Grade performance, top performing per grade, lowest performing student. Subject performance per subject, every students performance. In short, anything regarding performance, the headteacher should see it.
+
+The only one in the entire system that can change the school fees for all the grade levels. This brings me to how the grades are organized.
+PrePrimary level => PlayGroup, PP1, PP2. Fees for term 1, 2 & 3 respectively is 6000, 60000, 6000 |
+Lower Primary Grades 1 to 3. Fees for term 1, 2, & 3 respectively is 7000, 7000, 7000                     | We will use these for these figures but we will
+Upper Primary Grades 4 to 6. Fees for term 1, 2, & 3 respectively is 7500, 7500, 7500                     | make them editable only for the headteacher.
+Junior Secondary Grades 7 to 9. Fees for term 1, 2, & 3 respectively is 11000, 11000, 11000          | 
+There fee structure in a year is divided into three: Term 1, 2, 3. Each having their respective amount in each level I just specified.
+
+Since the headteacher is the one adding the staffs and the students, it is high time I tell you what data we are going to collect from each (student, parents and staffs)
+---------------------------------------------
+Students' info to be stored / taken
+---------------------------------------------
+1. Full name of the student
+2. Grade he was (If it is a transferred student)
+3. Assessment number (Usually given by KNEC)
+4. Grade that he will be placed in. (This means that the classes is needed to be added to the system before adding any student)
+
+--------------------------------------------
+Parents' info to be stored / taken
+--------------------------------------------
+**Important Notes Regarding this section**
+One parent can have multiple children within the school.
+When admitting a student, only one parent can be recorded together with the single student
+when addmission, the parent details should be unique.
+SCENARIO
+a parent has a child as an existing student and brings a new child now. To avoid duplication of the parents information, we are going to prefetch all of the parents information and search per keystroke so that if the parents exists, we are going to tie the nnew student under her. 
+----------------------------------------------
+|  New student Form to be filled     |
+|                                                      |
+----------------------------------------------
+|  The parent's form here. One pare|
+| nt only                                           |
+----------------------------------------------
+
+This is the parent information that will be used to be in touch with them.
+information is =>
+1. Full Name of the Parent
+2. Phone number of the parent
+3. ID number 
+
+(**The hardest part is not adding a new student but to add the existing students with their respectives. Application of bulk import should be supported to add both the student and parent in one row**)
+We are going to fill the database after these modules are completed to make sure everything works well
+-------------------------------------
+Staff information
+-------------------------------------
+It is already correctly collected in the system so far. Nothing wrong with it.
+
+A dedicated settings page where the headteacher can configure the general info of the school.
+
+
+
+
+===========================
+2. What the Deputy Headteacher Does
+===========================
+1. Teacher/Class Allocation
+The Deputy assigns teachers to classes and lessons for the academic year.
+The important CBC distinction in class distinction is:
+
+Grades 1–3: one class teacher teaches all learning areas.
+Grades 4–9: there is a class teacher, but different subject teachers teach the different subjects.
+
+So the Deputy needs a teacher-allocation interface where they can assign teachers to be class teachers and subject teachers.
+So this depends on the headteacher where he can add the subjects that he'll add.
+
+(I am not sure about the timetable feature but lets start off with these as I communicate with the headteacher if he prefers for it to be added. This will be inquired once we start designing the deputy headteacher roles)
+
+2. Teacher Leave-out Management
+Teachers submit requests in person when they need time away from school.
+
+The Deputy:
+
+Receives the request when they met in the office.
+Reviews the reason.
+Inputs the reasons to the system
+Approves.
+Provides the leave-out document prefilled with the necessary details. 
+THERE IS A SPECIFIC DOCUMENT FORMAT THAT THE SCHOOL FOLLOWS. MAKE SURE TO ASK ME FOR THE FORMAT WHEN WE GET TP DESIGN THIS PHASE.
+
+3. Inventory Management
+The Deputy is responsible for distributing and tracking school items.
+
+For Example:
+
+Textbooks
+Dustbins
+Brooms
+Classroom accessories
+Other school equipment
+
+Who took what? At what day of the month? When is the expected day of return? It should answer these type of questions
+Later, the system should be able to tell the school who currently has what.
+
+4. Class Attendance Registers
+Class teachers should be able to use their phones to take the daily register.
+
+Something simple like:
+
+Grade 5A
+──────────────
+Ahmed       Present
+Mary        Present
+John        Absent
+Fatuma      Present
+The Deputy oversees these registers across the school.
+
+5. Parent Absentee Notification
+Class Teacher -> Marks learner absent -> Deputy sees absence -> Clicks "Notify Parent"  -> SMS sent
+Dear Parent, your child [Name] was marked absent from school today. Please contact the school if necessary.
+I have already got the API key from africa's talking.
+
+6. Whole-School Academic/Class Analysis (Same as the headteacher)
+
+This is one of the most important Deputy dashboards.
+
+The Deputy shouldn't just see individual marks. They should be able to understand academic performance across the entire school.
+
+Concepts related to the deputy:
+
+Performance by grade
+Performance by subject
+Average marks
+Highest/lowest performing classes
+Learners requiring attention
+Subject performance comparisons
+Performance trends between examinations
+Class-by-class comparison
+Number of learners improving/declining
+Overall school academic performance 
+
+7. Examination Mark Review
+
+The examination workflow is as follows for different grades:
+
+For Grades 1–3:
+Class Teacher marks all exam subjects
+     ↓
+Enters all subject marks
+     ↓
+Submits
+     ↓
+Deputy reviews
+
+For Grades 4–9:
+
+Subject Teacher
+      ↓
+Enters subject marks
+      ↓
+Class Teacher
+      ↓
+Reviews/compiles performance
+      ↓
+Deputy
+      ↓
+Reviews
+
+If the Deputy identifies an error, they can allow the relevant teacher to edit the marks again.
+
+This is important because teachers shouldn't be able to modify submitted marks indefinitely.
+
+A controlled workflow like:
+
+DRAFT
+  ↓
+SUBMITTED
+  ↓
+UNDER REVIEW
+  ↓
+CORRECTION REQUESTED
+  ↓
+RESUBMITTED
+  ↓
+APPROVED
+  ↓
+LOCKED
+
+
+=================
+3. Director of Studies (DoS)
+=================
+The person responsible for the school's examination and academic coordination, especially around examination administration and analysis.
+
+1. Examination Management
+
+The DoS is in charge of examination activities.
+
+This includes:
+
+Creating/managing examinations.
+Setting examination dates and schedules.
+Coordinating examination periods.
+Monitoring whether examinations are progressing properly.
+Managing examination-related activities across grades.
+
+2. Invigilator Allocation
+
+This was one of the specific roles you mentioned.
+
+During examinations, the DoS allocates teachers as invigilators.
+
+The system should																																		 make this simple rather than manually assigning every teacher one by one.
+
+A sensible workflow would be:
+
+Select Examination
+        ↓
+Select Date / Session
+        ↓
+System shows classes requiring invigilators
+        ↓
+System suggests eligible teachers
+        ↓
+DoS reviews/adjusts assignments
+        ↓
+Publish allocation
+
+The system should prevent obvious conflicts, such as assigning a teacher to two examination rooms at the same time.
+
+3. Marking Allocation
+
+An important distinction here.
+
+The teachers who teach a particular subject are the ones who should mark that subject.
+
+For example:
+
+English Examination
+        ↓
+System identifies English teachers
+        ↓
+DoS allocates eligible English teachers
+        ↓
+Teachers mark English
+
+So the DoS shouldn't have to search through every teacher manually.
+
+The system should filter teachers based on their subject assignments and show only eligible teachers.
+
+4. Examination Analysis
+
+This is probably the DoS's most important analytical responsibility.
+
+The DoS should be able to analyze:
+
+Overall examination performance.
+Performance by grade.
+Performance by class.
+Performance by subject.
+Average marks.
+Highest and lowest performing subjects.
+Highest and lowest performing classes.
+Learners performing exceptionally well.
+Learners requiring academic intervention.
+Subject performance trends.
+Comparison between examinations.
+Percentage/pass-rate distributions.
+Performance of individual learners.
+Areas where learners are consistently struggling.
+
+For example:
+
+School Examination Analysis
+
+Grade 6
+────────────────────
+
+Mathematics       58%
+English           74%
+Science           67%
+Kiswahili         71%
+
+Overall Average   67.5%
+
+⚠ Mathematics requires attention
+
+The DoS should be able to drill down from:
+
+School → Grade → Class → Subject → Learner
+
+5. Academic Performance Meetings
+
+The DoS needs the analysis so that during school meetings he can provide insightful points about the academic wellbeing of the school.
+
+So I would give the DoS a dedicated Academic Analysis / Insights section.
+
+It could highlight things like:
+
+Grade 6 Mathematics performance declined by 8% compared with the previous examination.
+
+Mathematics is currently the lowest-performing subject in Grade 6.
+
+14 learners in Grade 5 are below the school's defined performance threshold.
+
+Grade 4A improved by 12% compared with the previous assessment.
+
+This turns the DoS from someone who merely looks at marks into someone who can actually interpret academic data.
+
+6. Curriculum / Teaching Oversight
+
+We also discussed that the DoS can have responsibilities beyond examinations.
+
+I would give him oversight of:
+
+Subject allocation.
+Teacher-subject assignments.
+Curriculum coverage.
+Academic calendars.
+Assessment planning.
+Monitoring completion of assessments.
+Identifying subjects/classes falling behind.
+Reviewing teacher academic workload.
+
+However, teacher assignment itself remains primarily under the Deputy based on the structure you gave me.
+
+So I'd distinguish them like this:
+
+Deputy:
+
+"Who teaches what, where, and when?"
+
+DoS:
+
+"How is the academic program and examination process performing?"
+
+That separation will make your permissions much cleaner.
+
+The DoS dashboard
+
+I would therefore structure his dashboard around:
+
+The key distinction I'd preserve in your system is:
+
+Deputy = operational + whole-school academic supervision
+
+DoS = academic/examination administration + deeper academic analysis
+
+That prevents the two roles from becoming unnecessarily duplicated.
+
+
+==================
+4. The Bursar
+==================
+
+The main thing we established was that the Bursar should own the school's day-to-day financial operations, while the Head Teacher should also have access to fee collection/recording because parents may sometimes pay the Head Teacher when the Bursar is unavailable.
+
+1. Fee Management
+
+This should be the Bursar's primary module.
+
+He should be able to:
+
+View all learners and their fee balances.
+Record fee payments.
+Record partial payments.
+View payment history.
+View outstanding balances.
+View overpayments/credits.
+Generate fee statements.
+Search payments by learner, parent, date, receipt number, etc.
+Correct erroneous payment records through a controlled process.
+
+For example:
+
+Learner: Ahmed Hassan
+──────────────────────────
+Expected Fees     KES 30,000
+Paid              KES 20,000
+Balance           KES 10,000
+2. Payment Recording
+
+When a parent pays, the Bursar should record:
+
+Learner
+Amount
+Payment Method
+Reference Number
+Date
+Received By
+Term
+Academic Year
+Notes
+
+Payment methods could include:
+
+M-Pesa
+Bank
+Cash
+Cheque
+Other
+
+For M-Pesa, the transaction/reference number should be recorded.
+
+3. Receipts
+
+After recording a payment, the system should generate a receipt.
+
+Something like:
+
+SCHOOL NAME
+Official Receipt
+
+Receipt No: REC-2026-00421
+
+Student: Ahmed Hassan
+Admission No: 1024
+
+Amount Paid: KES 10,000
+Payment Method: M-Pesa
+Reference: ABC123XYZ
+
+Received By: Bursar
+Date: 13 Aug 2026
+
+The receipt should be downloadable/printable.
+
+4. Fee Statements
+
+The Bursar should be able to generate a complete statement for a learner.
+
+For example:
+
+Date       Description       Debit      Credit     Balance
+────────────────────────────────────────────────────────
+Jan 10     Term 1 Fees       30,000                30,000
+Jan 15     M-Pesa Payment               10,000     20,000
+Feb 02     M-Pesa Payment                5,000     15,000
+
+This becomes extremely useful when a parent comes to the office asking:
+
+"How much do I still owe?"
+
+5. Financial Dashboard
+
+The Bursar should have a dashboard focused on the school's financial position.
+
+For example:
+
+Today's collections
+
+This week's collections
+
+This month's collections
+
+Total outstanding fees
+
+Total fees collected
+
+Number of learners with outstanding balances
+
+Recent payments
+
+Recent expenses
+
+Something like:
+
+FINANCE OVERVIEW
+
+Today's Collection       KES 84,500
+This Term                KES 2,450,000
+Outstanding Fees         KES 680,000
+
+Learners With Balance    87
+Payments Today           34
+6. Expense Management
+
+This is another important basic function.
+
+The Bursar should be able to record school expenses.
+
+For example:
+
+Stationery
+Food
+Electricity
+Water
+Repairs
+Salaries
+Transport
+Teaching materials
+Maintenance
+
+An expense record could contain:
+
+Category
+Description
+Amount
+Payment Method
+Date
+Recipient/Supplier
+Reference
+Recorded By
+Attachment
+Notes
+
+The attachment is useful because the Bursar could upload a receipt or invoice.
+
+7. Income & Expense Reports
+
+The Bursar should be able to see:
+
+Total Income
+        ↓
+Fee Collections
+Other Income
+        ↓
+Total Expenses
+        ↓
+Net Position
+
+For a selected:
+
+Day
+Week
+Month
+Term
+Academic year
+8. Outstanding Fees / Defaulters
+
+This deserves its own section.
+
+The system should allow the Bursar to see:
+
+Learners With Outstanding Fees
+
+Ahmed       Grade 6       KES 15,000
+Mary        Grade 4       KES 8,500
+John        Grade 7       KES 22,000
+
+Then filter by:
+
+Grade
+Class
+Amount
+Term
+Academic year
+
+And potentially generate an outstanding-fees report.
+
+9. Financial Reports
+
+The Bursar should be able to generate reports such as:
+
+Daily collection report
+Monthly collection report
+Term fee collection report
+Outstanding fees report
+Payment method report
+Income report
+Expense report
+Income vs expenses
+Learner fee statements
+Transaction history
+Cash collection summary
+
+These reports are particularly important because the Head Teacher should also be able to view high-level versions of them.
+
+Bursar vs Head Teacher
+
+This is an important distinction for your RBAC.
+
+The Bursar should have operational financial control.
+
+The Head Teacher should have financial oversight and emergency collection capability.
+
+For example:
+
+| Action                         | Bursar     | Head Teacher |
+| ------------------------------ | ---------- | ------------ |
+| Record fee payment             | ✅          | ✅            |
+| View learner balance           | ✅          | ✅            |
+| Generate receipt               | ✅          | ✅            |
+| View fee statements            | ✅          | ✅            |
+| Record expenses                | ✅          | Maybe        |
+| Edit fee structure             | ❌/limited  | ✅            |
+| View financial reports         | ✅          | ✅            |
+| View detailed transactions     | ✅          | ✅            |
+| High-level financial dashboard | ✅          | ✅            |
+| Delete payment                 | ❌          | ❌            |
+| Reverse payment                | Controlled | Approve      |
+| Audit history                  | ✅          | ✅            |
+
+I would not allow either the Bursar or Head Teacher to simply delete financial transactions.
+
+Instead, use:
+
+Payment
+   ↓
+Correction / Reversal
+   ↓
+Reason required
+   ↓
+Authorized approval
+   ↓
+Audit log
+
+That becomes very important once the system is being used with real money.
+
+One thing I would add now
+
+Since this is a school system, I'd make the financial system term-aware and academic-year-aware from the beginning.
+
+A payment shouldn't just say:
+
+KES 10,000 paid.
+
+It should know:
+
+Academic Year: 2026
+Term: Term 2
+Learner: Ahmed Hassan
+Fee Structure: Grade 6
+Amount: KES 10,000
+
+That will make your historical reports much easier later.
+
+The overall Bursar module
+
+I'd therefore structure it as:
+
+BURSAR
+│
+├── Finance Dashboard
+│
+├── Fee Management
+│   ├── Fee Structures
+│   ├── Learner Balances
+│   ├── Payments
+│   ├── Receipts
+│   └── Statements
+│
+├── Expenses
+│   ├── Record Expense
+│   ├── Expense History
+│   └── Categories
+│
+├── Outstanding Fees
+│
+├── Financial Reports
+│   ├── Collections
+│   ├── Expenses
+│   ├── Income vs Expenses
+│   └── Outstanding Fees
+│
+└── Audit / Transactions
+
+And importantly, the Bursar shouldn't be the only person who can see financial information. The Head Teacher should have a higher-level view of the same financial data, while the Bursar gets the detailed operational tools needed to actually manage it.
+
+
+================
+5. Secretary
+================
+I would make the Secretary the school's administrative and records-management officer.
+
+The key distinction is:
+
+The Secretary manages administrative information, communication, correspondence, and records—not academic decisions or financial control.
+
+1. Student Admission & Records
+
+The Secretary can assist with the administrative side of admitting learners.
+
+They should be able to:
+
+Register new learners.
+Enter learner biographical information.
+Capture parent/guardian information.
+Maintain learner contact information.
+
+However, the Head Teacher should approve/finalize admission. Remember, even the headteacher has this authority
+
+So:
+
+Secretary
+    ↓
+Enters admission information
+    ↓
+Submits admission
+    ↓
+Head Teacher reviews
+    ↓
+Approved
+    ↓
+Student becomes officially admitted.
+
+2. Parent / Guardian Records
+
+Since we established that:
+
+One guardian can have many children, while each child can have a guardian.
+
+The Secretary should be able to manage the administrative information around guardians.
+
+For example:
+
+Guardian: Fatuma Hassan
+
+Phone: 07XXXXXXXX
+ID: 12345678
+Children:
+├── Ahmed — Grade 6
+├── Mary — Grade 4
+└── Ali — Grade 2
+
+They should be able to update things like:
+
+Phone number
+Email
+Address
+Emergency contact
+Relationship to learner
+
+But sensitive financial information should remain primarily under the Bursar's permissions.
+
+3. School Calendar & Meetings
+
+The Secretary can manage administrative events.
+
+For example:
+
+Parent meetings
+Staff meetings
+Academic meetings
+School events
+Closing/opening dates
+Important deadlines
+
+They could create:
+
+Staff Meeting
+
+Date: 20 August
+Time: 2:00 PM
+Location: Staff Room
+
+Agenda:
+...
+
+And notify relevant staff.
+
+4. Meeting Minutes
+
+This is another very natural Secretary responsibility.
+
+The Secretary should be able to:
+
+Create meeting records.
+Record attendees.
+Record agenda.
+Record minutes.
+Record decisions.
+Attach documents.
+Mark action items.
+Export/download minutes.
+
+For example:
+
+STAFF MEETING
+
+Date: 13 Aug 2026
+
+Attendees:
+✓ Head Teacher
+✓ Deputy
+✓ DoS
+✓ Bursar
+✓ Secretary
+...
+
+Agenda:
+1. Examination performance
+2. Fee collection
+3. Attendance
+
+Minutes:
+...
+
+Action Items:
+- DoS → Prepare exam analysis
+- Bursar → Prepare fee report
+
+This could become surprisingly useful for the school.
+
+5. Staff Administrative Records
+
+The Secretary can have limited access to staff information.
+
+For example:
+
+Staff directory
+Phone numbers
+Email addresses
+Job titles
+Department
+Employment status
+
+But they should not have permission to:
+
+Create staff accounts
+Change staff roles
+Reset passwords
+Reset 2FA
+Suspend staff
+
+Those remain administrative/security responsibilities of the Head Teacher.
+
+6. Attendance Administrative Support
+
+The Secretary could view general attendance information when necessary.
+
+For example:
+
+Student attendance summary.
+Staff attendance summary.
+Absence records.
+Attendance reports.
+
+But the actual class register belongs to the Class Teacher, while school-wide attendance supervision belongs to the Deputy.
+
+So:
+
+Class Teacher
+    ↓
+Records attendance
+
+Deputy
+    ↓
+Supervises attendance
+
+Secretary
+    ↓
+Administrative viewing/reporting
+
+7. Parent Communication
+
+The Secretary can help with general school communication.
+
+For example:
+
+Send announcements.
+Send meeting reminders.
+Notify parents about school events.
+Send general SMS messages.
+
+But I would distinguish general communication from automated/sensitive communication.
+
+For example:
+
+Secretary
+
+"Reminder: Parents' meeting will be held on Friday."
+
+Deputy
+
+"Your child was absent today."
+
+Bursar
+
+"Your outstanding fee balance is KES X."
+
+This keeps responsibilities clear.
+
+8. Student Transfers
+
+Since you already gave the Head Teacher authority to approve transfers, the Secretary can handle the administrative preparation.
+
+For example:
+
+Parent requests transfer
+        ↓
+Secretary records request
+        ↓
+Documents prepared
+        ↓
+Head Teacher reviews
+        ↓
+Approved / Rejected
+        ↓
+Secretary completes administrative process
+
+Again, the Secretary does not make the final decision.
+
+
+=====================
+Teachers
+=====================
+
+
+
+The important distinction is:
+
+Class Teacher = responsible for a particular class and its learners.
+Subject Teacher = responsible for teaching/assessing a particular subject across assigned classes.
+
+And for Grades 1–3, the same teacher is effectively both the class teacher and the subject teacher because one teacher handles the learning areas for the class.
+
+1. Class Teacher
+
+The Class Teacher is essentially the primary administrator/academic supervisor of their assigned class.
+
+Their dashboard should be centered around their class.
+
+CLASS TEACHER
+│
+├── My Class
+│   ├── Learners
+│   ├── Class Profile
+│   └── Parent/Guardian Information
+│
+├── Attendance
+│   ├── Daily Register
+│   ├── Attendance History
+│   └── Absence Records
+│
+├── Academic Performance
+│   ├── Class Performance
+│   ├── Learner Performance
+│   └── Subject Performance
+│
+├── Assessments
+│   ├── Enter Marks
+│   ├── Submitted Marks
+│   └── Correction Requests
+│
+└── Reports
+    ├── Class Report
+    └── Learner Reports
+2. Managing Their Class
+
+The Class Teacher should immediately see their assigned class.
+
+For example:
+
+Grade 6 — Class A
+
+Class Teacher: Ahmed Hassan
+
+Learners: 42
+Present Today: 39
+Absent: 3
+
+They should be able to view:
+
+Learner names
+Admission numbers
+Gender
+Guardian information
+Contact information
+Attendance
+Academic performance
+
+But they shouldn't be able to arbitrarily add/remove learners.
+
+Those actions remain controlled by the Head Teacher/administration.
+
+3. Daily Class Register
+
+This is one of the most important teacher features we discussed.
+
+You specifically wanted teachers to be able to take attendance using their phones.
+
+The interface should therefore be extremely simple.
+
+Grade 6A
+13 August 2026
+
+Ahmed Hassan       ✓ Present
+Mary Ali           ✓ Present
+John Smith         ✕ Absent
+Fatuma Omar        ✓ Present
+
+[Save Register]
+
+Don't make teachers navigate through five screens to take attendance.
+
+The goal is:
+
+Open → Select class → Mark attendance → Save.
+
+4. Attendance History
+
+The Class Teacher should be able to see attendance for their class.
+
+For example:
+
+Ahmed Hassan
+
+Present: 42 days
+Absent: 3 days
+Attendance Rate: 93.3%
+
+And:
+
+Class Attendance
+
+Ahmed       96%
+Mary        94%
+John        82% ⚠
+Fatuma      98%
+
+This allows the teacher to identify learners who are frequently absent.
+
+5. Academic Performance
+
+The Class Teacher should have access to the academic performance of their entire class.
+
+They should be able to see:
+
+Overall class average
+Subject averages
+Individual learner performance
+Highest-performing learners
+Learners needing attention
+Performance trends
+Examination results
+
+For example:
+
+GRADE 6A
+
+Mathematics       61%
+English           74%
+Science           68%
+Kiswahili         71%
+
+Overall           68.5%
+6. Individual Learner Performance
+
+A parent might come to school and ask:
+
+"How is my child performing?"
+
+The Class Teacher should be able to open the learner's profile and see the academic history.
+
+Ahmed Hassan
+Grade 6A
+
+Term 1
+Mathematics       68%
+English           74%
+Science           71%
+
+Term 2
+Mathematics       73%
+English           79%
+Science           76%
+
+Trend: Improving
+
+The teacher should not necessarily have access to every financial or administrative detail of the learner.
+
+Use permissions to separate those areas.
+
+7. Examination Marks — Grades 1–3
+
+This is where your earlier CBC distinction becomes critical.
+
+For Grades 1, 2 and 3, the Class Teacher teaches the various learning areas.
+
+Therefore:
+
+Grade 2 Teacher
+
+Mathematics       → Teacher enters marks
+English           → Teacher enters marks
+Kiswahili         → Teacher enters marks
+Environmental     → Teacher enters marks
+...
+
+So the Class Teacher becomes responsible for entering the examination marks for their class.
+
+After completing the marks:
+
+Draft
+ ↓
+Submit
+ ↓
+Deputy receives
+ ↓
+Review
+ ↓
+Approved / Correction Requested
+ ↓
+Finalized
+
+The teacher should not be able to modify submitted marks whenever they want.
+
+8. Examination Marks — Grades 4–9
+
+Here the workflow changes.
+
+A Grade 6 Class Teacher might not teach Mathematics.
+
+Instead:
+
+Mathematics Teacher
+       ↓
+Enters Mathematics marks
+       ↓
+Submits
+       ↓
+Class Teacher
+       ↓
+Reviews class performance
+       ↓
+Deputy / DoS
+
+The Class Teacher therefore becomes more of a reviewer/coordinator for their class, rather than the person entering every subject's marks.
+
+9. Correction Requests
+
+This is another important workflow we established.
+
+Suppose the Mathematics teacher submitted:
+
+Ahmed → 46
+
+but realizes it should have been:
+
+Ahmed → 64
+
+The teacher shouldn't simply edit it.
+
+Instead:
+
+Teacher
+   ↓
+Requests correction
+   ↓
+Deputy reviews
+   ↓
+Allows editing
+   ↓
+Teacher edits
+   ↓
+Resubmits
+
+The Class Teacher should be able to see the correction status, but the permission to reopen submitted marks belongs to the Deputy according to the workflow you defined.
+
+10. Class Analysis
+
+The Class Teacher should have a dedicated analysis page.
+
+For example:
+
+CLASS PERFORMANCE
+
+Average: 68.4%
+
+Top 5 Learners
+────────────────
+Ahmed       89%
+Mary        87%
+Fatuma      85%
+...
+
+Subjects Requiring Attention
+────────────────
+Mathematics  57%
+Science      61%
+
+Learners Below Threshold
+────────────────
+7 learners
+
+This is particularly useful for the Class Teacher because they are the person closest to the learners.
+
+11. Parent/Guardian Interaction
+
+The Class Teacher can view relevant parent/guardian contact information.
+
+This could allow them to:
+
+View guardian name.
+View phone number.
+View emergency contact.
+Contact a parent where permitted.
+See relevant communication history.
+
+However, I wouldn't allow teachers to freely send arbitrary SMS messages to all parents.
+
+Give them controlled communication capabilities.
+
+For example:
+
+[Contact Parent]
+
+rather than unrestricted bulk SMS.
+
+12. Subject Teacher
+
+Now we move to the Subject Teacher.
+
+Their dashboard should be completely different.
+
+They should see:
+
+MY SUBJECTS
+
+Mathematics
+
+Assigned Classes:
+├── Grade 4A
+├── Grade 5A
+├── Grade 6A
+└── Grade 7A
+
+Their primary responsibility is:
+
+Teaching and assessing their assigned subject(s) in their assigned classes.
+
+13. Subject Teacher — Academic Work
+
+They should be able to:
+
+View assigned classes.
+View learners in those classes.
+Record assessments.
+Enter examination marks.
+View subject performance.
+View learner performance in their subject.
+Track assessment completion.
+
+For example:
+
+MATHEMATICS
+
+Grade 6A
+
+Ahmed       74
+Mary        81
+John        56
+Fatuma      79
+14. Subject Teacher — Assessment
+
+Don't limit teachers to only final examinations.
+
+You can eventually support:
+
+Assessments
+
+├── CAT
+├── Assignment
+├── Project
+├── Practical
+├── Quiz
+└── Examination
+
+The teacher can create/enter assessments depending on what the school has agreed to support.
+
+However, I'd initially keep the system simpler and establish the school's actual assessment workflow before building every possible assessment type.
+
+15. Subject Performance
+
+The Subject Teacher should be able to see:
+
+Mathematics — Grade 6A
+
+Class Average: 67%
+
+Highest: 91%
+Lowest: 38%
+
+Learners Below Threshold: 8
+
+They can then identify students who need additional support.
+
+16. Subject Teacher vs Class Teacher Permissions
+
+This is where your RBAC becomes important.
+
+Capability	Class Teacher	Subject Teacher
+View assigned class	✅	✅
+Take class attendance	✅	❌
+View class attendance	✅	Limited
+Enter subject marks	Depending on assignment	✅
+Enter all marks Grade 1–3	✅	N/A
+View class performance	✅	❌/Limited
+View own subject performance	✅	✅
+View individual learner performance	✅	Subject only
+Manage learners	Limited	❌
+Contact guardians	Controlled	Controlled
+Submit examination marks	✅	✅
+Reopen submitted marks	❌	❌
+Request correction	✅	✅
+Approve marks	❌	❌
+
+The Deputy controls reopening/correction authorization.
+
+17. Grades 1–3 Need Special Treatment
+
+This is important enough that I'd encode it into your system architecture.
+
+Don't simply say:
+
+Teacher = Class Teacher
+
+Instead, a teacher should have assignments.
+
+For example:
+
+Teacher: Mary
+
+Academic Year: 2026
+
+Class Assignment:
+Grade 2A
+
+Teaching Assignments:
+Grade 2A
+├── Mathematics
+├── English
+├── Kiswahili
+├── ...
+
+Then for Grade 6:
+
+Teacher: Ahmed
+
+Class Assignment:
+Grade 6A
+
+Teaching Assignments:
+Grade 6A → Mathematics
+Grade 7A → Mathematics
+Grade 8A → Mathematics
+
+This makes your system much more flexible.
+
+18. Teacher Dashboard
+
+Rather than creating completely separate applications for each teacher type, I'd dynamically construct the dashboard from their assignments.
+
+For a Grade 2 teacher:
+
+TEACHER DASHBOARD
+
+My Class
+  Grade 2A
+
+Attendance
+  Take Register
+
+Academic
+  Enter Marks
+  Class Performance
+  Learner Performance
+
+My Teaching
+  Mathematics
+  English
+  Kiswahili
+  ...
+
+For a Grade 7 Mathematics teacher:
+
+TEACHER DASHBOARD
+
+My Classes
+  Grade 6A
+  Grade 7A
+  Grade 8A
+
+My Subject
+  Mathematics
+
+Assessments
+  Grade 6A
+  Grade 7A
+  Grade 8A
+
+Performance
+  Grade 6A
+  Grade 7A
+  Grade 8A
+
+That's a much better architecture than creating two completely independent account types.
+
+The overall teacher structure
+
+I would model it like this:
+
+                    TEACHER
+                       │
+            ┌──────────┴──────────┐
+            │                     │
+       CLASS TEACHER         SUBJECT TEACHER
+            │                     │
+            │                     │
+       Owns a class          Teaches a subject
+            │                     │
+            ↓                     ↓
+       Attendance             Assessments
+       Class records           Marks
+       Class analysis          Subject analysis
+       Learner oversight       Assigned classes
+
+And for Grades 1–3:
+
+                 TEACHER
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+     CLASS TEACHER       SUBJECT TEACHER
+          └─────────┬─────────┘
+                    │
+             SAME PERSON
+
+For Grades 4–9:
+
+                 CLASS
+                   │
+          ┌────────┴────────┐
+          │                 │
+    Class Teacher       Subject Teachers
+          │                 │
+     Class oversight    Subject teaching
+     Attendance         Subject marks
+     Analysis           Assessment
+
+That structure is, in my opinion, the cleanest way to represent the CBC teaching model you've described.
+
+Most importantly, don't hard-code "one teacher = one role." A teacher can be a Class Teacher for Grade 6A while simultaneously being a Mathematics Subject Teacher for Grade 7A and Grade 8A. Your assignment model should allow that from the beginning.

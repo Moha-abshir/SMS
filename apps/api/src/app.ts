@@ -6,6 +6,7 @@ import { pinoHttp } from 'pino-http';
 import authRoutes from './modules/auth/auth.routes.js';
 import staffRoutes from './modules/staff/staff.routes.js';
 import subjectsRoutes from './modules/subjects/subjects.routes.js';
+import settingsRoutes from './modules/settings/settings.routes.js';
 
 const app = express();
 
@@ -37,5 +38,6 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/subjects', subjectsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 export default app;

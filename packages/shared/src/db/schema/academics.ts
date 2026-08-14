@@ -2,7 +2,7 @@ import { pgTable, uuid, varchar, text, timestamp, date, integer, decimal, boolea
 import { users } from './users.js';
 import { classes, students, subjects } from './admissions.js';
 
-export const examStatusEnum = pgEnum('exam_status', ['DRAFT', 'MARKS_ENTRY', 'PENDING_DEPUTY_APPROVAL', 'LOCKED']);
+export const examStatusEnum = pgEnum('exam_status', ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'CORRECTION_REQUESTED', 'RESUBMITTED', 'APPROVED', 'LOCKED']);
 export const unlockRequestStatusEnum = pgEnum('unlock_request_status', ['PENDING', 'APPROVED', 'REJECTED']);
 
 export const academicTerms = pgTable('academic_terms', {
@@ -63,6 +63,25 @@ export const examinations = pgTable('examinations', {
   index('examinations_status_idx').on(table.status),
 ]);
 
+export const markSubmissions = pgTable('mark_submissions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
+  classId: uuid('class_id').notNull().references(() => classes.id),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id),
+  teacherId: uuid('teacher_id').notNull().references(() => users.id),
+  status: examStatusEnum('status').default('DRAFT').notNull(),
+  submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'date' }),
+  reviewedById: uuid('reviewed_by_id').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true, mode: 'date' }),
+  correctionReason: text('correction_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('exam_class_subject_sub_uq').on(table.examId, table.classId, table.subjectId),
+  index('mark_submissions_status_idx').on(table.status),
+]);
+
 export const examScores = pgTable('exam_scores', {
   id: uuid('id').defaultRandom().primaryKey(),
   examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
@@ -83,6 +102,40 @@ export const examScores = pgTable('exam_scores', {
   index('exam_scores_student_id_idx').on(table.studentId),
   index('exam_scores_subject_id_idx').on(table.subjectId),
 ]);
+
+export const examSessions = pgTable('exam_sessions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id),
+  sessionDate: date('session_date').notNull(),
+  sessionTime: varchar('session_time', { length: 50 }).notNull(), // e.g. 08:00 - 10:00
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+});
+
+export const invigilatorAllocations = pgTable('invigilator_allocations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  examSessionId: uuid('exam_session_id').notNull().references(() => examSessions.id, { onDelete: 'cascade' }),
+  classId: uuid('class_id').notNull().references(() => classes.id),
+  teacherId: uuid('teacher_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('session_teacher_uq').on(table.examSessionId, table.teacherId),
+]);
+
+export const markingAllocations = pgTable('marking_allocations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id),
+  classId: uuid('class_id').notNull().references(() => classes.id),
+  teacherId: uuid('teacher_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+});
 
 export const reportCardLocks = pgTable('report_card_locks', {
   id: uuid('id').defaultRandom().primaryKey(),
