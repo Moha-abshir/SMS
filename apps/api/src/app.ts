@@ -8,6 +8,7 @@ import staffRoutes from './modules/staff/staff.routes.js';
 import subjectsRoutes from './modules/subjects/subjects.routes.js';
 import settingsRoutes from './modules/settings/settings.routes.js';
 import academicTermsRoutes from './modules/academic-terms/academicTerms.routes.js';
+import feeStructuresRoutes from './modules/fee-structures/feeStructures.routes.js';
 
 const app = express();
 
@@ -41,5 +42,6 @@ app.use('/api/staff', staffRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/academic-terms', academicTermsRoutes);
+app.use('/api/fee-structures', feeStructuresRoutes);
 
 export default app;
