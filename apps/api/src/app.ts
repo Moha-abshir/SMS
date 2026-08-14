@@ -10,6 +10,7 @@ import settingsRoutes from './modules/settings/settings.routes.js';
 import academicTermsRoutes from './modules/academic-terms/academicTerms.routes.js';
 import feeStructuresRoutes from './modules/fee-structures/feeStructures.routes.js';
 import admissionsRoutes from './modules/admissions/admissions.routes.js';
+import officialLettersRoutes from './modules/official-letters/officialLetters.routes.js';
 
 const app = express();
 
@@ -45,5 +46,6 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/academic-terms', academicTermsRoutes);
 app.use('/api/fee-structures', feeStructuresRoutes);
 app.use('/api/admissions', admissionsRoutes);
+app.use('/api/official-letters', officialLettersRoutes);
 
 export default app;

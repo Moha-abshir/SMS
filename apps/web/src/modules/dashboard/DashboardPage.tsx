@@ -6,6 +6,7 @@ import { StaffManagementView } from '../staff/StaffManagementView';
 import { SettingsView } from '../settings/SettingsView';
 import { FeeStructureView } from '../finance/FeeStructureView';
 import { StudentAdmissionView } from '../admissions/StudentAdmissionView';
+import { OfficialLetterView } from '../letters/OfficialLetterView';
 
 interface DashboardPageProps {
   user: any;
@@ -77,6 +78,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
+            {activeView === 'letters' && (
+              <motion.div
+                key="letters"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <OfficialLetterView />
+              </motion.div>
+            )}
+
             {activeView === 'staff' && (
               <motion.div
                 key="staff"
@@ -90,7 +103,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}

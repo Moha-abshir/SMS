@@ -1,6 +1,5 @@
 import { db } from '../../config/db.js';
-import { students, guardians, classes, eq, isNull, desc } from '@school/shared';
-import { ilike, or } from 'drizzle-orm';
+import { students, guardians, classes, eq, isNull, desc, ilike, or } from '@school/shared';
 
 export class AdmissionsService {
   static async searchGuardians(query: string) {
