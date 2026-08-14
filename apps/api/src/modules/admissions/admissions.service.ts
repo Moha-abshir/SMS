@@ -128,7 +128,35 @@ export class AdmissionsService {
     return newStudent;
   }
 
-  static async getStudents(filters?: { classId?: string; status?: string; search?: string }) {
+  static async approveAdmission(studentId: string, approvedById: string) {
+    const [updated] = await db
+      .update(students)
+      .set({
+        status: 'ACTIVE',
+        approvedById,
+        updatedAt: new Date(),
+      })
+      .where(eq(students.id, studentId))
+      .returning();
+
+    return updated;
+  }
+
+  static async transferStudent(studentId: string, reason: string, approvedById: string) {
+    const [updated] = await db
+      .update(students)
+      .set({
+        status: 'TRANSFERRED',
+        approvedById,
+        updatedAt: new Date(),
+      })
+      .where(eq(students.id, studentId))
+      .returning();
+
+    return updated;
+  }
+
+  static async getStudents() {
     return await db.select({
       student: students,
       guardian: guardians,

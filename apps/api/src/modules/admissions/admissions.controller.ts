@@ -38,6 +38,27 @@ export class AdmissionsController {
     }
   }
 
+  static async approveAdmission(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const updated = await AdmissionsService.approveAdmission(id, req.user!.id);
+      return res.status(200).json({ success: true, data: updated, message: 'Student admission approved' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to approve admission' });
+    }
+  }
+
+  static async transferStudent(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const updated = await AdmissionsService.transferStudent(id, reason || 'Transferred to another institution', req.user!.id);
+      return res.status(200).json({ success: true, data: updated, message: 'Student transfer approved and finalized' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to process student transfer' });
+    }
+  }
+
   static async getStudents(req: Request, res: Response) {
     try {
       const studentsList = await AdmissionsService.getStudents();

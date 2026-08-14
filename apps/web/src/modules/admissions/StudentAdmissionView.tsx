@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { UserPlus, Search, UserCheck, ShieldCheck, Plus, CheckCircle, Users } from 'lucide-react';
+import { UserPlus, Search, UserCheck, ShieldCheck, Plus, CheckCircle, Users, ArrowRightLeft, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { Modal } from '../../components/Modal';
 
 interface ClassItem {
   id: string;
@@ -29,6 +30,11 @@ export const StudentAdmissionView: React.FC = () => {
   const [guardianSearchResults, setGuardianSearchResults] = useState<GuardianItem[]>([]);
   const [searchingGuardian, setSearchingGuardian] = useState(false);
   const [selectedGuardian, setSelectedGuardian] = useState<GuardianItem | null>(null);
+
+  // Transfer Modal state
+  const [transferModalStudent, setTransferModalStudent] = useState<any | null>(null);
+  const [transferReason, setTransferReason] = useState('');
+  const [processingAction, setProcessingAction] = useState(false);
 
   const [studentForm, setStudentForm] = useState({
     assessmentNumber: '',
@@ -163,6 +169,37 @@ export const StudentAdmissionView: React.FC = () => {
     }
   };
 
+  const handleApprovePending = async (studentId: string) => {
+    try {
+      setProcessingAction(true);
+      await apiClient.put(`/api/admissions/students/${studentId}/approve`);
+      toast.success('Student admission approved successfully');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to approve admission');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  const handleConfirmTransfer = async () => {
+    if (!transferModalStudent) return;
+    try {
+      setProcessingAction(true);
+      await apiClient.put(`/api/admissions/students/${transferModalStudent.student.id}/transfer`, {
+        reason: transferReason,
+      });
+      toast.success('Student transfer approved and status updated to TRANSFERRED');
+      setTransferModalStudent(null);
+      setTransferReason('');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to process student transfer');
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -187,7 +224,7 @@ export const StudentAdmissionView: React.FC = () => {
           <div>
             <h2 className="text-xl font-bold">Student Admissions & Registration</h2>
             <p className="text-xs text-blue-100 mt-0.5">
-              Admit new learners using KNEC Assessment Number with parent deduplication.
+              Admit new learners using KNEC Assessment Number with parent deduplication and transfer management.
             </p>
           </div>
         </div>
@@ -507,12 +544,13 @@ export const StudentAdmissionView: React.FC = () => {
                 <th className="py-3.5 px-4">Class</th>
                 <th className="py-3.5 px-4">Primary Parent / Phone</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {studentsList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 italic">
+                  <td colSpan={7} className="py-8 text-center text-slate-400 italic">
                     No active students admitted yet. Fill out the form above to register students.
                   </td>
                 </tr>
@@ -534,9 +572,36 @@ export const StudentAdmissionView: React.FC = () => {
                       <p className="text-[10px] text-slate-400">{row.guardian.phoneNumber}</p>
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-[10px] font-extrabold rounded-full">
+                      <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full ${
+                        row.student.status === 'ACTIVE'
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
+                          : row.student.status === 'PENDING'
+                          ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}>
                         {row.student.status}
                       </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {row.student.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleApprovePending(row.student.id)}
+                            disabled={processingAction}
+                            className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" /> Approve
+                          </button>
+                        )}
+                        {row.student.status === 'ACTIVE' && (
+                          <button
+                            onClick={() => setTransferModalStudent(row)}
+                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 hover:text-amber-600 font-bold text-xs rounded-lg flex items-center gap-1 transition-colors"
+                          >
+                            <ArrowRightLeft className="w-3 h-3" /> Transfer
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -545,6 +610,53 @@ export const StudentAdmissionView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Transfer Student Modal */}
+      {transferModalStudent && (
+        <Modal
+          isOpen={!!transferModalStudent}
+          onClose={() => setTransferModalStudent(null)}
+          title={`Transfer Student: ${transferModalStudent.student.firstName} ${transferModalStudent.student.lastName}`}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Confirm transfer of student <strong className="text-slate-900 dark:text-white">{transferModalStudent.student.firstName} {transferModalStudent.student.lastName}</strong> (Assessment No: <span className="font-mono font-bold text-blue-600">{transferModalStudent.student.assessmentNumber}</span>) to another institution.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Reason / Destination School details
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Specify transfer reason or destination school..."
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setTransferModalStudent(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmTransfer}
+                disabled={processingAction}
+                className="px-4 py-2 bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+              >
+                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Confirm Transfer
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </motion.div>
   );
 };
