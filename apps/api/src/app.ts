@@ -20,6 +20,7 @@ import markSubmissionsRoutes from './modules/mark-submissions/markSubmissions.ro
 import examsRoutes from './modules/exams/exams.routes.js';
 import academicAllocationsRoutes from './modules/academic-allocations/academicAllocations.routes.js';
 import reportLocksRoutes from './modules/report-locks/reportLocks.routes.js';
+import dosRoutes from './modules/dos/dos.routes.js';
 
 const app = express();
 
@@ -65,5 +66,6 @@ app.use('/api/mark-submissions', markSubmissionsRoutes);
 app.use('/api/exams', examsRoutes);
 app.use('/api/academic-allocations', academicAllocationsRoutes);
 app.use('/api/report-card-locks', reportLocksRoutes);
+app.use('/api/dos', dosRoutes);
 
 export default app;

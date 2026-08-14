@@ -8,5 +8,6 @@ router.use(authenticate);
 
 router.get('/head-teacher', DashboardController.getHeadTeacherOverview);
 router.get('/deputy', DashboardController.getDeputyOverview);
+router.get('/dos', DashboardController.getDosOverview);
 
 export default router;

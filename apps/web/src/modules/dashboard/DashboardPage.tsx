@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../../components/Sidebar';
 import { OverviewView } from './OverviewView';
 import { DeputyDashboardView } from './DeputyDashboardView';
+import { DosDashboardView } from './DosDashboardView';
 import { StaffManagementView } from '../staff/StaffManagementView';
 import { SettingsView } from '../settings/SettingsView';
 import { FeeStructureView } from '../finance/FeeStructureView';
@@ -17,6 +18,7 @@ import { ExamTimetableView } from '../exams/ExamTimetableView';
 import { InvigilatorAllocationView } from '../exams/InvigilatorAllocationView';
 import { MarkingAllocationView } from '../exams/MarkingAllocationView';
 import { ReportCardLockView } from '../exams/ReportCardLockView';
+import { SubjectPerformanceView } from '../dos/SubjectPerformanceView';
 
 interface DashboardPageProps {
   user: any;
@@ -51,6 +53,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               >
                 {userRole === 'DEPUTY_HEAD_TEACHER' ? (
                   <DeputyDashboardView onNavigate={(viewId) => setActiveView(viewId)} />
+                ) : userRole === 'DOS' ? (
+                  <DosDashboardView onNavigate={(viewId) => setActiveView(viewId)} />
                 ) : (
                   <OverviewView onNavigate={(viewId) => setActiveView(viewId)} />
                 )}
@@ -213,6 +217,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
+            {activeView === 'subject_analytics' && (
+              <motion.div
+                key="subject_analytics"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <SubjectPerformanceView />
+              </motion.div>
+            )}
+
             {activeView === 'staff' && (
               <motion.div
                 key="staff"
@@ -226,7 +242,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'invigilation' && activeView !== 'marking_allocations' && activeView !== 'report_locks' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'invigilation' && activeView !== 'marking_allocations' && activeView !== 'report_locks' && activeView !== 'subject_analytics' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}
@@ -242,7 +258,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                   {activeView.replace('_', ' ')} Module
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-md">
-                  This page route is active in the Sidebar Navigation layout and will be populated as we execute the DoS mini-modules.
+                  This page route is active in the Sidebar Navigation layout and will be populated as we execute the Bursar and Secretary mini-modules.
                 </p>
               </motion.div>
             )}

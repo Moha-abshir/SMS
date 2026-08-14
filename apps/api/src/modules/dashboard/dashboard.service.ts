@@ -10,6 +10,11 @@ import {
   studentBills,
   teacherSubjectAllocations,
   markSubmissions,
+  examinations,
+  examSessions,
+  invigilatorAllocations,
+  markingAllocations,
+  reportCardLocks,
   systemSettings,
   academicTerms,
   eq,
@@ -111,6 +116,26 @@ export class DashboardService {
       activeAllocations: allocationsCount?.total || 0,
       totalMarkSubmissions: submissionsCount?.total || 0,
       approvedMarkSubmissions: approvedCount?.total || 0,
+      schoolName: settings?.schoolName || 'Eldoret Muslim Academy',
+      academicYear: settings?.currentAcademicYear || 2026,
+      currentTermNumber: currentTerm?.termNumber || 1,
+    };
+  }
+
+  static async getDosOverview() {
+    const [examsCount] = await db.select({ total: count() }).from(examinations).where(isNull(examinations.deletedAt));
+    const [invigilationCount] = await db.select({ total: count() }).from(invigilatorAllocations).where(isNull(invigilatorAllocations.deletedAt));
+    const [markingCount] = await db.select({ total: count() }).from(markingAllocations).where(isNull(markingAllocations.deletedAt));
+    const [locksCount] = await db.select({ total: count() }).from(reportCardLocks).where(eq(reportCardLocks.isLocked, false));
+
+    const [settings] = await db.select().from(systemSettings).limit(1);
+    const [currentTerm] = await db.select().from(academicTerms).where(eq(academicTerms.isCurrent, true));
+
+    return {
+      totalExams: examsCount?.total || 0,
+      invigilationsCount: invigilationCount?.total || 0,
+      markingCount: markingCount?.total || 0,
+      releasedReportsCount: locksCount?.total || 0,
       schoolName: settings?.schoolName || 'Eldoret Muslim Academy',
       academicYear: settings?.currentAcademicYear || 2026,
       currentTermNumber: currentTerm?.termNumber || 1,
