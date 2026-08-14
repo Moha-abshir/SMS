@@ -12,6 +12,7 @@ import feeStructuresRoutes from './modules/fee-structures/feeStructures.routes.j
 import admissionsRoutes from './modules/admissions/admissions.routes.js';
 import officialLettersRoutes from './modules/official-letters/officialLetters.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import allocationsRoutes from './modules/allocations/allocations.routes.js';
 
 const app = express();
 
@@ -49,5 +50,6 @@ app.use('/api/fee-structures', feeStructuresRoutes);
 app.use('/api/admissions', admissionsRoutes);
 app.use('/api/official-letters', officialLettersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/allocations', allocationsRoutes);
 
 export default app;
