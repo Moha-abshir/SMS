@@ -38,7 +38,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <OverviewView />
+                <OverviewView onNavigate={(viewId) => setActiveView(viewId)} />
               </motion.div>
             )}
 

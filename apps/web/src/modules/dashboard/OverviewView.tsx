@@ -1,13 +1,66 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, CheckCircle2, BookOpen, Wallet, UserPlus, Plus } from 'lucide-react';
+import { Users, CheckCircle2, BookOpen, Wallet, UserPlus, FileText, Settings, ShieldCheck } from 'lucide-react';
+import { apiClient } from '../../lib/apiClient';
 
 interface OverviewViewProps {
-  onAddLearner?: () => void;
-  onRecordExpense?: () => void;
+  onNavigate?: (viewId: string) => void;
 }
 
-export const OverviewView: React.FC<OverviewViewProps> = ({ onAddLearner, onRecordExpense }) => {
+export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<{
+    totalLearners: number;
+    totalStaff: number;
+    todayAttendancePercentage: number;
+    absentCount: number;
+    totalFeePaid: number;
+    totalFeeBilled: number;
+    totalOutstandingBalance: number;
+    feeCollectionRate: number;
+    schoolName: string;
+    academicYear: number;
+    currentTermNumber: number;
+  }>({
+    totalLearners: 0,
+    totalStaff: 0,
+    todayAttendancePercentage: 98.2,
+    absentCount: 0,
+    totalFeePaid: 0,
+    totalFeeBilled: 0,
+    totalOutstandingBalance: 0,
+    feeCollectionRate: 0,
+    schoolName: 'Eldoret Muslim Academy',
+    academicYear: 2026,
+    currentTermNumber: 1,
+  });
+
+  const fetchOverview = async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get('/api/dashboard/head-teacher');
+      if (res.data.data) {
+        setData(res.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load head teacher overview stats', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOverview();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -15,15 +68,28 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onAddLearner, onReco
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
+      {/* Welcome Banner */}
+      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
+        <div>
+          <div className="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-2">
+            Academic Year {data.academicYear} — Term {data.currentTermNumber} Active
+          </div>
+          <h2 className="text-xl font-bold">{data.schoolName} Executive Dashboard</h2>
+          <p className="text-xs text-blue-100 mt-1">
+            Real-time operational summary of student admissions, attendance, staff, and financial oversight.
+          </p>
+        </div>
+      </div>
+
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:scale-[1.02] transition-transform">
           <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Learners</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Active Learners</span>
             <Users className="w-5 h-5" />
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">482</div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Grades 1–9 & PPE Active</p>
+          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">{data.totalLearners}</div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">PPE, Lower, Upper & JSS</p>
         </div>
 
         <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:scale-[1.02] transition-transform">
@@ -31,49 +97,64 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onAddLearner, onReco
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Today Attendance</span>
             <CheckCircle2 className="w-5 h-5" />
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">96.4%</div>
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">18 Absences Recorded</p>
+          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">{data.todayAttendancePercentage}%</div>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">{data.absentCount} Absences Recorded Today</p>
         </div>
 
         <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:scale-[1.02] transition-transform">
           <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">DoS CAT Progress</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Staff Directory</span>
             <BookOpen className="w-5 h-5" />
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">CAT 2</div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Grade 6 & Grade 9 Candidates</p>
+          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">{data.totalStaff}</div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Teachers & Administrative Staff</p>
         </div>
 
         <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:scale-[1.02] transition-transform">
           <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Term 1 Fee Collections</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Term Fee Collection Rate</span>
             <Wallet className="w-5 h-5" />
           </div>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">84.2%</div>
-          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Cash & M-Pesa Synced</p>
+          <div className="text-3xl font-extrabold text-slate-900 dark:text-white">{data.feeCollectionRate}%</div>
+          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+            KES {data.totalOutstandingBalance.toLocaleString()} Outstanding
+          </p>
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl shadow-xl shadow-blue-600/20">
-        <div>
-          <h3 className="text-lg font-bold">Quick Administrative Actions</h3>
-          <p className="text-xs text-blue-100 mt-1">Admit new learner, post expense voucher, or trigger parent SMS alerts.</p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/* Quick Administrative Shortcuts */}
+      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-blue-600" />
+          Executive Shortcuts & Module Navigation
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
-            onClick={onAddLearner}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold text-xs rounded-xl border border-white/20 flex items-center gap-2 transition-all"
+            onClick={() => onNavigate?.('admissions')}
+            className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
-            <UserPlus className="w-4 h-4" />
-            Unified Admission
+            <UserPlus className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">Admit New Learner</h4>
+            <p className="text-[10px] text-slate-500 mt-0.5">KNEC Assessment Number registration</p>
           </button>
+
           <button
-            onClick={onRecordExpense}
-            className="px-4 py-2.5 bg-white text-blue-600 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
+            onClick={() => onNavigate?.('letters')}
+            className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
-            <Plus className="w-4 h-4" />
-            Record Expense
+            <FileText className="w-6 h-6 text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">Official Letterhead</h4>
+            <p className="text-[10px] text-slate-500 mt-0.5">Draft & print official school letters</p>
+          </button>
+
+          <button
+            onClick={() => onNavigate?.('settings')}
+            className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
+          >
+            <Settings className="w-6 h-6 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white">School Profile Settings</h4>
+            <p className="text-[10px] text-slate-500 mt-0.5">Motto, address & academic terms</p>
           </button>
         </div>
       </div>
