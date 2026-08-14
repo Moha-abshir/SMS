@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { authenticate, authorizePermission } from '../../middleware/auth.js';
+import { ExamsController } from './exams.controller.js';
+
+const router = Router();
+
+router.use(authenticate);
+
+router.get('/', ExamsController.getExams);
+router.post('/', authorizePermission('exams:manage'), ExamsController.createExam);
+router.get('/:id/sessions', ExamsController.getExamSessions);
+router.post('/sessions', authorizePermission('exams:manage'), ExamsController.createExamSession);
+router.delete('/sessions/:id', authorizePermission('exams:manage'), ExamsController.deleteExamSession);
+
+export default router;

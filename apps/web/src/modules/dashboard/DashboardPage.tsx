@@ -13,6 +13,7 @@ import { LeaveManagementView } from '../leave/LeaveManagementView';
 import { InventoryView } from '../inventory/InventoryView';
 import { AttendanceOversightView } from '../attendance/AttendanceOversightView';
 import { MarkReviewView } from '../marks/MarkReviewView';
+import { ExamTimetableView } from '../exams/ExamTimetableView';
 
 interface DashboardPageProps {
   user: any;
@@ -161,6 +162,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
+            {activeView === 'exams' && (
+              <motion.div
+                key="exams"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ExamTimetableView />
+              </motion.div>
+            )}
+
             {activeView === 'staff' && (
               <motion.div
                 key="staff"
@@ -174,7 +187,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}
@@ -190,7 +203,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                   {activeView.replace('_', ' ')} Module
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-md">
-                  This page route is active in the Sidebar Navigation layout and will be populated as we execute the Deputy Head Teacher mini-modules.
+                  This page route is active in the Sidebar Navigation layout and will be populated as we execute the DoS mini-modules.
                 </p>
               </motion.div>
             )}
