@@ -3,7 +3,7 @@ import { markSubmissions, classes, subjects, users, eq, isNull, desc } from '@sc
 
 export class MarkSubmissionsService {
   static async getSubmissions(filterStatus?: string) {
-    const query = db
+    const list = await db
       .select({
         submission: markSubmissions,
         class: classes,
@@ -17,20 +17,20 @@ export class MarkSubmissionsService {
       .from(markSubmissions)
       .innerJoin(classes, eq(markSubmissions.classId, classes.id))
       .innerJoin(subjects, eq(markSubmissions.subjectId, subjects.id))
-      .innerJoin(users, eq(markSubmissions.submittedById, users.id))
+      .innerJoin(users, eq(markSubmissions.teacherId, users.id))
       .where(isNull(markSubmissions.deletedAt))
       .orderBy(desc(markSubmissions.updatedAt));
 
-    return await query;
+    return list;
   }
 
-  static async approveSubmission(id: string, approvedById: string) {
+  static async approveSubmission(id: string, reviewedById: string) {
     const [updated] = await db
       .update(markSubmissions)
       .set({
         status: 'APPROVED',
-        approvedById,
-        approvedAt: new Date(),
+        reviewedById,
+        reviewedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(markSubmissions.id, id))
@@ -44,7 +44,7 @@ export class MarkSubmissionsService {
       .update(markSubmissions)
       .set({
         status: 'CORRECTION_REQUESTED',
-        rejectionReason: reason,
+        correctionReason: reason,
         updatedAt: new Date(),
       })
       .where(eq(markSubmissions.id, id))
@@ -53,13 +53,13 @@ export class MarkSubmissionsService {
     return updated;
   }
 
-  static async lockSubmission(id: string, lockedById: string) {
+  static async lockSubmission(id: string, reviewedById: string) {
     const [updated] = await db
       .update(markSubmissions)
       .set({
         status: 'LOCKED',
-        lockedById,
-        lockedAt: new Date(),
+        reviewedById,
+        reviewedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(markSubmissions.id, id))

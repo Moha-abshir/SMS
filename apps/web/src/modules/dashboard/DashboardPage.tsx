@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../../components/Sidebar';
 import { OverviewView } from './OverviewView';
+import { DeputyDashboardView } from './DeputyDashboardView';
 import { StaffManagementView } from '../staff/StaffManagementView';
 import { SettingsView } from '../settings/SettingsView';
 import { FeeStructureView } from '../finance/FeeStructureView';
@@ -20,6 +21,7 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) => {
   const [activeView, setActiveView] = useState<string>('overview');
+  const userRole = user?.roleName || 'HEAD_TEACHER';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex font-['Plus_Jakarta_Sans',sans-serif]">
@@ -43,7 +45,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <OverviewView onNavigate={(viewId) => setActiveView(viewId)} />
+                {userRole === 'DEPUTY_HEAD_TEACHER' ? (
+                  <DeputyDashboardView onNavigate={(viewId) => setActiveView(viewId)} />
+                ) : (
+                  <OverviewView onNavigate={(viewId) => setActiveView(viewId)} />
+                )}
               </motion.div>
             )}
 

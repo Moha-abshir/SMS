@@ -1,5 +1,22 @@
 import { db } from '../../config/db.js';
-import { students, users, attendanceRecords, attendanceRegisters, feePayments, studentBills, systemSettings, academicTerms, eq, count, isNull, sql } from '@school/shared';
+import {
+  students,
+  users,
+  classes,
+  subjects,
+  attendanceRecords,
+  attendanceRegisters,
+  feePayments,
+  studentBills,
+  teacherSubjectAllocations,
+  markSubmissions,
+  systemSettings,
+  academicTerms,
+  eq,
+  count,
+  isNull,
+  sql,
+} from '@school/shared';
 
 export class DashboardService {
   static async getHeadTeacherOverview() {
@@ -74,6 +91,26 @@ export class DashboardService {
       totalFeeBilled: totalBilled,
       totalOutstandingBalance: totalBalance,
       feeCollectionRate: collectionRate,
+      schoolName: settings?.schoolName || 'Eldoret Muslim Academy',
+      academicYear: settings?.currentAcademicYear || 2026,
+      currentTermNumber: currentTerm?.termNumber || 1,
+    };
+  }
+
+  static async getDeputyOverview() {
+    const [classList] = await db.select({ total: count() }).from(classes).where(isNull(classes.deletedAt));
+    const [allocationsCount] = await db.select({ total: count() }).from(teacherSubjectAllocations).where(isNull(teacherSubjectAllocations.deletedAt));
+    const [submissionsCount] = await db.select({ total: count() }).from(markSubmissions).where(isNull(markSubmissions.deletedAt));
+    const [approvedCount] = await db.select({ total: count() }).from(markSubmissions).where(eq(markSubmissions.status, 'APPROVED'));
+
+    const [settings] = await db.select().from(systemSettings).limit(1);
+    const [currentTerm] = await db.select().from(academicTerms).where(eq(academicTerms.isCurrent, true));
+
+    return {
+      totalClasses: classList?.total || 12,
+      activeAllocations: allocationsCount?.total || 0,
+      totalMarkSubmissions: submissionsCount?.total || 0,
+      approvedMarkSubmissions: approvedCount?.total || 0,
       schoolName: settings?.schoolName || 'Eldoret Muslim Academy',
       academicYear: settings?.currentAcademicYear || 2026,
       currentTermNumber: currentTerm?.termNumber || 1,

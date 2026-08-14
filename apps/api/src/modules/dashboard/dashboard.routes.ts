@@ -7,5 +7,6 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/head-teacher', DashboardController.getHeadTeacherOverview);
+router.get('/deputy', DashboardController.getDeputyOverview);
 
 export default router;
