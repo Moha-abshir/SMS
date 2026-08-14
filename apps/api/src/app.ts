@@ -18,6 +18,7 @@ import inventoryRoutes from './modules/inventory/inventory.routes.js';
 import attendanceRoutes from './modules/attendance/attendance.routes.js';
 import markSubmissionsRoutes from './modules/mark-submissions/markSubmissions.routes.js';
 import examsRoutes from './modules/exams/exams.routes.js';
+import academicAllocationsRoutes from './modules/academic-allocations/academicAllocations.routes.js';
 
 const app = express();
 
@@ -61,5 +62,6 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/mark-submissions', markSubmissionsRoutes);
 app.use('/api/exams', examsRoutes);
+app.use('/api/academic-allocations', academicAllocationsRoutes);
 
 export default app;

@@ -14,6 +14,8 @@ import { InventoryView } from '../inventory/InventoryView';
 import { AttendanceOversightView } from '../attendance/AttendanceOversightView';
 import { MarkReviewView } from '../marks/MarkReviewView';
 import { ExamTimetableView } from '../exams/ExamTimetableView';
+import { InvigilatorAllocationView } from '../exams/InvigilatorAllocationView';
+import { MarkingAllocationView } from '../exams/MarkingAllocationView';
 
 interface DashboardPageProps {
   user: any;
@@ -174,6 +176,30 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
+            {activeView === 'invigilation' && (
+              <motion.div
+                key="invigilation"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <InvigilatorAllocationView />
+              </motion.div>
+            )}
+
+            {activeView === 'marking_allocations' && (
+              <motion.div
+                key="marking_allocations"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <MarkingAllocationView />
+              </motion.div>
+            )}
+
             {activeView === 'staff' && (
               <motion.div
                 key="staff"
@@ -187,7 +213,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'invigilation' && activeView !== 'marking_allocations' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}
