@@ -31,7 +31,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [levelCategory, setLevelCategory] = useState<'PRIMARY' | 'LOWER_PRIMARY' | 'UPPER_PRIMARY' | 'JUNIOR' | 'PPE'>('PRIMARY');
+  const [levelCategory, setLevelCategory] = useState<'PRIMARY' | 'LOWER_PRIMARY' | 'UPPER_PRIMARY' | 'JUNIOR' | 'PPE'>('PPE');
 
   const fetchSubjects = async () => {
     try {
@@ -56,7 +56,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
     setEditingId(null);
     setName('');
     setCode('');
-    setLevelCategory('PRIMARY');
+    setLevelCategory('PPE');
   };
 
   const handleEditClick = (sub: Subject) => {
@@ -107,10 +107,18 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
     }
   };
 
-  // Group subjects by category
-  const primarySubjects = subjects.filter((s) => s.levelCategory === 'PRIMARY' || s.levelCategory === 'LOWER_PRIMARY' || s.levelCategory === 'UPPER_PRIMARY');
-  const juniorSubjects = subjects.filter((s) => s.levelCategory === 'JUNIOR');
+  // Group subjects by 4 distinct official school levels (Top to Bottom order matching school document)
   const ppeSubjects = subjects.filter((s) => s.levelCategory === 'PPE');
+  const lowerPrimarySubjects = subjects.filter((s) => s.levelCategory === 'LOWER_PRIMARY' || s.levelCategory === 'PRIMARY');
+  const upperPrimarySubjects = subjects.filter((s) => s.levelCategory === 'UPPER_PRIMARY');
+  const juniorSubjects = subjects.filter((s) => s.levelCategory === 'JUNIOR');
+
+  const categories = [
+    { title: 'ECDE / Pre-Primary (Playgroup, PP1, PP2)', data: ppeSubjects },
+    { title: 'Lower Primary (Grades 1 – 3)', data: lowerPrimarySubjects },
+    { title: 'Upper Primary (Grades 4 – 6)', data: upperPrimarySubjects },
+    { title: 'Junior Secondary (Grades 7 – 9)', data: juniorSubjects },
+  ];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="School Subject Management" maxWidth="max-w-4xl">
@@ -119,7 +127,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
         <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-2xl flex items-center gap-3 text-xs text-blue-900 dark:text-blue-300">
           <BookOpen className="w-5 h-5 shrink-0 text-blue-600" />
           <p>
-            Manage all subjects taught at Eldoret Muslim Academy. Defined subjects can be assigned to teachers for examination marking, class allocation, and timetable scheduling.
+            Manage all subjects taught at Eldoret Muslim Academy across the 4 school levels. Defined subjects can be assigned to teachers for examination marking, class allocation, and timetable scheduling.
           </p>
         </div>
 
@@ -165,13 +173,12 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
               <select
                 value={levelCategory}
                 onChange={(e) => setLevelCategory(e.target.value as any)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white font-medium"
               >
-                <option value="PRIMARY">Primary (Class 1–6)</option>
-                <option value="LOWER_PRIMARY">Lower Primary (Grades 1–3)</option>
-                <option value="UPPER_PRIMARY">Upper Primary (Grades 4–6)</option>
-                <option value="JUNIOR">Junior Secondary (Grade 7–9)</option>
-                <option value="PPE">Pre-Primary (PPE / Nursery)</option>
+                <option value="PPE">ECDE / Pre-Primary (Playgroup, PP1, PP2)</option>
+                <option value="LOWER_PRIMARY">Lower Primary (Grades 1 – 3)</option>
+                <option value="UPPER_PRIMARY">Upper Primary (Grades 4 – 6)</option>
+                <option value="JUNIOR">Junior Secondary (Grades 7 – 9)</option>
               </select>
             </div>
 
@@ -201,142 +208,55 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
           </div>
         </form>
 
-        {/* Subjects List by Category */}
+        {/* Subjects List by Category (Uniform Blue Scheme, Top-to-Bottom Order) */}
         {loading ? (
           <div className="py-8 text-center text-slate-400">Loading subject catalog...</div>
         ) : (
           <div className="space-y-6 max-h-[450px] overflow-y-auto pr-1">
-            {/* Primary Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5">
-                <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs rounded-lg inline-block">
-                  Primary Level (Class 1–6) ({primarySubjects.length} Subjects)
-                </span>
-              </div>
-              {primarySubjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic px-2">No subjects registered for this level yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {primarySubjects.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-blue-500/50 transition-colors"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <span className="font-bold text-slate-900 dark:text-white block truncate">{sub.name}</span>
-                        <span className="mt-1 inline-block font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
-                          {sub.code}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleEditClick(sub)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Edit Subject"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sub.id, sub.name)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Delete Subject"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            {categories.map((cat, idx) => (
+              <div key={idx} className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5">
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-400 font-extrabold text-xs rounded-lg inline-block border border-blue-200 dark:border-blue-900/40">
+                    {cat.title} ({cat.data.length} Subjects)
+                  </span>
                 </div>
-              )}
-            </div>
-
-            {/* Junior Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5">
-                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 font-extrabold text-xs rounded-lg inline-block">
-                  Junior Secondary (Grade 7–9) ({juniorSubjects.length} Subjects)
-                </span>
+                {cat.data.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic px-2">No subjects registered for this level yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {cat.data.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-blue-500/50 transition-colors"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-bold text-slate-900 dark:text-white block truncate">{sub.name}</span>
+                          <span className="mt-1 inline-block font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
+                            {sub.code}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleEditClick(sub)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Edit Subject"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(sub.id, sub.name)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            title="Delete Subject"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              {juniorSubjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic px-2">No subjects registered for this level yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {juniorSubjects.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-blue-500/50 transition-colors"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <span className="font-bold text-slate-900 dark:text-white block truncate">{sub.name}</span>
-                        <span className="mt-1 inline-block font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
-                          {sub.code}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleEditClick(sub)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Edit Subject"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sub.id, sub.name)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Delete Subject"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* PPE Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5">
-                <span className="px-3 py-1 bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 font-extrabold text-xs rounded-lg inline-block">
-                  PPE (Pre-Primary / Nursery) ({ppeSubjects.length} Subjects)
-                </span>
-              </div>
-              {ppeSubjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic px-2">No subjects registered for this level yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {ppeSubjects.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-blue-500/50 transition-colors"
-                    >
-                      <div className="min-w-0 pr-2">
-                        <span className="font-bold text-slate-900 dark:text-white block truncate">{sub.name}</span>
-                        <span className="mt-1 inline-block font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
-                          {sub.code}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleEditClick(sub)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Edit Subject"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(sub.id, sub.name)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                          title="Delete Subject"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            ))}
           </div>
         )}
       </div>
