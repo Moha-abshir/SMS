@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { sanitizeErrorMessage } from './formatters';
 
 let apiUrl = import.meta.env.VITE_API_URL || '';
 if (apiUrl && !apiUrl.startsWith('http')) apiUrl = `https://${apiUrl}`;
@@ -18,10 +19,17 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/';
+    if (error.response) {
+      if (error.response.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        window.location.href = '/';
+      }
+
+      // Sanitize raw SQL/DB traceback messages if present in server response
+      if (error.response.data && typeof error.response.data.message === 'string') {
+        error.response.data.message = sanitizeErrorMessage(error.response.data.message);
+      }
     }
     return Promise.reject(error);
   }
