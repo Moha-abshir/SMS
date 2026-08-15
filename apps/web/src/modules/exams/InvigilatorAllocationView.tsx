@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { UserCheck, Plus, Trash2, ShieldCheck, Clock, BookOpen } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
 
 export const InvigilatorAllocationView: React.FC = () => {
@@ -158,7 +159,7 @@ export const InvigilatorAllocationView: React.FC = () => {
                 invigilators.map((row) => (
                   <tr key={row.allocation.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                      {new Date(row.session.sessionDate).toLocaleDateString()} — <span className="font-mono text-blue-600">{row.session.sessionTime}</span>
+                      <span className="font-mono">{formatDate(row.session.sessionDate)}</span> — <span className="font-mono text-blue-600">{row.session.sessionTime}</span>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">
                       {row.class.name}
@@ -217,7 +218,7 @@ export const InvigilatorAllocationView: React.FC = () => {
               <option value="">-- Select Paper Session Slot --</option>
               {sessionsList.map((s) => (
                 <option key={s.session.id} value={s.session.id}>
-                  {s.subject.name} — {new Date(s.session.sessionDate).toLocaleDateString()} ({s.session.sessionTime})
+                  {s.subject.name} — {formatDate(s.session.sessionDate)} ({s.session.sessionTime})
                 </option>
               ))}
             </select>

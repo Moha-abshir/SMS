@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { School, Save, Building, Phone, Mail, MapPin, Calendar, Bell, Plus, CheckCircle, Trash2, Upload, Image } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
 
 export const SettingsView: React.FC = () => {
@@ -420,8 +421,8 @@ export const SettingsView: React.FC = () => {
                 <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
                   <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">{t.year}</td>
                   <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">Term {t.termNumber}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{new Date(t.startDate).toLocaleDateString()}</td>
-                  <td className="py-3.5 px-4 text-slate-500">{new Date(t.endDate).toLocaleDateString()}</td>
+                  <td className="py-3.5 px-4 text-slate-500 font-mono font-medium">{formatDate(t.startDate)}</td>
+                  <td className="py-3.5 px-4 text-slate-500 font-mono font-medium">{formatDate(t.endDate)}</td>
                   <td className="py-3.5 px-4 text-center">
                     {t.isCurrent ? (
                       <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-extrabold text-[10px] rounded-full inline-flex items-center gap-1">

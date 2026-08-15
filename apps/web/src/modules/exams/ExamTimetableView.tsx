@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Plus, Printer, Clock, BookOpen, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
 
 export const ExamTimetableView: React.FC = () => {
@@ -237,8 +238,8 @@ export const ExamTimetableView: React.FC = () => {
                 ) : (
                   sessions.map((row) => (
                     <tr key={row.session.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                        {new Date(row.session.sessionDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white font-mono">
+                        {formatDate(row.session.sessionDate)}
                       </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                         {row.session.sessionTime}
@@ -282,7 +283,7 @@ export const ExamTimetableView: React.FC = () => {
               <option value="">-- Select Term --</option>
               {terms.map((t) => (
                 <option key={t.id} value={t.id}>
-                  Year {t.year} — Term {t.termNumber} ({new Date(t.startDate).toLocaleDateString()} to {new Date(t.endDate).toLocaleDateString()})
+                  Year {t.year} — Term {t.termNumber} ({formatDate(t.startDate)} to {formatDate(t.endDate)})
                 </option>
               ))}
             </select>

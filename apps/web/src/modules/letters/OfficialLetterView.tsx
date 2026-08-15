@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { FileText, Printer, Plus, Trash2, Eye, School } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
 
 interface LetterItem {
@@ -151,8 +152,8 @@ export const OfficialLetterView: React.FC = () => {
               ) : (
                 letters.map((letItem) => (
                   <tr key={letItem.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-slate-500">
-                      {new Date(letItem.letterDate).toLocaleDateString()}
+                    <td className="py-3.5 px-4 font-semibold text-slate-500 font-mono">
+                      {formatDate(letItem.letterDate)}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
                       {letItem.title}
@@ -314,7 +315,7 @@ export const OfficialLetterView: React.FC = () => {
                   {printModalData.letter.recipientAddress && <p>{printModalData.letter.recipientAddress}</p>}
                 </div>
                 <div className="text-right">
-                  <p><span className="font-bold">Date:</span> {new Date(printModalData.letter.letterDate).toLocaleDateString()}</p>
+                  <p><span className="font-bold">Date:</span> {formatDate(printModalData.letter.letterDate)}</p>
                   <p><span className="font-bold">Ref:</span> EMA/HT/{printModalData.letter.id.substring(0, 6).toUpperCase()}</p>
                 </div>
               </div>
