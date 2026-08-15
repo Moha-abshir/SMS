@@ -117,6 +117,13 @@ export const SettingsView: React.FC = () => {
       await apiClient.post('/api/academic-terms', termForm);
       toast.success('Academic term created successfully');
       setShowTermModal(false);
+      setTermForm({
+        year: 2026,
+        termNumber: 1,
+        startDate: '',
+        endDate: '',
+        isCurrent: false,
+      });
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to create term');
