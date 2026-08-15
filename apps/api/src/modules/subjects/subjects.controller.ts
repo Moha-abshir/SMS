@@ -7,7 +7,7 @@ export class SubjectsController {
       const subjectsList = await SubjectsService.getAllSubjects();
       res.json({ success: true, data: subjectsList });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message || 'Failed to fetch subjects' });
+      res.status(500).json({ success: false, message: 'Failed to fetch subjects directory' });
     }
   }
 
@@ -15,16 +15,17 @@ export class SubjectsController {
     try {
       const { name, code, levelCategory } = req.body;
       if (!name || !code || !levelCategory) {
-        return res.status(400).json({ success: false, message: 'Name, code, and levelCategory are required' });
+        return res.status(400).json({ success: false, message: 'Subject name, code, and level category are required' });
       }
 
       const newSubject = await SubjectsService.createSubject({ name, code, levelCategory });
-      res.status(201).json({ success: true, message: 'Subject created successfully', data: newSubject });
+      res.status(201).json({ success: true, message: 'Subject registered successfully', data: newSubject });
     } catch (error: any) {
-      if (error.code === '23505') { // Postgres unique constraint violation
-        return res.status(409).json({ success: false, message: 'A subject with this code already exists' });
+      const message = error.message || '';
+      if (message.includes('already exists') || error.code === '23505') {
+        return res.status(409).json({ success: false, message: message || 'A subject with this code already exists' });
       }
-      res.status(500).json({ success: false, message: error.message || 'Failed to create subject' });
+      res.status(400).json({ success: false, message: 'Failed to register subject. Please verify inputs.' });
     }
   }
 
@@ -36,7 +37,7 @@ export class SubjectsController {
       const updated = await SubjectsService.updateSubject(id, { name, code, levelCategory });
       res.json({ success: true, message: 'Subject updated successfully', data: updated });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message || 'Failed to update subject' });
+      res.status(400).json({ success: false, message: 'Failed to update subject' });
     }
   }
 
@@ -46,7 +47,7 @@ export class SubjectsController {
       await SubjectsService.deleteSubject(id);
       res.json({ success: true, message: 'Subject deleted successfully' });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message || 'Failed to delete subject' });
+      res.status(400).json({ success: false, message: 'Failed to delete subject' });
     }
   }
 }
