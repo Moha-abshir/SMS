@@ -76,15 +76,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md overflow-hidden p-0.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden p-1 shadow-sm shrink-0">
               {logoUrl ? (
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
               ) : (
-                <School className="w-4 h-4" />
+                <School className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               )}
             </div>
-            <span className="text-sm font-bold text-slate-900 dark:text-white">{schoolName}</span>
+            <div>
+              <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight">{schoolName}</span>
+              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold block">Staff Portal</span>
+            </div>
           </div>
         </div>
         <ThemeToggle />
@@ -108,11 +111,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
         <div>
           <div className="p-4 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-9 h-9 shrink-0 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20 overflow-hidden p-1">
+              <div className="w-11 h-11 shrink-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden p-1 shadow-sm">
                 {logoUrl ? (
                   <img src={logoUrl} alt="School Logo" className="w-full h-full object-contain" />
                 ) : (
-                  <School className="w-5 h-5" />
+                  <School className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 )}
               </div>
               {(!collapsed || mobileOpen) && (
@@ -121,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
                     {schoolName}
                   </h2>
                   <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold block">
-                    SMS Portal
+                    Staff Portal
                   </span>
                 </div>
               )}
