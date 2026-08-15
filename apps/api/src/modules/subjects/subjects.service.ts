@@ -56,6 +56,24 @@ export class SubjectsService {
     return newSubject;
   }
 
+  static async createBulkSubjects(items: Array<{ name: string; code: string; levelCategory: 'PRIMARY' | 'LOWER_PRIMARY' | 'UPPER_PRIMARY' | 'JUNIOR' | 'PPE' }>) {
+    const results: any[] = [];
+    let addedCount = 0;
+
+    for (const item of items) {
+      if (!item.name?.trim() || !item.code?.trim() || !item.levelCategory) continue;
+      try {
+        const created = await this.createSubject(item);
+        results.push(created);
+        addedCount++;
+      } catch (err) {
+        // Skip duplicate codes during bulk operation without failing entire batch
+      }
+    }
+
+    return { addedCount, subjects: results };
+  }
+
   static async updateSubject(id: string, data: { name?: string; code?: string; levelCategory?: 'PRIMARY' | 'LOWER_PRIMARY' | 'UPPER_PRIMARY' | 'JUNIOR' | 'PPE' }) {
     const updatePayload: any = { updatedAt: new Date() };
     if (data.name) updatePayload.name = data.name.trim();

@@ -13,6 +13,17 @@ export class SubjectsController {
 
   static async createSubject(req: Request, res: Response) {
     try {
+      if (Array.isArray(req.body.subjects)) {
+        // Bulk insertion mode
+        const { addedCount, subjects: createdSubjects } = await SubjectsService.createBulkSubjects(req.body.subjects);
+        return res.status(201).json({
+          success: true,
+          message: `Successfully registered ${addedCount} subject(s)`,
+          data: createdSubjects,
+          addedCount,
+        });
+      }
+
       const { name, code, levelCategory } = req.body;
       if (!name || !code || !levelCategory) {
         return res.status(400).json({ success: false, message: 'Subject name, code, and level category are required' });
