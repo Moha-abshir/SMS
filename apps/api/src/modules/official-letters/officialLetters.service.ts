@@ -42,11 +42,11 @@ export class OfficialLettersService {
       settings: settings || {
         schoolName: 'Eldoret Muslim Academy',
         schoolMotto: 'Excellence in Knowledge & Virtue',
-        contactPhone: '+254 700 000 000',
-        contactEmail: 'info@eldoretmuslimacademy.ac.ke',
-        address: 'Kisumu Road, Eldoret',
-        poBox: 'P.O. Box 1234 - 30100, Eldoret',
-        county: 'Uasin Gishu',
+        contactPhone: '+254 714731331',
+        contactEmail: 'eldoretmuslimacademy@gmail.com',
+        address: 'Eldoret-Kitale Road near Tawakkal Mosque',
+        poBox: 'P.O. Box 7768 – 30100, Eldoret',
+        county: 'Eldoret, Uasin Gishu',
       },
     };
   }

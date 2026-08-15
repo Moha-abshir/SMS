@@ -283,28 +283,31 @@ export const OfficialLetterView: React.FC = () => {
             {/* A4 Letter Canvas */}
             <div className="p-8 bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-lg max-w-2xl mx-auto space-y-6 print:shadow-none print:border-0 print:p-0">
               {/* Header Letterhead */}
-              <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-                <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center gap-5 border-b-2 border-slate-900 pb-4 text-left">
+                <div className="w-20 h-20 shrink-0 flex items-center justify-center">
                   {printModalData.settings.logoUrl ? (
-                    <img src={printModalData.settings.logoUrl} alt="Logo" className="w-14 h-14 object-contain" />
+                    <img src={printModalData.settings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                   ) : (
-                    <School className="w-10 h-10 text-blue-700" />
+                    <School className="w-12 h-12 text-blue-700" />
                   )}
-                  <div className="text-left">
-                    <h1 className="text-xl font-extrabold uppercase tracking-wide text-slate-900">
-                      {printModalData.settings.schoolName || 'ELDORET MUSLIM ACADEMY'}
-                    </h1>
-                    <p className="text-xs font-semibold italic text-slate-600">
-                      "{printModalData.settings.schoolMotto || 'Excellence in Knowledge & Virtue'}"
-                    </p>
-                  </div>
                 </div>
-                <p className="text-[11px] text-slate-600 pt-1">
-                  {printModalData.settings.poBox || 'P.O. Box 1234 - 30100, Eldoret'} | {printModalData.settings.county || 'Uasin Gishu County'}
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  Phone: {printModalData.settings.contactPhone || '+254 700 000 000'} | Email: {printModalData.settings.contactEmail}
-                </p>
+                <div className="flex-1">
+                  <h1 className="text-xl font-extrabold uppercase tracking-wide text-slate-900">
+                    {printModalData.settings.schoolName || 'ELDORET MUSLIM ACADEMY'}
+                  </h1>
+                  {printModalData.settings.schoolMotto && (
+                    <p className="text-xs font-semibold italic text-slate-600">
+                      "{printModalData.settings.schoolMotto}"
+                    </p>
+                  )}
+                  <p className="text-[11px] text-slate-600 pt-1">
+                    {printModalData.settings.poBox ? printModalData.settings.poBox : 'P.O. Box 7768 – 30100, Eldoret'}
+                    {printModalData.settings.county ? ` | ${printModalData.settings.county}` : ' | Eldoret, Uasin Gishu'}
+                  </p>
+                  <p className="text-[11px] text-slate-600">
+                    Tel: {printModalData.settings.contactPhone || '+254 714731331'} | Email: {printModalData.settings.contactEmail || 'eldoretmuslimacademy@gmail.com'}
+                  </p>
+                </div>
               </div>
 
               {/* Date & Recipient */}
@@ -336,7 +339,7 @@ export const OfficialLetterView: React.FC = () => {
                   <p>Yours faithfully,</p>
                   <div className="h-12 border-b border-dashed border-slate-300 w-48 mt-2" />
                   <p className="font-bold mt-2">Headteacher</p>
-                  <p className="text-slate-600">{printModalData.settings.schoolName}</p>
+                  <p className="text-slate-600">{printModalData.settings.schoolName || 'Eldoret Muslim Academy'}</p>
                 </div>
               </div>
             </div>

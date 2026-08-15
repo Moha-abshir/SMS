@@ -21,6 +21,11 @@ export class SettingsController {
           schoolName: settings.schoolName,
           schoolMotto: settings.schoolMotto,
           logoUrl: settings.logoUrl,
+          contactPhone: settings.contactPhone,
+          contactEmail: settings.contactEmail,
+          address: settings.address,
+          poBox: settings.poBox,
+          county: settings.county,
           currentAcademicYear: settings.currentAcademicYear,
         },
       });

@@ -38,11 +38,11 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
   const [schoolSettings, setSchoolSettings] = useState<any>({
     schoolName: 'ELDORET MUSLIM ACADEMY',
     schoolMotto: 'Excellence in Knowledge & Virtue',
-    poBox: 'P.O. Box 1234 - 30100, Eldoret',
-    county: 'Uasin Gishu County',
-    contactPhone: '+254 700 000 000',
-    contactEmail: 'info@eldoretmuslimacademy.ac.ke',
-    address: 'Kisumu Road, Eldoret',
+    poBox: 'P.O. Box 7768 – 30100, Eldoret',
+    county: 'Eldoret, Uasin Gishu',
+    contactPhone: '+254 714731331',
+    contactEmail: 'eldoretmuslimacademy@gmail.com',
+    address: 'Eldoret-Kitale Road near Tawakkal Mosque',
     logoUrl: null,
   });
 
@@ -180,7 +180,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
 
             <div className="p-3 bg-blue-600/10 border border-blue-500/15 rounded-xl">
               <p className="text-[11px] text-blue-300/80 leading-relaxed">
-                💡 All fields are pre-filled from the staff record. Changes here update the preview instantly.
+                💡 All fields are pre-filled from the staff record and live school settings. Changes update the preview instantly.
               </p>
             </div>
           </div>
@@ -232,37 +232,41 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                   padding: '45px 50px',
                 }}
               >
-                {/* Official Letterhead Header with Logo on Left */}
+                {/* Official Letterhead Header with Logo on Left & Dynamic Details */}
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justify: 'flex-start',
                     borderBottom: '2.5px solid #000',
                     paddingBottom: '12px',
                     marginBottom: '18px',
+                    gap: '20px',
                   }}
                 >
-                  <div style={{ width: '80px', height: '80px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '85px', height: '85px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {schoolSettings.logoUrl ? (
                       <img src={schoolSettings.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     ) : (
-                      <School style={{ width: '50px', height: '50px', color: '#1e3a8a' }} />
+                      <School style={{ width: '55px', height: '55px', color: '#1e3a8a' }} />
                     )}
                   </div>
 
-                  <div style={{ flex: 1, paddingLeft: '18px', textAlign: 'left' }}>
-                    <h1 style={{ fontSize: '18px', fontWeight: '900', textTransform: 'uppercase', margin: 0, color: '#000', letterSpacing: '0.5px' }}>
-                      {schoolSettings.schoolName}
+                  <div style={{ flex: 1, textAlign: 'left' }}>
+                    <h1 style={{ fontSize: '18px', fontWeight: '900', textTransform: 'uppercase', margin: 0, color: '#000', letterSpacing: '0.5px', fontFamily: "'Times New Roman', Times, serif" }}>
+                      {schoolSettings.schoolName || 'ELDORET MUSLIM ACADEMY'}
                     </h1>
-                    <p style={{ fontSize: '12px', fontStyle: 'italic', margin: '2px 0 4px 0', fontWeight: 'bold', color: '#334155' }}>
-                      "{schoolSettings.schoolMotto}"
+                    {schoolSettings.schoolMotto && (
+                      <p style={{ fontSize: '12px', fontStyle: 'italic', margin: '2px 0 4px 0', fontWeight: 'bold', color: '#334155' }}>
+                        "{schoolSettings.schoolMotto}"
+                      </p>
+                    )}
+                    <p style={{ fontSize: '11px', margin: '1px 0', color: '#475569' }}>
+                      {schoolSettings.poBox ? schoolSettings.poBox : 'P.O. Box 7768 – 30100, Eldoret'}
+                      {schoolSettings.county ? ` | ${schoolSettings.county}` : ' | Eldoret, Uasin Gishu'}
                     </p>
-                    <p style={{ fontSize: '11px', margin: 0, color: '#475569' }}>
-                      {schoolSettings.poBox} | {schoolSettings.county}
-                    </p>
-                    <p style={{ fontSize: '11px', margin: 0, color: '#475569' }}>
-                      Tel: {schoolSettings.contactPhone} | Email: {schoolSettings.contactEmail}
+                    <p style={{ fontSize: '11px', margin: '1px 0', color: '#475569' }}>
+                      Tel: {schoolSettings.contactPhone || '+254 714731331'} | Email: {schoolSettings.contactEmail || 'eldoretmuslimacademy@gmail.com'}
                     </p>
                   </div>
                 </div>
@@ -278,7 +282,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                 <div style={{ marginBottom: '14px' }}>
                   <p style={{ marginBottom: '8px' }}>
                     This employment contract is made on this <u><b>{contractDate}</b></u>{' '}
-                    Between <b>{schoolSettings.schoolName}</b> located at {schoolSettings.address || 'Eldoret'}.
+                    Between <b>{schoolSettings.schoolName || 'ELDORET MUSLIM ACADEMY'}</b> located at {schoolSettings.address || 'Eldoret-Kitale Road near Tawakkal Mosque'}.
                   </p>
                   <p style={{ marginBottom: '8px' }}><b>AND</b></p>
                   <p>
@@ -410,7 +414,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                     <p style={{ borderTop: '1px solid #000', paddingTop: '4px', fontWeight: 'bold' }}>
                       Headteacher / Authorized Signatory
                     </p>
-                    <p style={{ margin: 0, color: '#475569' }}>{schoolSettings.schoolName}</p>
+                    <p style={{ margin: 0, color: '#475569' }}>{schoolSettings.schoolName || 'ELDORET MUSLIM ACADEMY'}</p>
                     <p style={{ margin: 0, color: '#475569' }}>Date: {contractDate}</p>
                   </div>
 
