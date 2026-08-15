@@ -16,7 +16,6 @@ interface GuardianItem {
   fullName: string;
   phoneNumber: string;
   idNumber: string;
-  email?: string;
   address?: string;
 }
 
@@ -51,7 +50,6 @@ export const StudentAdmissionView: React.FC = () => {
     fullName: '',
     phoneNumber: '',
     idNumber: '',
-    email: '',
     address: '',
     emergencyContact: '',
     relationship: 'Father',
@@ -108,7 +106,6 @@ export const StudentAdmissionView: React.FC = () => {
       fullName: guardian.fullName,
       phoneNumber: guardian.phoneNumber,
       idNumber: guardian.idNumber,
-      email: guardian.email || '',
       address: guardian.address || '',
       emergencyContact: '',
       relationship: 'Parent',
@@ -123,7 +120,6 @@ export const StudentAdmissionView: React.FC = () => {
       fullName: '',
       phoneNumber: '',
       idNumber: '',
-      email: '',
       address: '',
       emergencyContact: '',
       relationship: 'Father',
@@ -467,18 +463,6 @@ export const StudentAdmissionView: React.FC = () => {
                   placeholder="e.g. +254 712 345678"
                   value={guardianForm.phoneNumber}
                   onChange={(e) => setGuardianForm({ ...guardianForm, phoneNumber: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={guardianForm.email}
-                  onChange={(e) => setGuardianForm({ ...guardianForm, email: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                 />
               </div>

@@ -64,7 +64,6 @@ export class AdmissionsService {
       fullName?: string;
       phoneNumber?: string;
       idNumber?: string;
-      email?: string;
       address?: string;
       emergencyContact?: string;
       relationship?: string;
@@ -95,7 +94,6 @@ export class AdmissionsService {
             fullName: guardianData.fullName.trim(),
             phoneNumber: guardianData.phoneNumber.trim(),
             idNumber: guardianData.idNumber.trim(),
-            email: guardianData.email?.trim(),
             address: guardianData.address?.trim(),
             emergencyContact: guardianData.emergencyContact?.trim(),
             relationship: guardianData.relationship?.trim() || 'Parent/Guardian',

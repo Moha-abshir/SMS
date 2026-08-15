@@ -20,6 +20,19 @@ export const academicTerms = pgTable('academic_terms', {
   index('academic_terms_is_current_idx').on(table.isCurrent),
 ]);
 
+export const teacherSubjectAllocations = pgTable('teacher_subject_allocations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  academicYear: integer('academic_year').notNull(),
+  classId: uuid('class_id').notNull().references(() => classes.id),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id),
+  teacherId: uuid('teacher_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('year_class_subject_teacher_uq').on(table.academicYear, table.classId, table.subjectId, table.teacherId),
+]);
+
 export const catAssessments = pgTable('cat_assessments', {
   id: uuid('id').defaultRandom().primaryKey(),
   termId: uuid('term_id').notNull().references(() => academicTerms.id),

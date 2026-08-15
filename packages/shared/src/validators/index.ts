@@ -15,7 +15,6 @@ export const admissionSchema = z.object({
     fullName: z.string().min(2, 'Parent full name is required'),
     phoneNumber: z.string().min(10, 'Valid phone number is required'),
     idNumber: z.string().min(5, 'National ID number is required'),
-    email: z.string().email('Invalid email address').optional().or(z.literal('')),
   }),
   student: z.object({
     firstName: z.string().min(2, 'First name is required'),
@@ -59,7 +58,8 @@ export const expenseSchema = z.object({
   title: z.string().min(3, 'Title is required'),
   description: z.string().optional(),
   amount: z.number().positive('Expense amount must be positive'),
-  vendorName: z.string().optional(),
-  receiptUrl: z.string().url().optional().or(z.literal('')),
+  paymentMethod: z.enum(['CASH', 'BANK_TRANSFER', 'CHEQUE', 'MPESA']),
+  receiptRefNumber: z.string().optional(),
   expenseDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Invalid date' }),
+  approvedById: z.string().uuid().optional(),
 });
