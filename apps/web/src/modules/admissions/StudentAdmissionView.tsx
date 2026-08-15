@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { UserPlus, Search, UserCheck, ShieldCheck, Plus, CheckCircle, Users, ArrowRightLeft, Check } from 'lucide-react';
+import {
+  UserPlus,
+  Search,
+  UserCheck,
+  ShieldCheck,
+  Plus,
+  CheckCircle,
+  Users,
+  ArrowRightLeft,
+  Check,
+  GraduationCap,
+  ArrowLeft,
+  ChevronRight,
+  Filter,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -23,6 +37,10 @@ export const StudentAdmissionView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [classesList, setClassesList] = useState<ClassItem[]>([]);
   const [studentsList, setStudentsList] = useState<any[]>([]);
+
+  // Active Roster state: null = show all grade cards; string = specific class ID
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [rosterSearchQuery, setRosterSearchQuery] = useState('');
 
   // Guardian Autocomplete state
   const [guardianQuery, setGuardianQuery] = useState('');
@@ -68,7 +86,7 @@ export const StudentAdmissionView: React.FC = () => {
       if (clsRes.data.data) setClassesList(clsRes.data.data);
       if (stdRes.data.data) setStudentsList(stdRes.data.data);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load admissions data');
+      toast.error('Failed to fetch admissions directory');
     } finally {
       setLoading(false);
     }
@@ -185,7 +203,7 @@ export const StudentAdmissionView: React.FC = () => {
       await apiClient.put(`/api/admissions/students/${transferModalStudent.student.id}/transfer`, {
         reason: transferReason,
       });
-      toast.success('Student transfer approved and status updated to TRANSFERRED');
+      toast.success('Student transfer recorded successfully');
       setTransferModalStudent(null);
       setTransferReason('');
       fetchData();
@@ -196,46 +214,80 @@ export const StudentAdmissionView: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // Helper: Format Level Category tag text
+  const formatLevelTag = (cat: string) => {
+    switch (cat) {
+      case 'PPE':
+        return 'ECDE / Pre-Primary';
+      case 'LOWER_PRIMARY':
+        return 'Lower Primary (1–3)';
+      case 'UPPER_PRIMARY':
+        return 'Upper Primary (4–6)';
+      case 'JUNIOR':
+        return 'Junior Sec (7–9)';
+      default:
+        return cat;
+    }
+  };
+
+  // Get selected class details and students for drill-down
+  const selectedClass = classesList.find((c) => c.id === selectedClassId);
+  const classStudents = selectedClassId
+    ? studentsList.filter((s) => s.class.id === selectedClassId)
+    : [];
+
+  const filteredClassStudents = classStudents.filter((row) => {
+    if (!rosterSearchQuery.trim()) return true;
+    const q = rosterSearchQuery.toLowerCase();
+    const fullName = `${row.student.firstName} ${row.student.middleName || ''} ${row.student.lastName}`.toLowerCase();
+    const knec = (row.student.assessmentNumber || '').toLowerCase();
+    const parent = (row.guardian.fullName || '').toLowerCase();
+    return fullName.includes(q) || knec.includes(q) || parent.includes(q);
+  });
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-5xl mx-auto"
+      transition={{ duration: 0.3 }}
+      className="space-y-6"
     >
       {/* Header Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-            <UserPlus className="w-6 h-6 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+        <div>
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <UserPlus className="w-4 h-4" />
+            Admissions & Student Information System
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Student Admissions & Registration</h2>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Admit new learners using KNEC Assessment Number with parent deduplication and transfer management.
-            </p>
+          <h2 className="text-xl sm:text-2xl font-black text-white">Learner Enrolment & Class Directory</h2>
+          <p className="text-xs text-slate-300 mt-1">
+            Register new learners with KNEC Assessment numbers, manage class placements, and audit class rosters.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-white/10 shrink-0">
+          <div className="text-right">
+            <span className="text-2xl font-black text-blue-400 block leading-none">{studentsList.length}</span>
+            <span className="text-[11px] text-slate-400 font-semibold uppercase">Total Learners</span>
+          </div>
+          <div className="h-8 w-px bg-white/10" />
+          <div className="text-right">
+            <span className="text-2xl font-black text-emerald-400 block leading-none">{classesList.length}</span>
+            <span className="text-[11px] text-slate-400 font-semibold uppercase">Active Classes</span>
           </div>
         </div>
       </div>
 
-      {/* Unified Admission Form */}
+      {/* Student Admission Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Student Profile Info */}
+        {/* Section 1: Learner Basic Details */}
         <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-blue-600" />
-            1. Student Academic Details
+            <GraduationCap className="w-4 h-4 text-blue-600" />
+            1. Learner Profile & KNEC Assessment Record
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 KNEC Assessment Number *
@@ -349,7 +401,7 @@ export const StudentAdmissionView: React.FC = () => {
           </div>
         </div>
 
-        {/* Parent / Guardian Info with Keystroke Deduplication Autocomplete */}
+        {/* Section 2: Parent / Guardian Info with Keystroke Deduplication */}
         <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
@@ -511,88 +563,184 @@ export const StudentAdmissionView: React.FC = () => {
         </div>
       </form>
 
-      {/* Active Student Roster Directory Table */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-          <Users className="w-4 h-4 text-blue-600" />
-          Active School Roster ({studentsList.length} Admitted Learners)
-        </h3>
+      {/* ACTIVE SCHOOL ROSTER SECTION */}
+      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-5 shadow-sm">
+        {selectedClassId === null ? (
+          /* LEVEL 1: GRADE CARDS DIRECTORY OVERVIEW */
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-4.5 h-4.5 text-blue-600" />
+                  Active School Roster ({classesList.length} Classes — {studentsList.length} Learners Enrolled)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Select a grade card below to view enrolled learners and process student transfers.
+                </p>
+              </div>
+            </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="py-3.5 px-4">KNEC Assessment No</th>
-                <th className="py-3.5 px-4">Student Name</th>
-                <th className="py-3.5 px-4">Gender</th>
-                <th className="py-3.5 px-4">Class</th>
-                <th className="py-3.5 px-4">Primary Parent / Phone</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {studentsList.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400 italic">
-                    No active students admitted yet. Fill out the form above to register students.
-                  </td>
-                </tr>
-              ) : (
-                studentsList.map((row) => (
-                  <tr key={row.student.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
-                      {row.student.assessmentNumber}
-                    </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                      {row.student.firstName} {row.student.middleName || ''} {row.student.lastName}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-500">{row.student.gender}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">
-                      {row.class.name}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                      <p className="font-semibold">{row.guardian.fullName}</p>
-                      <p className="text-[10px] text-slate-400">{row.guardian.phoneNumber}</p>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full ${
-                        row.student.status === 'ACTIVE'
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
-                          : row.student.status === 'PENDING'
-                          ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}>
-                        {row.student.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {row.student.status === 'PENDING' && (
-                          <button
-                            onClick={() => handleApprovePending(row.student.id)}
-                            disabled={processingAction}
-                            className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1"
-                          >
-                            <Check className="w-3 h-3" /> Approve
-                          </button>
-                        )}
-                        {row.student.status === 'ACTIVE' && (
-                          <button
-                            onClick={() => setTransferModalStudent(row)}
-                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 hover:text-amber-600 font-bold text-xs rounded-lg flex items-center gap-1 transition-colors"
-                          >
-                            <ArrowRightLeft className="w-3 h-3" /> Transfer
-                          </button>
-                        )}
+            {loading ? (
+              <div className="py-12 text-center text-slate-400">Loading school grade roster...</div>
+            ) : classesList.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-6 text-center">No active classes configured in system.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {classesList.map((c) => {
+                  const enrolledCount = studentsList.filter((s) => s.class.id === c.id).length;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setSelectedClassId(c.id);
+                        setRosterSearchQuery('');
+                      }}
+                      className="group p-4 bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl cursor-pointer hover:border-blue-500/80 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 hover:shadow-md transition-all flex flex-col justify-between"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            {c.name}
+                          </span>
+                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-[10px] font-bold rounded-md">
+                            {formatLevelTag(c.levelCategory)}
+                          </span>
+                        </div>
+
+                        <div className="pt-2 flex items-baseline gap-1.5">
+                          <span className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                            {enrolledCount}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            {enrolledCount === 1 ? 'Learner' : 'Learners'}
+                          </span>
+                        </div>
                       </div>
-                    </td>
+
+                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between text-xs font-bold text-blue-600 dark:text-blue-400">
+                        <span>View Class Roster</span>
+                        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* LEVEL 2: DRILL-DOWN ENROLLED LEARNERS TABLE FOR SELECTED GRADE */
+          <div className="space-y-4">
+            {/* Header & Back Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClassId(null)}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shrink-0"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back to All Grades
+                </button>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-blue-600" />
+                    {selectedClass?.name} Roster
+                    <span className="px-2.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-xs font-extrabold rounded-full">
+                      {classStudents.length} {classStudents.length === 1 ? 'Learner' : 'Learners'}
+                    </span>
+                  </h3>
+                </div>
+              </div>
+
+              {/* Class Filter / Search Bar */}
+              <div className="relative sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder={`Search ${selectedClass?.name}...`}
+                  value={rosterSearchQuery}
+                  onChange={(e) => setRosterSearchQuery(e.target.value)}
+                  className="w-full pl-8 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Students Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">KNEC Assessment No</th>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Gender</th>
+                    <th className="py-3 px-4">Primary Parent / Phone</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredClassStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 italic">
+                        {rosterSearchQuery
+                          ? `No learners found matching "${rosterSearchQuery}" in ${selectedClass?.name}.`
+                          : `No active learners enrolled in ${selectedClass?.name} yet.`}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredClassStudents.map((row) => (
+                      <tr key={row.student.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
+                          {row.student.assessmentNumber}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                          {row.student.firstName} {row.student.middleName || ''} {row.student.lastName}
+                        </td>
+                        <td className="py-3 px-4 text-slate-500">{row.student.gender}</td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
+                          <p className="font-semibold">{row.guardian.fullName}</p>
+                          <p className="text-[10px] text-slate-400">{row.guardian.phoneNumber}</p>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full ${
+                            row.student.status === 'ACTIVE'
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
+                              : row.student.status === 'PENDING'
+                              ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {row.student.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            {row.student.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleApprovePending(row.student.id)}
+                                disabled={processingAction}
+                                className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3" /> Approve
+                              </button>
+                            )}
+                            {row.student.status === 'ACTIVE' && (
+                              <button
+                                onClick={() => setTransferModalStudent(row)}
+                                className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 hover:text-amber-600 font-bold text-xs rounded-lg flex items-center gap-1 transition-colors"
+                              >
+                                <ArrowRightLeft className="w-3 h-3" /> Transfer
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Transfer Student Modal */}
