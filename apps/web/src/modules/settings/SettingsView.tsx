@@ -10,6 +10,7 @@ export const SettingsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [settingActiveTermId, setSettingActiveTermId] = useState<string | null>(null);
   const [terms, setTerms] = useState<any[]>([]);
   const [showTermModal, setShowTermModal] = useState(false);
 
@@ -133,11 +134,14 @@ export const SettingsView: React.FC = () => {
 
   const handleSetCurrentTerm = async (termId: string) => {
     try {
+      setSettingActiveTermId(termId);
       await apiClient.put(`/api/academic-terms/${termId}`, { isCurrent: true });
       toast.success('Current academic term updated');
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update current term');
+    } finally {
+      setSettingActiveTermId(null);
     }
   };
 
@@ -439,9 +443,17 @@ export const SettingsView: React.FC = () => {
                       {!t.isCurrent && (
                         <button
                           onClick={() => handleSetCurrentTerm(t.id)}
-                          className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold text-[10px] rounded-lg transition-colors"
+                          disabled={settingActiveTermId === t.id}
+                          className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold text-[10px] rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                         >
-                          Set Active
+                          {settingActiveTermId === t.id ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              <span>Setting...</span>
+                            </>
+                          ) : (
+                            <span>Set Active</span>
+                          )}
                         </button>
                       )}
                       <button
