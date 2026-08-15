@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { Printer, X, FileText, Edit3 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Printer, X, FileText, Edit3, School } from 'lucide-react';
+import { apiClient } from '../../lib/apiClient';
+import { formatDate, formatOrdinalDay } from '../../lib/formatters';
 
 interface EmploymentContractModalProps {
   isOpen: boolean;
@@ -28,17 +30,40 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
   staff,
   currentUser,
 }) => {
-  const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const todayFormatted = formatDate(new Date());
 
   const [commencementText, setCommencementText] = useState('the beginning of the 2nd term');
   const [durationText, setDurationText] = useState('the end of the year');
-  const [contractDate, setContractDate] = useState(todayStr);
+  const [contractDate, setContractDate] = useState(todayFormatted);
+  const [schoolSettings, setSchoolSettings] = useState<any>({
+    schoolName: 'ELDORET MUSLIM ACADEMY',
+    schoolMotto: 'Excellence in Knowledge & Virtue',
+    poBox: 'P.O. Box 1234 - 30100, Eldoret',
+    county: 'Uasin Gishu County',
+    contactPhone: '+254 700 000 000',
+    contactEmail: 'info@eldoretmuslimacademy.ac.ke',
+    address: 'Kisumu Road, Eldoret',
+    logoUrl: null,
+  });
+
   const printRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      apiClient
+        .get('/api/settings/public')
+        .then((res) => {
+          if (res.data.data) {
+            setSchoolSettings((prev: any) => ({ ...prev, ...res.data.data }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen || !staff) return null;
 
   const staffFullName = `${staff.firstName || ''} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName || ''}`.trim();
-  const headTeacherName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'HEAD TEACHER';
 
   const formatCurrency = (val?: number | string) => {
     if (!val) return '...................';
@@ -90,7 +115,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
 
           @page {
             size: A4;
-            margin: 18mm 15mm;
+            margin: 15mm 15mm;
           }
         }
       `}</style>
@@ -110,7 +135,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
               </div>
               <div>
                 <h2 className="text-sm font-bold text-white leading-tight">Contract Preview</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">Eldoret Muslim Academy</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{schoolSettings.schoolName}</p>
               </div>
             </div>
           </div>
@@ -202,35 +227,65 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                 className="bg-white text-black rounded-sm shadow-2xl shadow-black/30 border border-slate-300/50"
                 style={{
                   fontFamily: "'Times New Roman', Times, serif",
-                  fontSize: '13px',
+                  fontSize: '12.5px',
                   lineHeight: '1.5',
-                  padding: '50px 55px',
+                  padding: '45px 50px',
                 }}
               >
+                {/* Official Letterhead Header with Logo on Left */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justify: 'space-between',
+                    borderBottom: '2.5px solid #000',
+                    paddingBottom: '12px',
+                    marginBottom: '18px',
+                  }}
+                >
+                  <div style={{ width: '80px', height: '80px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {schoolSettings.logoUrl ? (
+                      <img src={schoolSettings.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      <School style={{ width: '50px', height: '50px', color: '#1e3a8a' }} />
+                    )}
+                  </div>
 
-                {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <p style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '3px', marginBottom: '2px' }}>
-                    ELDORET MUSLIM
-                  </p>
-                  <p style={{ fontSize: '14px', fontWeight: 'bold', textDecoration: 'underline', letterSpacing: '1px' }}>
-                    PRIVATE SCHOOL EMPLOYMENT CONTRACT.
-                  </p>
+                  <div style={{ flex: 1, paddingLeft: '18px', textAlign: 'left' }}>
+                    <h1 style={{ fontSize: '18px', fontWeight: '900', textTransform: 'uppercase', margin: 0, color: '#000', letterSpacing: '0.5px' }}>
+                      {schoolSettings.schoolName}
+                    </h1>
+                    <p style={{ fontSize: '12px', fontStyle: 'italic', margin: '2px 0 4px 0', fontWeight: 'bold', color: '#334155' }}>
+                      "{schoolSettings.schoolMotto}"
+                    </p>
+                    <p style={{ fontSize: '11px', margin: 0, color: '#475569' }}>
+                      {schoolSettings.poBox} | {schoolSettings.county}
+                    </p>
+                    <p style={{ fontSize: '11px', margin: 0, color: '#475569' }}>
+                      Tel: {schoolSettings.contactPhone} | Email: {schoolSettings.contactEmail}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Document Title */}
+                <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+                  <h2 style={{ fontSize: '15px', fontWeight: 'bold', textDecoration: 'underline', letterSpacing: '1px', textTransform: 'uppercase', margin: 0 }}>
+                    PRIVATE SCHOOL EMPLOYMENT CONTRACT
+                  </h2>
                 </div>
 
                 {/* Preamble */}
                 <div style={{ marginBottom: '14px' }}>
                   <p style={{ marginBottom: '8px' }}>
                     This employment contract is made on this <u><b>{contractDate}</b></u>{' '}
-                    Between <b>ELDORET MUSLIM ACADEMY</b> located at mailinne-Eldoret.
+                    Between <b>{schoolSettings.schoolName}</b> located at {schoolSettings.address || 'Eldoret'}.
                   </p>
                   <p style={{ marginBottom: '8px' }}><b>AND</b></p>
                   <p>
                     <u><b style={{ textTransform: 'uppercase' }}>{staffFullName}</b></u> of National ID/Passport No{' '}
                     <u><b>{staff.nationalId || dot(20)}</b></u>, residing at{' '}
                     <u><b>{staff.address || dot(20)}</b></u>{' '}
-                    TSC NO <u><b>{staff.tscNumber || dot(15)}</b></u>{' '}
-                    SIGN {dot(20)}
+                    TSC NO <u><b>{staff.tscNumber || dot(15)}</b></u>.
                   </p>
                 </div>
 
@@ -244,7 +299,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                     <u><b style={{ textTransform: 'uppercase' }}>
                       {staff.roleName ? staff.roleName.replace(/_/g, ' ') : dot(30)}
                     </b></u>{' '}
-                    (Teacher/Administrator/ support staff).
+                    (Teacher / Administrator / Support Staff).
                   </p>
                 </div>
 
@@ -255,7 +310,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                   </p>
                   <p>
                     This contract shall commence from <u><b>{commencementText}</b></u> and shall remain in force till{' '}
-                    <u><b>{durationText}</b></u>, renewable subject to satisfactory of performance and mutual agreement.
+                    <u><b>{durationText}</b></u>, renewable subject to satisfactory performance and mutual agreement.
                   </p>
                 </div>
 
@@ -269,10 +324,10 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                   </p>
                   <ul style={{ paddingLeft: '28px', margin: 0 }}>
                     <li>Ensure the success and excellence of the learners' academics.</li>
-                    <li>Make sure respective class learners are speaking in fluent English, offer appropriate teaching content and use of teaching aids e.g. charts</li>
-                    <li>Observe all school rules, prepare scheme, lesson plan, progress record and lesson notes</li>
+                    <li>Make sure respective class learners are speaking in fluent English, offer appropriate teaching content and use of teaching aids e.g. charts.</li>
+                    <li>Observe all school rules, prepare schemes of work, lesson plans, progress records and lesson notes.</li>
                     <li>Protect the reputation and property of the school.</li>
-                    <li>Uphold high standards of discipline professionalism.</li>
+                    <li>Uphold high standards of discipline and professionalism.</li>
                   </ul>
                 </div>
 
@@ -282,7 +337,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                     4. WORKING HOURS
                   </p>
                   <p>
-                    The normal working hours shall be from 6:30 am to4:30pm, Monday to Friday, with additional duties as may reasonably be required.
+                    The normal working hours shall be from 6:30 am to 4:30 pm, Monday to Friday, with additional duties as may reasonably be required.
                   </p>
                 </div>
 
@@ -294,7 +349,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                   <p>
                     The school shall pay the employee a salary of KES{' '}
                     <u><b>{formatCurrency(staff.salaryAmount)}</b></u> Per month, payable <i>on or before</i> the{' '}
-                    <u><b>{staff.salaryPaymentDay || dot(10)}</b></u> day of each month, subject to statutory deductions as required by Kenyan law.
+                    <u><b style={{ textDecoration: 'underline' }}>{formatOrdinalDay(staff.salaryPaymentDay || 28)}</b></u> day of each month, subject to statutory deductions as required by Kenyan law.
                   </p>
                 </div>
 
@@ -303,12 +358,12 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                   <p style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '3px', textAlign: 'center' }}>
                     6. LEAVE ENTITLEMENT
                   </p>
-                  <p>Public holidays as gazette by the government of Kenya to be observed.</p>
-                  <p>Maternity leave</p>
-                  <p style={{ marginBottom: '6px' }}>Sick leave</p>
-                  <p><b>NOTE.</b></p>
+                  <p>Public holidays as gazetted by the Government of Kenya to be observed.</p>
+                  <p>Maternity / Paternity Leave</p>
+                  <p style={{ marginBottom: '6px' }}>Sick Leave</p>
+                  <p><b>NOTE:</b></p>
                   <p style={{ textAlign: 'justify' }}>
-                    Any staff member who is unable to report to duty due to illness must notify the school formally in writing before the start of the working day or latest within 24hrs of absence. For sick-leave exceeding 2 consecutive days a valid medical supporting document should be submitted upon return to work failure to notify the school the absence will be treated as an authorized and disciplinary action taken.
+                    Any staff member who is unable to report to duty due to illness must notify the school formally in writing before the start of the working day or latest within 24hrs of absence. For sick-leave exceeding 2 consecutive days, a valid medical supporting document should be submitted upon return to work. Failure to notify the school will treat the absence as unauthorized and disciplinary action will be taken.
                   </p>
                 </div>
 
@@ -318,12 +373,12 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                     7. DISCIPLINE AND CONDUCT
                   </p>
                   <p style={{ marginBottom: '6px' }}>
-                    The employee shall comply with the school code of conduct ANY misconduct may results in disciplinary action in accordance with the employment Act 2007.
+                    The employee shall comply with the school code of conduct. ANY misconduct may result in disciplinary action in accordance with the Employment Act 2007.
                   </p>
-                  <p><b>Displinary procedures.</b></p>
+                  <p><b>Disciplinary Procedures:</b></p>
                   <ul style={{ paddingLeft: '28px', margin: 0 }}>
                     <li>Notice to show cause.</li>
-                    <li>Displinary hearing.</li>
+                    <li>Disciplinary hearing.</li>
                     <li>Consideration and decision.</li>
                   </ul>
                 </div>
@@ -334,7 +389,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                     8. TERMINATION
                   </p>
                   <p style={{ textAlign: 'justify' }}>
-                    Either party may terminate this contract by giving 15 days' written notice or SUMMARILY dismiss the Teacher for gross misconduct as provided under the employment Act 2007.In the event of being terminated at the end of the term, the school will not be owed for the holiday period.
+                    Either party may terminate this contract by giving 15 days' written notice or SUMMARILY dismiss the Employee for gross misconduct as provided under the Employment Act 2007. In the event of termination at the end of the term, the school will not owe payment for the holiday period.
                   </p>
                 </div>
 
@@ -344,61 +399,30 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                     9. GOVERNING LAW
                   </p>
                   <p style={{ textAlign: 'center' }}>
-                    This contract shall be governed by and construed in accordance with the laws of Republic of Kenya.
+                    This contract shall be governed by and construed in accordance with the laws of the Republic of Kenya.
                   </p>
                 </div>
 
-                {/* 10. Entire Agreement */}
-                <div style={{ marginBottom: '18px' }}>
-                  <p style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '3px', textAlign: 'center' }}>
-                    10. ENTIRE AGREEMENT
-                  </p>
-                  <p>
-                    This contract constitutes the entire agreement between the parties.
-                  </p>
-                </div>
-
-                {/* Islamic Ethics Note */}
-                <div style={{ marginBottom: '18px' }}>
-                  <p><b>NOTE:</b></p>
-                  <p style={{ marginBottom: '6px' }}>
-                    It being an Islamic institution the teaches are expected to respect and to uphold the Islamic values and ethics of the school while carrying out the professional duty
-                  </p>
-                  <ol style={{ paddingLeft: '28px', margin: 0 }}>
-                    <li>Professional dress code according to the Islamic principles.</li>
-                    <li>Respect for Islamic practices.</li>
-                    <li>Moral and ethical behavior.</li>
-                    <li>Respect for student's religious identity.</li>
-                    <li>Compliance and accountability.</li>
-                  </ol>
-                </div>
-
-                {/* Declaration */}
-                <div style={{ marginBottom: '24px' }}>
-                  <p style={{ fontWeight: 'bold', textDecoration: 'underline', marginBottom: '6px', textAlign: 'center' }}>
-                    DECLARATION
-                  </p>
-                  <p style={{ textAlign: 'justify' }}>
-                    I <u><b style={{ textTransform: 'uppercase' }}>{staffFullName}</b></u> declare that I have carefully read the term and conditions of this employment contract and agree to abide to all policies, rules and obligations set out here in. I confirm that the information provided by me is accurate and that I accept this contract voluntarily and in good faith.
-                  </p>
-                </div>
-
-                {/* Signature Blocks */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
-                  <div style={{ flex: 1 }}>
-                    <p><b>EMPLOYEE NAME</b> <span style={{ textTransform: 'uppercase', textDecoration: 'underline' }}>{staffFullName}</span></p>
-                    <p><b>EMPLOYEE SIGNATURE</b> {dot(25)}</p>
-                    <p><b>ID NUMBER</b> {staff.nationalId || dot(25)}</p>
-                    <p><b>TSC NUMBER</b> {staff.tscNumber || dot(25)}</p>
-                    <p><b>DATE</b> {dot(25)}</p>
+                {/* Signatures Block */}
+                <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
+                  <div style={{ width: '45%' }}>
+                    <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>For and on behalf of the School:</p>
+                    <p style={{ borderTop: '1px solid #000', paddingTop: '4px', fontWeight: 'bold' }}>
+                      Headteacher / Authorized Signatory
+                    </p>
+                    <p style={{ margin: 0, color: '#475569' }}>{schoolSettings.schoolName}</p>
+                    <p style={{ margin: 0, color: '#475569' }}>Date: {contractDate}</p>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <p><b>EMPLOYER NAME</b> <span style={{ textTransform: 'uppercase', textDecoration: 'underline' }}>{headTeacherName}</span></p>
-                    <p><b>EMPLOYER SIGNATURE</b> {dot(25)}</p>
-                    <p><b>DATE</b> {dot(25)}</p>
+
+                  <div style={{ width: '45%' }}>
+                    <p style={{ fontWeight: 'bold', marginBottom: '40px' }}>Employee Acceptance:</p>
+                    <p style={{ borderTop: '1px solid #000', paddingTop: '4px', fontStyle: 'italic' }}>
+                      Signature: {staffFullName}
+                    </p>
+                    <p style={{ margin: 0, color: '#475569' }}>ID/Passport: {staff.nationalId || dot(15)}</p>
+                    <p style={{ margin: 0, color: '#475569' }}>Date: {contractDate}</p>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
