@@ -272,10 +272,11 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                   />
                   <input
                     type="text"
+                    maxLength={6}
                     placeholder="Code (e.g. MATH)"
                     value={row.code}
                     onChange={(e) => handleBulkRowChange(idx, 'code', e.target.value)}
-                    className="w-28 sm:w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-mono text-slate-900 dark:text-white"
+                    className="w-24 sm:w-28 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-900 dark:text-white"
                   />
                   <button
                     type="button"
@@ -314,13 +315,13 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
             </div>
           </form>
         ) : (
-          /* Single Add / Edit Subject Form */
+          /* Single Add / Edit Subject Form — Optimally Spaced Grid */
           <form onSubmit={handleSingleSubmit} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {editingId ? 'Edit Subject' : 'Add Single Subject'}
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
               <div className="sm:col-span-4">
                 <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Subject Name *
@@ -335,17 +336,18 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-3">
+              <div className="sm:col-span-2">
                 <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Code / Abbr *
+                  Code *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. MATH"
+                  maxLength={6}
+                  placeholder="MATH"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs uppercase font-mono text-slate-900 dark:text-white"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -365,12 +367,12 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                 </select>
               </div>
 
-              <div className="sm:col-span-2 flex gap-2">
+              <div className="sm:col-span-3 flex items-center justify-end gap-2">
                 {editingId && (
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-3 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                    className="px-3 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors whitespace-nowrap"
                   >
                     Cancel
                   </button>
@@ -378,14 +380,14 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
+                  className="flex-1 py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
                 >
                   {submitting ? (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <Plus className="w-4 h-4" />
                   )}
-                  {editingId ? 'Update' : 'Add Subject'}
+                  {editingId ? 'Update Subject' : 'Add Subject'}
                 </button>
               </div>
             </div>
@@ -396,7 +398,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
         {loading ? (
           <div className="py-8 text-center text-slate-400">Loading subject catalog...</div>
         ) : (
-          <div className="space-y-5 max-h-[420px] overflow-y-auto pr-1">
+          <div className="space-y-5">
             {categories.map((cat, idx) => (
               <div key={idx} className="space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-1">
