@@ -189,7 +189,7 @@ export const OfficialLetterView: React.FC = () => {
       </div>
 
       {/* Generate Letter Modal */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Generate Official Letter">
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Generate Official Letter" maxWidth="max-w-2xl">
         <form onSubmit={handleCreateLetter} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -267,55 +267,58 @@ export const OfficialLetterView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Printable A4 Letterhead Preview Modal */}
+      {/* Printable A4 Letterhead Preview Modal — Spacious Full A4 Dimension matching Employment Contract */}
       {printModalData && (
-        <Modal isOpen={!!printModalData} onClose={() => setPrintModalData(null)} title="Official Letterhead Preview">
+        <Modal isOpen={!!printModalData} onClose={() => setPrintModalData(null)} title="Official Letterhead Preview" maxWidth="max-w-4xl">
           <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                Official A4 Letter Paper Dimension Preview
+              </span>
               <button
                 onClick={triggerPrint}
-                className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all"
               >
                 <Printer className="w-4 h-4" /> Print A4 Letter
               </button>
             </div>
 
-            {/* A4 Letter Canvas */}
-            <div className="p-8 bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-lg max-w-2xl mx-auto space-y-6 print:shadow-none print:border-0 print:p-0">
+            {/* A4 Letter Canvas Paper */}
+            <div className="p-8 sm:p-12 bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-xl w-full max-w-3xl mx-auto space-y-6 print:shadow-none print:border-0 print:p-0">
               {/* Header Letterhead */}
-              <div className="flex items-center gap-5 border-b-2 border-slate-900 pb-4 text-left">
-                <div className="w-20 h-20 shrink-0 flex items-center justify-center">
+              <div className="flex items-center gap-6 border-b-2 border-slate-900 pb-5 text-left">
+                <div className="w-24 h-24 shrink-0 flex items-center justify-center">
                   {printModalData.settings.logoUrl ? (
                     <img src={printModalData.settings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                   ) : (
-                    <School className="w-12 h-12 text-blue-700" />
+                    <School className="w-14 h-14 text-blue-700" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <h1 className="text-xl font-extrabold uppercase tracking-wide text-slate-900">
+                  <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900 leading-tight">
                     {printModalData.settings.schoolName || 'ELDORET MUSLIM ACADEMY'}
                   </h1>
                   {printModalData.settings.schoolMotto && (
-                    <p className="text-xs font-semibold italic text-slate-600">
+                    <p className="text-xs font-bold italic text-slate-700 mt-0.5">
                       "{printModalData.settings.schoolMotto}"
                     </p>
                   )}
-                  <p className="text-[11px] text-slate-600 pt-1">
+                  <p className="text-xs text-slate-700 pt-1">
                     {printModalData.settings.poBox ? printModalData.settings.poBox : 'P.O. Box 7768 – 30100, Eldoret'}
                     {printModalData.settings.county ? ` | ${printModalData.settings.county}` : ' | Eldoret, Uasin Gishu'}
                   </p>
-                  <p className="text-[11px] text-slate-600">
+                  <p className="text-xs text-slate-700">
                     Tel: {printModalData.settings.contactPhone || '+254 714731331'} | Email: {printModalData.settings.contactEmail || 'eldoretmuslimacademy@gmail.com'}
                   </p>
                 </div>
               </div>
 
               {/* Date & Recipient */}
-              <div className="flex justify-between text-xs font-semibold text-slate-800">
+              <div className="flex justify-between text-xs sm:text-sm font-semibold text-slate-800 pt-2">
                 <div>
-                  <p className="font-bold text-slate-900">To:</p>
-                  <p className="font-bold text-sm text-slate-900">{printModalData.letter.recipientName || 'To Whom It May Concern'}</p>
-                  {printModalData.letter.recipientAddress && <p>{printModalData.letter.recipientAddress}</p>}
+                  <p className="font-bold text-slate-900 text-xs">To:</p>
+                  <p className="font-bold text-sm sm:text-base text-slate-900">{printModalData.letter.recipientName || 'To Whom It May Concern'}</p>
+                  {printModalData.letter.recipientAddress && <p className="text-slate-700">{printModalData.letter.recipientAddress}</p>}
                 </div>
                 <div className="text-right">
                   <p><span className="font-bold">Date:</span> {formatDate(printModalData.letter.letterDate)}</p>
@@ -324,22 +327,22 @@ export const OfficialLetterView: React.FC = () => {
               </div>
 
               {/* Subject Title */}
-              <div className="text-center py-2 border-y border-slate-300 font-extrabold uppercase tracking-wide text-sm">
+              <div className="text-center py-3 border-y-2 border-slate-300 font-extrabold uppercase tracking-wider text-sm sm:text-base text-slate-900">
                 RE: {printModalData.letter.title}
               </div>
 
               {/* Letter Body */}
-              <div className="text-xs leading-relaxed text-slate-800 whitespace-pre-wrap min-h-[250px]">
+              <div className="text-xs sm:text-sm leading-relaxed text-slate-900 whitespace-pre-wrap min-h-[280px]">
                 {printModalData.letter.body}
               </div>
 
               {/* Footer Signature */}
-              <div className="pt-8 text-xs text-slate-900 space-y-12">
+              <div className="pt-10 text-xs sm:text-sm text-slate-900 space-y-12">
                 <div>
-                  <p>Yours faithfully,</p>
-                  <div className="h-12 border-b border-dashed border-slate-300 w-48 mt-2" />
-                  <p className="font-bold mt-2">Headteacher</p>
-                  <p className="text-slate-600">{printModalData.settings.schoolName || 'Eldoret Muslim Academy'}</p>
+                  <p className="font-semibold">Yours faithfully,</p>
+                  <div className="h-14 border-b border-dashed border-slate-400 w-56 mt-2" />
+                  <p className="font-extrabold mt-2 text-slate-900">Headteacher</p>
+                  <p className="text-slate-700 font-medium">{printModalData.settings.schoolName || 'Eldoret Muslim Academy'}</p>
                 </div>
               </div>
             </div>
