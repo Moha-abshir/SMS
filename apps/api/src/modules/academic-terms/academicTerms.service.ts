@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { academicTerms, eq, desc, asc, isNull, and } from '@school/shared';
+import { academicTerms, eq, asc, isNull, and } from '@school/shared';
 
 export class AcademicTermsService {
   static async ensureThreeTerms(year: number = 2026) {
@@ -39,7 +39,6 @@ export class AcademicTermsService {
     const missingTerms = defaultTerms.filter((dt) => !existingTermNumbers.has(dt.termNumber));
 
     if (missingTerms.length > 0) {
-      // Check if any active current term already exists before setting default current
       const hasCurrent = existingTerms.some((t) => t.isCurrent);
       const toInsert = missingTerms.map((t) => ({
         ...t,
@@ -56,23 +55,23 @@ export class AcademicTermsService {
       .orderBy(asc(academicTerms.termNumber));
   }
 
-  static async getAllTerms() {
-    // Automatically ensure all 3 terms exist for the academic year
-    await this.ensureThreeTerms(2026);
+  static async getAllTerms(year: number = 2026) {
+    // Automatically ensure all 3 terms exist for the specified academic year
+    await this.ensureThreeTerms(year);
 
     return await db
       .select()
       .from(academicTerms)
-      .where(isNull(academicTerms.deletedAt))
-      .orderBy(desc(academicTerms.year), asc(academicTerms.termNumber));
+      .where(and(eq(academicTerms.year, year), isNull(academicTerms.deletedAt)))
+      .orderBy(asc(academicTerms.termNumber));
   }
 
-  static async getCurrentTerm() {
-    await this.ensureThreeTerms(2026);
+  static async getCurrentTerm(year: number = 2026) {
+    await this.ensureThreeTerms(year);
     const [current] = await db
       .select()
       .from(academicTerms)
-      .where(eq(academicTerms.isCurrent, true));
+      .where(and(eq(academicTerms.year, year), eq(academicTerms.isCurrent, true)));
     return current || null;
   }
 
@@ -82,7 +81,13 @@ export class AcademicTermsService {
     isCurrent?: boolean;
   }) {
     if (data.isCurrent) {
-      await db.update(academicTerms).set({ isCurrent: false }).where(eq(academicTerms.isCurrent, true));
+      const [targetTerm] = await db.select().from(academicTerms).where(eq(academicTerms.id, id));
+      if (targetTerm) {
+        await db
+          .update(academicTerms)
+          .set({ isCurrent: false })
+          .where(and(eq(academicTerms.year, targetTerm.year), eq(academicTerms.isCurrent, true)));
+      }
     }
 
     const updatePayload: any = { updatedAt: new Date() };

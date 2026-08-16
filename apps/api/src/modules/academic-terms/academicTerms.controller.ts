@@ -4,7 +4,8 @@ import { AcademicTermsService } from './academicTerms.service.js';
 export class AcademicTermsController {
   static async getAllTerms(req: Request, res: Response) {
     try {
-      const termsList = await AcademicTermsService.getAllTerms();
+      const year = req.query.year ? parseInt(req.query.year as string) : 2026;
+      const termsList = await AcademicTermsService.getAllTerms(year);
       res.json({ success: true, data: termsList });
     } catch (error: any) {
       res.status(500).json({ success: false, message: 'Failed to fetch academic terms' });
@@ -13,7 +14,8 @@ export class AcademicTermsController {
 
   static async getCurrentTerm(req: Request, res: Response) {
     try {
-      const currentTerm = await AcademicTermsService.getCurrentTerm();
+      const year = req.query.year ? parseInt(req.query.year as string) : 2026;
+      const currentTerm = await AcademicTermsService.getCurrentTerm(year);
       res.json({ success: true, data: currentTerm });
     } catch (error: any) {
       res.status(500).json({ success: false, message: 'Failed to fetch current term' });
