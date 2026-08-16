@@ -102,6 +102,36 @@ export const OfficialLetterView: React.FC = () => {
       transition={{ duration: 0.2 }}
       className="space-y-6 max-w-5xl mx-auto"
     >
+      {/* Print CSS isolation styles */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #official-letter-paper, #official-letter-paper * {
+            visibility: visible !important;
+          }
+          #official-letter-paper {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: white !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          @page {
+            size: A4;
+            margin: 15mm 15mm;
+          }
+        }
+      `}</style>
+
       {/* Header Banner */}
       <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
         <div className="flex items-center gap-4">
@@ -267,24 +297,21 @@ export const OfficialLetterView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Printable A4 Letterhead Preview Modal — Spacious Full A4 Dimension matching Employment Contract */}
+      {/* Printable A4 Letterhead Preview Modal */}
       {printModalData && (
-        <Modal isOpen={!!printModalData} onClose={() => setPrintModalData(null)} title="Official Letterhead Preview" maxWidth="max-w-4xl">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                Official A4 Letter Paper Dimension Preview
-              </span>
+        <Modal isOpen={!!printModalData} onClose={() => setPrintModalData(null)} title="Official Letterhead Preview" maxWidth="max-w-3xl">
+          <div className="space-y-3">
+            <div className="no-print flex justify-end pb-1">
               <button
                 onClick={triggerPrint}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
               >
                 <Printer className="w-4 h-4" /> Print A4 Letter
               </button>
             </div>
 
-            {/* A4 Letter Canvas Paper */}
-            <div className="p-8 sm:p-12 bg-white text-slate-900 rounded-2xl border border-slate-200 shadow-xl w-full max-w-3xl mx-auto space-y-6 print:shadow-none print:border-0 print:p-0">
+            {/* Pure A4 Letter Paper Canvas */}
+            <div id="official-letter-paper" className="p-8 sm:p-10 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-md space-y-6 mx-auto">
               {/* Header Letterhead */}
               <div className="flex items-center gap-6 border-b-2 border-slate-900 pb-5 text-left">
                 <div className="w-24 h-24 shrink-0 flex items-center justify-center">
