@@ -7,8 +7,6 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', AcademicTermsController.getAllTerms);
-router.post('/', authorizePermission('settings:manage'), AcademicTermsController.createTerm);
 router.put('/:id', authorizePermission('settings:manage'), AcademicTermsController.updateTerm);
-router.delete('/:id', authorizePermission('settings:manage'), AcademicTermsController.deleteTerm);
 
 export default router;
