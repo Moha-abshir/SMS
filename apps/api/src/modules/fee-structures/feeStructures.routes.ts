@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', FeeStructuresController.getFeeStructures);
+router.put('/batch', authorizePermission('fees:structure-edit'), FeeStructuresController.batchUpdateFeeStructures);
 router.put('/:id', authorizePermission('fees:structure-edit'), FeeStructuresController.updateFeeStructure);
 
 export default router;

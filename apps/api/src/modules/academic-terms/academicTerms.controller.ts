@@ -4,37 +4,31 @@ import { AcademicTermsService } from './academicTerms.service.js';
 export class AcademicTermsController {
   static async getAllTerms(req: Request, res: Response) {
     try {
-      const terms = await AcademicTermsService.getAllTerms();
-      return res.status(200).json({ success: true, data: terms });
+      const termsList = await AcademicTermsService.getAllTerms();
+      res.json({ success: true, data: termsList });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch academic terms' });
+      res.status(500).json({ success: false, message: 'Failed to fetch academic terms' });
     }
   }
 
-  static async createTerm(req: Request, res: Response) {
+  static async getCurrentTerm(req: Request, res: Response) {
     try {
-      const created = await AcademicTermsService.createTerm(req.body);
-      return res.status(201).json({ success: true, data: created, message: 'Academic term created successfully' });
+      const currentTerm = await AcademicTermsService.getCurrentTerm();
+      res.json({ success: true, data: currentTerm });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to create term' });
+      res.status(500).json({ success: false, message: 'Failed to fetch current term' });
     }
   }
 
   static async updateTerm(req: Request, res: Response) {
     try {
-      const updated = await AcademicTermsService.updateTerm(req.params.id, req.body);
-      return res.status(200).json({ success: true, data: updated, message: 'Academic term updated successfully' });
-    } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update term' });
-    }
-  }
+      const { id } = req.params;
+      const { startDate, endDate, isCurrent } = req.body;
 
-  static async deleteTerm(req: Request, res: Response) {
-    try {
-      await AcademicTermsService.deleteTerm(req.params.id);
-      return res.status(200).json({ success: true, message: 'Academic term deleted successfully' });
+      const updated = await AcademicTermsService.updateTerm(id, { startDate, endDate, isCurrent });
+      res.json({ success: true, message: 'Academic term updated successfully', data: updated });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to delete term' });
+      res.status(400).json({ success: false, message: 'Failed to update academic term dates' });
     }
   }
 }

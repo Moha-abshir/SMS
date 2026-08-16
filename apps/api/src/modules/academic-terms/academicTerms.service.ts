@@ -1,8 +1,65 @@
 import { db } from '../../config/db.js';
-import { academicTerms, eq, desc, asc, isNull } from '@school/shared';
+import { academicTerms, eq, desc, asc, isNull, and } from '@school/shared';
 
 export class AcademicTermsService {
+  static async ensureThreeTerms(year: number = 2026) {
+    const existingTerms = await db
+      .select()
+      .from(academicTerms)
+      .where(and(eq(academicTerms.year, year), isNull(academicTerms.deletedAt)))
+      .orderBy(asc(academicTerms.termNumber));
+
+    const existingTermNumbers = new Set(existingTerms.map((t) => t.termNumber));
+
+    // Kenya 3-term system defaults for the academic year
+    const defaultTerms = [
+      {
+        year,
+        termNumber: 1,
+        startDate: `${year}-01-08`,
+        endDate: `${year}-04-05`,
+        isCurrent: true,
+      },
+      {
+        year,
+        termNumber: 2,
+        startDate: `${year}-05-06`,
+        endDate: `${year}-08-08`,
+        isCurrent: false,
+      },
+      {
+        year,
+        termNumber: 3,
+        startDate: `${year}-08-26`,
+        endDate: `${year}-11-20`,
+        isCurrent: false,
+      },
+    ];
+
+    const missingTerms = defaultTerms.filter((dt) => !existingTermNumbers.has(dt.termNumber));
+
+    if (missingTerms.length > 0) {
+      // Check if any active current term already exists before setting default current
+      const hasCurrent = existingTerms.some((t) => t.isCurrent);
+      const toInsert = missingTerms.map((t) => ({
+        ...t,
+        isCurrent: hasCurrent ? false : t.isCurrent,
+      }));
+
+      await db.insert(academicTerms).values(toInsert);
+    }
+
+    return await db
+      .select()
+      .from(academicTerms)
+      .where(and(eq(academicTerms.year, year), isNull(academicTerms.deletedAt)))
+      .orderBy(asc(academicTerms.termNumber));
+  }
+
   static async getAllTerms() {
+    // Automatically ensure all 3 terms exist for the academic year
+    await this.ensureThreeTerms(2026);
+
     return await db
       .select()
       .from(academicTerms)
@@ -11,6 +68,7 @@ export class AcademicTermsService {
   }
 
   static async getCurrentTerm() {
+    await this.ensureThreeTerms(2026);
     const [current] = await db
       .select()
       .from(academicTerms)
@@ -18,35 +76,7 @@ export class AcademicTermsService {
     return current || null;
   }
 
-  static async createTerm(data: {
-    year: number;
-    termNumber: number;
-    startDate: string;
-    endDate: string;
-    isCurrent?: boolean;
-  }) {
-    if (data.isCurrent) {
-      // Unset previous current term
-      await db.update(academicTerms).set({ isCurrent: false }).where(eq(academicTerms.isCurrent, true));
-    }
-
-    const [created] = await db
-      .insert(academicTerms)
-      .values({
-        year: data.year,
-        termNumber: data.termNumber,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        isCurrent: data.isCurrent || false,
-      })
-      .returning();
-
-    return created;
-  }
-
   static async updateTerm(id: string, data: {
-    year?: number;
-    termNumber?: number;
     startDate?: string;
     endDate?: string;
     isCurrent?: boolean;
@@ -55,25 +85,17 @@ export class AcademicTermsService {
       await db.update(academicTerms).set({ isCurrent: false }).where(eq(academicTerms.isCurrent, true));
     }
 
+    const updatePayload: any = { updatedAt: new Date() };
+    if (data.startDate) updatePayload.startDate = data.startDate;
+    if (data.endDate) updatePayload.endDate = data.endDate;
+    if (data.isCurrent !== undefined) updatePayload.isCurrent = data.isCurrent;
+
     const [updated] = await db
       .update(academicTerms)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
+      .set(updatePayload)
       .where(eq(academicTerms.id, id))
       .returning();
 
     return updated;
-  }
-
-  static async deleteTerm(id: string) {
-    const [deleted] = await db
-      .update(academicTerms)
-      .set({ deletedAt: new Date() })
-      .where(eq(academicTerms.id, id))
-      .returning();
-
-    return deleted;
   }
 }

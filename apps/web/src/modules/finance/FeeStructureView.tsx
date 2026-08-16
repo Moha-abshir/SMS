@@ -1,68 +1,157 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calculator, Save, CheckCircle, ShieldAlert, Edit2 } from 'lucide-react';
+import { Calculator, Save, ShieldAlert, Calendar, CheckCircle, Clock, Edit2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { formatDate } from '../../lib/formatters';
+import { Modal } from '../../components/Modal';
 
-interface FeeStructure {
+interface TermItem {
   id: string;
-  termId: string;
-  levelCategory: 'PPE' | 'LOWER_PRIMARY' | 'UPPER_PRIMARY' | 'JUNIOR';
-  totalAmount: string;
+  year: number;
+  termNumber: number;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+}
+
+interface MatrixRow {
+  levelCategory: string;
+  title: string;
+  targetGrades: string;
+  term1: { id: string; termId: string; amount: number };
+  term2: { id: string; termId: string; amount: number };
+  term3: { id: string; termId: string; amount: number };
+  annualTotal: number;
 }
 
 export const FeeStructureView: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [structures, setStructures] = useState<FeeStructure[]>([]);
-  const [editingAmounts, setEditingAmounts] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [savingRowCat, setSavingRowCat] = useState<string | null>(null);
 
-  const levelCategoryLabels: Record<string, { title: string; subtitle: string }> = {
-    PPE: { title: 'Pre-Primary Education (PPE)', subtitle: 'Playgroup, PP1, PP2' },
-    LOWER_PRIMARY: { title: 'Lower Primary Education', subtitle: 'Grades 1, 2, and 3' },
-    UPPER_PRIMARY: { title: 'Upper Primary Education', subtitle: 'Grades 4, 5, and 6' },
-    JUNIOR: { title: 'Junior Secondary School (JSS)', subtitle: 'Grades 7, 8, and 9' },
-  };
+  const [terms, setTerms] = useState<TermItem[]>([]);
+  const [matrix, setMatrix] = useState<MatrixRow[]>([]);
 
-  const fetchFeeStructures = async () => {
+  // Editable amounts state map keyed by fee structure ID
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+
+  // Term Date editing state
+  const [editingTerm, setEditingTerm] = useState<TermItem | null>(null);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [savingTerm, setSavingTerm] = useState(false);
+  const [settingActiveTermId, setSettingActiveTermId] = useState<string | null>(null);
+
+  const fetchMatrix = async () => {
     try {
       setLoading(true);
       const res = await apiClient.get('/api/fee-structures');
-      const items: FeeStructure[] = res.data.data?.structures || [];
-      setStructures(items);
+      const data = res.data.data;
+      if (data) {
+        setTerms(data.terms || []);
+        setMatrix(data.matrix || []);
 
-      const initialMap: Record<string, string> = {};
-      items.forEach((item) => {
-        initialMap[item.id] = item.totalAmount;
-      });
-      setEditingAmounts(initialMap);
+        const initialMap: Record<string, string> = {};
+        (data.matrix || []).forEach((row: MatrixRow) => {
+          if (row.term1?.id) initialMap[row.term1.id] = row.term1.amount.toString();
+          if (row.term2?.id) initialMap[row.term2.id] = row.term2.amount.toString();
+          if (row.term3?.id) initialMap[row.term3.id] = row.term3.amount.toString();
+        });
+        setAmounts(initialMap);
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load fee structures');
+      toast.error(error.response?.data?.message || 'Failed to load fee structures matrix');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFeeStructures();
+    fetchMatrix();
   }, []);
 
-  const handleSave = async (id: string) => {
-    const amount = editingAmounts[id];
-    if (!amount || isNaN(parseFloat(amount))) {
-      toast.error('Please enter a valid numeric fee amount');
-      return;
-    }
+  const handleAmountChange = (id: string, value: string) => {
+    setAmounts((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSaveRow = async (row: MatrixRow) => {
+    const updates = [];
+    if (row.term1?.id) updates.push({ id: row.term1.id, totalAmount: parseFloat(amounts[row.term1.id] || '0') });
+    if (row.term2?.id) updates.push({ id: row.term2.id, totalAmount: parseFloat(amounts[row.term2.id] || '0') });
+    if (row.term3?.id) updates.push({ id: row.term3.id, totalAmount: parseFloat(amounts[row.term3.id] || '0') });
 
     try {
-      setSavingId(id);
-      await apiClient.put(`/api/fee-structures/${id}`, { totalAmount: parseFloat(amount) });
-      toast.success('Fee amount updated successfully');
-      fetchFeeStructures();
+      setSavingRowCat(row.levelCategory);
+      await apiClient.put('/api/fee-structures/batch', { updates });
+      toast.success(`${row.title} fee structures saved successfully`);
+      fetchMatrix();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update fee amount');
+      toast.error(error.response?.data?.message || 'Failed to save fee structures');
     } finally {
-      setSavingId(null);
+      setSavingRowCat(null);
+    }
+  };
+
+  const handleSaveAll = async () => {
+    const updates: Array<{ id: string; totalAmount: number }> = [];
+    Object.entries(amounts).forEach(([id, val]) => {
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+        updates.push({ id, totalAmount: num });
+      }
+    });
+
+    if (updates.length === 0) return;
+
+    try {
+      setSubmitting(true);
+      await apiClient.put('/api/fee-structures/batch', { updates });
+      toast.success('All 3-term fee structures saved successfully!');
+      fetchMatrix();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to batch save fee structures');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEditTerm = (term: TermItem) => {
+    setEditingTerm(term);
+    setEditStartDate(term.startDate ? new Date(term.startDate).toISOString().split('T')[0] : '');
+    setEditEndDate(term.endDate ? new Date(term.endDate).toISOString().split('T')[0] : '');
+  };
+
+  const handleSaveTermDates = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTerm) return;
+
+    try {
+      setSavingTerm(true);
+      await apiClient.put(`/api/academic-terms/${editingTerm.id}`, {
+        startDate: editStartDate,
+        endDate: editEndDate,
+      });
+      toast.success(`Term ${editingTerm.termNumber} dates updated successfully`);
+      setEditingTerm(null);
+      fetchMatrix();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update term dates');
+    } finally {
+      setSavingTerm(false);
+    }
+  };
+
+  const handleSetCurrentTerm = async (termId: string) => {
+    try {
+      setSettingActiveTermId(termId);
+      await apiClient.put(`/api/academic-terms/${termId}`, { isCurrent: true });
+      toast.success('Active academic term updated successfully');
+      fetchMatrix();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to set active term');
+    } finally {
+      setSettingActiveTermId(null);
     }
   };
 
@@ -79,97 +168,268 @@ export const FeeStructureView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-4xl mx-auto"
+      className="space-y-6 max-w-5xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0">
             <Calculator className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h2 className="text-xl font-bold">School Fee Structure Management</h2>
+            <h2 className="text-xl font-bold">School Fee Structure & Term Billing Matrix</h2>
             <p className="text-xs text-blue-100 mt-0.5">
-              4-Tier Fee Configuration per Term (Playgroup/PPE, Lower Primary, Upper Primary, Junior Secondary).
+              Configure and edit term-by-term fees for all 4 education levels across Kenya's 3 official terms.
             </p>
           </div>
         </div>
+
+        <button
+          onClick={handleSaveAll}
+          disabled={submitting}
+          className="px-5 py-2.5 bg-white text-blue-600 hover:bg-slate-50 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0"
+        >
+          {submitting ? (
+            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          Save All Fee Structures
+        </button>
       </div>
 
+      {/* Notice Banner */}
       <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-300">
         <ShieldAlert className="w-5 h-5 shrink-0 text-amber-600" />
         <span>
-          <strong>Head Teacher Authority Notice:</strong> Fee structure modifications directly affect student term billings across all categories.
+          <strong>Head Teacher Authority Notice:</strong> Modifying fee structures updates term billing rates for all students across Pre-Primary, Lower Primary, Upper Primary, and JSS.
         </span>
       </div>
 
-      {/* 4-Tier Editable Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-            <tr>
-              <th className="py-4 px-6">Education Level Category</th>
-              <th className="py-4 px-6">Target Grades / Level</th>
-              <th className="py-4 px-6 text-right">Term Total Fee (KES)</th>
-              <th className="py-4 px-6 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {['PPE', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'].map((cat) => {
-              const item = structures.find((s) => s.levelCategory === cat);
-              const label = levelCategoryLabels[cat] || { title: cat, subtitle: '' };
-              const currentEdit = item ? editingAmounts[item.id] || item.totalAmount : '0';
-              const isDirty = item && parseFloat(currentEdit) !== parseFloat(item.totalAmount);
+      {/* Kenyan 3-Term Academic Calendar Schedule Card */}
+      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-600" />
+            Kenyan 3-Term Academic Schedule (2026 Academic Year)
+          </h3>
+          <span className="text-[11px] font-semibold text-slate-500">
+            Standard 3-Term System (Head Teacher edits term dates below)
+          </span>
+        </div>
 
-              return (
-                <tr key={cat} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                  <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">
-                    {label.title}
-                  </td>
-                  <td className="py-4 px-6 text-slate-500 dark:text-slate-400 font-semibold">
-                    {label.subtitle}
-                  </td>
-                  <td className="py-4 px-6 text-right">
-                    {item ? (
-                      <div className="inline-flex items-center gap-2">
-                        <span className="text-slate-400 font-bold">KES</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {terms.map((t) => (
+            <div
+              key={t.id}
+              className={`p-4 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
+                t.isCurrent
+                  ? 'bg-blue-50/70 dark:bg-blue-950/50 border-blue-300 dark:border-blue-900/80 shadow-xs'
+                  : 'bg-slate-50/60 dark:bg-slate-950/50 border-slate-200/80 dark:border-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                  Term {t.termNumber}
+                </span>
+                {t.isCurrent ? (
+                  <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-extrabold text-[10px] rounded-full flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Active Term
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleSetCurrentTerm(t.id)}
+                    disabled={settingActiveTermId === t.id}
+                    className="px-2.5 py-0.5 bg-slate-200 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-600 dark:text-slate-400 font-bold text-[10px] rounded-full transition-colors"
+                  >
+                    {settingActiveTermId === t.id ? 'Setting...' : 'Set Active'}
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span>Start Date:</span>
+                  <span className="font-bold text-slate-900 dark:text-white font-mono">{formatDate(t.startDate)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>End Date:</span>
+                  <span className="font-bold text-slate-900 dark:text-white font-mono">{formatDate(t.endDate)}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex justify-end">
+                <button
+                  onClick={() => handleOpenEditTerm(t)}
+                  className="px-3 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-lg flex items-center gap-1 transition-colors"
+                >
+                  <Edit2 className="w-3 h-3 text-blue-600" /> Edit Dates
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3-Term Matrix Fee Table across All 4 Levels */}
+      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+          <Calculator className="w-4 h-4 text-blue-600" />
+          3-Term Fee Structure Matrix
+        </h3>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="py-3.5 px-4">Education Level</th>
+                <th className="py-3.5 px-4">Target Grades</th>
+                <th className="py-3.5 px-4 text-center">Term 1 Fee (KES)</th>
+                <th className="py-3.5 px-4 text-center">Term 2 Fee (KES)</th>
+                <th className="py-3.5 px-4 text-center">Term 3 Fee (KES)</th>
+                <th className="py-3.5 px-4 text-right">Annual Total (KES)</th>
+                <th className="py-3.5 px-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {matrix.map((row) => {
+                const t1Val = parseFloat(amounts[row.term1?.id] || '0') || 0;
+                const t2Val = parseFloat(amounts[row.term2?.id] || '0') || 0;
+                const t3Val = parseFloat(amounts[row.term3?.id] || '0') || 0;
+                const annualSum = t1Val + t2Val + t3Val;
+
+                const isSaving = savingRowCat === row.levelCategory;
+
+                return (
+                  <tr key={row.levelCategory} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                    <td className="py-4 px-4 font-extrabold text-slate-900 dark:text-white">
+                      {row.title}
+                    </td>
+                    <td className="py-4 px-4 text-slate-500 font-semibold">
+                      {row.targetGrades}
+                    </td>
+
+                    {/* Term 1 Input */}
+                    <td className="py-4 px-4 text-center">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-400">KES</span>
                         <input
                           type="number"
-                          value={currentEdit}
-                          onChange={(e) => setEditingAmounts({ ...editingAmounts, [item.id]: e.target.value })}
-                          className="w-32 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 font-extrabold text-sm text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                          value={amounts[row.term1?.id] ?? row.term1?.amount}
+                          onChange={(e) => handleAmountChange(row.term1.id, e.target.value)}
+                          className="w-24 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
                         />
                       </div>
-                    ) : (
-                      <span className="text-slate-400 italic">Not set</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-6 text-center">
-                    {item && (
+                    </td>
+
+                    {/* Term 2 Input */}
+                    <td className="py-4 px-4 text-center">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-400">KES</span>
+                        <input
+                          type="number"
+                          value={amounts[row.term2?.id] ?? row.term2?.amount}
+                          onChange={(e) => handleAmountChange(row.term2.id, e.target.value)}
+                          className="w-24 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+                    </td>
+
+                    {/* Term 3 Input */}
+                    <td className="py-4 px-4 text-center">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-400">KES</span>
+                        <input
+                          type="number"
+                          value={amounts[row.term3?.id] ?? row.term3?.amount}
+                          onChange={(e) => handleAmountChange(row.term3.id, e.target.value)}
+                          className="w-24 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                        />
+                      </div>
+                    </td>
+
+                    {/* Computed Annual Total */}
+                    <td className="py-4 px-4 text-right font-black text-sm text-blue-600 dark:text-blue-400">
+                      KES {annualSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </td>
+
+                    {/* Row Action */}
+                    <td className="py-4 px-4 text-center">
                       <button
-                        onClick={() => handleSave(item.id)}
-                        disabled={savingId === item.id || !isDirty}
-                        className={`px-4 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 mx-auto transition-all ${
-                          isDirty
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                        }`}
+                        onClick={() => handleSaveRow(row)}
+                        disabled={isSaving}
+                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1 mx-auto transition-all"
                       >
-                        {savingId === item.id ? (
+                        {isSaving ? (
                           <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
                           <Save className="w-3.5 h-3.5" />
                         )}
                         Save
                       </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Edit Term Dates Modal */}
+      {editingTerm && (
+        <Modal
+          isOpen={!!editingTerm}
+          onClose={() => setEditingTerm(null)}
+          title={`Edit Term ${editingTerm.termNumber} Dates (${editingTerm.year})`}
+        >
+          <form onSubmit={handleSaveTermDates} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Term Opening / Start Date *
+              </label>
+              <input
+                type="date"
+                required
+                value={editStartDate}
+                onChange={(e) => setEditStartDate(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Term Closing / End Date *
+              </label>
+              <input
+                type="date"
+                required
+                value={editEndDate}
+                onChange={(e) => setEditEndDate(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingTerm(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingTerm}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+              >
+                {savingTerm && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Save Term Dates
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </motion.div>
   );
 };
