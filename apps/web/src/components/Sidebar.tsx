@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
-  ShieldCheck, Settings, FileText, Package, Calendar, Clock, LogOut,
+  ShieldCheck, Settings, FileText, Package, Clock, LogOut,
   ChevronLeft, ChevronRight, Menu, X, School
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
     }).catch(() => {});
   }, []);
 
-  // Navigation Items defined per system role
+  // Strict Navigation Items defined per system role according to blueprint & requirements
   const allNavItems: NavItem[] = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'settings', label: 'School Settings', icon: Settings, roles: ['HEAD_TEACHER'] },
@@ -46,22 +46,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
     { id: 'admissions', label: 'Admissions & Students', icon: UserPlus, roles: ['HEAD_TEACHER', 'SECRETARY', 'DEPUTY_HEAD'] },
     { id: 'letters', label: 'Official Letters', icon: FileText, roles: ['HEAD_TEACHER'] },
     { id: 'fee_structure', label: 'Fee Structures', icon: Calculator, roles: ['HEAD_TEACHER'] },
-    { id: 'allocations', label: 'Class & Teacher Allocations', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
-    { id: 'inventory', label: 'School Inventory', icon: Package, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD'] },
-    { id: 'leave_requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD'] },
-    { id: 'exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
-    { id: 'invigilation', label: 'Invigilator Allocations', icon: ShieldCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
-    { id: 'marking_allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { id: 'allocations', label: 'Class & Teacher Allocations', icon: BookOpen, roles: ['DEPUTY_HEAD'] },
+    { id: 'inventory', label: 'School Inventory', icon: Package, roles: ['DEPUTY_HEAD'] },
+    { id: 'leave_requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['DEPUTY_HEAD'] },
+    { id: 'exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
+    { id: 'invigilation', label: 'Invigilator Allocations', icon: ShieldCheck, roles: ['DOS'] },
+    { id: 'marking_allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
     { id: 'report_locks', label: 'Report Card Locks', icon: Settings, roles: ['HEAD_TEACHER', 'DOS'] },
     { id: 'subject_analytics', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { id: 'finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
     { id: 'attendance_oversight', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },
   ];
 
-  // Filter items based on logged in user role (HEAD_TEACHER has override access)
+  // Strictly filter items based on logged in user role (No global override!)
   const navItems = allNavItems.filter((item) => {
     if (!item.roles) return true;
-    if (userRole === 'HEAD_TEACHER') return true;
     return item.roles.includes(userRole);
   });
 
@@ -118,13 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
                   <School className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 )}
               </div>
-              {(!collapsed || mobileOpen) && (
-                <div className="min-w-0">
-                  <h2 className="text-xs font-extrabold tracking-tight text-slate-900 dark:text-white truncate">
+              {!collapsed && (
+                <div className="truncate">
+                  <h1 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider truncate">
                     {schoolName}
-                  </h2>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold block">
-                    Staff Portal
+                  </h1>
+                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
+                    {userRole.replace(/_/g, ' ')}
                   </span>
                 </div>
               )}
@@ -132,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
 
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="hidden lg:flex p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
+              className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-lg transition-colors"
             >
               {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </button>
@@ -143,6 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeView === item.id;
+
               return (
                 <button
                   key={item.id}
@@ -150,56 +150,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, onNavigate, 
                     onNavigate(item.id);
                     setMobileOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs transition-all ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
                   title={collapsed ? item.label : undefined}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'
+                  } ${collapsed ? 'justify-center px-0' : ''}`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  {(!collapsed || mobileOpen) && <span>{item.label}</span>}
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                  {!collapsed && <span className="truncate">{item.label}</span>}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Footer User Info & Logout */}
+        {/* Bottom Profile & Actions */}
         <div className="p-3 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
-          {(!collapsed || mobileOpen) && (
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
-                {user?.firstName ? user.firstName[0] : 'U'}
-              </div>
-              <div className="min-w-0 flex-1">
+          {!collapsed && (
+            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl flex items-center justify-between">
+              <div className="truncate">
                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-[10px] text-slate-400 font-semibold truncate uppercase">
-                  {userRole.replace(/_/g, ' ')}
-                </p>
+                <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
               </div>
+              <ThemeToggle />
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2">
-            {(!collapsed || mobileOpen) && <ThemeToggle />}
-            <button
-              onClick={onLogout}
-              className={`flex items-center gap-2 p-2.5 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors ${
-                collapsed && !mobileOpen ? 'w-full justify-center' : 'flex-1'
-              }`}
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-              {(!collapsed || mobileOpen) && <span>Sign Out</span>}
-            </button>
-          </div>
+          {collapsed && (
+            <div className="flex justify-center pb-2">
+              <ThemeToggle />
+            </div>
+          )}
+
+          <button
+            onClick={onLogout}
+            title={collapsed ? 'Sign Out' : undefined}
+            className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors ${
+              collapsed ? 'justify-center px-0' : ''
+            }`}
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!collapsed && <span>Sign Out</span>}
+          </button>
         </div>
       </aside>
     </>
   );
 };
-
-export default Sidebar;
