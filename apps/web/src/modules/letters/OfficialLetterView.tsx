@@ -108,14 +108,21 @@ export const OfficialLetterView: React.FC = () => {
           body * {
             visibility: hidden !important;
           }
-          #official-letter-paper, #official-letter-paper * {
+          #official-letter-print-root, #official-letter-print-root * {
             visibility: visible !important;
           }
+          #official-letter-print-root {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 999999 !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+          }
           #official-letter-paper {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
             width: 100% !important;
+            max-width: none !important;
             margin: 0 !important;
             padding: 0 !important;
             border: none !important;
@@ -126,8 +133,8 @@ export const OfficialLetterView: React.FC = () => {
             display: none !important;
           }
           @page {
-            size: A4;
-            margin: 15mm 15mm;
+            size: A4 portrait;
+            margin: 10mm 15mm;
           }
         }
       `}</style>
@@ -300,7 +307,7 @@ export const OfficialLetterView: React.FC = () => {
       {/* Printable A4 Letterhead Preview Modal */}
       {printModalData && (
         <Modal isOpen={!!printModalData} onClose={() => setPrintModalData(null)} title="Official Letterhead Preview" maxWidth="max-w-3xl">
-          <div className="space-y-3">
+          <div id="official-letter-print-root" className="space-y-3">
             <div className="no-print flex justify-end pb-1">
               <button
                 onClick={triggerPrint}
@@ -311,18 +318,18 @@ export const OfficialLetterView: React.FC = () => {
             </div>
 
             {/* Pure A4 Letter Paper Canvas */}
-            <div id="official-letter-paper" className="p-8 sm:p-10 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-md space-y-6 mx-auto">
+            <div id="official-letter-paper" className="p-6 sm:p-8 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-md space-y-5 mx-auto">
               {/* Header Letterhead */}
-              <div className="flex items-center gap-6 border-b-2 border-slate-900 pb-5 text-left">
-                <div className="w-24 h-24 shrink-0 flex items-center justify-center">
+              <div className="flex items-center gap-5 border-b-2 border-slate-900 pb-4 text-left">
+                <div className="w-20 h-20 shrink-0 flex items-center justify-center">
                   {printModalData.settings.logoUrl ? (
                     <img src={printModalData.settings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                   ) : (
-                    <School className="w-14 h-14 text-blue-700" />
+                    <School className="w-12 h-12 text-blue-700" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900 leading-tight">
+                  <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-slate-900 leading-tight">
                     {printModalData.settings.schoolName || 'ELDORET MUSLIM ACADEMY'}
                   </h1>
                   {printModalData.settings.schoolMotto && (
@@ -330,46 +337,56 @@ export const OfficialLetterView: React.FC = () => {
                       "{printModalData.settings.schoolMotto}"
                     </p>
                   )}
-                  <p className="text-xs text-slate-700 pt-1">
+                  <p className="text-[11px] text-slate-700 pt-1">
                     {printModalData.settings.poBox ? printModalData.settings.poBox : 'P.O. Box 7768 – 30100, Eldoret'}
                     {printModalData.settings.county ? ` | ${printModalData.settings.county}` : ' | Eldoret, Uasin Gishu'}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-[11px] text-slate-700">
                     Tel: {printModalData.settings.contactPhone || '+254 714731331'} | Email: {printModalData.settings.contactEmail || 'eldoretmuslimacademy@gmail.com'}
                   </p>
                 </div>
               </div>
 
               {/* Date & Recipient */}
-              <div className="flex justify-between text-xs sm:text-sm font-semibold text-slate-800 pt-2">
+              <div className="flex justify-between text-xs font-semibold text-slate-800 pt-1">
                 <div>
                   <p className="font-bold text-slate-900 text-xs">To:</p>
-                  <p className="font-bold text-sm sm:text-base text-slate-900">{printModalData.letter.recipientName || 'To Whom It May Concern'}</p>
-                  {printModalData.letter.recipientAddress && <p className="text-slate-700">{printModalData.letter.recipientAddress}</p>}
+                  <p className="font-bold text-sm text-slate-900">{printModalData.letter.recipientName || 'To Whom It May Concern'}</p>
+                  {printModalData.letter.recipientAddress && <p className="text-slate-700 text-xs">{printModalData.letter.recipientAddress}</p>}
                 </div>
-                <div className="text-right">
+                <div className="text-right text-xs">
                   <p><span className="font-bold">Date:</span> {formatDate(printModalData.letter.letterDate)}</p>
                   <p><span className="font-bold">Ref:</span> EMA/HT/{printModalData.letter.id.substring(0, 6).toUpperCase()}</p>
                 </div>
               </div>
 
               {/* Subject Title */}
-              <div className="text-center py-3 border-y-2 border-slate-300 font-extrabold uppercase tracking-wider text-sm sm:text-base text-slate-900">
+              <div className="text-center py-2.5 border-y-2 border-slate-300 font-extrabold uppercase tracking-wider text-xs sm:text-sm text-slate-900">
                 RE: {printModalData.letter.title}
               </div>
 
               {/* Letter Body */}
-              <div className="text-xs sm:text-sm leading-relaxed text-slate-900 whitespace-pre-wrap min-h-[280px]">
+              <div className="text-xs sm:text-sm leading-relaxed text-slate-900 whitespace-pre-wrap min-h-[160px]">
                 {printModalData.letter.body}
               </div>
 
-              {/* Footer Signature */}
-              <div className="pt-10 text-xs sm:text-sm text-slate-900 space-y-12">
-                <div>
+              {/* Footer Signature & School Stamp Block */}
+              <div className="pt-6 border-t border-slate-200 grid grid-cols-2 gap-6 text-xs text-slate-900">
+                <div className="space-y-1">
                   <p className="font-semibold">Yours faithfully,</p>
-                  <div className="h-14 border-b border-dashed border-slate-400 w-56 mt-2" />
-                  <p className="font-extrabold mt-2 text-slate-900">Headteacher</p>
-                  <p className="text-slate-700 font-medium">{printModalData.settings.schoolName || 'Eldoret Muslim Academy'}</p>
+                  <div className="pt-6">
+                    <div className="border-b border-slate-800 w-44 mb-1" />
+                    <p className="font-bold text-slate-900 uppercase text-[11px]">Headteacher's Signature</p>
+                    <p className="text-slate-600 text-[11px] font-medium">{printModalData.settings.schoolName || 'Eldoret Muslim Academy'}</p>
+                    <p className="text-[10px] text-slate-500 pt-2">Date: ________________________</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end justify-end">
+                  <div className="w-36 h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-center p-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Official School Stamp / Seal</span>
+                    <span className="text-[8px] text-slate-300 italic pt-1">(Affix Stamp Here)</span>
+                  </div>
                 </div>
               </div>
             </div>
