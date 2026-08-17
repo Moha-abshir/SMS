@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Plus, CheckCircle, ArrowUpRight, RotateCcw, AlertTriangle, Layers } from 'lucide-react';
+import { Package, Plus, CheckCircle, ArrowUpRight, RotateCcw, AlertTriangle, Layers, BookOpen } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
