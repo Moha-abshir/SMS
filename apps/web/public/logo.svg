@@ -1,5 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="45" fill="#2563EB" />
-  <path d="M25 60 L50 35 L75 60 L75 65 L50 40 L25 65 Z" fill="#ffffff" />
-  <rect x="45" y="45" width="10" height="25" fill="#ffffff" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E40AF" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Ring -->
+  <circle cx="100" cy="100" r="95" fill="none" stroke="url(#blueGradient)" stroke-width="8" />
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#2563EB" stroke-width="2" stroke-dasharray="4,3" />
+
+  <!-- White Inner Shield Background -->
+  <circle cx="100" cy="100" r="84" fill="#FFFFFF" />
+
+  <!-- Center Emblem Shield -->
+  <path d="M 100 35 L 145 60 C 145 110 100 145 100 145 C 100 145 55 110 55 60 Z" fill="url(#blueGradient)" />
+  <path d="M 100 42 L 138 64 C 138 106 100 137 100 137 C 100 137 62 106 62 64 Z" fill="#FFFFFF" />
+
+  <!-- Graduation Cap / Mortarboard in Center -->
+  <polygon points="100,60 130,72 100,84 70,72" fill="url(#blueGradient)" />
+  <rect x="94" y="84" width="12" height="15" rx="2" fill="url(#goldGradient)" />
+  <path d="M 75 75 L 75 92" stroke="url(#goldGradient)" stroke-width="3" stroke-linecap="round" />
+  <circle cx="75" cy="94" r="3" fill="url(#goldGradient)" />
+
+  <!-- Quill Pen & Open Book Concept -->
+  <path d="M 80 115 Q 100 105 120 115 L 120 128 Q 100 118 80 128 Z" fill="url(#goldGradient)" />
+  <line x1="100" y1="108" x2="100" y2="122" stroke="#FFFFFF" stroke-width="2" />
+
+  <!-- Circular Text Outer Arch -->
+  <path id="textArch" d="M 25 100 A 75 75 0 1 1 175 100" fill="none" />
+  <text font-family="'Plus Jakarta Sans', sans-serif" font-weight="900" font-size="11" fill="#1E3A8A" letter-spacing="1.5">
+    <textPath href="#textArch" startOffset="50%" text-anchor="middle">
+      ELDORET MUSLIM ACADEMY
+    </textPath>
+  </text>
+
+  <!-- Bottom Ribbon Banner -->
+  <path d="M 35 155 Q 100 175 165 155 L 155 178 Q 100 192 45 178 Z" fill="url(#blueGradient)" />
+  <path d="M 45 162 Q 100 178 155 162" fill="none" stroke="url(#goldGradient)" stroke-width="1.5" />
+  <text x="100" y="173" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="8" fill="#FFFFFF" text-anchor="middle" letter-spacing="1">
+    QUALITY EDUCATION FOR QUALITY LIFE
+  </text>
 </svg>
