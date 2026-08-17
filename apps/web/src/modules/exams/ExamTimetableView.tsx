@@ -152,7 +152,7 @@ export const ExamTimetableView: React.FC = () => {
       className="space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
+      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
             <Calendar className="w-6 h-6 text-white" />

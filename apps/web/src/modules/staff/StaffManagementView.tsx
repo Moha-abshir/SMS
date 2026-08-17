@@ -327,10 +327,10 @@ export const StaffManagementView: React.FC = () => {
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
-      <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
         <div>
-          <h2 className="text-xl font-bold">Staff Directory</h2>
-          <p className="text-sm text-slate-500">Manage school employees and invitations</p>
+          <h2 className="text-xl font-bold text-white">Staff Directory & User Invitations</h2>
+          <p className="text-xs text-blue-100 mt-0.5">Manage school employees, subject qualifications, and issuing employment contracts</p>
         </div>
         <div className="flex items-center gap-3">
           <button

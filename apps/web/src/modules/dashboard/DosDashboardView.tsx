@@ -61,7 +61,7 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
       className="space-y-6"
     >
       {/* Welcome Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-xl shadow-blue-600/20">
+      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
         <div>
           <div className="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-2">
             Director of Studies (DoS) Workstation — Year {data.academicYear} Term {data.currentTermNumber}
