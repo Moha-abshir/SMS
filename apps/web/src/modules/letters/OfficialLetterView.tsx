@@ -106,25 +106,27 @@ export const OfficialLetterView: React.FC = () => {
       <style>{`
         @media print {
           body * {
-            visibility: hidden !important;
+            visibility: hidden;
           }
           #official-letter-print-root, #official-letter-print-root * {
-            visibility: visible !important;
+            visibility: visible;
           }
           #official-letter-print-root {
             position: fixed !important;
             inset: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
             z-index: 999999 !important;
             background: white !important;
             margin: 0 !important;
             padding: 0 !important;
-            display: block !important;
           }
           #official-letter-paper {
-            width: 100% !important;
-            max-width: none !important;
+            max-width: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 12mm 16mm !important;
             border: none !important;
             box-shadow: none !important;
             background: white !important;
@@ -134,7 +136,7 @@ export const OfficialLetterView: React.FC = () => {
           }
           @page {
             size: A4 portrait;
-            margin: 10mm 15mm;
+            margin: 0;
           }
         }
       `}</style>
@@ -318,7 +320,7 @@ export const OfficialLetterView: React.FC = () => {
             </div>
 
             {/* Pure A4 Letter Paper Canvas */}
-            <div id="official-letter-paper" className="p-6 sm:p-8 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-md space-y-5 mx-auto">
+            <div id="official-letter-paper" className="p-8 sm:p-14 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-md space-y-6 mx-auto">
               {/* Header Letterhead */}
               <div className="flex items-center gap-5 border-b-2 border-slate-900 pb-4 text-left">
                 <div className="w-20 h-20 shrink-0 flex items-center justify-center">
@@ -348,7 +350,7 @@ export const OfficialLetterView: React.FC = () => {
               </div>
 
               {/* Date & Recipient */}
-              <div className="flex justify-between text-xs font-semibold text-slate-800 pt-1">
+              <div className="flex justify-between text-xs font-semibold text-slate-800 pt-2">
                 <div>
                   <p className="font-bold text-slate-900 text-xs">To:</p>
                   <p className="font-bold text-sm text-slate-900">{printModalData.letter.recipientName || 'To Whom It May Concern'}</p>
@@ -366,15 +368,15 @@ export const OfficialLetterView: React.FC = () => {
               </div>
 
               {/* Letter Body */}
-              <div className="text-xs sm:text-sm leading-relaxed text-slate-900 whitespace-pre-wrap min-h-[160px]">
+              <div className="text-xs sm:text-sm leading-relaxed text-slate-900 whitespace-pre-wrap min-h-[220px] py-2">
                 {printModalData.letter.body}
               </div>
 
               {/* Footer Signature & School Stamp Block */}
-              <div className="pt-6 border-t border-slate-200 grid grid-cols-2 gap-6 text-xs text-slate-900">
+              <div className="pt-8 border-t border-slate-200 grid grid-cols-2 gap-6 text-xs text-slate-900">
                 <div className="space-y-1">
                   <p className="font-semibold">Yours faithfully,</p>
-                  <div className="pt-6">
+                  <div className="pt-8">
                     <div className="border-b border-slate-800 w-44 mb-1" />
                     <p className="font-bold text-slate-900 uppercase text-[11px]">Headteacher's Signature</p>
                     <p className="text-slate-600 text-[11px] font-medium">{printModalData.settings.schoolName || 'Eldoret Muslim Academy'}</p>
@@ -383,10 +385,8 @@ export const OfficialLetterView: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col items-end justify-end">
-                  <div className="w-36 h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-center p-2">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Official School Stamp / Seal</span>
-                    <span className="text-[8px] text-slate-300 italic pt-1">(Affix Stamp Here)</span>
-                  </div>
+                  {/* Clean Empty Dashed Box for Physical Rubber Stamp */}
+                  <div className="w-36 h-24 border-2 border-dashed border-slate-400 rounded-xl bg-transparent" />
                 </div>
               </div>
             </div>
