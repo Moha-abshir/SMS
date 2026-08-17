@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, CheckCircle2, BookOpen, Wallet, UserPlus, FileText, Settings, ShieldCheck } from 'lucide-react';
+import { Users, CheckCircle2, BookOpen, Wallet, UserPlus, FileText, Settings, ShieldCheck, TrendingUp } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
 
 interface OverviewViewProps {

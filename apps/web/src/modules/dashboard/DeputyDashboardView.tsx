@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Clock, Package, UserX, ClipboardCheck, Award, ArrowUpRight } from 'lucide-react';
+import { BookOpen, Clock, Package, UserX, ClipboardCheck, Award, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
 
 interface DeputyDashboardViewProps {
