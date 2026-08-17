@@ -40,16 +40,27 @@ export const SubjectPerformanceView: React.FC = () => {
       className="space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-            <BarChart3 className="w-6 h-6 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+        <div>
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <BarChart3 className="w-4 h-4" />
+            Academic Analytics & Grading Performance
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Subject Performance & CBC/KNEC Analytics Engine</h2>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Subject average comparisons, CBC 4-tier rubric distributions (EE, ME, AE, BE) & JSS 8-point scales.
-            </p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Subject Performance & CBC/KNEC Analytics Engine</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+            Subject average comparisons, CBC 4-tier rubric distributions (EE, ME, AE, BE) & JSS 8-point scales.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 px-5 py-3 bg-slate-900/80 border border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+          <div className="text-center">
+            <span className="block text-xl font-bold text-blue-400 leading-none">4-Tier</span>
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mt-1 block">CBC Rubric</span>
+          </div>
+          <div className="w-[1px] h-8 bg-slate-800" />
+          <div className="text-center">
+            <span className="block text-xl font-bold text-emerald-400 leading-none">8-Point</span>
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mt-1 block">KNEC Scale</span>
           </div>
         </div>
       </div>

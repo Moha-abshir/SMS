@@ -114,32 +114,32 @@ export const InventoryView: React.FC = () => {
       className="space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-            <Package className="w-6 h-6 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+        <div>
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <Package className="w-4 h-4" />
+            Asset Management & Textbook Tracking
           </div>
-          <div>
-            <h2 className="text-xl font-bold">School Inventory & Asset Management</h2>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Catalog textbooks, classroom accessories & equipment, track staff checkouts, returns & overdue alerts.
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">School Inventory & Asset Management</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+            Catalog textbooks, classroom accessories & equipment, track staff checkouts, returns & overdue alerts.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setShowItemModal(true)}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 font-bold text-xs rounded-xl backdrop-blur-md flex items-center gap-2 transition-all"
+            className="px-4 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all"
           >
-            <Plus className="w-4 h-4" />
-            Add Inventory Item
+            <Plus className="w-4 h-4 text-blue-400" />
+            Add Item
           </button>
           <button
             onClick={() => setShowCheckoutModal(true)}
-            className="px-4 py-2.5 bg-white text-blue-600 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
           >
-            <ArrowUpRight className="w-4 h-4" />
-            Checkout Asset
+            <BookOpen className="w-4 h-4" />
+            Checkout Item
           </button>
         </div>
       </div>

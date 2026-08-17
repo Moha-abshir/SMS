@@ -329,22 +329,29 @@ export const StaffManagementView: React.FC = () => {
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
         <div>
-          <h2 className="text-xl font-bold text-white">Staff Directory & User Invitations</h2>
-          <p className="text-xs text-blue-100 mt-0.5">Manage school employees, subject qualifications, and issuing employment contracts</p>
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <Users className="w-4 h-4" />
+            Human Resources & Staff Management
+          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Staff Directory & User Invitations</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+            Manage school employees, subject qualifications, role invitations, and employment contracts.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setShowSubjectModal(true)}
-            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors"
+            className="px-4 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all"
           >
-            <BookOpen className="w-4 h-4 text-blue-500" /> Manage Subjects
+            <BookOpen className="w-4 h-4 text-blue-400" /> Manage Subjects
           </button>
           <button
             onClick={() => {
               resetForm();
               setShowInviteModal(true);
             }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-colors shadow-md shadow-blue-500/20"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
           >
             <Plus className="w-4 h-4" /> Invite Staff
           </button>

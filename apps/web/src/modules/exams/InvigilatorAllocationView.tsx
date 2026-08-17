@@ -110,21 +110,21 @@ export const InvigilatorAllocationView: React.FC = () => {
       className="space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center">
-            <UserCheck className="w-6 h-6 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+        <div>
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <UserCheck className="w-4 h-4" />
+            DoS Invigilation & Exam Hall Supervision
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Exam Invigilator Allocation Matrix</h2>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Assign invigilating teachers to exam paper sessions and classrooms to ensure strict examination integrity.
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Exam Invigilator Allocation Matrix</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+            Assign invigilating teachers to exam paper sessions and classrooms to ensure strict examination integrity.
+          </p>
         </div>
+
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2.5 bg-white text-blue-600 hover:bg-slate-50 font-bold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all"
+          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all shrink-0"
         >
           <Plus className="w-4 h-4" />
           Assign Invigilator

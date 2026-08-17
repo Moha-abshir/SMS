@@ -61,15 +61,28 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
       className="space-y-6"
     >
       {/* Welcome Banner */}
-      <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
         <div>
-          <div className="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-extrabold uppercase tracking-wider mb-2">
-            Deputy Headteacher Workstation — Year {data.academicYear} Term {data.currentTermNumber}
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <TrendingUp className="w-4 h-4" />
+            Deputy Headteacher Operational Workstation
           </div>
-          <h2 className="text-xl font-bold">{data.schoolName} Academic & Operational Oversight</h2>
-          <p className="text-xs text-indigo-100 mt-1">
+          <h2 className="text-2xl font-bold text-white tracking-tight">{data.schoolName} Academic & Operational Oversight</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
             Oversee teacher class allocations, staff leave permission slips, school inventory, attendance, and exam mark approvals.
           </p>
+        </div>
+
+        <div className="flex items-center gap-4 px-5 py-3 bg-slate-900/80 border border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+          <div className="text-center">
+            <span className="block text-xl font-bold text-blue-400 leading-none">{data.academicYear}</span>
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mt-1 block">Academic Year</span>
+          </div>
+          <div className="w-[1px] h-8 bg-slate-800" />
+          <div className="text-center">
+            <span className="block text-xl font-bold text-emerald-400 leading-none">Term {data.currentTermNumber}</span>
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mt-1 block">Active Term</span>
+          </div>
         </div>
       </div>
 

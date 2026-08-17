@@ -110,30 +110,25 @@ export const FeeStructureView: React.FC = () => {
       className="space-y-6 max-w-5xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0">
-            <Calculator className="w-6 h-6 text-white" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+        <div>
+          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <Calculator className="w-4 h-4" />
+            Financial Oversight & Billing Matrix
           </div>
-          <div>
-            <h2 className="text-xl font-bold">School Fee Structure & Term Billing Matrix</h2>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Configure and edit term-by-term fees for all 4 education levels across Kenya's 3 official terms.
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">School Fee Structure & Term Billing Matrix</h2>
+          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+            Configure and edit term-by-term fees for all 4 education levels across Kenya's 3 official terms.
+          </p>
         </div>
 
         <button
           onClick={handleSaveAll}
           disabled={submitting}
-          className="px-5 py-2.5 bg-white text-blue-600 hover:bg-slate-50 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 transition-all shrink-0"
+          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all shrink-0"
         >
-          {submitting ? (
-            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          Save All Fee Structures
+          <Save className="w-4 h-4" />
+          {submitting ? 'Saving Changes...' : 'Save Fee Matrix'}
         </button>
       </div>
 
