@@ -327,14 +327,14 @@ export const StaffManagementView: React.FC = () => {
       transition={{ duration: 0.2 }}
       className="space-y-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
-          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <Users className="w-4 h-4" />
+          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <Users className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Human Resources & Staff Management
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Staff Directory & User Invitations</h2>
-          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Manage school employees, subject qualifications, role invitations, and employment contracts.
           </p>
         </div>
@@ -342,16 +342,16 @@ export const StaffManagementView: React.FC = () => {
         <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setShowSubjectModal(true)}
-            className="px-4 py-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all"
+            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-white dark:text-slate-200 border border-white/20 dark:border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all"
           >
-            <BookOpen className="w-4 h-4 text-blue-400" /> Manage Subjects
+            <BookOpen className="w-4 h-4 text-blue-200 dark:text-blue-400" /> Manage Subjects
           </button>
           <button
             onClick={() => {
               resetForm();
               setShowInviteModal(true);
             }}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
+            className="px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all"
           >
             <Plus className="w-4 h-4" /> Invite Staff
           </button>

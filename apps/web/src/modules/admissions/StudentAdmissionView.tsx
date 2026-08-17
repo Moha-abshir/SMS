@@ -253,27 +253,27 @@ export const StudentAdmissionView: React.FC = () => {
       className="space-y-6"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
-          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <UserPlus className="w-4 h-4" />
+          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <UserPlus className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Admissions & Student Information System
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-white">Learner Enrolment & Class Directory</h2>
-          <p className="text-xs text-slate-300 mt-1">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Learner Enrolment & Class Directory</h2>
+          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Register new learners with KNEC Assessment numbers, manage class placements, and audit class rosters.
           </p>
         </div>
 
-        <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-white/10 shrink-0">
-          <div className="text-right">
-            <span className="text-2xl font-black text-blue-400 block leading-none">{studentsList.length}</span>
-            <span className="text-[11px] text-slate-400 font-semibold uppercase">Total Learners</span>
+        <div className="flex items-center gap-4 px-5 py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+          <div className="text-center">
+            <span className="block text-2xl font-bold text-white dark:text-blue-400 leading-none">{studentsList.length}</span>
+            <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Total Learners</span>
           </div>
-          <div className="h-8 w-px bg-white/10" />
-          <div className="text-right">
-            <span className="text-2xl font-black text-emerald-400 block leading-none">{classesList.length}</span>
-            <span className="text-[11px] text-slate-400 font-semibold uppercase">Active Classes</span>
+          <div className="w-[1px] h-8 bg-white/20 dark:bg-slate-800" />
+          <div className="text-center">
+            <span className="block text-2xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">{classesList.length}</span>
+            <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Active Classes</span>
           </div>
         </div>
       </div>

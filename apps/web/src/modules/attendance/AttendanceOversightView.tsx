@@ -79,27 +79,27 @@ export const AttendanceOversightView: React.FC = () => {
       className="space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-950 via-slate-900 to-slate-900 text-white rounded-3xl shadow-xl border border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
-          <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <UserX className="w-4 h-4" />
+          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
+            <UserX className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Attendance Register & Parent Notification System
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">School-Wide Attendance Oversight</h2>
-          <p className="text-xs text-slate-400 mt-1 font-medium max-w-xl">
+          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Daily class register audit & automated Africa's Talking parent SMS notifications.
           </p>
         </div>
 
         {/* Date Selector Mini Container */}
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
-          <Calendar className="w-4 h-4 text-blue-400" />
-          <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Target Date:</span>
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+          <Calendar className="w-4 h-4 text-blue-100 dark:text-blue-400" />
+          <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase">Target Date:</span>
           <input
             type="date"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
-            className="bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg border border-slate-700 outline-none cursor-pointer"
+            className="bg-white/20 dark:bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded-lg border border-white/20 dark:border-slate-700 outline-none cursor-pointer"
           />
         </div>
       </div>
