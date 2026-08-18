@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   ShieldCheck, Settings, FileText, Package, Clock, LogOut,
-  ChevronLeft, ChevronRight, Menu, X, School
+  ChevronLeft, ChevronRight, Menu, X, School, ClipboardCheck
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { apiClient } from '../lib/apiClient';
