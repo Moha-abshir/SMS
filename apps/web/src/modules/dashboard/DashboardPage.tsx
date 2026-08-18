@@ -51,7 +51,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {userRole === 'DEPUTY_HEAD_TEACHER' ? (
+                {userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER' ? (
                   <DeputyDashboardView onNavigate={(viewId) => setActiveView(viewId)} />
                 ) : userRole === 'DOS' ? (
                   <DosDashboardView onNavigate={(viewId) => setActiveView(viewId)} />
