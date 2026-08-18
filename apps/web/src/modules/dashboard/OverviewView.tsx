@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, CheckCircle2, BookOpen, Wallet, UserPlus, FileText, Settings, ShieldCheck, TrendingUp } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
@@ -8,6 +9,7 @@ interface OverviewViewProps {
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{
     totalLearners: number;
@@ -144,7 +146,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
-            onClick={() => onNavigate?.('admissions')}
+            onClick={() => {
+              if (onNavigate) onNavigate('admissions');
+              navigate('/admissions');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <UserPlus className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -153,7 +158,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
           </button>
 
           <button
-            onClick={() => onNavigate?.('letters')}
+            onClick={() => {
+              if (onNavigate) onNavigate('letters');
+              navigate('/letters');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <FileText className="w-6 h-6 text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -162,7 +170,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
           </button>
 
           <button
-            onClick={() => onNavigate?.('settings')}
+            onClick={() => {
+              if (onNavigate) onNavigate('settings');
+              navigate('/settings');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <Settings className="w-6 h-6 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />

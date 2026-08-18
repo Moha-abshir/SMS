@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Clock, Package, UserX, ClipboardCheck, Award, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
@@ -8,6 +9,7 @@ interface DeputyDashboardViewProps {
 }
 
 export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{
     totalClasses: number;
@@ -136,7 +138,10 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
-            onClick={() => onNavigate?.('allocations')}
+            onClick={() => {
+              if (onNavigate) onNavigate('allocations');
+              navigate('/allocations');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <BookOpen className="w-6 h-6 text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -145,7 +150,10 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
           </button>
 
           <button
-            onClick={() => onNavigate?.('leave_requests')}
+            onClick={() => {
+              if (onNavigate) onNavigate('leave_requests');
+              navigate('/leave-requests');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <Clock className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -154,7 +162,10 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
           </button>
 
           <button
-            onClick={() => onNavigate?.('inventory')}
+            onClick={() => {
+              if (onNavigate) onNavigate('inventory');
+              navigate('/inventory');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <Package className="w-6 h-6 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -163,7 +174,10 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
           </button>
 
           <button
-            onClick={() => onNavigate?.('attendance_oversight')}
+            onClick={() => {
+              if (onNavigate) onNavigate('attendance_oversight');
+              navigate('/attendance');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-red-50 dark:hover:bg-red-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <UserX className="w-6 h-6 text-red-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -172,7 +186,10 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
           </button>
 
           <button
-            onClick={() => onNavigate?.('mark_review')}
+            onClick={() => {
+              if (onNavigate) onNavigate('mark_review');
+              navigate('/mark-review');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-amber-50 dark:hover:bg-amber-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <ClipboardCheck className="w-6 h-6 text-amber-600 mb-2 group-hover:scale-110 transition-transform" />

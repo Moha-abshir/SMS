@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, UserCheck, Award, Lock, BarChart3, BookOpen } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
@@ -8,6 +9,7 @@ interface DosDashboardViewProps {
 }
 
 export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<{
     totalExams: number;
@@ -134,7 +136,10 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
-            onClick={() => onNavigate?.('exams')}
+            onClick={() => {
+              if (onNavigate) onNavigate('exams');
+              navigate('/exams');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <Calendar className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -143,7 +148,10 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
           </button>
 
           <button
-            onClick={() => onNavigate?.('invigilation')}
+            onClick={() => {
+              if (onNavigate) onNavigate('invigilation');
+              navigate('/invigilation');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <UserCheck className="w-6 h-6 text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -152,7 +160,10 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
           </button>
 
           <button
-            onClick={() => onNavigate?.('marking_allocations')}
+            onClick={() => {
+              if (onNavigate) onNavigate('marking_allocations');
+              navigate('/marking-allocations');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-amber-50 dark:hover:bg-amber-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <Award className="w-6 h-6 text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -161,7 +172,10 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
           </button>
 
           <button
-            onClick={() => onNavigate?.('report_locks')}
+            onClick={() => {
+              if (onNavigate) onNavigate('report_locks');
+              navigate('/report-locks');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <Lock className="w-6 h-6 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
@@ -170,7 +184,10 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
           </button>
 
           <button
-            onClick={() => onNavigate?.('subject_analytics')}
+            onClick={() => {
+              if (onNavigate) onNavigate('subject_analytics');
+              navigate('/subject-performance');
+            }}
             className="p-4 bg-slate-50 dark:bg-slate-950 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-800 rounded-2xl text-left transition-all group"
           >
             <BarChart3 className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
