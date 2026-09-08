@@ -28,7 +28,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://eldoret-muslim-academy.vercel.app',
+    'https://sms-eldoret.vercel.app',
     process.env.FRONTEND_URL || ''
   ].filter(Boolean),
   credentials: true,
