@@ -2,7 +2,10 @@ import postgres from 'postgres';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'apps/api/.env') });
 
 const FIRST_NAMES_MALE = [
@@ -38,9 +41,60 @@ async function seedStudentsAndGuardians() {
   const sql = postgres(dbUrl);
 
   try {
-    const dbClasses = await sql`SELECT id, name, level_category, numeric_order FROM classes ORDER BY numeric_order ASC;`;
+    // 1. Seed System Settings if missing
+    const existingSettings = await sql`SELECT id FROM system_settings LIMIT 1;`;
+    if (existingSettings.length === 0) {
+      await sql`
+        INSERT INTO system_settings (
+          id, school_name, school_motto, address, po_box, county,
+          contact_phone, contact_email, current_academic_year, updated_at
+        ) VALUES (
+          ${randomUUID()}, 'Eldoret Muslim Academy', 'Excellence in Knowledge & Character',
+          'Pioneer Road, Eldoret', 'P.O. Box 1234 - 30100', 'Uasin Gishu',
+          '+254700000000', 'info@eldoretmuslim.ac.ke',
+          2026, NOW()
+        );
+      `;
+      console.log('🏫 Seeded school system settings.');
+    }
+
+    // 2. Seed Academic Terms if missing
+    let term1Id = '';
+    const existingTerms = await sql`SELECT id, term_number, is_current FROM academic_terms;`;
+    if (existingTerms.length === 0) {
+      term1Id = randomUUID();
+      const term2Id = randomUUID();
+      const term3Id = randomUUID();
+      await sql`
+        INSERT INTO academic_terms (id, year, term_number, start_date, end_date, is_current)
+        VALUES
+          (${term1Id}, 2026, 1, '2026-01-08', '2026-04-05', true),
+          (${term2Id}, 2026, 2, '2026-05-04', '2026-08-07', false),
+          (${term3Id}, 2026, 3, '2026-09-01', '2026-11-20', false);
+      `;
+      console.log('📅 Seeded 3 Academic Terms for 2026.');
+    }
+
+    // 3. Seed Classes (Playgroup to Grade 9) if missing
+    let dbClasses = await sql`SELECT id, name, level_category, numeric_order FROM classes ORDER BY numeric_order ASC;`;
     if (dbClasses.length === 0) {
-      throw new Error('No classes found in database! Please ensure classes exist.');
+      const defaultClasses = [
+        { id: randomUUID(), name: 'Playgroup', level_category: 'PPE', numeric_order: 1 },
+        { id: randomUUID(), name: 'PP1', level_category: 'PPE', numeric_order: 2 },
+        { id: randomUUID(), name: 'PP2', level_category: 'PPE', numeric_order: 3 },
+        { id: randomUUID(), name: 'Grade 1', level_category: 'LOWER_PRIMARY', numeric_order: 4 },
+        { id: randomUUID(), name: 'Grade 2', level_category: 'LOWER_PRIMARY', numeric_order: 5 },
+        { id: randomUUID(), name: 'Grade 3', level_category: 'LOWER_PRIMARY', numeric_order: 6 },
+        { id: randomUUID(), name: 'Grade 4', level_category: 'UPPER_PRIMARY', numeric_order: 7 },
+        { id: randomUUID(), name: 'Grade 5', level_category: 'UPPER_PRIMARY', numeric_order: 8 },
+        { id: randomUUID(), name: 'Grade 6', level_category: 'UPPER_PRIMARY', numeric_order: 9 },
+        { id: randomUUID(), name: 'Grade 7', level_category: 'JUNIOR', numeric_order: 10 },
+        { id: randomUUID(), name: 'Grade 8', level_category: 'JUNIOR', numeric_order: 11 },
+        { id: randomUUID(), name: 'Grade 9', level_category: 'JUNIOR', numeric_order: 12 },
+      ];
+      await sql`INSERT INTO classes ${sql(defaultClasses, 'id', 'name', 'level_category', 'numeric_order')};`;
+      console.log(`📚 Seeded ${defaultClasses.length} school classes (Playgroup to Grade 9).`);
+      dbClasses = await sql`SELECT id, name, level_category, numeric_order FROM classes ORDER BY numeric_order ASC;`;
     }
     console.log(`Found ${dbClasses.length} classes in DB.`);
 
@@ -49,7 +103,6 @@ async function seedStudentsAndGuardians() {
     await sql`DELETE FROM attendance_records;`;
     await sql`DELETE FROM exam_scores;`;
     await sql`DELETE FROM cat_scores;`;
-    await sql`DELETE FROM secondary_guardians;`;
     await sql`DELETE FROM students;`;
     await sql`DELETE FROM guardians;`;
 
