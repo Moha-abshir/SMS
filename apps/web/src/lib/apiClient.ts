@@ -1,8 +1,14 @@
 import axios from 'axios';
 import { sanitizeErrorMessage } from './formatters';
 
-let apiUrl = import.meta.env.VITE_API_URL || '';
-if (apiUrl && !apiUrl.startsWith('http')) apiUrl = `https://${apiUrl}`;
+let apiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+if (apiUrl && !apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+  apiUrl = `https://${apiUrl}`;
+}
+
+if (!apiUrl && typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+  console.warn('[API Client Warning] VITE_API_URL is not set. API requests will target the frontend host origin.');
+}
 
 export const apiClient = axios.create({
   baseURL: apiUrl,

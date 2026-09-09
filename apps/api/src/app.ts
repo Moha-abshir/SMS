@@ -24,14 +24,32 @@ import dosRoutes from './modules/dos/dos.routes.js';
 
 const app = express();
 
-app.use(helmet());
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://sms-eldoret.vercel.app',
+  'https://eldoret-muslim-academy.vercel.app',
+  process.env.FRONTEND_URL?.replace(/\/$/, '') || '',
+].filter(Boolean);
+
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://sms-eldoret.vercel.app',
-    process.env.FRONTEND_URL || ''
-  ].filter(Boolean),
+  origin: (origin, callback) => {
+    // Allow non-browser requests (e.g. mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      allowedOrigins.includes(origin.replace(/\/$/, '')) ||
+      /^https:\/\/.*\.vercel\.app$/.test(origin)
+    ) {
+      return callback(null, true);
+    }
+    // Fallback permissive for production custom domains
+    return callback(null, true);
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   maxAge: 86400, // Cache preflight OPTIONS request for 24 hours
 }));
 app.use(compression());
