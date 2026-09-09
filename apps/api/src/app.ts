@@ -28,24 +28,23 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
   'https://sms-eldoret.vercel.app',
-  'https://eldoret-muslim-academy.vercel.app',
   process.env.FRONTEND_URL?.replace(/\/$/, '') || '',
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow non-browser requests (e.g. mobile apps, curl, server-to-server)
+    // Allow non-browser requests (e.g. mobile apps, curl, server-to-server, health checks)
     if (!origin) return callback(null, true);
-    if (
-      allowedOrigins.includes(origin) ||
-      allowedOrigins.includes(origin.replace(/\/$/, '')) ||
-      /^https:\/\/.*\.vercel\.app$/.test(origin)
-    ) {
+    
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
-    // Fallback permissive for production custom domains
-    return callback(null, true);
+    
+    return callback(new Error(`Blocked by CORS policy: Origin ${origin} is not allowed.`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
