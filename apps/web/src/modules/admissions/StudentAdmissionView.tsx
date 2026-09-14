@@ -250,10 +250,10 @@ export const StudentAdmissionView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <UserPlus className="w-4 h-4 text-blue-200 dark:text-blue-400" />
@@ -265,29 +265,29 @@ export const StudentAdmissionView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-4 px-5 py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
           <div className="text-center">
-            <span className="block text-2xl font-bold text-white dark:text-blue-400 leading-none">{studentsList.length}</span>
+            <span className="block text-xl sm:text-2xl font-bold text-white dark:text-blue-400 leading-none">{studentsList.length}</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Total Learners</span>
           </div>
           <div className="w-[1px] h-8 bg-white/20 dark:bg-slate-800" />
           <div className="text-center">
-            <span className="block text-2xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">{classesList.length}</span>
+            <span className="block text-xl sm:text-2xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">{classesList.length}</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Active Classes</span>
           </div>
         </div>
       </div>
 
       {/* Student Admission Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* Section 1: Learner Basic Details */}
-        <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <GraduationCap className="w-4 h-4 text-blue-600" />
             1. Learner Profile & KNEC Assessment Record
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 KNEC Assessment Number *
@@ -402,15 +402,15 @@ export const StudentAdmissionView: React.FC = () => {
         </div>
 
         {/* Section 2: Parent / Guardian Info with Keystroke Deduplication */}
-        <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
+        <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
               <Users className="w-4 h-4 text-emerald-600" />
               2. Parent / Guardian Records (Keystroke Deduplication)
             </h3>
 
             {selectedGuardian && (
-              <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-extrabold rounded-full flex items-center gap-1">
+              <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-extrabold rounded-full flex items-center gap-1 w-max">
                 <CheckCircle className="w-3.5 h-3.5" /> Linked to Existing Parent
               </span>
             )}
@@ -461,7 +461,7 @@ export const StudentAdmissionView: React.FC = () => {
           )}
 
           {selectedGuardian ? (
-            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-300">
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-300">
               <div>
                 <p className="font-bold text-sm">{selectedGuardian.fullName}</p>
                 <p className="text-xs text-emerald-700 dark:text-emerald-400">
@@ -471,13 +471,13 @@ export const StudentAdmissionView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleClearSelectedGuardian}
-                className="px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="w-full sm:w-auto px-3 py-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl shadow-sm hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[36px]"
               >
                 Unlink Parent
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 pt-2">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Parent Full Name *
@@ -532,7 +532,7 @@ export const StudentAdmissionView: React.FC = () => {
                 />
               </div>
 
-              <div>
+              <div className="sm:col-span-2 lg:col-span-1">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Emergency Phone Contact
                 </label>
@@ -551,7 +551,7 @@ export const StudentAdmissionView: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 flex items-center gap-2 transition-all disabled:opacity-50"
+            className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50 min-h-[44px] cursor-pointer"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -564,7 +564,7 @@ export const StudentAdmissionView: React.FC = () => {
       </form>
 
       {/* ACTIVE SCHOOL ROSTER SECTION */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-5 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 sm:space-y-5 shadow-sm">
         {selectedClassId === null ? (
           /* LEVEL 1: GRADE CARDS DIRECTORY OVERVIEW */
           <div className="space-y-4">
@@ -585,7 +585,7 @@ export const StudentAdmissionView: React.FC = () => {
             ) : classesList.length === 0 ? (
               <p className="text-xs text-slate-400 italic py-6 text-center">No active classes configured in system.</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
                 {classesList.map((c) => {
                   const enrolledCount = studentsList.filter((s) => s.class.id === c.id).length;
                   return (
@@ -636,7 +636,7 @@ export const StudentAdmissionView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedClassId(null)}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shrink-0"
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shrink-0 min-h-[36px]"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back to All Grades
                 </button>
@@ -653,7 +653,7 @@ export const StudentAdmissionView: React.FC = () => {
               </div>
 
               {/* Class Filter / Search Bar */}
-              <div className="relative sm:w-64">
+              <div className="relative w-full sm:w-64">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
@@ -667,15 +667,15 @@ export const StudentAdmissionView: React.FC = () => {
 
             {/* Students Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[720px]">
                 <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="py-3 px-4">KNEC Assessment No</th>
-                    <th className="py-3 px-4">Student Name</th>
-                    <th className="py-3 px-4">Gender</th>
-                    <th className="py-3 px-4">Primary Parent / Phone</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-center">Actions</th>
+                    <th className="py-3 px-3 sm:px-4">KNEC Assessment No</th>
+                    <th className="py-3 px-3 sm:px-4">Student Name</th>
+                    <th className="py-3 px-3 sm:px-4">Gender</th>
+                    <th className="py-3 px-3 sm:px-4">Primary Parent / Phone</th>
+                    <th className="py-3 px-3 sm:px-4 text-center">Status</th>
+                    <th className="py-3 px-3 sm:px-4 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
