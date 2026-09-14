@@ -126,46 +126,48 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between relative overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="px-6 py-4 flex items-center justify-between z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 overflow-hidden p-1">
+      <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 overflow-hidden p-1 shrink-0">
             {logoUrl ? (
               <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
             ) : (
-              <School className="w-6 h-6" />
+              <School className="w-5 h-5 sm:w-6 sm:h-6" />
             )}
           </div>
-          <div>
-            <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{schoolName}</h1>
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">CBC Primary & Junior Secondary</p>
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight truncate">{schoolName}</h1>
+            <p className="text-[11px] sm:text-xs text-blue-600 dark:text-blue-400 font-semibold truncate">CBC Primary & Junior Secondary</p>
           </div>
         </div>
-        <ThemeToggle />
+        <div className="shrink-0 ml-2">
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* Main Login Card with Slide-Up Transition */}
-      <main className="flex-1 flex items-center justify-center p-4 z-10">
+      <main className="flex-1 flex items-center justify-center p-3.5 sm:p-6 z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl relative"
+          className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-2xl relative"
         >
           {/* School Uniform Blue Accent Header */}
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 rounded-2xl bg-blue-600/10 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto mb-4 overflow-hidden p-2 shadow-inner">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-blue-600/10 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto mb-3 sm:mb-4 overflow-hidden p-2 shadow-inner">
               {logoUrl ? (
                 <img src={logoUrl} alt="School Crest Logo" className="w-full h-full object-contain" />
               ) : (
-                <ShieldCheck className="w-10 h-10" />
+                <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10" />
               )}
             </div>
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
               {view === 'forgot_password' ? 'Reset Password' : view === 'otp' ? 'Security Verification' : `${schoolName} Staff Portal`}
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
               {view === 'forgot_password'
                 ? 'Request a secure link to reset your account password'
                 : view === 'otp'
@@ -233,7 +235,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full min-h-[44px] py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -264,7 +266,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="123456"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 text-center font-mono tracking-widest font-bold text-lg transition-all"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 text-center font-mono tracking-widest font-bold text-base sm:text-lg transition-all"
                   />
                 </div>
               </div>
@@ -272,7 +274,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={otpLoading}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all"
+                className="w-full min-h-[44px] py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all"
               >
                 {otpLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -285,7 +287,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="button"
                   onClick={() => setView('login')}
-                  className="hover:underline font-bold text-slate-700 dark:text-slate-300"
+                  className="hover:underline font-bold text-slate-700 dark:text-slate-300 min-h-[36px] flex items-center"
                 >
                   ← Back to Sign In
                 </button>
@@ -294,7 +296,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendLoading}
-                  className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center gap-1"
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center gap-1 min-h-[36px]"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
                   <span>Resend Code</span>
@@ -325,7 +327,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       setView('login');
                       setResetSent(false);
                     }}
-                    className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer"
+                    className="w-full min-h-[44px] py-3 sm:py-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer"
                   >
                     Return to Sign In
                   </button>
@@ -356,7 +358,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   <button
                     type="submit"
                     disabled={resetLoading}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full min-h-[44px] py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     {resetLoading ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -372,7 +374,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     <button
                       type="button"
                       onClick={() => setView('login')}
-                      className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline cursor-pointer"
+                      className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline cursor-pointer min-h-[36px]"
                     >
                       ← Back to Sign In
                     </button>
@@ -385,7 +387,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400 z-10">
+      <footer className="py-3 sm:py-4 px-4 text-center text-xs text-slate-400 z-10">
         © 2026 {schoolName}. All rights reserved. Powered by AGY SMS.
       </footer>
     </div>

@@ -83,57 +83,57 @@ export const AcceptInvitationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-50 dark:bg-slate-950">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-            <GraduationCap className="w-10 h-10" />
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+            <GraduationCap className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800"
+          className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800"
         >
           {error && !invitationData ? (
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                <XCircle className="w-8 h-8" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <XCircle className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Invitation Invalid</h1>
-              <p className="text-slate-500 dark:text-slate-400">{error}</p>
-              <a href="/" className="inline-flex items-center justify-center w-full px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold rounded-xl transition-colors mt-4">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Invitation Invalid</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">{error}</p>
+              <a href="/" className="inline-flex items-center justify-center w-full min-h-[44px] px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold rounded-xl transition-colors mt-4 text-sm">
                 Go to Login
               </a>
             </div>
           ) : success ? (
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-8 h-8" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Account Created!</h1>
-              <p className="text-slate-500 dark:text-slate-400">Your account has been successfully set up. Redirecting you to login...</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Account Created!</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">Your account has been successfully set up. Redirecting you to login...</p>
             </div>
           ) : (
             <>
-              <div className="text-center mb-8">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Welcome aboard!</h1>
-                <p className="text-slate-500 dark:text-slate-400">
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">Welcome aboard!</h1>
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                   Hi {invitationData.firstName}, you've been invited as a <strong className="text-slate-700 dark:text-slate-300">{invitationData.roleName}</strong>. Create your password to activate your account.
                 </p>
               </div>
 
               {error && (
-                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium flex items-start gap-3">
-                  <XCircle className="w-5 h-5 shrink-0" />
+                <div className="mb-6 p-3.5 sm:p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-xs sm:text-sm font-medium flex items-start gap-3">
+                  <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   <p>{error}</p>
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 pl-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 pl-1 uppercase tracking-wider">
                     Create Password
                   </label>
                   <div className="relative group">
@@ -144,7 +144,7 @@ export const AcceptInvitationPage: React.FC = () => {
                       type={showPassword ? 'text' : 'password'}
                       required
                       minLength={8}
-                      className="w-full pl-11 pr-12 py-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                      className="w-full pl-11 pr-12 py-3 sm:py-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                       placeholder="At least 8 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -152,7 +152,7 @@ export const AcceptInvitationPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors min-w-[36px] min-h-[36px] justify-center"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -160,7 +160,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 pl-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 pl-1 uppercase tracking-wider">
                     Confirm Password
                   </label>
                   <div className="relative group">
@@ -171,7 +171,7 @@ export const AcceptInvitationPage: React.FC = () => {
                       type={showPassword ? 'text' : 'password'}
                       required
                       minLength={8}
-                      className="w-full pl-11 pr-12 py-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
+                      className="w-full pl-11 pr-12 py-3 sm:py-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-sm"
                       placeholder="Confirm your password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
@@ -182,7 +182,7 @@ export const AcceptInvitationPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-4 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full min-h-[44px] py-3 sm:py-3.5 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all active:scale-[0.98] flex items-center justify-center gap-2 group mt-2 text-sm disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {submitting ? (
                     <>
@@ -191,7 +191,7 @@ export const AcceptInvitationPage: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      Activate Account
+                      <span>Activate Account</span>
                       <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}

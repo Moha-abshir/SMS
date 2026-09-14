@@ -96,22 +96,22 @@ export const ResetPasswordPage: React.FC = () => {
 
   if (!valid && !completed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 text-white">
+      <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-950 text-white">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-red-500/20 text-center shadow-2xl"
+          className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-red-500/20 text-center shadow-2xl"
         >
-          <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 mx-auto mb-6">
-            <XCircle className="w-10 h-10" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 mx-auto mb-4 sm:mb-6">
+            <XCircle className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Invalid or Expired Link</h2>
-          <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+          <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Invalid or Expired Link</h2>
+          <p className="text-slate-400 text-xs sm:text-sm mb-6 leading-relaxed">
             {errorMessage || 'This password reset link is invalid or has expired. Please request a new password reset link from the login page.'}
           </p>
           <a
             href="/"
-            className="inline-flex items-center justify-center w-full px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm transition-all"
+            className="inline-flex items-center justify-center w-full min-h-[44px] px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm transition-all"
           >
             Return to Login
           </a>
@@ -122,22 +122,22 @@ export const ResetPasswordPage: React.FC = () => {
 
   if (completed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 text-white">
+      <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-950 text-white">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-emerald-500/20 text-center shadow-2xl"
+          className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-emerald-500/20 text-center shadow-2xl"
         >
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mx-auto mb-6">
-            <CheckCircle2 className="w-10 h-10" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mx-auto mb-4 sm:mb-6">
+            <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Password Reset Successful!</h2>
-          <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Password Reset Successful!</h2>
+          <p className="text-slate-400 text-xs sm:text-sm mb-6 leading-relaxed">
             Your password has been changed. All active sessions have been logged out. Please sign in with your new password and complete 2FA verification.
           </p>
           <a
             href="/"
-            className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/20"
+            className="inline-flex items-center justify-center gap-2 w-full min-h-[44px] px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/20"
           >
             Proceed to Login <ChevronRight className="w-4 h-4" />
           </a>
@@ -147,23 +147,23 @@ export const ResetPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-950 text-white">
+    <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-950 text-white">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-            <GraduationCap className="w-10 h-10" />
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+            <GraduationCap className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/80 backdrop-blur-xl p-8 rounded-3xl border border-slate-800 shadow-2xl"
+          className="bg-slate-900/80 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl"
         >
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white">Create New Password</h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Set a new password for <span className="text-blue-400 font-semibold">{staffInfo?.email}</span>
+          <div className="mb-5 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Create New Password</h1>
+            <p className="text-slate-400 text-xs sm:text-sm mt-1">
+              Set a new password for <span className="text-blue-400 font-semibold break-all">{staffInfo?.email}</span>
             </p>
           </div>
 
@@ -185,7 +185,7 @@ export const ResetPasswordPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 min-w-[36px] min-h-[36px] flex items-center justify-center"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -219,7 +219,7 @@ export const ResetPasswordPage: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {submitting ? (
                 <>
