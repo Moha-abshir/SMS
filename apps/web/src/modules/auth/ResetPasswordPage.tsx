@@ -107,7 +107,7 @@ export const ResetPasswordPage: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Invalid or Expired Link</h2>
           <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-            {errorMessage || 'This password reset link is invalid or has expired. Please request another password reset from your Head Teacher.'}
+            {errorMessage || 'This password reset link is invalid or has expired. Please request a new password reset link from the login page.'}
           </p>
           <a
             href="/"

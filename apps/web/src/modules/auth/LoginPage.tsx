@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School } from 'lucide-react';
+import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { apiClient } from '../../lib/apiClient';
@@ -20,11 +20,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
 
-  // View State
-  const [view, setView] = useState<'login' | 'otp'>('login');
+  // View State: 'login' | 'otp' | 'forgot_password'
+  const [view, setView] = useState<'login' | 'otp' | 'forgot_password'>('login');
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+
+  // Forgot Password State
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     apiClient.get('/api/settings/public').then((res) => {
@@ -98,6 +103,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const handleRequestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast.warn('Please provide your staff email address');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const response = await apiClient.post('/api/auth/password-reset/request', { email: resetEmail });
+      if (response.data.success) {
+        setResetSent(true);
+        toast.success('Password reset link sent to your email.');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to send password reset link. Please try again.';
+      toast.error(message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between relative overflow-hidden">
       {/* Top Navbar */}
@@ -135,8 +162,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <ShieldCheck className="w-10 h-10" />
               )}
             </div>
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">{schoolName} Staff Portal</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter your registered email and password</p>
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">
+              {view === 'forgot_password' ? 'Reset Password' : view === 'otp' ? 'Security Verification' : `${schoolName} Staff Portal`}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {view === 'forgot_password'
+                ? 'Request a secure link to reset your account password'
+                : view === 'otp'
+                ? 'Enter the 6-digit verification code sent to your email'
+                : 'Enter your registered email and password'}
+            </p>
           </div>
 
           {view === 'login' ? (
@@ -159,9 +194,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetEmail(email);
+                      setResetSent(false);
+                      setView('forgot_password');
+                    }}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -197,7 +245,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 )}
               </button>
             </form>
-          ) : (
+          ) : view === 'otp' ? (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
               <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 rounded-xl text-xs text-blue-800 dark:text-blue-300">
                 A 6-digit 2FA verification code was sent to <strong className="font-bold">{email}</strong>.
@@ -253,6 +301,85 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </button>
               </div>
             </form>
+          ) : (
+            /* Forgot Password View */
+            <div className="space-y-5">
+              {resetSent ? (
+                <div className="space-y-5">
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Reset Link Sent</h3>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                      If an active account is registered with <strong className="font-semibold">{resetEmail}</strong>, a secure password reset link has been dispatched.
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Please check your email inbox and click the link within 60 minutes.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView('login');
+                      setResetSent(false);
+                    }}
+                    className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer"
+                  >
+                    Return to Sign In
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleRequestPasswordReset} className="space-y-5">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 rounded-xl text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                    Enter your registered staff email address and we will send you a secure link to reset your password.
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                      Staff Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="teacher@school.co.ke"
+                        required
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    {resetLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span>Send Reset Link</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setView('login')}
+                      className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline cursor-pointer"
+                    >
+                      ← Back to Sign In
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           )}
         </motion.div>
       </main>
