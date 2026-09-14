@@ -27,9 +27,17 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response) {
       if (error.response.status === 401) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        window.location.href = '/';
+        // Do not force-reload the page if this is a login/auth attempt or an unauthenticated public route
+        const url = error.config?.url || '';
+        const isAuthRequest = url.includes('/api/auth/login') || url.includes('/api/auth/verify-2fa') || url.includes('/api/auth/password-reset');
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isAuthPage = pathname === '/' || pathname === '/login' || pathname.startsWith('/reset-password') || pathname.startsWith('/accept-invitation') || pathname.startsWith('/verify-email');
+
+        if (!isAuthRequest && !isAuthPage) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          window.location.href = '/login';
+        }
       }
 
       // Sanitize raw SQL/DB traceback messages if present in server response
