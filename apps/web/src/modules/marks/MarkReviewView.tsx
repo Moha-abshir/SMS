@@ -90,43 +90,43 @@ export const MarkReviewView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-6xl mx-auto"
+      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <ClipboardCheck className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Marksheet Review & Approval Workflow
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Exam Mark Review & Approval State Machine</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Exam Mark Review & Approval State Machine</h2>
           <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Review submitted teacher marksheets, approve, request corrections, or lock final grades.
           </p>
         </div>
 
-        <div className="flex items-center gap-4 px-5 py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
           <div className="text-center">
-            <span className="block text-xl font-bold text-white dark:text-blue-400 leading-none">{submissions.length}</span>
+            <span className="block text-lg sm:text-xl font-bold text-white dark:text-blue-400 leading-none">{submissions.length}</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Submissions</span>
           </div>
           <div className="w-[1px] h-8 bg-white/20 dark:bg-slate-800" />
           <div className="text-center">
-            <span className="block text-xl font-bold text-amber-300 dark:text-amber-400 leading-none">{submissions.filter(s => s.status === 'SUBMITTED').length} Pending</span>
+            <span className="block text-lg sm:text-xl font-bold text-amber-300 dark:text-amber-400 leading-none">{submissions.filter(s => s.status === 'SUBMITTED').length} Pending</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Review Queue</span>
           </div>
         </div>
       </div>
 
       {/* Submissions Review Workspace */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4 text-blue-600" />
           Marksheet Submissions Queue ({submissions.length} Marksheets)
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[640px]">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-3.5 px-4">Class</th>

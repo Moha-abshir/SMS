@@ -37,70 +37,70 @@ export const SubjectPerformanceView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-6xl mx-auto"
+      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <BarChart3 className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Academic Analytics & Grading Performance
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Subject Performance & CBC/KNEC Analytics Engine</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Subject Performance & CBC/KNEC Analytics Engine</h2>
           <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Subject average comparisons, CBC 4-tier rubric distributions (EE, ME, AE, BE) & JSS 8-point scales.
           </p>
         </div>
 
-        <div className="flex items-center gap-4 px-5 py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
           <div className="text-center">
-            <span className="block text-xl font-bold text-white dark:text-blue-400 leading-none">4-Tier</span>
+            <span className="block text-lg sm:text-xl font-bold text-white dark:text-blue-400 leading-none">4-Tier</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">CBC Rubric</span>
           </div>
           <div className="w-[1px] h-8 bg-white/20 dark:bg-slate-800" />
           <div className="text-center">
-            <span className="block text-xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">8-Point</span>
+            <span className="block text-lg sm:text-xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">8-Point</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">KNEC Scale</span>
           </div>
         </div>
       </div>
 
       {/* CBC & JSS Grading Scale Reference Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-3.5 sm:p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-xl sm:rounded-2xl">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">EE — Exceeding Expectations</span>
-          <div className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300 mt-1">Level 4 (80% - 100%)</div>
+          <div className="text-xl sm:text-2xl font-extrabold text-emerald-700 dark:text-emerald-300 mt-1">Level 4 (80% - 100%)</div>
           <p className="text-[11px] text-emerald-800 dark:text-emerald-400 mt-0.5">Grade Points: 8 - 7</p>
         </div>
 
-        <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-2xl">
+        <div className="p-3.5 sm:p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-xl sm:rounded-2xl">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-400">ME — Meeting Expectations</span>
-          <div className="text-2xl font-extrabold text-blue-700 dark:text-blue-300 mt-1">Level 3 (65% - 79%)</div>
+          <div className="text-xl sm:text-2xl font-extrabold text-blue-700 dark:text-blue-300 mt-1">Level 3 (65% - 79%)</div>
           <p className="text-[11px] text-blue-800 dark:text-blue-400 mt-0.5">Grade Points: 6 - 5</p>
         </div>
 
-        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
+        <div className="p-3.5 sm:p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl sm:rounded-2xl">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-400">AE — Approaching Expectations</span>
-          <div className="text-2xl font-extrabold text-amber-700 dark:text-amber-300 mt-1">Level 2 (50% - 64%)</div>
+          <div className="text-xl sm:text-2xl font-extrabold text-amber-700 dark:text-amber-300 mt-1">Level 2 (50% - 64%)</div>
           <p className="text-[11px] text-amber-800 dark:text-amber-400 mt-0.5">Grade Points: 4 - 3</p>
         </div>
 
-        <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-2xl">
+        <div className="p-3.5 sm:p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl sm:rounded-2xl">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-red-700 dark:text-red-400">BE — Below Expectations</span>
-          <div className="text-2xl font-extrabold text-red-700 dark:text-red-300 mt-1">Level 1 (0% - 49%)</div>
+          <div className="text-xl sm:text-2xl font-extrabold text-red-700 dark:text-red-300 mt-1">Level 1 (0% - 49%)</div>
           <p className="text-[11px] text-red-800 dark:text-red-400 mt-0.5">Grade Points: 2 - 1</p>
         </div>
       </div>
 
       {/* Subject Performance Analytics Table */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-blue-600" />
           School-Wide Subject Averages & Rubric Breakdown ({subjectData.length} Subjects)
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[680px]">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-3.5 px-4">Subject Name</th>
