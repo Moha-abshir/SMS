@@ -30,6 +30,7 @@ const allowedOrigins = [
   'http://localhost:5174',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
+  'https://sms-eldoret.pages.dev',
   'https://sms-eldoret.vercel.app',
   process.env.FRONTEND_URL?.replace(/\/$/, '') || '',
 ].filter(Boolean);
