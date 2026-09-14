@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { EmailChangeService } from './emailChange.service.js';
+import { resolveFrontendUrl } from '../../config/env.js';
 
 export class EmailChangeController {
   static async initiateEmailChange(req: Request, res: Response) {
@@ -19,8 +20,7 @@ export class EmailChangeController {
         });
       }
 
-      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://eldoret-muslim-academy.vercel.app';
+      const frontendUrl = resolveFrontendUrl(req);
 
       const result = await EmailChangeService.initiateEmailChange(
         targetUserId,

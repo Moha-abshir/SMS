@@ -13,5 +13,30 @@ export const env = {
   SMTP_PASS: process.env.SMTP_PASS || '',
   AFRICAS_TALKING_USERNAME: process.env.AFRICAS_TALKING_USERNAME || 'sandbox',
   AFRICAS_TALKING_API_KEY: process.env.AFRICAS_TALKING_API_KEY || '',
+  DEFAULT_FRONTEND_URL: 'https://sms-eldoret.pages.dev',
 };
+
+/**
+ * Resolves the frontend URL dynamically from the incoming request or environment,
+ * strictly guaranteeing that all system outgoing links use Cloudflare Pages (.pages.dev)
+ * and never old .vercel.app links.
+ */
+export function resolveFrontendUrl(req?: any): string {
+  if (req && req.headers) {
+    const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+    if (origin) {
+      const cleanOrigin = origin.replace(/\/$/, '');
+      if (!cleanOrigin.includes('vercel.app')) {
+        return cleanOrigin;
+      }
+    }
+  }
+
+  const envUrl = process.env.FRONTEND_URL?.trim().replace(/\/$/, '');
+  if (envUrl && !envUrl.includes('vercel.app')) {
+    return envUrl;
+  }
+
+  return env.DEFAULT_FRONTEND_URL;
+}
 

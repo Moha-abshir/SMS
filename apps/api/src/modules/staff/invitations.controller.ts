@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import { InvitationsService } from './invitations.service.js';
+import { resolveFrontendUrl } from '../../config/env.js';
 
 export class InvitationsController {
   static async createInvitation(req: Request, res: Response) {
     try {
-      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://eldoret-muslim-academy.vercel.app';
+      const frontendUrl = resolveFrontendUrl(req);
       const invitedById = (req as any).user?.id || '00000000-0000-0000-0000-000000000000';
       
       const result = await InvitationsService.createInvitation(req.body, invitedById, frontendUrl);
@@ -23,8 +23,7 @@ export class InvitationsController {
 
   static async resendInvitation(req: Request, res: Response) {
     try {
-      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://eldoret-muslim-academy.vercel.app';
+      const frontendUrl = resolveFrontendUrl(req);
       const result = await InvitationsService.resendInvitation(req.params.id, frontendUrl);
       res.json({ success: true, message: 'Invitation resent successfully', data: result });
     } catch (error: any) {

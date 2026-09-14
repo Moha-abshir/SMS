@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PasswordResetService } from './passwordReset.service.js';
+import { resolveFrontendUrl } from '../../config/env.js';
 
 export class PasswordResetController {
   static async requestPasswordReset(req: Request, res: Response) {
@@ -9,8 +10,7 @@ export class PasswordResetController {
         return res.status(400).json({ success: false, message: 'A valid email address is required' });
       }
 
-      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://sms-eldoret.vercel.app';
+      const frontendUrl = resolveFrontendUrl(req);
 
       await PasswordResetService.requestPasswordReset(email, frontendUrl);
 
@@ -29,8 +29,7 @@ export class PasswordResetController {
       const targetUserId = req.params.id;
       const adminUser = req.user;
       
-      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://sms-eldoret.vercel.app';
+      const frontendUrl = resolveFrontendUrl(req);
 
       const result = await PasswordResetService.initiatePasswordReset(targetUserId, adminUser, frontendUrl);
       res.status(200).json({
