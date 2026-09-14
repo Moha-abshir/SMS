@@ -15,6 +15,7 @@ import { EmailChangeController } from './emailChange.controller.js';
 router.post('/invitations/validate', userRateLimiter, InvitationsController.validateInvitation);
 router.post('/invitations/accept', userRateLimiter, InvitationsController.acceptInvitation);
 
+router.post('/password-reset/request', userRateLimiter, PasswordResetController.requestPasswordReset);
 router.post('/password-reset/verify', userRateLimiter, PasswordResetController.verifyToken);
 router.post('/password-reset/complete', userRateLimiter, PasswordResetController.completePasswordReset);
 

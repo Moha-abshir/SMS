@@ -2,13 +2,35 @@ import { Request, Response } from 'express';
 import { PasswordResetService } from './passwordReset.service.js';
 
 export class PasswordResetController {
+  static async requestPasswordReset(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ success: false, message: 'A valid email address is required' });
+      }
+
+      const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://sms-eldoret.vercel.app';
+
+      await PasswordResetService.requestPasswordReset(email, frontendUrl);
+
+      res.status(200).json({
+        success: true,
+        message: 'If an account is associated with this email, a password reset link has been sent.',
+      });
+    } catch (error: any) {
+      console.error('Error requesting password reset:', error);
+      res.status(400).json({ success: false, message: error.message || 'Failed to process password reset request' });
+    }
+  }
+
   static async initiatePasswordReset(req: Request, res: Response) {
     try {
       const targetUserId = req.params.id;
       const adminUser = req.user;
       
       const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://eldoret-muslim-academy.vercel.app';
+      const frontendUrl = process.env.FRONTEND_URL || origin || 'https://sms-eldoret.vercel.app';
 
       const result = await PasswordResetService.initiatePasswordReset(targetUserId, adminUser, frontendUrl);
       res.status(200).json({

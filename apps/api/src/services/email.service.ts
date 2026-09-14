@@ -128,14 +128,14 @@ export class EmailService {
           <div style="max-width: 480px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0;">
             <h2 style="color: #2563EB; margin-top: 0;">School Account Security</h2>
             <p>Hello ${recipientName},</p>
-            <p>A password reset was initiated for your School Management System account by an authorized administrator.</p>
+            <p>A password reset was requested for your School Management System account.</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${resetUrl}" style="background-color: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
             </div>
             <p style="color: #64748B; font-size: 13px;">This secure reset link will expire in <strong>${expiryMinutes} minutes</strong>. Do not share this link with anyone.</p>
             <p style="color: #64748B; font-size: 13px;">If you cannot click the button, copy and paste this URL into your browser:</p>
             <p style="color: #64748B; font-size: 12px; word-break: break-all;">${resetUrl}</p>
-            <p style="color: #DC2626; font-size: 12px; margin-top: 20px;">If you did not expect this request, please contact your Head Teacher immediately.</p>
+            <p style="color: #DC2626; font-size: 12px; margin-top: 20px;">If you did not request this, please ignore this email or contact your Head Teacher.</p>
           </div>
         </div>
       `,

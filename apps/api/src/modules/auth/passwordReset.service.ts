@@ -75,6 +75,54 @@ export class PasswordResetService {
   }
 
   /**
+   * Self-serve password reset request initiated by any user via login page
+   */
+  static async requestPasswordReset(email: string, frontendUrl: string) {
+    // 1. Fetch target user
+    const [targetUser] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim()));
+    if (!targetUser) {
+      // Return gracefully without exposing user existence
+      return { success: true };
+    }
+    if (!targetUser.isActive) {
+      // Do not send reset email to deactivated account
+      return { success: true };
+    }
+
+    // 2. Generate secure token & Argon2 hash
+    const rawToken = this.generateToken();
+    const tokenHash = await this.hashToken(rawToken);
+
+    // 3. Expiration: 60 minutes
+    const expiryMinutes = 60;
+    const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+
+    // 4. Store token hash in database
+    await db.insert(passwordResetTokens).values({
+      userId: targetUser.id,
+      tokenHash,
+      expiresAt,
+      createdBy: targetUser.id,
+    });
+
+    // 5. Send Reset Email via Brevo / Mailpit
+    const resetUrl = `${frontendUrl}/reset-password?email=${encodeURIComponent(targetUser.email)}&token=${rawToken}`;
+    const recipientName = `${targetUser.firstName} ${targetUser.lastName}`;
+    await EmailService.sendPasswordResetEmail(targetUser.email, recipientName, resetUrl, expiryMinutes);
+
+    // 6. Audit Log
+    await AuditService.log({
+      actorId: targetUser.id,
+      action: 'SELF_INITIATED_PASSWORD_RESET',
+      entityName: 'users',
+      entityId: targetUser.id,
+      userIdentifier: targetUser.email,
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Validates a password reset token (Read-Only Check)
    */
   static async validateToken(email: string, rawToken: string) {
