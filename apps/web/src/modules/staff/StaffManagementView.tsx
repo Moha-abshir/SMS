@@ -325,24 +325,24 @@ export const StaffManagementView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <Users className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Human Resources & Staff Management
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Staff Directory & User Invitations</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Staff Directory & User Invitations</h2>
           <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Manage school employees, subject qualifications, role invitations, and employment contracts.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setShowSubjectModal(true)}
-            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-white dark:text-slate-200 border border-white/20 dark:border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-white/15 hover:bg-white/25 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-white dark:text-slate-200 border border-white/20 dark:border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all min-h-[42px] cursor-pointer"
           >
             <BookOpen className="w-4 h-4 text-blue-200 dark:text-blue-400" /> Manage Subjects
           </button>
@@ -351,7 +351,7 @@ export const StaffManagementView: React.FC = () => {
               resetForm();
               setShowInviteModal(true);
             }}
-            className="px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all min-h-[42px] cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Invite Staff
           </button>
@@ -360,14 +360,14 @@ export const StaffManagementView: React.FC = () => {
 
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase tracking-wider text-slate-500 font-bold">
-                <th className="p-4">Name</th>
-                <th className="p-4">Role</th>
-                <th className="p-4">Contact</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="p-3.5 sm:p-4">Name</th>
+                <th className="p-3.5 sm:p-4">Role</th>
+                <th className="p-3.5 sm:p-4">Contact</th>
+                <th className="p-3.5 sm:p-4">Status</th>
+                <th className="p-3.5 sm:p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
@@ -489,13 +489,13 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Invite Staff Modal */}
       <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite New Staff">
-        <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-2">
+        <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2">
           
           <div className="pb-2 border-b border-slate-100 dark:border-slate-800">
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Personal Details</h3>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
               <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
@@ -505,7 +505,7 @@ export const StaffManagementView: React.FC = () => {
               <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
               <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
@@ -530,7 +530,7 @@ export const StaffManagementView: React.FC = () => {
             <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
               <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
@@ -584,7 +584,7 @@ export const StaffManagementView: React.FC = () => {
             <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Financial Details</h3>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Salary Amount (KSH)</label>
               <input type="number" value={formData.salaryAmount} onChange={e => setFormData({...formData, salaryAmount: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
@@ -595,16 +595,16 @@ export const StaffManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
-            <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 mt-4 sm:mt-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
+            <button type="button" onClick={() => setShowInviteModal(false)} className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl min-h-[40px]">Cancel</button>
             <button
               type="button"
               onClick={handlePreviewContractFromInvite}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors"
+              className="w-full sm:w-auto px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors min-h-[40px]"
             >
               <FileText className="w-4 h-4 text-blue-500" /> Preview Contract
             </button>
-            <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
+            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 min-h-[40px]">
               <Send className="w-4 h-4" /> Send Invitation
             </button>
           </div>
@@ -613,8 +613,8 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Edit Staff Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Staff Details">
-        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-2">
-           <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2">
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
               <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
@@ -624,7 +624,7 @@ export const StaffManagementView: React.FC = () => {
               <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
               <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
@@ -638,7 +638,7 @@ export const StaffManagementView: React.FC = () => {
             <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
             <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
               <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
@@ -687,9 +687,9 @@ export const StaffManagementView: React.FC = () => {
               )}
             </div>
           )}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
-            <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl">Save Changes</button>
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl min-h-[40px]">Cancel</button>
+            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl min-h-[40px]">Save Changes</button>
           </div>
         </form>
       </Modal>

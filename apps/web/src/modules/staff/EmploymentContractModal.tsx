@@ -189,29 +189,29 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
         {/* Main area — document preview */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top action bar (hidden on print) */}
-          <div className="no-print flex items-center justify-between px-5 py-3 bg-slate-900 border-b border-slate-800 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="lg:hidden flex items-center gap-2">
+          <div className="no-print flex items-center justify-between px-3.5 sm:px-5 py-3 bg-slate-900 border-b border-slate-800 shrink-0 gap-2">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="lg:hidden flex items-center gap-2 shrink-0">
                 <div className="w-8 h-8 rounded-lg bg-blue-600/15 flex items-center justify-center text-blue-400">
                   <FileText className="w-4 h-4" />
                 </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{staffFullName}</p>
-                <p className="text-[11px] text-slate-500">{staff.roleName?.replace(/_/g, ' ') || 'Staff'} • Employment Contract</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-semibold text-white truncate">{staffFullName}</p>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{staff.roleName?.replace(/_/g, ' ') || 'Staff'} • Employment Contract</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handlePrint}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all active:scale-[0.97]"
+                className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all active:scale-[0.97] min-h-[38px] cursor-pointer"
               >
-                <Printer className="w-4 h-4" /> Print Contract
+                <Printer className="w-4 h-4" /> <span>Print Contract</span>
               </button>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -219,17 +219,15 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
           </div>
 
           {/* Scrollable document area */}
-          <div className="flex-1 overflow-y-auto bg-slate-950 p-4 md:p-8" ref={printRef}>
-            <div className="mx-auto" style={{ maxWidth: '750px' }}>
+          <div className="flex-1 overflow-y-auto overflow-x-auto bg-slate-950 p-2 sm:p-4 md:p-8" ref={printRef}>
+            <div className="mx-auto w-full max-w-[750px]">
               {/* The A4 document */}
               <div
                 id="contract-document"
-                className="bg-white text-black rounded-sm shadow-2xl shadow-black/30 border border-slate-300/50"
+                className="bg-white text-black rounded-sm shadow-2xl shadow-black/30 border border-slate-300/50 p-5 sm:p-10 md:p-12 text-xs sm:text-[12.5px]"
                 style={{
                   fontFamily: "'Times New Roman', Times, serif",
-                  fontSize: '12.5px',
                   lineHeight: '1.5',
-                  padding: '45px 50px',
                 }}
               >
                 {/* Official Letterhead Header with Logo on Left & Dynamic Details */}
