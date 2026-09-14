@@ -76,25 +76,27 @@ export const AttendanceOversightView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-6xl mx-auto"
+      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <UserX className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Attendance Register & Parent Notification System
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">School-Wide Attendance Oversight</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">School-Wide Attendance Oversight</h2>
           <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Daily class register audit & automated Africa's Talking parent SMS notifications.
           </p>
         </div>
 
         {/* Date Selector Mini Container */}
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
-          <Calendar className="w-4 h-4 text-blue-100 dark:text-blue-400" />
-          <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase">Target Date:</span>
+        <div className="flex items-center justify-between sm:justify-start gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-blue-100 dark:text-blue-400 shrink-0" />
+            <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase">Target Date:</span>
+          </div>
           <input
             type="date"
             value={targetDate}
@@ -105,34 +107,34 @@ export const AttendanceOversightView: React.FC = () => {
       </div>
 
       {/* Aggregate KPI Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-sm">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Registers Submitted</span>
-          <div className="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
             {data.registersSubmittedCount} / {data.totalClassesCount}
           </div>
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Class Registers Completed</p>
         </div>
 
-        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-sm">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Present Learners</span>
-          <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
             {data.totalPresent}
           </div>
           <p className="text-xs text-slate-500 mt-1">In Attendance Today</p>
         </div>
 
-        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-sm">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Absent Learners</span>
-          <div className="text-3xl font-extrabold text-red-600 dark:text-red-400 mt-1">
+          <div className="text-2xl sm:text-3xl font-extrabold text-red-600 dark:text-red-400 mt-1">
             {data.totalAbsent}
           </div>
           <p className="text-xs text-red-600 dark:text-red-400 mt-1">Absences Recorded</p>
         </div>
 
-        <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl shadow-sm">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Excused Absences</span>
-          <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
+          <div className="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
             {data.totalExcused}
           </div>
           <p className="text-xs text-slate-500 mt-1">Official Medical/Excused</p>
@@ -140,14 +142,14 @@ export const AttendanceOversightView: React.FC = () => {
       </div>
 
       {/* Absentee Roster & SMS Action Table */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <Phone className="w-4 h-4 text-red-600" />
           Absentee Parent Notification Hub ({data.absentStudents.length} Absent Learners)
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[680px]">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-3.5 px-4">Student Name</th>

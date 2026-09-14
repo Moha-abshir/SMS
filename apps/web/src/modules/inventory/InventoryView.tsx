@@ -111,32 +111,32 @@ export const InventoryView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-6xl mx-auto"
+      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <Package className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Asset Management & Textbook Tracking
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">School Inventory & Asset Management</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">School Inventory & Asset Management</h2>
           <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Catalog textbooks, classroom accessories & equipment, track staff checkouts, returns & overdue alerts.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setShowItemModal(true)}
-            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-white dark:text-slate-200 border border-white/20 dark:border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all"
+            className="flex-1 sm:flex-initial justify-center min-h-[42px] px-4 py-2.5 bg-white/15 hover:bg-white/25 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-white dark:text-slate-200 border border-white/20 dark:border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all whitespace-nowrap"
           >
             <Plus className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             Add Item
           </button>
           <button
             onClick={() => setShowCheckoutModal(true)}
-            className="px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all"
+            className="flex-1 sm:flex-initial justify-center min-h-[42px] px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all whitespace-nowrap"
           >
             <BookOpen className="w-4 h-4" />
             Checkout Item
@@ -145,20 +145,20 @@ export const InventoryView: React.FC = () => {
       </div>
 
       {/* Inventory Catalog Cards */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <Layers className="w-4 h-4 text-blue-600" />
           Asset Catalog ({items.length} Registered Items)
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {items.length === 0 ? (
             <div className="col-span-full py-8 text-center text-slate-400 italic">
               No inventory items cataloged yet. Click "Add Inventory Item" to register textbooks or supplies.
             </div>
           ) : (
             items.map((row) => (
-              <div key={row.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+              <div key={row.id} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl space-y-2">
                 <div className="flex justify-between items-start">
                   <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 text-[10px] font-extrabold rounded-full uppercase">
                     {row.category}
@@ -176,14 +176,14 @@ export const InventoryView: React.FC = () => {
       </div>
 
       {/* Active Checkouts Table */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <ArrowUpRight className="w-4 h-4 text-blue-600" />
           Asset Checkouts & Returns Register ({checkouts.length})
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[680px]">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-3.5 px-4">Item Name</th>

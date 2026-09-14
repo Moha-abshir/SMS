@@ -165,42 +165,42 @@ export const SettingsView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-6 max-w-4xl mx-auto"
+      className="space-y-4 sm:space-y-6 max-w-4xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
         <div>
           <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
             <School className="w-4 h-4 text-blue-200 dark:text-blue-400" />
             School Governance & System Settings
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">School Settings & Profile</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">School Settings & Profile</h2>
           <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Configure official identity, logo branding, contact details, academic calendar, and Cloudflare R2 storage.
           </p>
         </div>
 
-        <div className="flex items-center gap-4 px-5 py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-2xl backdrop-blur-md shrink-0">
+        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
           <div className="text-center">
-            <span className="block text-xl font-bold text-white dark:text-blue-400 leading-none">{form.academicYear}</span>
+            <span className="block text-lg sm:text-xl font-bold text-white dark:text-blue-400 leading-none">{form.currentAcademicYear}</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Active Year</span>
           </div>
           <div className="w-[1px] h-8 bg-white/20 dark:bg-slate-800" />
           <div className="text-center">
-            <span className="block text-xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">3 Terms</span>
+            <span className="block text-lg sm:text-xl font-bold text-emerald-300 dark:text-emerald-400 leading-none">3 Terms</span>
             <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Supported</span>
           </div>
         </div>
       </div>
 
       {/* Official School Logo Upload Card */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
           <Image className="w-4 h-4 text-blue-600" />
           Official School Branding & Logo (Cloudflare R2 Storage)
         </h3>
 
-        <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/60 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-slate-50 dark:bg-slate-950 rounded-xl sm:rounded-2xl border border-slate-200/60 dark:border-slate-800">
           <div className="relative w-24 h-24 rounded-2xl bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
             {form.logoUrl ? (
               <img src={form.logoUrl} alt="School Logo" className="w-full h-full object-contain p-2" />
@@ -220,8 +220,8 @@ export const SettingsView: React.FC = () => {
               The logo is automatically compressed with Sharp and uploaded to Cloudflare R2 storage. It is displayed on the Login Screen, Sidebar Header, Accept Invitations, and Official Letterheads.
             </p>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3">
-              <label className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer inline-flex items-center gap-2 transition-all">
+            <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">
+              <label className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer inline-flex items-center gap-2 transition-all">
                 <Upload className="w-4 h-4" />
                 {uploadingLogo ? 'Compressing & Uploading...' : 'Select & Upload Logo'}
                 <input
@@ -238,9 +238,9 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Main Settings Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {/* School Identity */}
-        <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Building className="w-4 h-4 text-blue-600" />
             School Identity & Official Header Details
@@ -301,7 +301,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* Contact Details */}
-        <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Phone className="w-4 h-4 text-blue-600" />
             Contact & Location Details
@@ -347,7 +347,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* System Thresholds */}
-        <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
+        <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Bell className="w-4 h-4 text-blue-600" />
             System Defaults & Automation Rules
@@ -385,7 +385,7 @@ export const SettingsView: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all"
+            className="w-full sm:w-auto justify-center min-h-[44px] px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -398,19 +398,19 @@ export const SettingsView: React.FC = () => {
       </form>
 
       {/* Academic Term Manager Section */}
-      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-blue-600" />
             Kenyan 3-Term Schedule ({form.currentAcademicYear} Academic Year)
           </h3>
-          <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-xl border border-blue-200/50 dark:border-blue-900/50">
+          <span className="self-start sm:self-auto px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-xl border border-blue-200/50 dark:border-blue-900/50">
             Standard 3-Term System
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[600px]">
             <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-3.5 px-6">Term Name</th>
