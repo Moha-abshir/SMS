@@ -5,7 +5,6 @@ import {
   ShieldCheck, Settings, FileText, Package, Clock, LogOut,
   ChevronLeft, ChevronRight, Menu, X, School, ClipboardCheck
 } from 'lucide-react';
-import { ThemeToggle } from './ThemeToggle';
 import { apiClient } from '../lib/apiClient';
 
 export interface NavItem {
@@ -73,63 +72,62 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   return (
     <>
       {/* Mobile Top Header */}
-      <div className="lg:hidden sticky top-0 z-40 w-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-3.5 py-2.5 flex items-center justify-between shadow-xs">
+      <div className="lg:hidden sticky top-0 z-40 w-full bg-white/85 backdrop-blur-xl border-b border-sky-100 px-3.5 py-2.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle navigation menu"
-            className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl shrink-0 cursor-pointer"
+            className="p-2 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-xl shrink-0 cursor-pointer transition-colors"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden p-1 shadow-xs shrink-0">
+            <div className="w-9 h-9 rounded-xl border border-sky-100 bg-sky-50/50 flex items-center justify-center overflow-hidden p-1 shadow-xs shrink-0">
               {logoUrl ? (
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
               ) : (
-                <School className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <School className="w-5 h-5 text-sky-500" />
               )}
             </div>
             <div className="min-w-0">
-              <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white block leading-tight truncate">{schoolName}</span>
-              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold block">Staff Portal</span>
+              <span className="text-xs sm:text-sm font-bold text-slate-800 block leading-tight truncate">{schoolName}</span>
+              <span className="text-[10px] text-sky-600 font-semibold block">Staff Portal</span>
             </div>
           </div>
         </div>
-        <ThemeToggle />
       </div>
 
       {/* Backdrop overlay for mobile drawer */}
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 transition-opacity"
+          className="lg:hidden fixed inset-0 bg-slate-900/20 backdrop-blur-xs z-40 transition-opacity"
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-50 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800/80 flex flex-col justify-between transition-all duration-300 ${
+        className={`fixed lg:static top-0 bottom-0 left-0 z-50 bg-white/85 backdrop-blur-xl border-r border-sky-100/90 flex flex-col justify-between shadow-glass transition-all duration-300 ${
           collapsed ? 'w-20' : 'w-64'
         } ${mobileOpen ? 'translate-x-0 w-72 max-w-[85vw] shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Top Branding Section */}
         <div>
-          <div className="p-4 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+          <div className="p-4 flex items-center justify-between border-b border-sky-100/70">
             <div className="flex items-center gap-3 overflow-hidden min-w-0">
-              <div className="w-10 h-10 shrink-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden p-1 shadow-xs">
+              <div className="w-10 h-10 shrink-0 rounded-xl border border-sky-100 bg-sky-50/60 flex items-center justify-center overflow-hidden p-1 shadow-xs">
                 {logoUrl ? (
                   <img src={logoUrl} alt="School Logo" className="w-full h-full object-contain" />
                 ) : (
-                  <School className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <School className="w-5 h-5 text-sky-500" />
                 )}
               </div>
               {!collapsed && (
                 <div className="truncate min-w-0">
-                  <h1 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider truncate">
+                  <h1 className="text-xs font-black text-slate-900 uppercase tracking-wider truncate">
                     {schoolName}
                   </h1>
-                  <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mt-0.5">
+                  <span className="text-[10px] font-bold text-sky-600 block mt-0.5">
                     {userRole.replace(/_/g, ' ')}
                   </span>
                 </div>
@@ -139,14 +137,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
+                className="hidden lg:flex p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
               >
                 {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </button>
               {/* Close button inside mobile drawer */}
               <button
                 onClick={() => setMobileOpen(false)}
-                className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+                className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -167,11 +165,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
                   title={collapsed ? item.label : undefined}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 min-h-[42px] rounded-xl font-bold text-xs transition-all ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
+                      : 'text-slate-600 hover:bg-sky-50/80 hover:text-sky-700'
                   } ${collapsed ? 'justify-center px-0' : ''}`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </NavLink>
               );
@@ -180,22 +178,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         </div>
 
         {/* Bottom Profile & Actions */}
-        <div className="p-3 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
+        <div className="p-3 border-t border-sky-100/70 space-y-2">
           {!collapsed && (
-            <div className="px-3 py-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl flex items-center justify-between gap-2">
+            <div className="px-3 py-2 bg-sky-50/50 border border-sky-100/70 rounded-xl flex items-center justify-between gap-2">
               <div className="truncate min-w-0">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                <p className="text-xs font-bold text-slate-900 truncate">
                   {user?.firstName} {user?.lastName}
                 </p>
                 <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
               </div>
-              <ThemeToggle />
             </div>
           )}
 
           <button
             onClick={onLogout}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 min-h-[44px] text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 min-h-[44px] text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50/70 rounded-xl transition-all cursor-pointer ${
               collapsed ? 'justify-center px-0' : ''
             }`}
           >
@@ -207,3 +204,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     </>
   );
 };
+

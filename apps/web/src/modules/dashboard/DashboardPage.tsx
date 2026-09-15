@@ -30,7 +30,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
   const userRole = user?.roleName || 'HEAD_TEACHER';
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 text-slate-800 flex font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Sidebar Navigation */}
       <Sidebar
         user={user}
@@ -249,15 +249,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-col items-center justify-center min-h-[50vh] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-sm"
+                className="flex flex-col items-center justify-center min-h-[50vh] bg-white/85 backdrop-blur-md rounded-3xl border border-sky-100 p-8 text-center shadow-glass"
               >
-                <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center font-bold text-xl mb-4">
+                <div className="w-16 h-16 bg-sky-50 border border-sky-100 text-sky-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-4 shadow-sm">
                   {activeView.substring(0, 2).toUpperCase()}
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white capitalize">
+                <h3 className="text-xl font-bold text-slate-800 capitalize">
                   {activeView.replace('_', ' ')} Module
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-md">
+                <p className="text-xs text-slate-500 mt-2 max-w-md">
                   This page route is active in the Sidebar Navigation layout and will be populated as we execute the Bursar and Secretary mini-modules.
                 </p>
               </motion.div>

@@ -201,20 +201,20 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="School Subject Management" maxWidth="max-w-4xl">
       <div className="space-y-5">
         {/* Header & Mode Switcher */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/50 rounded-2xl">
-          <div className="flex items-center gap-2.5 text-xs text-blue-900 dark:text-blue-300">
-            <BookOpen className="w-4 h-4 shrink-0 text-blue-600" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-sky-50/70 border border-sky-100 rounded-2xl">
+          <div className="flex items-center gap-2.5 text-xs text-sky-900">
+            <BookOpen className="w-4 h-4 shrink-0 text-sky-600" />
             <span className="font-semibold">Manage subjects taught at Eldoret Muslim Academy across 4 school levels.</span>
           </div>
 
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 w-full sm:w-auto shrink-0">
+          <div className="flex items-center gap-1 bg-white/90 p-1 rounded-xl border border-sky-100 w-full sm:w-auto shrink-0 shadow-xs">
             <button
               type="button"
               onClick={() => { setAddMode('bulk'); resetForm(); }}
               className={`flex-1 sm:flex-none justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 addMode === 'bulk'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-sky-500 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ListPlus className="w-3.5 h-3.5" /> Batch Add Multiple
@@ -224,8 +224,8 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
               onClick={() => { setAddMode('single'); resetForm(); }}
               className={`flex-1 sm:flex-none justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 addMode === 'single'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-sky-500 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Plus className="w-3.5 h-3.5" /> {editingId ? 'Edit Subject' : 'Single Add'}
@@ -235,20 +235,20 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
 
         {/* Batch / Bulk Add Form */}
         {addMode === 'bulk' ? (
-          <form onSubmit={handleBulkSubmit} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <ListPlus className="w-4 h-4 text-blue-600" /> Batch Add Multiple Subjects At Once
+          <form onSubmit={handleBulkSubmit} className="p-3.5 sm:p-4 bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl space-y-3.5 shadow-glass">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-sky-100">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <ListPlus className="w-4 h-4 text-sky-600" /> Batch Add Multiple Subjects At Once
               </h4>
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 shrink-0">
+                <label className="text-xs font-semibold text-slate-600 shrink-0">
                   Target Level:
                 </label>
                 <select
                   value={bulkLevelCategory}
                   onChange={(e) => setBulkLevelCategory(e.target.value as any)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-900 dark:text-white w-full sm:w-auto"
+                  className="bg-white border border-sky-100 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 w-full sm:w-auto focus:border-sky-500 outline-none"
                 >
                   <option value="PPE">ECDE / Pre-Primary (Playgroup, PP1, PP2)</option>
                   <option value="LOWER_PRIMARY">Lower Primary (Grades 1 – 3)</option>
@@ -268,7 +268,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                     placeholder="Subject Name (e.g. Mathematics)"
                     value={row.name}
                     onChange={(e) => handleBulkRowChange(idx, 'name', e.target.value)}
-                    className="flex-1 min-w-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 sm:px-3 py-2 text-xs text-slate-900 dark:text-white"
+                    className="flex-1 min-w-0 bg-white border border-sky-100 rounded-xl px-2.5 sm:px-3 py-2 text-xs text-slate-800 focus:border-sky-500 outline-none"
                   />
                   <input
                     type="text"
@@ -276,7 +276,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                     placeholder="Code"
                     value={row.code}
                     onChange={(e) => handleBulkRowChange(idx, 'code', e.target.value)}
-                    className="w-20 sm:w-28 shrink-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2 sm:px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-900 dark:text-white"
+                    className="w-20 sm:w-28 shrink-0 bg-white border border-sky-100 rounded-xl px-2 sm:px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-800 focus:border-sky-500 outline-none"
                   />
                   <button
                     type="button"
@@ -291,11 +291,11 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
+            <div className="flex items-center justify-between pt-2 border-t border-sky-100">
               <button
                 type="button"
                 onClick={handleAddBulkRow}
-                className="px-3 py-1.5 bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300/70 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl flex items-center gap-1 transition-colors"
+                className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100/80 text-sky-700 font-bold text-xs rounded-xl flex items-center gap-1 border border-sky-100 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Another Row
               </button>
@@ -303,7 +303,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all"
               >
                 {submitting ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -316,14 +316,14 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
           </form>
         ) : (
           /* Single Add / Edit Subject Form — Optimally Spaced Grid */
-          <form onSubmit={handleSingleSubmit} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3.5">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <form onSubmit={handleSingleSubmit} className="p-4 bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl space-y-3.5 shadow-glass">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">
               {editingId ? 'Edit Subject' : 'Add Single Subject'}
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
               <div className="sm:col-span-4">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Subject Name *
                 </label>
                 <input
@@ -332,12 +332,12 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                   placeholder="e.g. Mathematics"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white"
+                  className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 focus:border-sky-500 outline-none"
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Code *
                 </label>
                 <input
@@ -347,18 +347,18 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                   placeholder="MATH"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-900 dark:text-white"
+                  className="w-full bg-white border border-sky-100 rounded-xl px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-800 focus:border-sky-500 outline-none"
                 />
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                   Level Category *
                 </label>
                 <select
                   value={levelCategory}
                   onChange={(e) => setLevelCategory(e.target.value as any)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium"
+                  className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:border-sky-500 outline-none"
                 >
                   <option value="PPE">ECDE / Pre-Primary (Playgroup, PP1, PP2)</option>
                   <option value="LOWER_PRIMARY">Lower Primary (Grades 1 – 3)</option>
@@ -372,7 +372,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-3 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors whitespace-nowrap"
+                    className="px-3 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors whitespace-nowrap"
                   >
                     Cancel
                   </button>
@@ -380,7 +380,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
+                  className="flex-1 py-2 px-3.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
                 >
                   {submitting ? (
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -401,8 +401,8 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
           <div className="space-y-5">
             {categories.map((cat, idx) => (
               <div key={idx} className="space-y-2">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-1">
-                  <span className="px-2.5 py-0.5 bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-400 font-extrabold text-[11px] rounded-md inline-block border border-blue-200 dark:border-blue-900/40">
+                <div className="flex items-center justify-between border-b border-sky-100 pb-1">
+                  <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 font-extrabold text-[11px] rounded-md inline-block border border-sky-100">
                     {cat.title} ({cat.data.length})
                   </span>
                 </div>
@@ -413,27 +413,27 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                     {cat.data.map((sub) => (
                       <div
                         key={sub.id}
-                        className="py-1.5 px-3 rounded-lg border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/50 flex items-center justify-between gap-2 hover:border-blue-500/40 transition-colors"
+                        className="py-1.5 px-3 rounded-xl border border-sky-100 bg-white/80 backdrop-blur-xs flex items-center justify-between gap-2 hover:border-sky-400 hover:bg-sky-50/50 shadow-xs transition-all"
                       >
                         <div className="flex items-center min-w-0">
-                          <span className="font-bold text-slate-900 dark:text-white text-xs truncate">
+                          <span className="font-bold text-slate-800 text-xs truncate">
                             {sub.name}
                           </span>
-                          <span className="ml-1.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200/50 dark:border-blue-900/50 shrink-0">
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-100 shrink-0">
                             {sub.code}
                           </span>
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
                           <button
                             onClick={() => handleEditClick(sub)}
-                            className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors"
+                            className="p-1 text-slate-400 hover:text-sky-600 rounded transition-colors"
                             title="Edit Subject"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(sub.id, sub.name)}
-                            className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors"
+                            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
                             title="Delete Subject"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

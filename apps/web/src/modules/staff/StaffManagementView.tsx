@@ -283,12 +283,12 @@ export const StaffManagementView: React.FC = () => {
     if (!s.isInvitation) {
       return (
         <div className="flex flex-col gap-1 items-start">
-          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max ${s.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max ${s.isActive ? 'bg-sky-50 text-sky-700 border border-sky-200/80' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
             {s.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
             {s.isActive ? 'Active' : 'Inactive'}
           </span>
           {s.twoFactorResetRequired && (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-100/60 text-sky-800 border border-sky-200">
               2FA: Setup Required
             </span>
           )}
@@ -298,19 +298,19 @@ export const StaffManagementView: React.FC = () => {
       switch (s.invitationStatus) {
         case 'PENDING':
           return (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-sky-100/60 text-sky-800 border border-sky-200">
               <MailWarning className="w-3 h-3" /> Pending Invitation
             </span>
           );
         case 'EXPIRED':
           return (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-rose-50 text-rose-600 border border-rose-100">
               <Clock className="w-3 h-3" /> Expired
             </span>
           );
         case 'CANCELLED':
           return (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-slate-100 text-slate-600 border border-slate-200">
               <Ban className="w-3 h-3" /> Cancelled
             </span>
           );
@@ -327,14 +327,14 @@ export const StaffManagementView: React.FC = () => {
       transition={{ duration: 0.2 }}
       className="space-y-4 sm:space-y-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <Users className="w-4 h-4 text-blue-200 dark:text-blue-400" />
+          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
+            <Users className="w-4 h-4 text-sky-500" />
             Human Resources & Staff Management
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Staff Directory & User Invitations</h2>
-          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Staff Directory & User Invitations</h2>
+          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
             Manage school employees, subject qualifications, role invitations, and employment contracts.
           </p>
         </div>
@@ -342,27 +342,27 @@ export const StaffManagementView: React.FC = () => {
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setShowSubjectModal(true)}
-            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-white/15 hover:bg-white/25 dark:bg-slate-900/80 dark:hover:bg-slate-800 text-white dark:text-slate-200 border border-white/20 dark:border-slate-800 rounded-xl font-bold text-xs flex items-center gap-2 backdrop-blur-md transition-all min-h-[42px] cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-50 hover:bg-sky-100/80 text-sky-700 border border-sky-200/70 rounded-xl font-bold text-xs flex items-center gap-2 transition-all min-h-[42px] cursor-pointer"
           >
-            <BookOpen className="w-4 h-4 text-blue-200 dark:text-blue-400" /> Manage Subjects
+            <BookOpen className="w-4 h-4 text-sky-500" /> Manage Subjects
           </button>
           <button
             onClick={() => {
               resetForm();
               setShowInviteModal(true);
             }}
-            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all min-h-[42px] cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md shadow-sky-500/20 transition-all min-h-[42px] cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Invite Staff
           </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="bg-white/85 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-glass border border-sky-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase tracking-wider text-slate-500 font-bold">
+              <tr className="bg-sky-50/70 border-b border-sky-100 text-xs uppercase tracking-wider text-slate-600 font-bold">
                 <th className="p-3.5 sm:p-4">Name</th>
                 <th className="p-3.5 sm:p-4">Role</th>
                 <th className="p-3.5 sm:p-4">Contact</th>
@@ -370,7 +370,7 @@ export const StaffManagementView: React.FC = () => {
                 <th className="p-3.5 sm:p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
+            <tbody className="divide-y divide-sky-50 text-sm">
               {loading ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-slate-500">Loading staff...</td>
@@ -381,19 +381,19 @@ export const StaffManagementView: React.FC = () => {
                 </tr>
               ) : (
                 staff.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-4 font-semibold text-slate-900 dark:text-white">
+                  <tr key={s.id} className="hover:bg-sky-50/40 transition-colors">
+                    <td className="p-4 font-semibold text-slate-900">
                       {s.firstName} {s.lastName}
                     </td>
                     <td className="p-4">
                       <div className="space-y-1">
-                        <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-semibold inline-block">
+                        <span className="px-2.5 py-1 bg-sky-50 border border-sky-100 text-sky-700 rounded-lg text-xs font-semibold inline-block">
                           {s.roleName}
                         </span>
                         {s.assignedSubjects && s.assignedSubjects.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-0.5">
                             {s.assignedSubjects.map((sub: any) => (
-                              <span key={sub.id} className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-mono font-bold rounded">
+                              <span key={sub.id} className="px-1.5 py-0.5 bg-sky-100/70 text-sky-800 border border-sky-200 text-[10px] font-mono font-bold rounded">
                                 {sub.code}
                               </span>
                             ))}
@@ -402,20 +402,20 @@ export const StaffManagementView: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <div className="text-slate-900 dark:text-white">{s.email}</div>
+                      <div className="text-slate-900">{s.email}</div>
                       <div className="text-xs text-slate-500">{s.phoneNumber}</div>
                     </td>
                     <td className="p-4">
                       {getStatusBadge(s)}
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => {
                             setSelectedStaff(s);
                             setShowContractModal(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                           title="Employment Contract Preview & Print"
                         >
                           <FileText className="w-4 h-4" />
@@ -424,14 +424,14 @@ export const StaffManagementView: React.FC = () => {
                           <>
                             <button
                               onClick={() => openEditModal(s)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                               title="Edit Details"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => openResetModal(s)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                               title="Initiate Password Reset"
                             >
                               <KeyRound className="w-4 h-4" />
@@ -442,14 +442,14 @@ export const StaffManagementView: React.FC = () => {
                                 setAdminPasswordConfirm('');
                                 setShow2FaResetModal(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                               title="Reset 2FA Configuration"
                             >
                               <RefreshCw className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleToggleStatus(s)}
-                              className={`p-1.5 transition-colors ${s.isActive ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400' : 'text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
+                              className={`p-1.5 transition-colors ${s.isActive ? 'text-slate-400 hover:text-red-600' : 'text-slate-400 hover:text-sky-600'}`}
                               title={s.isActive ? "Deactivate Account" : "Activate Account"}
                             >
                               <ShieldAlert className="w-4 h-4" />
@@ -461,14 +461,14 @@ export const StaffManagementView: React.FC = () => {
                               <>
                                 <button
                                   onClick={() => handleResendInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
                                   title="Resend Invitation"
                                 >
                                   <Send className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleCancelInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                  className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
                                   title="Cancel Invitation"
                                 >
                                   <Ban className="w-4 h-4" />
@@ -491,49 +491,49 @@ export const StaffManagementView: React.FC = () => {
       <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite New Staff">
         <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2">
           
-          <div className="pb-2 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Personal Details</h3>
+          <div className="pb-2 border-b border-sky-100">
+            <h3 className="text-sm font-bold text-slate-800">Personal Details</h3>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
-              <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Last Name *</label>
-              <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
-              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
-              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
           
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Address</label>
-            <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
           </div>
 
-          <div className="pb-2 pt-4 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Professional Details</h3>
+          <div className="pb-2 pt-4 border-b border-sky-100">
+            <h3 className="text-sm font-bold text-slate-800">Professional Details</h3>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Email Address * (For Invitation)</label>
-            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
-              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
+              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors">
                 <option value="" disabled>Select a role</option>
                 {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
@@ -542,7 +542,7 @@ export const StaffManagementView: React.FC = () => {
             </div>
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Required for Teachers)</span></label>
-              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
 
@@ -552,11 +552,11 @@ export const StaffManagementView: React.FC = () => {
                 Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
               </label>
               {subjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <p className="text-xs text-slate-400 italic bg-sky-50/50 p-2.5 rounded-xl border border-sky-100">
                   No subjects registered yet. Use "Manage Subjects" button to register school subjects.
                 </p>
               ) : (
-                <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-h-36 overflow-y-auto">
+                <div className="flex flex-wrap gap-1.5 p-3 bg-sky-50/50 rounded-xl border border-sky-100 max-h-36 overflow-y-auto">
                   {subjects.map((sub) => {
                     const isSelected = selectedSubjectIds.includes(sub.id);
                     return (
@@ -564,10 +564,10 @@ export const StaffManagementView: React.FC = () => {
                         key={sub.id}
                         type="button"
                         onClick={() => toggleSubjectSelection(sub.id)}
-                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                        className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                            ? 'bg-sky-500 text-white border-sky-500 shadow-glass'
+                            : 'bg-white text-slate-700 border-sky-100 hover:bg-sky-50'
                         }`}
                       >
                         <span className="font-mono font-bold text-[10px] opacity-80">{sub.code}</span>
@@ -580,31 +580,31 @@ export const StaffManagementView: React.FC = () => {
             </div>
           )}
 
-          <div className="pb-2 pt-4 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Financial Details</h3>
+          <div className="pb-2 pt-4 border-b border-sky-100">
+            <h3 className="text-sm font-bold text-slate-800">Financial Details</h3>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Salary Amount (KSH)</label>
-              <input type="number" value={formData.salaryAmount} onChange={e => setFormData({...formData, salaryAmount: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="number" value={formData.salaryAmount} onChange={e => setFormData({...formData, salaryAmount: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Payment Day (1-31)</label>
-              <input type="number" min="1" max="31" value={formData.salaryPaymentDay} onChange={e => setFormData({...formData, salaryPaymentDay: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="number" min="1" max="31" value={formData.salaryPaymentDay} onChange={e => setFormData({...formData, salaryPaymentDay: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 mt-4 sm:mt-6 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">
-            <button type="button" onClick={() => setShowInviteModal(false)} className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl min-h-[40px]">Cancel</button>
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 mt-4 sm:mt-6 border-t border-sky-100 sticky bottom-0 bg-white">
+            <button type="button" onClick={() => setShowInviteModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
             <button
               type="button"
               onClick={handlePreviewContractFromInvite}
-              className="w-full sm:w-auto px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-colors min-h-[40px]"
+              className="w-full sm:w-auto px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors min-h-[40px]"
             >
-              <FileText className="w-4 h-4 text-blue-500" /> Preview Contract
+              <FileText className="w-4 h-4 text-sky-600" /> Preview Contract
             </button>
-            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 min-h-[40px]">
+            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-glass min-h-[40px] transition-all">
               <Send className="w-4 h-4" /> Send Invitation
             </button>
           </div>
@@ -617,31 +617,31 @@ export const StaffManagementView: React.FC = () => {
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
-              <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Last Name *</label>
-              <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
-              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
-              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
-            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
-              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm">
+              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors">
                 <option value="" disabled>Select a role</option>
                 {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
@@ -650,7 +650,7 @@ export const StaffManagementView: React.FC = () => {
             </div>
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Teachers)</span></label>
-              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm" />
+              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
 
@@ -660,11 +660,11 @@ export const StaffManagementView: React.FC = () => {
                 Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
               </label>
               {subjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <p className="text-xs text-slate-400 italic bg-sky-50/50 p-2.5 rounded-xl border border-sky-100">
                   No subjects registered yet. Use "Manage Subjects" button to register school subjects.
                 </p>
               ) : (
-                <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-h-36 overflow-y-auto">
+                <div className="flex flex-wrap gap-1.5 p-3 bg-sky-50/50 rounded-xl border border-sky-100 max-h-36 overflow-y-auto">
                   {subjects.map((sub) => {
                     const isSelected = selectedSubjectIds.includes(sub.id);
                     return (
@@ -672,10 +672,10 @@ export const StaffManagementView: React.FC = () => {
                         key={sub.id}
                         type="button"
                         onClick={() => toggleSubjectSelection(sub.id)}
-                        className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all flex items-center gap-1.5 ${
+                        className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                            ? 'bg-sky-500 text-white border-sky-500 shadow-glass'
+                            : 'bg-white text-slate-700 border-sky-100 hover:bg-sky-50'
                         }`}
                       >
                         <span className="font-mono font-bold text-[10px] opacity-80">{sub.code}</span>
@@ -687,25 +687,25 @@ export const StaffManagementView: React.FC = () => {
               )}
             </div>
           )}
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl min-h-[40px]">Cancel</button>
-            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl min-h-[40px]">Save Changes</button>
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-sky-100">
+            <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
+            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl shadow-glass min-h-[40px] transition-all">Save Changes</button>
           </div>
         </form>
       </Modal>
 
       {/* Initiate Password Reset & Email Address Recovery Modal */}
       <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} title="Initiate Password Reset & Email Recovery" maxWidth="max-w-4xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 divide-y md:divide-y-0 md:divide-x divide-sky-100">
           
           {/* LEFT PANEL: Standard Password Reset */}
           <div className="space-y-4 pr-0 md:pr-4">
-            <div className="flex items-center gap-2 font-bold text-blue-600 dark:text-blue-400">
-              <KeyRound className="w-5 h-5" /> Standard Password Reset
+            <div className="flex items-center gap-2 font-bold text-sky-600">
+              <KeyRound className="w-5 h-5 text-sky-500" /> Standard Password Reset
             </div>
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300 rounded-xl text-sm leading-relaxed border border-blue-200 dark:border-blue-800">
-              Send a secure reset email link to current email <strong>{selectedStaff?.email}</strong>?
-              <ul className="mt-2 space-y-1 text-xs text-blue-700 dark:text-blue-400 list-disc list-inside">
+            <div className="p-4 bg-sky-50 text-slate-800 rounded-xl text-xs leading-relaxed border border-sky-100">
+              Send a secure reset email link to current email <strong className="text-slate-900">{selectedStaff?.email}</strong>?
+              <ul className="mt-2 space-y-1 text-xs text-sky-700 list-disc list-inside">
                 <li>Link expires in 60 minutes.</li>
                 <li>Head Teacher will not see or set password.</li>
                 <li>All active sessions logged out upon completion.</li>
@@ -714,7 +714,7 @@ export const StaffManagementView: React.FC = () => {
             <div className="pt-2">
               <button
                 onClick={handleResetPassword}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20"
+                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass"
               >
                 <Send className="w-4 h-4" /> Send Reset Link to Current Email
               </button>
@@ -723,15 +723,15 @@ export const StaffManagementView: React.FC = () => {
 
           {/* RIGHT PANEL: Email Recovery & Address Change */}
           <form onSubmit={handleInitiateEmailChange} className="space-y-4 pt-4 md:pt-0 pl-0 md:pl-4">
-            <div className="flex items-center gap-2 font-bold text-blue-600 dark:text-blue-400">
-              <Mail className="w-5 h-5" /> Email Recovery & Address Change
+            <div className="flex items-center gap-2 font-bold text-sky-600">
+              <Mail className="w-5 h-5 text-sky-500" /> Email Recovery & Address Change
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              If staff member lost access to <strong>{selectedStaff?.email}</strong>, enter their new email address below. A verification link will be sent to the new inbox.
+              If staff member lost access to <strong className="text-slate-900">{selectedStaff?.email}</strong>, enter their new email address below. A verification link will be sent to the new inbox.
             </p>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label className="block text-xs font-bold text-slate-600 mb-1">
                 New Email Address *
               </label>
               <input
@@ -740,20 +740,20 @@ export const StaffManagementView: React.FC = () => {
                 value={newEmailInput}
                 onChange={(e) => setNewEmailInput(e.target.value)}
                 placeholder="e.g. new.email@gmail.com"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                <label className="block text-xs font-bold text-slate-600">
                   Confirm New Email Address *
                 </label>
                 {confirmNewEmailInput.length > 0 && (
                   <span className={`text-[11px] font-semibold flex items-center gap-1 ${
                     newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-rose-500 dark:text-rose-400'
+                      ? 'text-sky-600'
+                      : 'text-rose-500'
                   }`}>
                     {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
                       <>
@@ -774,18 +774,18 @@ export const StaffManagementView: React.FC = () => {
                   value={confirmNewEmailInput}
                   onChange={(e) => setConfirmNewEmailInput(e.target.value)}
                   placeholder="Re-enter new email address"
-                  className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-xl px-4 py-2 pr-10 text-sm outline-none transition-all ${
+                  className={`w-full bg-white border rounded-xl px-4 py-2 pr-10 text-xs text-slate-800 outline-none transition-all ${
                     confirmNewEmailInput.length > 0
                       ? newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
-                        ? 'border-emerald-500 ring-1 ring-emerald-500/30'
+                        ? 'border-sky-500 ring-1 ring-sky-500/30'
                         : 'border-rose-500 ring-1 ring-rose-500/30'
-                      : 'border-slate-200 dark:border-slate-800 focus:border-blue-500'
+                      : 'border-sky-200 focus:border-sky-500'
                   }`}
                 />
                 {confirmNewEmailInput.length > 0 && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <CheckCircle2 className="w-4 h-4 text-sky-500" />
                     ) : (
                       <XCircle className="w-4 h-4 text-rose-500" />
                     )}
@@ -795,7 +795,7 @@ export const StaffManagementView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label className="block text-xs font-bold text-slate-600 mb-1">
                 Head Teacher Password Authorization *
               </label>
               <div className="relative">
@@ -806,7 +806,7 @@ export const StaffManagementView: React.FC = () => {
                   value={emailChangeAdminPassword}
                   onChange={(e) => setEmailChangeAdminPassword(e.target.value)}
                   placeholder="Enter your Head Teacher password"
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500"
+                  className="w-full bg-white border border-sky-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
             </div>
@@ -820,7 +820,7 @@ export const StaffManagementView: React.FC = () => {
                   newEmailInput.trim().toLowerCase() !== confirmNewEmailInput.trim().toLowerCase() ||
                   !emailChangeAdminPassword
                 }
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submittingEmailChange ? 'Sending Link...' : 'Dispatch Email Recovery Link'}
               </button>
@@ -833,19 +833,19 @@ export const StaffManagementView: React.FC = () => {
       {/* Reset 2FA Modal */}
       <Modal isOpen={show2FaResetModal} onClose={() => setShow2FaResetModal(false)} title="Reset Two-Factor Authentication (2FA)">
         <form onSubmit={handle2FaReset} className="space-y-4">
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-900 dark:text-amber-300 rounded-xl text-sm leading-relaxed border border-amber-200 dark:border-amber-800">
-            <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-400 mb-1">
-              <AlertTriangle className="w-4 h-4" /> Security Confirmation
+          <div className="p-4 bg-sky-50 text-slate-800 rounded-xl text-xs leading-relaxed border border-sky-100">
+            <div className="flex items-center gap-2 font-bold text-sky-700 mb-1">
+              <AlertTriangle className="w-4 h-4 text-sky-600" /> Security Confirmation
             </div>
-            Reset 2FA configuration for <strong>{selectedStaff?.firstName} {selectedStaff?.lastName}</strong> ({selectedStaff?.email})?
-            <ul className="mt-2 space-y-1 text-xs text-amber-700 dark:text-amber-400 list-disc list-inside">
+            Reset 2FA configuration for <strong className="text-slate-900">{selectedStaff?.firstName} {selectedStaff?.lastName}</strong> ({selectedStaff?.email})?
+            <ul className="mt-2 space-y-1 text-xs text-sky-700 list-disc list-inside">
               <li>All active authentication sessions for this user will be revoked immediately.</li>
               <li>The staff member will be required to re-verify via a new email OTP upon next sign-in.</li>
             </ul>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+            <label className="block text-xs font-bold text-slate-600 mb-1">
               Re-enter Head Teacher Password *
             </label>
             <div className="relative">
@@ -856,17 +856,17 @@ export const StaffManagementView: React.FC = () => {
                 value={adminPasswordConfirm}
                 onChange={(e) => setAdminPasswordConfirm(e.target.value)}
                 placeholder="Enter your current password"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                className="w-full bg-white border border-sky-200 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onClick={() => setShow2FaResetModal(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">Cancel</button>
+          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+            <button type="button" onClick={() => setShow2FaResetModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs transition-colors">Cancel</button>
             <button
               type="submit"
               disabled={submitting2Fa}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-glass disabled:opacity-50 transition-all"
             >
               {submitting2Fa ? 'Resetting 2FA...' : 'Confirm & Reset 2FA'}
             </button>

@@ -1,74 +1,38 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = 'light';
 
 interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  effectiveTheme: 'light' | 'dark';
+  theme: 'light';
+  setTheme: (theme: any) => void;
+  effectiveTheme: 'light';
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  setTheme: () => {},
+  effectiveTheme: 'light',
+});
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    return (localStorage.getItem('app-theme') as Theme) || 'system';
-  });
-
-  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
-
   useEffect(() => {
     const root = window.document.documentElement;
-    localStorage.setItem('app-theme', theme);
-
-    const applyTheme = () => {
-      let isDark = false;
-      if (theme === 'system') {
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      } else {
-        isDark = theme === 'dark';
-      }
-
-      if (isDark) {
-        root.classList.add('dark');
-        setEffectiveTheme('dark');
-      } else {
-        root.classList.remove('dark');
-        setEffectiveTheme('light');
-      }
-    };
-
-    applyTheme();
-
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const listener = (e: MediaQueryListEvent) => {
-        if (e.matches) {
-          root.classList.add('dark');
-          setEffectiveTheme('dark');
-        } else {
-          root.classList.remove('dark');
-          setEffectiveTheme('light');
-        }
-      };
-      mediaQuery.addEventListener('change', listener);
-      return () => mediaQuery.removeEventListener('change', listener);
+    root.classList.remove('dark');
+    try {
+      localStorage.removeItem('app-theme');
+    } catch {
+      // ignore
     }
-  }, [theme]);
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-  };
+  }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, effectiveTheme }}>
+    <ThemeContext.Provider value={{ theme: 'light', setTheme: () => {}, effectiveTheme: 'light' }}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
 export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) throw new Error('useTheme must be used within ThemeProvider');
-  return context;
+  return useContext(ThemeContext);
 };
+

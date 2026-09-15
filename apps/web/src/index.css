@@ -4,11 +4,39 @@
 
 @layer base {
   body {
-    @apply min-h-screen font-sans;
+    @apply min-h-screen font-sans bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 antialiased;
   }
 }
 
-/* Custom scrollbar for sleek web view */
+/* Glassmorphism System Components */
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass transition-all duration-200;
+  }
+  .glass-card-hover {
+    @apply glass-card hover:border-sky-200/80 hover:shadow-glass-hover;
+  }
+  .glass-panel {
+    @apply bg-white/90 backdrop-blur-xl border border-sky-100/90 rounded-2xl shadow-glass;
+  }
+  .glass-header {
+    @apply bg-white/85 backdrop-blur-xl border-b border-sky-100/80;
+  }
+  .glass-input {
+    @apply bg-white/90 border border-sky-200/70 rounded-xl px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 transition-all;
+  }
+  .glass-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/70;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-sky-500 hover:bg-sky-600 shadow-sm shadow-sky-500/20 active:scale-[0.99] transition-all cursor-pointer;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200/70 active:scale-[0.99] transition-all cursor-pointer;
+  }
+}
+
+/* Sleek Sky Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -17,9 +45,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #bae6fd; /* sky-200 */
   border-radius: 9999px;
 }
-.dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+::-webkit-scrollbar-thumb:hover {
+  background: #7dd3fc; /* sky-300 */
 }

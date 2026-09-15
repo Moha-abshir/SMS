@@ -12,7 +12,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 flex flex-col lg:flex-row font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Dynamic Route-Aware Sidebar */}
       <Sidebar user={user} onLogout={onLogout} />
 

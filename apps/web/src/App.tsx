@@ -85,7 +85,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 text-slate-800 antialiased selection:bg-sky-100 selection:text-sky-800">
       <Routes>
         {/* Public & Invitation Routes */}
         <Route

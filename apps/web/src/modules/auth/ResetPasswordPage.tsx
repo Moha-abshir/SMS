@@ -85,10 +85,10 @@ export const ResetPasswordPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50/50 via-white to-sky-50/30 text-slate-800">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-          <p className="text-slate-400 text-sm">Verifying security token...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-sky-500" />
+          <p className="text-slate-500 text-sm">Verifying security token...</p>
         </div>
       </div>
     );
@@ -96,22 +96,22 @@ export const ResetPasswordPage: React.FC = () => {
 
   if (!valid && !completed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-950 text-white">
+      <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-gradient-to-br from-sky-50/50 via-white to-sky-50/30 text-slate-800">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-red-500/20 text-center shadow-2xl"
+          className="w-full max-w-md bg-white/85 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-rose-200 text-center shadow-glass"
         >
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 mx-auto mb-4 sm:mb-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mx-auto mb-4 sm:mb-6">
             <XCircle className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h2 className="text-lg sm:text-xl font-bold text-white mb-2">Invalid or Expired Link</h2>
-          <p className="text-slate-400 text-xs sm:text-sm mb-6 leading-relaxed">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">Invalid or Expired Link</h2>
+          <p className="text-slate-600 text-xs sm:text-sm mb-6 leading-relaxed">
             {errorMessage || 'This password reset link is invalid or has expired. Please request a new password reset link from the login page.'}
           </p>
           <a
             href="/"
-            className="inline-flex items-center justify-center w-full min-h-[44px] px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm transition-all"
+            className="inline-flex items-center justify-center w-full min-h-[44px] px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm transition-all shadow-md shadow-sky-500/20"
           >
             Return to Login
           </a>
@@ -122,22 +122,22 @@ export const ResetPasswordPage: React.FC = () => {
 
   if (completed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-950 text-white">
+      <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-gradient-to-br from-sky-50/50 via-white to-sky-50/30 text-slate-800">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-emerald-500/20 text-center shadow-2xl"
+          className="w-full max-w-md bg-white/85 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-sky-100 text-center shadow-glass"
         >
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mx-auto mb-4 sm:mb-6">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mx-auto mb-4 sm:mb-6">
             <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Password Reset Successful!</h2>
-          <p className="text-slate-400 text-xs sm:text-sm mb-6 leading-relaxed">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Password Reset Successful!</h2>
+          <p className="text-slate-600 text-xs sm:text-sm mb-6 leading-relaxed">
             Your password has been changed. All active sessions have been logged out. Please sign in with your new password and complete 2FA verification.
           </p>
           <a
             href="/"
-            className="inline-flex items-center justify-center gap-2 w-full min-h-[44px] px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/20"
+            className="inline-flex items-center justify-center gap-2 w-full min-h-[44px] px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm transition-all shadow-md shadow-sky-500/20"
           >
             Proceed to Login <ChevronRight className="w-4 h-4" />
           </a>
@@ -147,10 +147,10 @@ export const ResetPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-slate-950 text-white">
+    <div className="min-h-screen flex items-center justify-center p-3.5 sm:p-6 bg-gradient-to-br from-sky-50/50 via-white to-sky-50/30 text-slate-800">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-6 sm:mb-8">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-sky-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
             <GraduationCap className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
         </div>
@@ -158,34 +158,34 @@ export const ResetPasswordPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/80 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl"
+          className="bg-white/85 backdrop-blur-xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-sky-100 shadow-glass"
         >
           <div className="mb-5 sm:mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Create New Password</h1>
-            <p className="text-slate-400 text-xs sm:text-sm mt-1">
-              Set a new password for <span className="text-blue-400 font-semibold break-all">{staffInfo?.email}</span>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Create New Password</h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">
+              Set a new password for <span className="text-sky-600 font-semibold break-all">{staffInfo?.email}</span>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wider">
                 New Password
               </label>
               <div className="relative">
-                <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-11 py-3 text-sm text-white placeholder-slate-600 transition-all outline-none"
+                  className="w-full bg-white/90 border border-sky-200/70 focus:border-sky-400 focus:ring-2 focus:ring-sky-200 rounded-xl px-11 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -193,25 +193,25 @@ export const ResetPasswordPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wider">
                 Confirm New Password
               </label>
               <div className="relative">
-                <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter your new password"
-                  className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-11 py-3 text-sm text-white placeholder-slate-600 transition-all outline-none"
+                  className="w-full bg-white/90 border border-sky-200/70 focus:border-sky-400 focus:ring-2 focus:ring-sky-200 rounded-xl px-11 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all outline-none"
                 />
               </div>
             </div>
 
-            <div className="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-start gap-3">
-              <ShieldAlert className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-blue-300/90 leading-relaxed">
+            <div className="p-3.5 bg-sky-50 border border-sky-100 rounded-xl flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-sky-800 leading-relaxed">
                 After saving your new password, you will be directed to sign in. 2FA verification will be required during your next login.
               </p>
             </div>
@@ -219,7 +219,7 @@ export const ResetPasswordPage: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {submitting ? (
                 <>

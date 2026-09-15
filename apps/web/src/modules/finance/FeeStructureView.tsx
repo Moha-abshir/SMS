@@ -97,7 +97,7 @@ export const FeeStructureView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -110,14 +110,14 @@ export const FeeStructureView: React.FC = () => {
       className="space-y-4 sm:space-y-6 max-w-5xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <Calculator className="w-4 h-4 text-blue-200 dark:text-blue-400" />
+          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
+            <Calculator className="w-4 h-4 text-sky-600" />
             Financial Oversight & Billing Matrix
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">School Fee Structure & Term Billing Matrix</h2>
-          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">School Fee Structure & Term Billing Matrix</h2>
+          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
             Configure and edit term-by-term fees for all 4 education levels across Kenya's 3 official terms.
           </p>
         </div>
@@ -125,7 +125,7 @@ export const FeeStructureView: React.FC = () => {
         <button
           onClick={handleSaveAll}
           disabled={submitting}
-          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white disabled:opacity-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all shrink-0"
+          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
         >
           <Save className="w-4 h-4" />
           {submitting ? 'Saving Changes...' : 'Save Fee Matrix'}
@@ -133,23 +133,23 @@ export const FeeStructureView: React.FC = () => {
       </div>
 
       {/* Notice Banner */}
-      <div className="p-3.5 sm:p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 rounded-xl sm:rounded-2xl flex items-center gap-3 text-xs text-amber-800 dark:text-amber-300">
-        <ShieldAlert className="w-5 h-5 shrink-0 text-amber-600" />
+      <div className="p-3.5 sm:p-4 bg-sky-50/70 border border-sky-100 rounded-xl sm:rounded-2xl flex items-center gap-3 text-xs text-sky-900">
+        <ShieldAlert className="w-5 h-5 shrink-0 text-sky-600" />
         <span>
           <strong>Head Teacher Authority Notice:</strong> Modifying fee structures updates term billing rates for all students across Pre-Primary, Lower Primary, Upper Primary, and JSS.
         </span>
       </div>
 
       {/* 3-Term Matrix Fee Table across All 4 Levels */}
-      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-          <Calculator className="w-4 h-4 text-blue-600" />
+      <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <Calculator className="w-4 h-4 text-sky-600" />
           3-Term Fee Structure Matrix
         </h3>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[760px]">
-            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
               <tr>
                 <th className="py-3.5 px-4">Education Level</th>
                 <th className="py-3.5 px-4">Target Grades</th>
@@ -160,7 +160,7 @@ export const FeeStructureView: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-sky-100/60">
               {matrix.map((row) => {
                 const t1Val = parseFloat(amounts[row.term1?.id] || '0') || 0;
                 const t2Val = parseFloat(amounts[row.term2?.id] || '0') || 0;
@@ -170,8 +170,8 @@ export const FeeStructureView: React.FC = () => {
                 const isSaving = savingRowCat === row.levelCategory;
 
                 return (
-                  <tr key={row.levelCategory} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="py-4 px-4 font-extrabold text-slate-900 dark:text-white">
+                  <tr key={row.levelCategory} className="hover:bg-sky-50/40 transition-colors">
+                    <td className="py-4 px-4 font-extrabold text-slate-800">
                       {row.title}
                     </td>
                     <td className="py-4 px-4 text-slate-500 font-semibold">
@@ -186,7 +186,7 @@ export const FeeStructureView: React.FC = () => {
                           type="number"
                           value={amounts[row.term1?.id] ?? row.term1?.amount}
                           onChange={(e) => handleAmountChange(row.term1.id, e.target.value)}
-                          className="w-24 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                          className="w-24 text-right bg-white border border-sky-100 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                         />
                       </div>
                     </td>
@@ -199,7 +199,7 @@ export const FeeStructureView: React.FC = () => {
                           type="number"
                           value={amounts[row.term2?.id] ?? row.term2?.amount}
                           onChange={(e) => handleAmountChange(row.term2.id, e.target.value)}
-                          className="w-24 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                          className="w-24 text-right bg-white border border-sky-100 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                         />
                       </div>
                     </td>
@@ -212,13 +212,13 @@ export const FeeStructureView: React.FC = () => {
                           type="number"
                           value={amounts[row.term3?.id] ?? row.term3?.amount}
                           onChange={(e) => handleAmountChange(row.term3.id, e.target.value)}
-                          className="w-24 text-right bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-colors"
+                          className="w-24 text-right bg-white border border-sky-100 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                         />
                       </div>
                     </td>
 
                     {/* Computed Annual Total */}
-                    <td className="py-4 px-4 text-right font-black text-sm text-blue-600 dark:text-blue-400">
+                    <td className="py-4 px-4 text-right font-black text-sm text-sky-600">
                       KES {annualSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
 
@@ -227,7 +227,7 @@ export const FeeStructureView: React.FC = () => {
                       <button
                         onClick={() => handleSaveRow(row)}
                         disabled={isSaving}
-                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1 mx-auto transition-all"
+                        className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-1 mx-auto transition-all cursor-pointer"
                       >
                         {isSaving ? (
                           <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

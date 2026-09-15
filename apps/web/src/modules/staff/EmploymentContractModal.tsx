@@ -123,18 +123,18 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
       {/* Full-screen modal overlay */}
       <div
         id="contract-print-root"
-        className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex"
+        className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex"
       >
         {/* Left sidebar — contract options (hidden on print) */}
-        <div className="no-print hidden lg:flex flex-col w-72 bg-slate-900 border-r border-slate-800 shrink-0">
+        <div className="no-print hidden lg:flex flex-col w-72 bg-white/95 backdrop-blur-xl border-r border-sky-100 shrink-0">
           {/* Sidebar header */}
-          <div className="p-5 border-b border-slate-800">
+          <div className="p-5 border-b border-sky-100">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
                 <FileText className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-white leading-tight">Contract Preview</h2>
+                <h2 className="text-sm font-bold text-slate-800 leading-tight">Contract Preview</h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">{schoolSettings.schoolName}</p>
               </div>
             </div>
@@ -143,43 +143,43 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
           {/* Options */}
           <div className="p-5 space-y-5 flex-1 overflow-y-auto">
             <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <Edit3 className="w-3 h-3 text-blue-400" /> Contract Settings
+              <Edit3 className="w-3 h-3 text-sky-600" /> Contract Settings
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Contract Date</label>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">Contract Date</label>
               <input
                 type="text"
                 value={contractDate}
                 onChange={(e) => setContractDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Commencement Term</label>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">Commencement Term</label>
               <input
                 type="text"
                 value={commencementText}
                 onChange={(e) => setCommencementText(e.target.value)}
                 placeholder="e.g. beginning of 2nd term"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">Duration / Expiry</label>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">Duration / Expiry</label>
               <input
                 type="text"
                 value={durationText}
                 onChange={(e) => setDurationText(e.target.value)}
                 placeholder="e.g. the end of the year"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
-            <div className="p-3 bg-blue-600/10 border border-blue-500/15 rounded-xl">
-              <p className="text-[11px] text-blue-300/80 leading-relaxed">
+            <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl">
+              <p className="text-[11px] text-sky-800 leading-relaxed">
                 💡 All fields are pre-filled from the staff record and live school settings. Changes update the preview instantly.
               </p>
             </div>
@@ -189,15 +189,15 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
         {/* Main area — document preview */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top action bar (hidden on print) */}
-          <div className="no-print flex items-center justify-between px-3.5 sm:px-5 py-3 bg-slate-900 border-b border-slate-800 shrink-0 gap-2">
+          <div className="no-print flex items-center justify-between px-3.5 sm:px-5 py-3 bg-white/95 backdrop-blur-xl border-b border-sky-100 shrink-0 gap-2">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div className="lg:hidden flex items-center gap-2 shrink-0">
-                <div className="w-8 h-8 rounded-lg bg-blue-600/15 flex items-center justify-center text-blue-400">
+                <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
                   <FileText className="w-4 h-4" />
                 </div>
               </div>
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-white truncate">{staffFullName}</p>
+                <p className="text-xs sm:text-sm font-semibold text-slate-800 truncate">{staffFullName}</p>
                 <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">{staff.roleName?.replace(/_/g, ' ') || 'Staff'} • Employment Contract</p>
               </div>
             </div>
@@ -205,13 +205,13 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handlePrint}
-                className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all active:scale-[0.97] min-h-[38px] cursor-pointer"
+                className="px-3 sm:px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all shadow-glass cursor-pointer"
               >
                 <Printer className="w-4 h-4" /> <span>Print Contract</span>
               </button>
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-sky-50 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -219,7 +219,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
           </div>
 
           {/* Scrollable document area */}
-          <div className="flex-1 overflow-y-auto overflow-x-auto bg-slate-950 p-2 sm:p-4 md:p-8" ref={printRef}>
+          <div className="flex-1 overflow-y-auto overflow-x-auto bg-sky-50/40 p-2 sm:p-4 md:p-8" ref={printRef}>
             <div className="mx-auto w-full max-w-[750px]">
               {/* The A4 document */}
               <div

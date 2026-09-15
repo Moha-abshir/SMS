@@ -81,7 +81,7 @@ export const LeaveManagementView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -94,21 +94,21 @@ export const LeaveManagementView: React.FC = () => {
       className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <Clock className="w-4 h-4 text-blue-200 dark:text-blue-400" />
+          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
+            <Clock className="w-4 h-4 text-sky-600" />
             Staff Absence & Leave Permissions
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Teacher Leave-Out Management</h2>
-          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Teacher Leave-Out Management</h2>
+          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
             Record staff permission requests, monitor leave statuses, and print official permission slips.
           </p>
         </div>
 
         <button
           onClick={() => setShowModal(true)}
-          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all shrink-0"
+          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Log Leave Request
@@ -116,15 +116,15 @@ export const LeaveManagementView: React.FC = () => {
       </div>
 
       {/* Leave Requests Table */}
-      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-blue-600" />
+      <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-sky-600" />
           Teacher Leave History ({requests.length} Records)
         </h3>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[650px]">
-            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
               <tr>
                 <th className="py-3.5 px-4">Teacher Name</th>
                 <th className="py-3.5 px-4">Leave Type</th>
@@ -134,7 +134,7 @@ export const LeaveManagementView: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-sky-100/60">
               {requests.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400 italic">
@@ -143,26 +143,26 @@ export const LeaveManagementView: React.FC = () => {
                 </tr>
               ) : (
                 requests.map((row) => (
-                  <tr key={row.request.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                  <tr key={row.request.id} className="hover:bg-sky-50/40 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-slate-800">
                       {row.teacher.firstName} {row.teacher.lastName}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-blue-600 dark:text-blue-400">
+                    <td className="py-3.5 px-4 font-semibold text-sky-700">
                       {row.request.leaveType}
                     </td>
                     <td className="py-3.5 px-4 text-slate-500 font-semibold font-mono">
                       {formatDate(row.request.startDate)} — {formatDate(row.request.endDate)}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                    <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">
                       {row.request.reason}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full ${
                         row.request.status === 'APPROVED'
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
+                          ? 'bg-sky-50 border border-sky-200 text-sky-700'
                           : row.request.status === 'REJECTED'
-                          ? 'bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400'
-                          : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
+                          ? 'bg-slate-100 border border-slate-200 text-slate-600'
+                          : 'bg-sky-100/70 border border-sky-200 text-sky-800'
                       }`}>
                         {row.request.status}
                       </span>
@@ -170,9 +170,9 @@ export const LeaveManagementView: React.FC = () => {
                     <td className="py-3.5 px-4 text-center">
                       <button
                         onClick={() => handleOpenPrintSlip(row.request.id)}
-                        className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold text-xs rounded-lg hover:bg-blue-100 flex items-center gap-1 mx-auto transition-colors"
+                        className="px-3 py-1 bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 font-bold text-xs rounded-xl flex items-center gap-1 mx-auto transition-colors shadow-xs"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Leave Slip
+                        <Eye className="w-3.5 h-3.5 text-sky-600" /> Leave Slip
                       </button>
                     </td>
                   </tr>
@@ -187,14 +187,14 @@ export const LeaveManagementView: React.FC = () => {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Log Teacher Leave-Out Permission">
         <form onSubmit={handleCreateLeave} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Select Teacher *
             </label>
             <select
               required
               value={form.teacherId}
               onChange={(e) => setForm({ ...form, teacherId: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+              className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
             >
               <option value="">-- Select Staff Member --</option>
               {teachers.map((t) => (
@@ -206,13 +206,13 @@ export const LeaveManagementView: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Leave Category / Type *
             </label>
             <select
               value={form.leaveType}
               onChange={(e) => setForm({ ...form, leaveType: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+              className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
             >
               <option value="PERSONAL">Personal Leave</option>
               <option value="MEDICAL">Medical / Sick Leave</option>
@@ -223,7 +223,7 @@ export const LeaveManagementView: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Start Date *
               </label>
               <input
@@ -231,12 +231,12 @@ export const LeaveManagementView: React.FC = () => {
                 required
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 End Date *
               </label>
               <input
@@ -244,13 +244,13 @@ export const LeaveManagementView: React.FC = () => {
                 required
                 value={form.endDate}
                 onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Reason / Permission Notes *
             </label>
             <textarea
@@ -259,22 +259,22 @@ export const LeaveManagementView: React.FC = () => {
               placeholder="State reason for absence..."
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white"
+              className="w-full bg-white border border-sky-100 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
             <button
               type="button"
               onClick={() => setShowModal(false)}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+              className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               Save & Generate Slip
@@ -290,13 +290,13 @@ export const LeaveManagementView: React.FC = () => {
             <div className="flex justify-end">
               <button
                 onClick={triggerPrint}
-                className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-4 h-4" /> Print Leave Slip
               </button>
             </div>
 
-            <div className="p-6 bg-white text-slate-900 rounded-2xl border border-slate-200 max-w-md mx-auto space-y-4 font-mono text-xs">
+            <div className="p-6 bg-white text-slate-900 rounded-2xl border border-sky-200 max-w-md mx-auto space-y-4 font-mono text-xs shadow-sm">
               <div className="text-center border-b border-slate-300 pb-3">
                 <h2 className="font-extrabold text-sm uppercase">{printSlipData.settings.schoolName}</h2>
                 <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold mt-0.5">OFFICIAL STAFF PERMISSION SLIP</p>

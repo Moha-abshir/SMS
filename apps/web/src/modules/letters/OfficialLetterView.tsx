@@ -90,7 +90,7 @@ export const OfficialLetterView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -142,21 +142,21 @@ export const OfficialLetterView: React.FC = () => {
       `}</style>
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <FileText className="w-4 h-4 text-blue-200 dark:text-blue-400" />
+          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
+            <FileText className="w-4 h-4 text-sky-600" />
             Official Communications & Correspondence
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Official Letter Generator & Archive</h2>
-          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Official Letter Generator & Archive</h2>
+          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
             Draft formal letters on official school letterhead and store archived communications.
           </p>
         </div>
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:hover:bg-blue-500 dark:text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-black/10 dark:shadow-blue-600/20 transition-all shrink-0"
+          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Generate New Letter
@@ -164,15 +164,15 @@ export const OfficialLetterView: React.FC = () => {
       </div>
 
       {/* Letters List Table */}
-      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-blue-600" />
+      <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-sky-600" />
           Archived Official Letters ({letters.length})
         </h3>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[640px]">
-            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
               <tr>
                 <th className="py-3.5 px-4">Date</th>
                 <th className="py-3.5 px-4">Subject Title</th>
@@ -181,7 +181,7 @@ export const OfficialLetterView: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-sky-100/60">
               {letters.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-slate-400 italic">
@@ -190,14 +190,14 @@ export const OfficialLetterView: React.FC = () => {
                 </tr>
               ) : (
                 letters.map((letItem) => (
-                  <tr key={letItem.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
+                  <tr key={letItem.id} className="hover:bg-sky-50/40 transition-colors">
                     <td className="py-3.5 px-4 font-semibold text-slate-500 font-mono">
                       {formatDate(letItem.letterDate)}
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                    <td className="py-3.5 px-4 font-bold text-slate-800">
                       {letItem.title}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-700 dark:text-slate-300">
+                    <td className="py-3.5 px-4 font-semibold text-slate-700">
                       {letItem.recipientName || 'N/A'}
                     </td>
                     <td className="py-3.5 px-4 text-slate-500">
@@ -207,9 +207,9 @@ export const OfficialLetterView: React.FC = () => {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => handleOpenPrintPreview(letItem.id)}
-                          className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1"
+                          className="px-3 py-1.5 bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 font-bold text-[11px] rounded-xl transition-colors flex items-center gap-1 shadow-xs"
                         >
-                          <Eye className="w-3.5 h-3.5" /> Preview / Print
+                          <Eye className="w-3.5 h-3.5 text-sky-600" /> Preview / Print
                         </button>
                         <button
                           onClick={() => handleDeleteLetter(letItem.id)}
@@ -231,7 +231,7 @@ export const OfficialLetterView: React.FC = () => {
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Generate Official Letter" maxWidth="max-w-2xl">
         <form onSubmit={handleCreateLetter} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Letter Title / Subject Line *
             </label>
             <input
@@ -240,13 +240,13 @@ export const OfficialLetterView: React.FC = () => {
               placeholder="e.g. Official Recommendation Letter for Learner Transfer"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+              className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Recipient Name
               </label>
               <input
@@ -254,12 +254,12 @@ export const OfficialLetterView: React.FC = () => {
                 placeholder="e.g. Mr. John Doe / To Whom It May Concern"
                 value={form.recipientName}
                 onChange={(e) => setForm({ ...form, recipientName: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Recipient Address / Institution
               </label>
               <input
@@ -267,13 +267,13 @@ export const OfficialLetterView: React.FC = () => {
                 placeholder="e.g. Ministry of Education / Eldoret"
                 value={form.recipientAddress}
                 onChange={(e) => setForm({ ...form, recipientAddress: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white"
+                className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Official Letter Content / Body *
             </label>
             <textarea
@@ -282,22 +282,22 @@ export const OfficialLetterView: React.FC = () => {
               placeholder="Write the official body text of the letter here..."
               value={form.body}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 text-xs text-slate-900 dark:text-white leading-relaxed"
+              className="w-full bg-white border border-sky-100 rounded-xl p-3.5 text-xs text-slate-800 leading-relaxed outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
             <button
               type="button"
               onClick={() => setShowCreateModal(false)}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+              className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               Generate & Archive
@@ -313,7 +313,7 @@ export const OfficialLetterView: React.FC = () => {
             <div className="no-print flex justify-end pb-1">
               <button
                 onClick={triggerPrint}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" /> Print A4 Letter
               </button>
@@ -328,7 +328,7 @@ export const OfficialLetterView: React.FC = () => {
                     {printModalData.settings.logoUrl ? (
                       <img src={printModalData.settings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                     ) : (
-                      <School className="w-10 h-10 sm:w-12 sm:h-12 text-blue-700" />
+                      <School className="w-10 h-10 sm:w-12 sm:h-12 text-sky-600" />
                     )}
                   </div>
                   <div className="flex-1">

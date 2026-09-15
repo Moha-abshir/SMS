@@ -80,7 +80,7 @@ export const MarkReviewView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -93,41 +93,41 @@ export const MarkReviewView: React.FC = () => {
       className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 dark:from-blue-950 dark:via-slate-900 dark:to-slate-900 text-white rounded-2xl sm:rounded-3xl shadow-xl shadow-blue-600/15 dark:shadow-none border border-blue-500/30 dark:border-blue-900/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-blue-100 dark:text-blue-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <ClipboardCheck className="w-4 h-4 text-blue-200 dark:text-blue-400" />
+          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
+            <ClipboardCheck className="w-4 h-4 text-sky-500" />
             Marksheet Review & Approval Workflow
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Exam Mark Review & Approval State Machine</h2>
-          <p className="text-xs text-blue-100 dark:text-slate-400 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Exam Mark Review & Approval State Machine</h2>
+          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
             Review submitted teacher marksheets, approve, request corrections, or lock final grades.
           </p>
         </div>
 
-        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/10 dark:bg-slate-900/80 border border-white/20 dark:border-slate-800 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
+        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-sky-50/60 border border-sky-100 rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0">
           <div className="text-center">
-            <span className="block text-lg sm:text-xl font-bold text-white dark:text-blue-400 leading-none">{submissions.length}</span>
-            <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Submissions</span>
+            <span className="block text-lg sm:text-xl font-black text-slate-800 leading-none">{submissions.length}</span>
+            <span className="text-[10px] font-bold tracking-wider text-sky-700 uppercase mt-1 block">Submissions</span>
           </div>
-          <div className="w-[1px] h-8 bg-white/20 dark:bg-slate-800" />
+          <div className="w-[1px] h-8 bg-sky-200" />
           <div className="text-center">
-            <span className="block text-lg sm:text-xl font-bold text-amber-300 dark:text-amber-400 leading-none">{submissions.filter(s => s.status === 'SUBMITTED').length} Pending</span>
-            <span className="text-[10px] font-bold tracking-wider text-blue-100 dark:text-slate-400 uppercase mt-1 block">Review Queue</span>
+            <span className="block text-lg sm:text-xl font-black text-sky-600 leading-none">{submissions.filter(s => s.status === 'SUBMITTED').length} Pending</span>
+            <span className="text-[10px] font-bold tracking-wider text-sky-700 uppercase mt-1 block">Review Queue</span>
           </div>
         </div>
       </div>
 
       {/* Submissions Review Workspace */}
-      <div className="p-4 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl space-y-4 shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4 text-blue-600" />
+      <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+          <ClipboardCheck className="w-4 h-4 text-sky-600" />
           Marksheet Submissions Queue ({submissions.length} Marksheets)
         </h3>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[640px]">
-            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
               <tr>
                 <th className="py-3.5 px-4">Class</th>
                 <th className="py-3.5 px-4">Subject</th>
@@ -136,7 +136,7 @@ export const MarkReviewView: React.FC = () => {
                 <th className="py-3.5 px-4 text-center">State Machine Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-sky-100/60">
               {submissions.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-slate-400 italic">
@@ -145,25 +145,25 @@ export const MarkReviewView: React.FC = () => {
                 </tr>
               ) : (
                 submissions.map((row) => (
-                  <tr key={row.submission.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                  <tr key={row.submission.id} className="hover:bg-sky-50/40 transition-colors">
+                    <td className="py-3.5 px-4 font-bold text-slate-900">
                       {row.class.name}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-indigo-600 dark:text-indigo-400">
+                    <td className="py-3.5 px-4 font-bold text-sky-700">
                       {row.subject.name}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-semibold">
+                    <td className="py-3.5 px-4 text-slate-700 font-semibold">
                       {row.submittedBy.firstName} {row.submittedBy.lastName}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full ${
+                      <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full border ${
                         row.submission.status === 'APPROVED'
-                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400'
+                          ? 'bg-sky-100 text-sky-800 border-sky-200'
                           : row.submission.status === 'CORRECTION_REQUESTED'
-                          ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
+                          ? 'bg-sky-50 text-sky-700 border-sky-200'
                           : row.submission.status === 'LOCKED'
-                          ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono'
-                          : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400'
+                          ? 'bg-slate-100 text-slate-700 border-slate-200 font-mono'
+                          : 'bg-sky-500 text-white border-transparent'
                       }`}>
                         {row.submission.status}
                       </span>
@@ -176,7 +176,7 @@ export const MarkReviewView: React.FC = () => {
                               <button
                                 onClick={() => handleApprove(row.submission.id)}
                                 disabled={actionProcessing}
-                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1 transition-all"
+                                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-all"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" /> Approve
                               </button>
@@ -185,7 +185,7 @@ export const MarkReviewView: React.FC = () => {
                             <button
                               onClick={() => setRejectionModalSubmission(row)}
                               disabled={actionProcessing}
-                              className="px-2.5 py-1 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-700 dark:text-amber-400 font-bold text-xs rounded-lg flex items-center gap-1 transition-all"
+                              className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all"
                             >
                               <RotateCcw className="w-3.5 h-3.5" /> Request Correction
                             </button>
@@ -193,9 +193,9 @@ export const MarkReviewView: React.FC = () => {
                             <button
                               onClick={() => handleLock(row.submission.id)}
                               disabled={actionProcessing}
-                              className="px-2.5 py-1 bg-slate-900 text-white dark:bg-slate-800 font-bold text-xs rounded-lg hover:bg-slate-800 flex items-center gap-1 transition-all"
+                              className="px-3 py-1.5 bg-white border border-sky-200 text-slate-700 hover:bg-sky-50 font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-xs"
                             >
-                              <Lock className="w-3.5 h-3.5" /> Lock Marks
+                              <Lock className="w-3.5 h-3.5 text-slate-500" /> Lock Marks
                             </button>
                           </>
                         )}
@@ -217,12 +217,12 @@ export const MarkReviewView: React.FC = () => {
           title={`Request Mark Correction: ${rejectionModalSubmission.class.name} - ${rejectionModalSubmission.subject.name}`}
         >
           <div className="space-y-4">
-            <p className="text-xs text-slate-600 dark:text-slate-400">
-              Specify the reason for returning the marksheet to <strong className="text-slate-900 dark:text-white">{rejectionModalSubmission.submittedBy.firstName} {rejectionModalSubmission.submittedBy.lastName}</strong> for correction.
+            <p className="text-xs text-slate-600">
+              Specify the reason for returning the marksheet to <strong className="text-slate-900">{rejectionModalSubmission.submittedBy.firstName} {rejectionModalSubmission.submittedBy.lastName}</strong> for correction.
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Correction Instructions / Reason *
               </label>
               <textarea
@@ -231,15 +231,15 @@ export const MarkReviewView: React.FC = () => {
                 placeholder="e.g. Please re-check student assessment numbers and recalculate paper 2 marks..."
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white"
+                className="w-full bg-white border border-sky-200 rounded-xl p-3 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
               <button
                 type="button"
                 onClick={() => setRejectionModalSubmission(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl"
+                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition-colors"
               >
                 Cancel
               </button>
@@ -247,7 +247,7 @@ export const MarkReviewView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmCorrectionRequest}
                 disabled={actionProcessing}
-                className="px-4 py-2 bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all"
               >
                 {actionProcessing && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 Return for Correction

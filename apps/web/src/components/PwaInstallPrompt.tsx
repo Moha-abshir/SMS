@@ -65,38 +65,38 @@ export const PwaInstallPrompt: React.FC = () => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 50, scale: 0.9 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed bottom-4 right-4 z-50 max-w-sm w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/50 shadow-2xl rounded-2xl p-4 flex items-start gap-4"
+          className="fixed bottom-4 right-4 z-50 max-w-sm w-full bg-white/95 backdrop-blur-xl border border-sky-100 shadow-glass-lg rounded-2xl p-4 flex items-start gap-4"
         >
           {/* School Icon Badge */}
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md">
+          <div className="w-12 h-12 rounded-xl bg-sky-500 flex items-center justify-center text-white shrink-0 shadow-sm">
             <Smartphone className="w-6 h-6" />
           </div>
 
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Install School App</h4>
+              <h4 className="text-sm font-bold text-slate-800">Install School App</h4>
               <button
                 onClick={handleDismiss}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1"
+                className="text-slate-400 hover:text-slate-600 p-1 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-600 mt-1">
               Install our mobile application for instant offline attendance and fast access on your phone.
             </p>
 
             <div className="mt-3 flex items-center gap-2">
               <button
                 onClick={handleInstallClick}
-                className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-colors"
+                className="flex-1 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
                 Install App
               </button>
               <button
                 onClick={handleDismiss}
-                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 font-medium"
+                className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium"
               >
                 Later
               </button>
