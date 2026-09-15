@@ -17,6 +17,7 @@ import { StaffManagementView } from './modules/staff/StaffManagementView';
 import { StudentAdmissionView } from './modules/admissions/StudentAdmissionView';
 import { OfficialLetterView } from './modules/letters/OfficialLetterView';
 import { FeeStructureView } from './modules/finance/FeeStructureView';
+import { FinancialManagementView } from './modules/finance/FinancialManagementView';
 import { AllocationView } from './modules/allocations/AllocationView';
 import { InventoryView } from './modules/inventory/InventoryView';
 import { LeaveManagementView } from './modules/leave/LeaveManagementView';
@@ -182,7 +183,7 @@ const AppContent: React.FC = () => {
             path="/finance"
             element={
               <RoleGuard allowedRoles={['HEAD_TEACHER', 'BURSAR']} user={currentUser}>
-                <FeeStructureView />
+                <FinancialManagementView />
               </RoleGuard>
             }
           />

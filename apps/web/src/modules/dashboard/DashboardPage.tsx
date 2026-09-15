@@ -7,6 +7,7 @@ import { DosDashboardView } from './DosDashboardView';
 import { StaffManagementView } from '../staff/StaffManagementView';
 import { SettingsView } from '../settings/SettingsView';
 import { FeeStructureView } from '../finance/FeeStructureView';
+import { FinancialManagementView } from '../finance/FinancialManagementView';
 import { StudentAdmissionView } from '../admissions/StudentAdmissionView';
 import { OfficialLetterView } from '../letters/OfficialLetterView';
 import { AllocationView } from '../allocations/AllocationView';
@@ -82,6 +83,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                 transition={{ duration: 0.2 }}
               >
                 <FeeStructureView />
+              </motion.div>
+            )}
+
+            {activeView === 'finance' && (
+              <motion.div
+                key="finance"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <FinancialManagementView />
               </motion.div>
             )}
 
