@@ -38,6 +38,45 @@ export class AdmissionsController {
     }
   }
 
+  static async getImportTemplateCsv(req: Request, res: Response) {
+    try {
+      const csv = AdmissionsService.getImportTemplateCsv();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="student_admission_template.csv"');
+      return res.status(200).send(csv);
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to generate template' });
+    }
+  }
+
+  static async bulkImportStudents(req: Request, res: Response) {
+    try {
+      const userRole = req.user?.roleName || 'HEAD_TEACHER';
+      const isDirectActive = userRole === 'HEAD_TEACHER';
+      const result = await AdmissionsService.bulkImportStudents(
+        req.body,
+        req.user!.id,
+        isDirectActive
+      );
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: `Successfully imported ${result.insertedCount} student(s)${result.errors.length ? ` with ${result.errors.length} skipped row(s)` : ''}`,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Bulk import failed' });
+    }
+  }
+
+  static async getPendingAdmissions(req: Request, res: Response) {
+    try {
+      const pending = await AdmissionsService.getPendingAdmissions();
+      return res.status(200).json({ success: true, data: pending });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch pending admissions' });
+    }
+  }
+
   static async approveAdmission(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -45,6 +84,31 @@ export class AdmissionsController {
       return res.status(200).json({ success: true, data: updated, message: 'Student admission approved' });
     } catch (error: any) {
       return res.status(400).json({ success: false, message: error.message || 'Failed to approve admission' });
+    }
+  }
+
+  static async rejectAdmission(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      const updated = await AdmissionsService.rejectAdmission(id, reason || 'Admission rejected by administrator', req.user!.id);
+      return res.status(200).json({ success: true, data: updated, message: 'Student admission rejected' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to reject admission' });
+    }
+  }
+
+  static async expelStudent(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+      if (!reason) {
+        return res.status(400).json({ success: false, message: 'Expulsion reason is required' });
+      }
+      const updated = await AdmissionsService.expelStudent(id, reason, req.user!.id);
+      return res.status(200).json({ success: true, data: updated, message: 'Student expelled successfully' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to expel student' });
     }
   }
 
