@@ -21,6 +21,7 @@ import examsRoutes from './modules/exams/exams.routes.js';
 import academicAllocationsRoutes from './modules/academic-allocations/academicAllocations.routes.js';
 import reportLocksRoutes from './modules/report-locks/reportLocks.routes.js';
 import dosRoutes from './modules/dos/dos.routes.js';
+import financeRoutes from './modules/finance/finance.routes.js';
 
 const app = express();
 
@@ -84,5 +85,6 @@ app.use('/api/exams', examsRoutes);
 app.use('/api/academic-allocations', academicAllocationsRoutes);
 app.use('/api/report-card-locks', reportLocksRoutes);
 app.use('/api/dos', dosRoutes);
+app.use('/api/finance', financeRoutes);
 
 export default app;
