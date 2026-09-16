@@ -78,7 +78,7 @@ export const ClassRegisterView: React.FC = () => {
         }
 
         // Also fetch all classes in case user is admin or deputy
-        const classesRes = await apiClient.get('/api/allocations/classes');
+        const classesRes = await apiClient.get('/api/admissions/classes');
         const allClasses = classesRes.data?.data || [];
         setAvailableClasses(allClasses);
 

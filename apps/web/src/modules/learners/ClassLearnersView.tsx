@@ -21,6 +21,7 @@ export const ClassLearnersView: React.FC = () => {
     overallClassAverage: 0,
     chronicAbsenteeCount: 0,
   });
+  const [notAssignedMessage, setNotAssignedMessage] = useState<string | null>(null);
 
   // Modal states
   const [selectedStudentForProfile, setSelectedStudentForProfile] = useState<string | null>(null);
@@ -42,7 +43,11 @@ export const ClassLearnersView: React.FC = () => {
           });
         }
       } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to load class learners');
+        if (err.response?.status === 400 && err.response?.data?.message?.includes('No class assigned')) {
+          setNotAssignedMessage(err.response?.data?.message || 'No class assigned to you as Class Teacher');
+        } else {
+          toast.error(err.response?.data?.message || 'Failed to load class learners');
+        }
       } finally {
         setLoading(false);
       }
@@ -76,6 +81,30 @@ export const ClassLearnersView: React.FC = () => {
       }
       return a.fullName.localeCompare(b.fullName);
     });
+
+  if (!loading && notAssignedMessage) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto py-8">
+        <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-sky-100 shadow-glass text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center mx-auto text-sky-600 shadow-xs">
+            <Users className="w-8 h-8" />
+          </div>
+          <div className="max-w-md mx-auto space-y-2">
+            <h2 className="text-xl font-bold text-slate-800 tracking-tight">No Class Assigned Yet</h2>
+            <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              You are currently not assigned as a Class Teacher to any class. The Deputy Head Teacher assigns class teachers via Class & Teacher Allocations.
+            </p>
+          </div>
+          <div className="pt-2">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 text-sky-700 text-xs font-semibold border border-sky-100">
+              <span className="w-2 h-2 rounded-full bg-sky-500" />
+              Role: Subject Specialist / Unassigned Class Teacher
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
