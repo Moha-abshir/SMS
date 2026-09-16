@@ -22,6 +22,129 @@ export class MarkSubmissionsController {
     }
   }
 
+  static async getMarksheetEntry(req: Request, res: Response) {
+    try {
+      const examId = req.query.examId as string;
+      const classId = req.query.classId as string;
+      const subjectId = req.query.subjectId as string;
+      const userId = req.user!.id;
+      const userRole = req.user?.roleName;
+
+      if (!examId || !classId || !subjectId) {
+        return res.status(400).json({
+          success: false,
+          message: 'examId, classId, and subjectId query parameters are required',
+        });
+      }
+
+      const data = await MarkSubmissionsService.getMarksheetEntry(
+        examId,
+        classId,
+        subjectId,
+        userId,
+        userRole
+      );
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to load marksheet entry',
+      });
+    }
+  }
+
+  static async saveMarksheetDraft(req: Request, res: Response) {
+    try {
+      const { examId, classId, subjectId, scores } = req.body;
+      const userId = req.user!.id;
+      const userRole = req.user?.roleName;
+
+      if (!examId || !classId || !subjectId || !Array.isArray(scores)) {
+        return res.status(400).json({
+          success: false,
+          message: 'examId, classId, subjectId, and scores array are required',
+        });
+      }
+
+      const result = await MarkSubmissionsService.saveMarksheetDraft(
+        examId,
+        classId,
+        subjectId,
+        scores,
+        userId,
+        userRole
+      );
+      return res.status(200).json({ success: true, data: result, message: result.message });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to save marksheet draft',
+      });
+    }
+  }
+
+  static async submitMarksheet(req: Request, res: Response) {
+    try {
+      const { examId, classId, subjectId, scores } = req.body;
+      const userId = req.user!.id;
+      const userRole = req.user?.roleName;
+
+      if (!examId || !classId || !subjectId || !Array.isArray(scores)) {
+        return res.status(400).json({
+          success: false,
+          message: 'examId, classId, subjectId, and scores array are required',
+        });
+      }
+
+      const result = await MarkSubmissionsService.submitMarksheet(
+        examId,
+        classId,
+        subjectId,
+        scores,
+        userId,
+        userRole
+      );
+      return res.status(200).json({ success: true, data: result, message: result.message });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to submit marksheet',
+      });
+    }
+  }
+
+  static async requestCorrectionByTeacher(req: Request, res: Response) {
+    try {
+      const { examId, classId, subjectId, reason } = req.body;
+      const userId = req.user!.id;
+
+      if (!examId || !classId || !subjectId || !reason) {
+        return res.status(400).json({
+          success: false,
+          message: 'examId, classId, subjectId, and reason are required',
+        });
+      }
+
+      const result = await MarkSubmissionsService.requestCorrectionByTeacher(
+        examId,
+        classId,
+        subjectId,
+        reason,
+        userId
+      );
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Correction request submitted to Deputy Head',
+      });
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Failed to submit correction request',
+      });
+    }
+  }
+
   static async approveSubmission(req: Request, res: Response) {
     try {
       const { id } = req.params;

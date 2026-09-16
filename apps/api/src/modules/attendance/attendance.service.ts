@@ -286,4 +286,87 @@ export class AttendanceService {
     const smsLog = await SmsService.sendSms(guardianPhone, message, studentId, guardianId);
     return smsLog;
   }
+
+  static async getClassAttendanceHistory(classId: string) {
+    const [targetClass] = await db
+      .select()
+      .from(classes)
+      .where(eq(classes.id, classId));
+
+    if (!targetClass) throw new Error('Class not found');
+
+    const registers = await db
+      .select()
+      .from(attendanceRegisters)
+      .where(and(eq(attendanceRegisters.classId, classId), isNull(attendanceRegisters.deletedAt)))
+      .orderBy(desc(attendanceRegisters.date));
+
+    const totalRegisters = registers.length;
+    const registerIds = registers.map((r) => r.id);
+
+    const classStudents = await db
+      .select({
+        student: students,
+        guardian: guardians,
+      })
+      .from(students)
+      .innerJoin(guardians, eq(students.primaryGuardianId, guardians.id))
+      .where(and(eq(students.classId, classId), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
+      .orderBy(students.firstName, students.lastName);
+
+    let allRecords: any[] = [];
+    if (registerIds.length > 0) {
+      allRecords = await db
+        .select()
+        .from(attendanceRecords)
+        .where(inArray(attendanceRecords.registerId, registerIds));
+    }
+
+    let totalPossibleAttendances = totalRegisters * classStudents.length;
+    let totalPresentAcrossAll = 0;
+
+    const studentRows = classStudents.map((cs) => {
+      const records = allRecords.filter((r) => r.studentId === cs.student.id);
+      const presentCount = records.filter((r) => r.status === 'PRESENT').length;
+      const absentCount = records.filter((r) => r.status === 'ABSENT').length;
+      const excusedCount = records.filter((r) => r.status === 'EXCUSED').length;
+      const lateCount = records.filter((r) => r.status === 'LATE').length;
+
+      totalPresentAcrossAll += presentCount;
+      const attendanceRate = totalRegisters > 0 ? Math.round((presentCount / totalRegisters) * 100) : 100;
+
+      return {
+        studentId: cs.student.id,
+        admissionNumber: cs.student.admissionNumber,
+        assessmentNumber: cs.student.assessmentNumber,
+        fullName: `${cs.student.firstName} ${cs.student.middleName || ''} ${cs.student.lastName}`.replace(/\s+/g, ' ').trim(),
+        gender: cs.student.gender,
+        guardianName: cs.guardian.fullName,
+        guardianPhone: cs.guardian.phoneNumber,
+        stats: {
+          totalDays: totalRegisters,
+          presentDays: presentCount,
+          absentDays: absentCount,
+          excusedDays: excusedCount,
+          lateDays: lateCount,
+          attendanceRate,
+          isChronicAbsent: attendanceRate < 85 && totalRegisters >= 3,
+        },
+      };
+    });
+
+    const overallAttendanceRate =
+      totalPossibleAttendances > 0
+        ? Math.round((totalPresentAcrossAll / totalPossibleAttendances) * 100)
+        : 100;
+
+    return {
+      class: targetClass,
+      totalRegisters,
+      overallAttendanceRate,
+      students: studentRows,
+      recentRegisters: registers.slice(0, 10),
+    };
+  }
 }
+

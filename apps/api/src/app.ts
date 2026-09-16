@@ -22,6 +22,7 @@ import academicAllocationsRoutes from './modules/academic-allocations/academicAl
 import reportLocksRoutes from './modules/report-locks/reportLocks.routes.js';
 import dosRoutes from './modules/dos/dos.routes.js';
 import financeRoutes from './modules/finance/finance.routes.js';
+import teacherRoutes from './modules/teacher/teacher.routes.js';
 
 const app = express();
 
@@ -86,5 +87,6 @@ app.use('/api/academic-allocations', academicAllocationsRoutes);
 app.use('/api/report-card-locks', reportLocksRoutes);
 app.use('/api/dos', dosRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/teacher', teacherRoutes);
 
 export default app;

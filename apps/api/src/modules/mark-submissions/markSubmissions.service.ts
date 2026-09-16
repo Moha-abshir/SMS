@@ -7,11 +7,36 @@ import {
   examinations,
   examScores,
   students,
+  teacherSubjectAllocations,
+  markingAllocations,
   eq,
   and,
   isNull,
   desc,
+  sql,
 } from '@school/shared';
+
+function calculateCbcMetrics(marksObtained: number, maxMarks: number = 100) {
+  const percentage = maxMarks > 0 ? (marksObtained / maxMarks) * 100 : marksObtained;
+  let cbcRubricLevel: 'EE' | 'ME' | 'AE' | 'BE' = 'BE';
+  let juniorPoints = 2;
+
+  if (percentage >= 80) {
+    cbcRubricLevel = 'EE';
+    juniorPoints = 8;
+  } else if (percentage >= 65) {
+    cbcRubricLevel = 'ME';
+    juniorPoints = 6;
+  } else if (percentage >= 50) {
+    cbcRubricLevel = 'AE';
+    juniorPoints = 4;
+  } else {
+    cbcRubricLevel = 'BE';
+    juniorPoints = 2;
+  }
+
+  return { percentage, cbcRubricLevel, juniorPoints };
+}
 
 export class MarkSubmissionsService {
   static async getSubmissions(filterStatus?: string) {
@@ -65,7 +90,13 @@ export class MarkSubmissionsService {
     const classStudents = await db
       .select()
       .from(students)
-      .where(and(eq(students.classId, subData.class.id), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
+      .where(
+        and(
+          eq(students.classId, subData.class.id),
+          eq(students.status, 'ACTIVE'),
+          isNull(students.deletedAt)
+        )
+      )
       .orderBy(students.firstName, students.lastName);
 
     // Fetch exam scores for this exam and subject
@@ -100,13 +131,11 @@ export class MarkSubmissionsService {
         if (markNum < lowestMark) lowestMark = markNum;
 
         if (!rubric) {
-          if (markNum >= 80) rubric = 'EE';
-          else if (markNum >= 65) rubric = 'ME';
-          else if (markNum >= 50) rubric = 'AE';
-          else rubric = 'BE';
+          const metrics = calculateCbcMetrics(markNum, sc?.maxMarks || 100);
+          rubric = metrics.cbcRubricLevel;
         }
 
-        if (rubric && (rubric in rubricCount)) {
+        if (rubric && rubric in rubricCount) {
           (rubricCount as any)[rubric]++;
         }
       }
@@ -142,6 +171,478 @@ export class MarkSubmissionsService {
       },
       scores: studentScores,
     };
+  }
+
+  /**
+   * Helper to verify if user has permission to enter/edit marks for this class & subject
+   */
+  static async verifyTeacherEligibility(
+    examId: string,
+    classId: string,
+    subjectId: string,
+    userId: string
+  ): Promise<boolean> {
+    const [user] = await db
+      .select({
+        id: users.id,
+        roleId: users.roleId,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (!user) return false;
+
+    // Check if class teacher of PPE / Lower Primary (Grades 1-3)
+    const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
+    if (
+      cls &&
+      cls.classTeacherId === userId &&
+      (cls.levelCategory === 'PPE' || cls.levelCategory === 'LOWER_PRIMARY' || cls.numericOrder <= 3)
+    ) {
+      return true;
+    }
+
+    // Check teacher_subject_allocations
+    const [allocation] = await db
+      .select()
+      .from(teacherSubjectAllocations)
+      .where(
+        and(
+          eq(teacherSubjectAllocations.classId, classId),
+          eq(teacherSubjectAllocations.subjectId, subjectId),
+          eq(teacherSubjectAllocations.teacherId, userId),
+          isNull(teacherSubjectAllocations.deletedAt)
+        )
+      );
+    if (allocation) return true;
+
+    // Check marking_allocations
+    const [marking] = await db
+      .select()
+      .from(markingAllocations)
+      .where(
+        and(
+          eq(markingAllocations.examId, examId),
+          eq(markingAllocations.classId, classId),
+          eq(markingAllocations.subjectId, subjectId),
+          eq(markingAllocations.teacherId, userId),
+          isNull(markingAllocations.deletedAt)
+        )
+      );
+    if (marking) return true;
+
+    return false;
+  }
+
+  /**
+   * Loads the mark entry sheet for a specific examination, class, and subject
+   */
+  static async getMarksheetEntry(
+    examId: string,
+    classId: string,
+    subjectId: string,
+    userId: string,
+    userRole?: string
+  ) {
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    if (!isPrivileged) {
+      const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId);
+      if (!eligible) {
+        throw new Error('You are not authorized to enter or modify marks for this class and subject');
+      }
+    }
+
+    const [examination] = await db.select().from(examinations).where(eq(examinations.id, examId));
+    if (!examination) throw new Error('Examination not found');
+
+    const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId));
+    if (!targetClass) throw new Error('Class not found');
+
+    const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+    if (!subject) throw new Error('Subject not found');
+
+    // Fetch existing submission record if any
+    const [submission] = await db
+      .select()
+      .from(markSubmissions)
+      .where(
+        and(
+          eq(markSubmissions.examId, examId),
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.subjectId, subjectId)
+        )
+      );
+
+    const currentStatus = submission?.status || 'DRAFT';
+    const canEdit =
+      currentStatus === 'DRAFT' ||
+      currentStatus === 'CORRECTION_REQUESTED' ||
+      !submission ||
+      isPrivileged;
+
+    // Fetch active students in class
+    const classStudents = await db
+      .select()
+      .from(students)
+      .where(
+        and(
+          eq(students.classId, classId),
+          eq(students.status, 'ACTIVE'),
+          isNull(students.deletedAt)
+        )
+      )
+      .orderBy(students.firstName, students.lastName);
+
+    // Fetch existing scores
+    const scores = await db
+      .select()
+      .from(examScores)
+      .where(
+        and(
+          eq(examScores.examId, examId),
+          eq(examScores.subjectId, subjectId)
+        )
+      );
+
+    const scoreMap = new Map<string, any>();
+    scores.forEach((s) => scoreMap.set(s.studentId, s));
+
+    let totalMarks = 0;
+    let scoredCount = 0;
+    let highestMark = 0;
+    let lowestMark = 100;
+    const rubricCount = { EE: 0, ME: 0, AE: 0, BE: 0 };
+
+    const studentRows = classStudents.map((st) => {
+      const sc = scoreMap.get(st.id);
+      const markNum = sc ? parseFloat(sc.marksObtained) : null;
+      let rubric = sc?.cbcRubricLevel || null;
+      let points = sc?.juniorPoints || null;
+
+      if (markNum !== null) {
+        totalMarks += markNum;
+        scoredCount++;
+        if (markNum > highestMark) highestMark = markNum;
+        if (markNum < lowestMark) lowestMark = markNum;
+
+        if (!rubric) {
+          const metrics = calculateCbcMetrics(markNum, sc?.maxMarks || 100);
+          rubric = metrics.cbcRubricLevel;
+          points = metrics.juniorPoints;
+        }
+
+        if (rubric && rubric in rubricCount) {
+          (rubricCount as any)[rubric]++;
+        }
+      }
+
+      return {
+        studentId: st.id,
+        admissionNumber: st.admissionNumber,
+        assessmentNumber: st.assessmentNumber,
+        fullName: `${st.firstName} ${st.middleName || ''} ${st.lastName}`.replace(/\s+/g, ' ').trim(),
+        gender: st.gender,
+        marksObtained: markNum,
+        maxMarks: sc?.maxMarks || 100,
+        cbcRubricLevel: rubric,
+        juniorPoints: points,
+        teacherRemarks: sc?.teacherRemarks || '',
+      };
+    });
+
+    const averageMark = scoredCount > 0 ? Math.round((totalMarks / scoredCount) * 10) / 10 : 0;
+
+    return {
+      examination,
+      class: targetClass,
+      subject,
+      submission: submission || null,
+      status: currentStatus,
+      correctionReason: submission?.correctionReason || null,
+      canEdit,
+      scores: studentRows,
+      summary: {
+        totalStudents: classStudents.length,
+        scoredStudents: scoredCount,
+        averageMark,
+        highestMark: scoredCount > 0 ? highestMark : 0,
+        lowestMark: scoredCount > 0 ? lowestMark : 0,
+        rubricBreakdown: rubricCount,
+      },
+    };
+  }
+
+  /**
+   * Saves mark entry sheet as DRAFT without requiring all students to be filled
+   */
+  static async saveMarksheetDraft(
+    examId: string,
+    classId: string,
+    subjectId: string,
+    scores: Array<{
+      studentId: string;
+      marksObtained: number | string | null;
+      maxMarks?: number;
+      teacherRemarks?: string;
+    }>,
+    userId: string,
+    userRole?: string
+  ) {
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    if (!isPrivileged) {
+      const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId);
+      if (!eligible) {
+        throw new Error('You are not authorized to enter marks for this class and subject');
+      }
+    }
+
+    // Check current submission status
+    const [existingSub] = await db
+      .select()
+      .from(markSubmissions)
+      .where(
+        and(
+          eq(markSubmissions.examId, examId),
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.subjectId, subjectId)
+        )
+      );
+
+    if (existingSub && (existingSub.status === 'SUBMITTED' || existingSub.status === 'APPROVED' || existingSub.status === 'LOCKED')) {
+      if (!isPrivileged) {
+        throw new Error(`Cannot modify draft: marksheet is currently in '${existingSub.status}' status`);
+      }
+    }
+
+    await db.transaction(async (tx) => {
+      // Upsert scores
+      for (const item of scores) {
+        if (item.marksObtained !== null && item.marksObtained !== undefined && item.marksObtained !== '') {
+          const markNum = Math.max(0, Math.min(100, parseFloat(item.marksObtained as string)));
+          const maxMarks = item.maxMarks || 100;
+          const { cbcRubricLevel, juniorPoints } = calculateCbcMetrics(markNum, maxMarks);
+
+          await tx
+            .insert(examScores)
+            .values({
+              examId,
+              studentId: item.studentId,
+              subjectId,
+              marksObtained: markNum.toFixed(2),
+              maxMarks,
+              cbcRubricLevel,
+              juniorPoints,
+              teacherRemarks: item.teacherRemarks || null,
+              enteredById: userId,
+            })
+            .onConflictDoUpdate({
+              target: [examScores.examId, examScores.studentId, examScores.subjectId],
+              set: {
+                marksObtained: markNum.toFixed(2),
+                maxMarks,
+                cbcRubricLevel,
+                juniorPoints,
+                teacherRemarks: item.teacherRemarks || null,
+                enteredById: userId,
+                updatedAt: new Date(),
+              },
+            });
+        }
+      }
+
+      // Upsert submission record in DRAFT
+      if (existingSub) {
+        await tx
+          .update(markSubmissions)
+          .set({
+            status: existingSub.status === 'CORRECTION_REQUESTED' ? 'CORRECTION_REQUESTED' : 'DRAFT',
+            teacherId: userId,
+            updatedAt: new Date(),
+          })
+          .where(eq(markSubmissions.id, existingSub.id));
+      } else {
+        await tx.insert(markSubmissions).values({
+          examId,
+          classId,
+          subjectId,
+          teacherId: userId,
+          status: 'DRAFT',
+        });
+      }
+    });
+
+    return { success: true, message: 'Marksheet saved as draft successfully' };
+  }
+
+  /**
+   * Submits marksheet for Deputy Head review. Requires all active learners to have scores.
+   */
+  static async submitMarksheet(
+    examId: string,
+    classId: string,
+    subjectId: string,
+    scores: Array<{
+      studentId: string;
+      marksObtained: number | string | null;
+      maxMarks?: number;
+      teacherRemarks?: string;
+    }>,
+    userId: string,
+    userRole?: string
+  ) {
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    if (!isPrivileged) {
+      const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId);
+      if (!eligible) {
+        throw new Error('You are not authorized to submit marks for this class and subject');
+      }
+    }
+
+    // Verify all active students in class have scores
+    const classStudents = await db
+      .select({ id: students.id, name: students.firstName })
+      .from(students)
+      .where(
+        and(
+          eq(students.classId, classId),
+          eq(students.status, 'ACTIVE'),
+          isNull(students.deletedAt)
+        )
+      );
+
+    const scoresMap = new Map<string, any>();
+    scores.forEach((s) => scoresMap.set(s.studentId, s));
+
+    const missingLearners = classStudents.filter((st) => {
+      const scoreObj = scoresMap.get(st.id);
+      return (
+        !scoreObj ||
+        scoreObj.marksObtained === null ||
+        scoreObj.marksObtained === undefined ||
+        scoreObj.marksObtained === ''
+      );
+    });
+
+    if (missingLearners.length > 0) {
+      throw new Error(
+        `Cannot submit marksheet: All ${classStudents.length} active learners must have a recorded mark. Missing scores for ${missingLearners.length} learner(s).`
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      // Upsert all scores
+      for (const item of scores) {
+        const markNum = Math.max(0, Math.min(100, parseFloat(item.marksObtained as string)));
+        const maxMarks = item.maxMarks || 100;
+        const { cbcRubricLevel, juniorPoints } = calculateCbcMetrics(markNum, maxMarks);
+
+        await tx
+          .insert(examScores)
+          .values({
+            examId,
+            studentId: item.studentId,
+            subjectId,
+            marksObtained: markNum.toFixed(2),
+            maxMarks,
+            cbcRubricLevel,
+            juniorPoints,
+            teacherRemarks: item.teacherRemarks || null,
+            enteredById: userId,
+          })
+          .onConflictDoUpdate({
+            target: [examScores.examId, examScores.studentId, examScores.subjectId],
+            set: {
+              marksObtained: markNum.toFixed(2),
+              maxMarks,
+              cbcRubricLevel,
+              juniorPoints,
+              teacherRemarks: item.teacherRemarks || null,
+              enteredById: userId,
+              updatedAt: new Date(),
+            },
+          });
+      }
+
+      // Transition submission to SUBMITTED
+      const [existingSub] = await tx
+        .select()
+        .from(markSubmissions)
+        .where(
+          and(
+            eq(markSubmissions.examId, examId),
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.subjectId, subjectId)
+          )
+        );
+
+      if (existingSub) {
+        await tx
+          .update(markSubmissions)
+          .set({
+            status: 'SUBMITTED',
+            teacherId: userId,
+            submittedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(markSubmissions.id, existingSub.id));
+      } else {
+        await tx.insert(markSubmissions).values({
+          examId,
+          classId,
+          subjectId,
+          teacherId: userId,
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+        });
+      }
+    });
+
+    return {
+      success: true,
+      message: `Marksheet for ${classStudents.length} learners submitted successfully to the Deputy Head for review`,
+    };
+  }
+
+  /**
+   * Teacher request to Deputy for permission to correct submitted marks
+   */
+  static async requestCorrectionByTeacher(
+    examId: string,
+    classId: string,
+    subjectId: string,
+    reason: string,
+    userId: string
+  ) {
+    const [sub] = await db
+      .select()
+      .from(markSubmissions)
+      .where(
+        and(
+          eq(markSubmissions.examId, examId),
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.subjectId, subjectId)
+        )
+      );
+
+    if (!sub) {
+      throw new Error('Marksheet submission not found');
+    }
+
+    if (sub.status !== 'SUBMITTED') {
+      throw new Error(`Correction requests can only be sent for 'SUBMITTED' marksheets (current: ${sub.status})`);
+    }
+
+    const note = `[Teacher Request - ${new Date().toLocaleDateString()}]: ${reason}`;
+    const [updated] = await db
+      .update(markSubmissions)
+      .set({
+        correctionReason: note,
+        updatedAt: new Date(),
+      })
+      .where(eq(markSubmissions.id, sub.id))
+      .returning();
+
+    return updated;
   }
 
   static async approveSubmission(id: string, reviewedById: string) {

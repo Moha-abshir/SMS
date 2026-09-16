@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { AttendanceService } from './attendance.service.js';
+import { db } from '../../config/db.js';
+import { classes, eq } from '@school/shared';
 
 export class AttendanceController {
   static async getSchoolWideAttendance(req: Request, res: Response) {
@@ -23,14 +25,42 @@ export class AttendanceController {
     }
   }
 
+  static async getClassAttendanceHistory(req: Request, res: Response) {
+    try {
+      const { classId } = req.params;
+      const data = await AttendanceService.getClassAttendanceHistory(classId);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to fetch class attendance history' });
+    }
+  }
+
   static async saveClassRegister(req: Request, res: Response) {
     try {
       const { classId } = req.params;
       const { date, records } = req.body;
+      const userId = req.user!.id;
+      const userRole = req.user?.roleName;
+      const isPrivileged =
+        userRole === 'HEAD_TEACHER' ||
+        userRole === 'DEPUTY_HEAD' ||
+        req.user?.permissions?.includes('attendance:manage');
+
+      if (!isPrivileged) {
+        // Verify user is assigned as Class Teacher for this class
+        const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
+        if (!cls || cls.classTeacherId !== userId) {
+          return res.status(403).json({
+            success: false,
+            message: 'You are only authorized to mark attendance for your assigned class',
+          });
+        }
+      }
+
       if (!records || !Array.isArray(records)) {
         return res.status(400).json({ success: false, message: 'Student records array is required' });
       }
-      const data = await AttendanceService.saveClassRegister(classId, date, records, req.user!.id);
+      const data = await AttendanceService.saveClassRegister(classId, date, records, userId);
       return res.status(200).json({ success: true, data, message: 'Class register saved successfully' });
     } catch (error: any) {
       return res.status(400).json({ success: false, message: error.message || 'Failed to save class register' });
