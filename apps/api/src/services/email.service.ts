@@ -108,7 +108,7 @@ export class EmailService {
             <div style="text-align: center; margin: 30px 0;">
               <a href="${inviteUrl}" style="background-color: #2563EB; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Accept Invitation</a>
             </div>
-            <p style="color: #64748B; font-size: 13px;">This personal invitation link will expire on ${expiryDate}. Do not share this link with anyone.</p>
+            <p style="color: #64748B; font-size: 13px;">This personal invitation link is strictly valid for <strong>60 minutes</strong> (expires on ${expiryDate}). Do not share this link with anyone.</p>
             <p style="color: #64748B; font-size: 13px;">If you cannot click the button, copy and paste this URL into your browser:</p>
             <p style="color: #64748B; font-size: 12px; word-break: break-all;">${inviteUrl}</p>
           </div>

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { InvitationsService } from './invitations.service.js';
+import { InvitationsService, InvitationError } from './invitations.service.js';
 import { resolveFrontendUrl } from '../../config/env.js';
 
 export class InvitationsController {
@@ -13,7 +13,7 @@ export class InvitationsController {
         success: true, 
         message: 'Invitation sent successfully', 
         data: result.invitation,
-        emailSent: result.emailSent
+        emailSent: result.emailSent 
       });
     } catch (error: any) {
       console.error('Error creating invitation:', error);
@@ -25,7 +25,11 @@ export class InvitationsController {
     try {
       const frontendUrl = resolveFrontendUrl(req);
       const result = await InvitationsService.resendInvitation(req.params.id, frontendUrl);
-      res.json({ success: true, message: 'Invitation resent successfully', data: result });
+      res.json({ 
+        success: true, 
+        message: 'Invitation resent successfully (valid for 60 minutes)', 
+        emailSent: result.emailSent 
+      });
     } catch (error: any) {
       console.error('Error resending invitation:', error);
       res.status(400).json({ success: false, message: error.message || 'Failed to resend invitation' });
@@ -46,14 +50,24 @@ export class InvitationsController {
     try {
       const { email, token } = req.body;
       if (!email || !token) {
-        return res.status(400).json({ success: false, message: 'Email and token are required' });
+        return res.status(400).json({ 
+          success: false, 
+          code: 'INVITATION_INVALID', 
+          message: 'Email and token are required.' 
+        });
       }
       
       const staffDetails = await InvitationsService.validateInvitation(email, token);
       res.json({ success: true, data: staffDetails });
     } catch (error: any) {
       console.error('Error validating invitation:', error);
-      res.status(400).json({ success: false, message: error.message || 'Invalid or expired invitation' });
+      const code = error instanceof InvitationError ? error.code : (error.code || 'INVITATION_INVALID');
+      res.status(400).json({ 
+        success: false, 
+        code, 
+        message: error.message || 'Invalid or expired invitation',
+        details: error.details || null 
+      });
     }
   }
 
@@ -61,18 +75,32 @@ export class InvitationsController {
     try {
       const { email, token, password } = req.body;
       if (!email || !token || !password) {
-        return res.status(400).json({ success: false, message: 'Email, token, and password are required' });
+        return res.status(400).json({ 
+          success: false, 
+          code: 'INVITATION_INVALID', 
+          message: 'Email, token, and password are required' 
+        });
       }
 
       if (password.length < 8) {
-        return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long' });
+        return res.status(400).json({ 
+          success: false, 
+          code: 'PASSWORD_TOO_SHORT', 
+          message: 'Password must be at least 8 characters long' 
+        });
       }
       
       const user = await InvitationsService.acceptInvitation(email, token, password);
       res.json({ success: true, message: 'Account created successfully', data: { id: user.id, email: user.email } });
     } catch (error: any) {
       console.error('Error accepting invitation:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to accept invitation' });
+      const code = error instanceof InvitationError ? error.code : (error.code || 'INVITATION_INVALID');
+      res.status(400).json({ 
+        success: false, 
+        code, 
+        message: error.message || 'Failed to accept invitation',
+        details: error.details || null 
+      });
     }
   }
 }

@@ -1,8 +1,27 @@
 import crypto from 'crypto';
 import argon2 from 'argon2';
 import { db } from '../../config/db.js';
-import { users, invitations, roles, invitationSubjects, userSubjects, eq, or, and, ne, inArray } from '@school/shared';
+import { users, invitations, roles, invitationSubjects, userSubjects, eq, or, and, ne, inArray, desc } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
+
+export type InvitationErrorCode =
+  | 'INVITATION_NOT_FOUND'
+  | 'INVITATION_INVALID'
+  | 'INVITATION_EXPIRED'
+  | 'INVITATION_CANCELLED'
+  | 'INVITATION_ACCEPTED';
+
+export class InvitationError extends Error {
+  code: InvitationErrorCode;
+  details?: any;
+
+  constructor(code: InvitationErrorCode, message: string, details?: any) {
+    super(message);
+    this.name = 'InvitationError';
+    this.code = code;
+    this.details = details;
+  }
+}
 
 export class InvitationsService {
   /**
@@ -101,9 +120,8 @@ export class InvitationsService {
     const rawToken = this.generateToken();
     const tokenHash = await this.hashToken(rawToken);
 
-    // 4. Calculate expiry (24 hours from now)
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    // 4. Calculate expiry (strictly 60 minutes from now)
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     // 5. Insert Invitation
     const [newInvitation] = await db.insert(invitations).values({
@@ -148,16 +166,16 @@ export class InvitationsService {
   }
 
   /**
-   * Resends an invitation (generates new token, updates expiry)
+   * Resends an invitation (generates new token, strictly 60 minutes expiry)
    */
   static async resendInvitation(invitationId: string, frontendUrl: string) {
     const inv = await db.query.invitations.findFirst({
       where: eq(invitations.id, invitationId)
     });
 
-    if (!inv) throw new Error('Invitation not found');
-    if (inv.status === 'ACCEPTED') throw new Error('Invitation has already been accepted');
-    if (inv.status === 'CANCELLED') throw new Error('Cannot resend a cancelled invitation');
+    if (!inv) throw new InvitationError('INVITATION_NOT_FOUND', 'Invitation not found');
+    if (inv.status === 'ACCEPTED') throw new InvitationError('INVITATION_ACCEPTED', 'Invitation has already been accepted');
+    if (inv.status === 'CANCELLED') throw new InvitationError('INVITATION_CANCELLED', 'Cannot resend a cancelled invitation');
 
     // Manually fetch role if 'with' fails
     const roleRecord = await db.query.roles.findFirst({ where: eq(roles.id, inv.roleId) });
@@ -165,8 +183,8 @@ export class InvitationsService {
     const rawToken = this.generateToken();
     const tokenHash = await this.hashToken(rawToken);
     
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    // Strictly 60 minutes from now
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.update(invitations)
       .set({
@@ -194,8 +212,8 @@ export class InvitationsService {
    */
   static async cancelInvitation(invitationId: string) {
     const inv = await db.query.invitations.findFirst({ where: eq(invitations.id, invitationId) });
-    if (!inv) throw new Error('Invitation not found');
-    if (inv.status === 'ACCEPTED') throw new Error('Cannot cancel an accepted invitation');
+    if (!inv) throw new InvitationError('INVITATION_NOT_FOUND', 'Invitation not found');
+    if (inv.status === 'ACCEPTED') throw new InvitationError('INVITATION_ACCEPTED', 'Cannot cancel an accepted invitation');
 
     await db.update(invitations)
       .set({
@@ -212,28 +230,134 @@ export class InvitationsService {
    * Validates an invitation token (Readonly Check)
    */
   static async validateInvitation(email: string, rawToken: string) {
-    const inv = await db.query.invitations.findFirst({
-      where: eq(invitations.email, email.toLowerCase())
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Check if an active user account already exists
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.email, normalizedEmail),
     });
 
-    if (!inv) throw new Error('Invitation not found');
-    if (inv.status === 'ACCEPTED') throw new Error('Invitation has already been accepted');
-    if (inv.status === 'CANCELLED') throw new Error('This invitation has been cancelled');
-    if (new Date() > inv.expiresAt) {
-      await db.update(invitations).set({ status: 'EXPIRED' }).where(eq(invitations.id, inv.id));
-      throw new Error('This invitation has expired');
+    // 2. Fetch all invitations for this email (most recent first)
+    const userInvs = await db.query.invitations.findMany({
+      where: eq(invitations.email, normalizedEmail),
+      orderBy: [desc(invitations.createdAt)],
+    });
+
+    if (userInvs.length === 0) {
+      if (existingUser) {
+        throw new InvitationError(
+          'INVITATION_ACCEPTED',
+          'An active staff account is already registered for this email address. Please proceed to sign in.',
+          { email: normalizedEmail }
+        );
+      }
+      throw new InvitationError(
+        'INVITATION_NOT_FOUND',
+        'No invitation was found for this email address. Please check the link or contact your school administration.',
+        { email: normalizedEmail }
+      );
     }
 
-    const isValid = await this.verifyToken(rawToken, inv.invitationTokenHash);
-    if (!isValid) throw new Error('Invalid or corrupted invitation token');
+    // 3. Find matching invitation by verifying token against hashes
+    let matchedInv: typeof userInvs[0] | null = null;
+    for (const inv of userInvs) {
+      if (inv.invitationTokenHash === 'CONSUMED') continue;
+      const isMatch = await this.verifyToken(rawToken, inv.invitationTokenHash);
+      if (isMatch) {
+        matchedInv = inv;
+        break;
+      }
+    }
 
-    const roleRecord = await db.query.roles.findFirst({ where: eq(roles.id, inv.roleId) });
+    if (!matchedInv) {
+      // Check if user already exists or if any invitation was accepted
+      const acceptedInv = userInvs.find(i => i.status === 'ACCEPTED');
+      if (existingUser || acceptedInv) {
+        throw new InvitationError(
+          'INVITATION_ACCEPTED',
+          'This invitation has already been accepted and your staff account is active. Please proceed to sign in.',
+          { email: normalizedEmail, acceptedAt: acceptedInv?.acceptedAt || null }
+        );
+      }
+
+      // Check if there is a cancelled invitation
+      const cancelledInv = userInvs.find(i => i.status === 'CANCELLED');
+      if (cancelledInv) {
+        throw new InvitationError(
+          'INVITATION_CANCELLED',
+          'This invitation was cancelled by the Headteacher / School Administration. Please contact your administrator if this is an error.',
+          { email: normalizedEmail, cancelledAt: cancelledInv.cancelledAt }
+        );
+      }
+
+      // Check if there is an expired invitation
+      const expiredInv = userInvs.find(i => i.status === 'EXPIRED' || new Date() > new Date(i.expiresAt));
+      if (expiredInv) {
+        throw new InvitationError(
+          'INVITATION_EXPIRED',
+          'This invitation link has expired. Invitation links are strictly valid for 60 minutes.',
+          { email: normalizedEmail, expiresAt: expiredInv.expiresAt }
+        );
+      }
+
+      throw new InvitationError(
+        'INVITATION_INVALID',
+        'Invalid or corrupted invitation link. Please ensure you clicked the complete URL sent to your email.',
+        { email: normalizedEmail }
+      );
+    }
+
+    // 4. Validate status and expiry of the matched invitation
+    if (matchedInv.status === 'CANCELLED') {
+      throw new InvitationError(
+        'INVITATION_CANCELLED',
+        'This invitation was cancelled by the Headteacher / School Administration. Please contact your administrator if this is an error.',
+        {
+          email: normalizedEmail,
+          cancelledAt: matchedInv.cancelledAt,
+          firstName: matchedInv.firstName,
+          lastName: matchedInv.lastName
+        }
+      );
+    }
+
+    if (matchedInv.status === 'ACCEPTED' || existingUser) {
+      throw new InvitationError(
+        'INVITATION_ACCEPTED',
+        'This invitation has already been accepted and your staff account is active. Please proceed to sign in.',
+        {
+          email: normalizedEmail,
+          acceptedAt: matchedInv.acceptedAt,
+          firstName: matchedInv.firstName,
+          lastName: matchedInv.lastName
+        }
+      );
+    }
+
+    if (matchedInv.status === 'EXPIRED' || new Date() > new Date(matchedInv.expiresAt)) {
+      if (matchedInv.status !== 'EXPIRED') {
+        await db.update(invitations).set({ status: 'EXPIRED', updatedAt: new Date() }).where(eq(invitations.id, matchedInv.id));
+      }
+      throw new InvitationError(
+        'INVITATION_EXPIRED',
+        'This invitation link expired after 60 minutes. Please request a new invitation from your Headteacher.',
+        {
+          email: normalizedEmail,
+          expiresAt: matchedInv.expiresAt,
+          firstName: matchedInv.firstName,
+          lastName: matchedInv.lastName
+        }
+      );
+    }
+
+    const roleRecord = await db.query.roles.findFirst({ where: eq(roles.id, matchedInv.roleId) });
 
     return {
-      firstName: inv.firstName,
-      lastName: inv.lastName,
-      email: inv.email,
-      roleName: roleRecord?.name || ''
+      firstName: matchedInv.firstName,
+      lastName: matchedInv.lastName,
+      email: matchedInv.email,
+      roleName: roleRecord?.name || 'Staff Member',
+      expiresAt: matchedInv.expiresAt,
     };
   }
 
@@ -241,18 +365,65 @@ export class InvitationsService {
    * Accepts an invitation and creates the user account
    */
   static async acceptInvitation(email: string, rawToken: string, passwordPlain: string) {
-    // 1. Validate the invitation completely
-    const inv = await db.query.invitations.findFirst({
-      where: eq(invitations.email, email.toLowerCase())
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Fetch invitations
+    const userInvs = await db.query.invitations.findMany({
+      where: eq(invitations.email, normalizedEmail),
+      orderBy: [desc(invitations.createdAt)]
     });
 
-    if (!inv) throw new Error('Invitation not found');
-    if (inv.status === 'ACCEPTED') throw new Error('Invitation has already been accepted');
-    if (inv.status === 'CANCELLED') throw new Error('This invitation has been cancelled');
-    if (new Date() > inv.expiresAt) throw new Error('This invitation has expired');
+    if (userInvs.length === 0) {
+      throw new InvitationError('INVITATION_NOT_FOUND', 'No invitation found for this email address.');
+    }
 
-    const isValid = await this.verifyToken(rawToken, inv.invitationTokenHash);
-    if (!isValid) throw new Error('Invalid invitation token');
+    let inv: typeof userInvs[0] | null = null;
+    for (const candidate of userInvs) {
+      if (candidate.invitationTokenHash === 'CONSUMED') continue;
+      const isMatch = await this.verifyToken(rawToken, candidate.invitationTokenHash);
+      if (isMatch) {
+        inv = candidate;
+        break;
+      }
+    }
+
+    if (!inv) {
+      const existingUser = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) });
+      if (existingUser) {
+        throw new InvitationError(
+          'INVITATION_ACCEPTED',
+          'This invitation has already been accepted and your staff account is active. Please proceed to sign in.'
+        );
+      }
+      throw new InvitationError('INVITATION_INVALID', 'Invalid or corrupted invitation link.');
+    }
+
+    if (inv.status === 'CANCELLED') {
+      throw new InvitationError(
+        'INVITATION_CANCELLED',
+        'This invitation was cancelled by the Headteacher / School Administration. You cannot activate an account using a cancelled invitation.',
+        { cancelledAt: inv.cancelledAt }
+      );
+    }
+
+    if (inv.status === 'ACCEPTED') {
+      throw new InvitationError(
+        'INVITATION_ACCEPTED',
+        'This invitation has already been accepted and your staff account is active. Please proceed to sign in.',
+        { acceptedAt: inv.acceptedAt }
+      );
+    }
+
+    if (inv.status === 'EXPIRED' || new Date() > new Date(inv.expiresAt)) {
+      if (inv.status !== 'EXPIRED') {
+        await db.update(invitations).set({ status: 'EXPIRED', updatedAt: new Date() }).where(eq(invitations.id, inv.id));
+      }
+      throw new InvitationError(
+        'INVITATION_EXPIRED',
+        'This invitation link has expired. Invitation links are strictly valid for 60 minutes.',
+        { expiresAt: inv.expiresAt }
+      );
+    }
 
     // 2. Hash Password
     const passwordHash = await argon2.hash(passwordPlain);
@@ -290,7 +461,7 @@ export class InvitationsService {
       );
     }
 
-    // 4. Mark Invitation as Accepted
+    // 4. Mark Invitation as Accepted & Consume Hash
     await db.update(invitations).set({
       status: 'ACCEPTED',
       acceptedAt: new Date(),

@@ -71,7 +71,10 @@ export class AuthController {
       }
 
       if (new Date() > new Date(user.twoFactorExpiresAt)) {
-        return res.status(400).json({ success: false, message: '2FA code has expired. Please request a new code.' });
+        await db.update(users)
+          .set({ twoFactorOtp: null, twoFactorExpiresAt: null })
+          .where(eq(users.id, user.id));
+        return res.status(400).json({ success: false, message: '2FA verification code has expired (5-minute limit). Please request a new code.' });
       }
 
       if (user.twoFactorOtp !== parsed.otp) {

@@ -114,11 +114,15 @@ export class StaffService {
         invitationStatus: null,
         assignedSubjects: userSubMap.get(s.id) || [],
       })),
-      ...invitationList.map(i => ({
-        ...i,
-        isInvitation: true,
-        assignedSubjects: invSubMap.get(i.id) || [],
-      }))
+      ...invitationList.map(i => {
+        const isExpired = i.invitationStatus === 'PENDING' && i.expiresAt && new Date() > new Date(i.expiresAt);
+        return {
+          ...i,
+          isInvitation: true,
+          invitationStatus: isExpired ? 'EXPIRED' : i.invitationStatus,
+          assignedSubjects: invSubMap.get(i.id) || [],
+        };
+      })
     ];
 
     return unifiedStaff;
