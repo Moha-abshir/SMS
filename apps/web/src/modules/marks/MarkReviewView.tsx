@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ClipboardCheck, CheckCircle2, RotateCcw, Lock, AlertCircle, Eye } from 'lucide-react';
+import { ClipboardCheck, CheckCircle2, RotateCcw, Lock, AlertCircle, Eye, Search, Award, TrendingUp, BookOpen, User } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -11,6 +11,15 @@ export const MarkReviewView: React.FC = () => {
   const [rejectionModalSubmission, setRejectionModalSubmission] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionProcessing, setActionProcessing] = useState(false);
+
+  // Scores Inspection State
+  const [inspectModalOpen, setInspectModalOpen] = useState(false);
+  const [inspectLoading, setInspectLoading] = useState(false);
+  const [inspectData, setInspectData] = useState<any | null>(null);
+  const [scoreSearch, setScoreSearch] = useState('');
+  const [filterRubric, setFilterRubric] = useState<'ALL' | 'EE' | 'ME' | 'AE' | 'BE'>('ALL');
+  const [inlineCorrectionMode, setInlineCorrectionMode] = useState(false);
+  const [inlineReason, setInlineReason] = useState('');
 
   const fetchSubmissions = async () => {
     try {
@@ -28,11 +37,35 @@ export const MarkReviewView: React.FC = () => {
     fetchSubmissions();
   }, []);
 
+  const handleOpenInspection = async (submissionId: string) => {
+    setInspectModalOpen(true);
+    setInspectLoading(true);
+    setScoreSearch('');
+    setFilterRubric('ALL');
+    setInlineCorrectionMode(false);
+    setInlineReason('');
+    try {
+      const res = await apiClient.get(`/api/mark-submissions/${submissionId}/scores`);
+      setInspectData(res.data.data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to load marksheet scores');
+      setInspectModalOpen(false);
+    } finally {
+      setInspectLoading(false);
+    }
+  };
+
   const handleApprove = async (id: string) => {
     try {
       setActionProcessing(true);
       await apiClient.put(`/api/mark-submissions/${id}/approve`);
       toast.success('Marksheet approved successfully');
+      if (inspectModalOpen && inspectData?.submission?.id === id) {
+        setInspectData({
+          ...inspectData,
+          submission: { ...inspectData.submission, status: 'APPROVED' },
+        });
+      }
       fetchSubmissions();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to approve marksheet');
@@ -41,20 +74,31 @@ export const MarkReviewView: React.FC = () => {
     }
   };
 
-  const handleConfirmCorrectionRequest = async () => {
-    if (!rejectionModalSubmission || !rejectionReason.trim()) {
+  const handleConfirmCorrectionRequest = async (submissionId: string, reason: string) => {
+    if (!reason.trim()) {
       toast.error('Please specify a reason for requesting correction');
       return;
     }
 
     try {
       setActionProcessing(true);
-      await apiClient.put(`/api/mark-submissions/${rejectionModalSubmission.submission.id}/request-correction`, {
-        reason: rejectionReason,
+      await apiClient.put(`/api/mark-submissions/${submissionId}/request-correction`, {
+        reason,
       });
       toast.success('Correction request sent back to subject teacher');
       setRejectionModalSubmission(null);
       setRejectionReason('');
+      if (inspectModalOpen && inspectData?.submission?.id === submissionId) {
+        setInspectData({
+          ...inspectData,
+          submission: {
+            ...inspectData.submission,
+            status: 'CORRECTION_REQUESTED',
+            rejectionReason: reason,
+          },
+        });
+        setInlineCorrectionMode(false);
+      }
       fetchSubmissions();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to request correction');
@@ -69,6 +113,12 @@ export const MarkReviewView: React.FC = () => {
       setActionProcessing(true);
       await apiClient.put(`/api/mark-submissions/${id}/lock`);
       toast.success('Marksheet permanently locked');
+      if (inspectModalOpen && inspectData?.submission?.id === id) {
+        setInspectData({
+          ...inspectData,
+          submission: { ...inspectData.submission, status: 'LOCKED' },
+        });
+      }
       fetchSubmissions();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to lock marksheet');
@@ -76,6 +126,14 @@ export const MarkReviewView: React.FC = () => {
       setActionProcessing(false);
     }
   };
+
+  const filteredScores = (inspectData?.scores || []).filter((s: any) => {
+    const matchesSearch =
+      s.studentName.toLowerCase().includes(scoreSearch.toLowerCase()) ||
+      s.admissionNumber.toLowerCase().includes(scoreSearch.toLowerCase());
+    const matchesRubric = filterRubric === 'ALL' || s.rubric === filterRubric;
+    return matchesSearch && matchesRubric;
+  });
 
   if (loading) {
     return (
@@ -101,7 +159,7 @@ export const MarkReviewView: React.FC = () => {
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">Exam Mark Review & Approval State Machine</h2>
           <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
-            Review submitted teacher marksheets, approve, request corrections, or lock final grades.
+            Inspect learner scores, examine class performance metrics, approve submissions, or request corrections with teacher feedback.
           </p>
         </div>
 
@@ -112,7 +170,9 @@ export const MarkReviewView: React.FC = () => {
           </div>
           <div className="w-[1px] h-8 bg-sky-200" />
           <div className="text-center">
-            <span className="block text-lg sm:text-xl font-black text-sky-600 leading-none">{submissions.filter(s => s.status === 'SUBMITTED').length} Pending</span>
+            <span className="block text-lg sm:text-xl font-black text-sky-600 leading-none">
+              {submissions.filter((s) => s.submission.status === 'SUBMITTED').length} Pending
+            </span>
             <span className="text-[10px] font-bold tracking-wider text-sky-700 uppercase mt-1 block">Review Queue</span>
           </div>
         </div>
@@ -126,14 +186,14 @@ export const MarkReviewView: React.FC = () => {
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[640px]">
+          <table className="w-full text-left text-xs min-w-[680px]">
             <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
               <tr>
                 <th className="py-3.5 px-4">Class</th>
                 <th className="py-3.5 px-4">Subject</th>
                 <th className="py-3.5 px-4">Submitted By</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-center">State Machine Actions</th>
+                <th className="py-3.5 px-4 text-center">Inspection & Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-100/60">
@@ -156,27 +216,39 @@ export const MarkReviewView: React.FC = () => {
                       {row.submittedBy.firstName} {row.submittedBy.lastName}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full border ${
-                        row.submission.status === 'APPROVED'
-                          ? 'bg-sky-100 text-sky-800 border-sky-200'
-                          : row.submission.status === 'CORRECTION_REQUESTED'
-                          ? 'bg-sky-50 text-sky-700 border-sky-200'
-                          : row.submission.status === 'LOCKED'
-                          ? 'bg-slate-100 text-slate-700 border-slate-200 font-mono'
-                          : 'bg-sky-500 text-white border-transparent'
-                      }`}>
+                      <span
+                        className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full border ${
+                          row.submission.status === 'APPROVED'
+                            ? 'bg-sky-100 text-sky-800 border-sky-200'
+                            : row.submission.status === 'CORRECTION_REQUESTED'
+                            ? 'bg-sky-50 text-sky-700 border-sky-200'
+                            : row.submission.status === 'LOCKED'
+                            ? 'bg-slate-100 text-slate-700 border-slate-200 font-mono'
+                            : 'bg-sky-500 text-white border-transparent'
+                        }`}
+                      >
                         {row.submission.status}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        {/* Inspect Scores Button */}
+                        <button
+                          onClick={() => handleOpenInspection(row.submission.id)}
+                          className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                          title="Inspect student scores and averages"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Inspect Scores</span>
+                        </button>
+
                         {row.submission.status !== 'LOCKED' && (
                           <>
                             {row.submission.status !== 'APPROVED' && (
                               <button
                                 onClick={() => handleApprove(row.submission.id)}
                                 disabled={actionProcessing}
-                                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-all"
+                                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" /> Approve
                               </button>
@@ -185,17 +257,17 @@ export const MarkReviewView: React.FC = () => {
                             <button
                               onClick={() => setRejectionModalSubmission(row)}
                               disabled={actionProcessing}
-                              className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all"
+                              className="px-3 py-1.5 bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" /> Request Correction
+                              <RotateCcw className="w-3.5 h-3.5" /> Correction
                             </button>
 
                             <button
                               onClick={() => handleLock(row.submission.id)}
                               disabled={actionProcessing}
-                              className="px-3 py-1.5 bg-white border border-sky-200 text-slate-700 hover:bg-sky-50 font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-xs"
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-xs cursor-pointer disabled:opacity-50"
                             >
-                              <Lock className="w-3.5 h-3.5 text-slate-500" /> Lock Marks
+                              <Lock className="w-3.5 h-3.5 text-slate-500" /> Lock
                             </button>
                           </>
                         )}
@@ -209,7 +281,322 @@ export const MarkReviewView: React.FC = () => {
         </div>
       </div>
 
-      {/* Request Correction Modal */}
+      {/* Scores Inspection Modal */}
+      {inspectModalOpen && (
+        <Modal
+          isOpen={inspectModalOpen}
+          onClose={() => setInspectModalOpen(false)}
+          title={
+            inspectData
+              ? `Marksheet Scores: ${inspectData.class?.name} - ${inspectData.subject?.name}`
+              : 'Marksheet Scores Inspection'
+          }
+          maxWidth="max-w-4xl"
+        >
+          {inspectLoading || !inspectData ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Header Details Card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-sky-50/60 border border-sky-100 rounded-2xl">
+                <div>
+                  <div className="flex items-center gap-2 text-xs text-sky-700 font-bold uppercase tracking-wider mb-1">
+                    <BookOpen className="w-3.5 h-3.5 text-sky-600" />
+                    {inspectData.examination?.name || 'Term Exam'} (Year {inspectData.examination?.academicYear || 2026})
+                  </div>
+                  <h4 className="text-base font-black text-slate-800">
+                    {inspectData.class?.name} — {inspectData.subject?.name}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Submitted by <strong className="text-slate-900">{inspectData.submittedBy?.firstName} {inspectData.submittedBy?.lastName}</strong> ({inspectData.submittedBy?.email})
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <span
+                    className={`px-3 py-1 text-xs font-black rounded-full border ${
+                      inspectData.submission?.status === 'APPROVED'
+                        ? 'bg-sky-100 text-sky-800 border-sky-200'
+                        : inspectData.submission?.status === 'CORRECTION_REQUESTED'
+                        ? 'bg-sky-50 text-sky-700 border-sky-200'
+                        : inspectData.submission?.status === 'LOCKED'
+                        ? 'bg-slate-100 text-slate-700 border-slate-200 font-mono'
+                        : 'bg-sky-500 text-white border-transparent'
+                    }`}
+                  >
+                    {inspectData.submission?.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Existing Correction Note Alert if any */}
+              {inspectData.submission?.rejectionReason && (
+                <div className="p-3 bg-sky-50/90 border border-sky-200 rounded-xl text-xs text-sky-900 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block text-sky-950 font-bold">Correction Instructions Sent to Teacher:</strong>
+                    <span>{inspectData.submission.rejectionReason}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Key Aggregate Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 bg-white border border-sky-100 rounded-xl shadow-xs text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Class Average</span>
+                  <span className="text-xl font-black text-sky-600 mt-0.5 block">{inspectData.summary?.classAverage}%</span>
+                </div>
+
+                <div className="p-3 bg-white border border-sky-100 rounded-xl shadow-xs text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Learners Scored</span>
+                  <span className="text-xl font-black text-slate-900 mt-0.5 block">
+                    {inspectData.summary?.scoredStudents} / {inspectData.summary?.totalStudents}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-white border border-sky-100 rounded-xl shadow-xs text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Highest Mark</span>
+                  <span className="text-xl font-black text-sky-700 mt-0.5 block">{inspectData.summary?.highestScore}%</span>
+                </div>
+
+                <div className="p-3 bg-white border border-sky-100 rounded-xl shadow-xs text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Lowest Mark</span>
+                  <span className="text-xl font-black text-slate-700 mt-0.5 block">{inspectData.summary?.lowestScore}%</span>
+                </div>
+              </div>
+
+              {/* CBC Rubric Performance Distribution */}
+              <div className="p-3.5 bg-sky-50/40 border border-sky-100 rounded-xl space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 block">
+                  CBC Rubric Level Distribution
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setFilterRubric(filterRubric === 'EE' ? 'ALL' : 'EE')}
+                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      filterRubric === 'EE'
+                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
+                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
+                    }`}
+                  >
+                    <span className="font-extrabold block">EE (Exceeding)</span>
+                    <span className="text-[11px] opacity-80 block">
+                      {inspectData.summary?.cbcPerformance?.EE || 0} learners (80-100%)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterRubric(filterRubric === 'ME' ? 'ALL' : 'ME')}
+                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      filterRubric === 'ME'
+                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
+                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
+                    }`}
+                  >
+                    <span className="font-extrabold block">ME (Meeting)</span>
+                    <span className="text-[11px] opacity-80 block">
+                      {inspectData.summary?.cbcPerformance?.ME || 0} learners (60-79%)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterRubric(filterRubric === 'AE' ? 'ALL' : 'AE')}
+                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      filterRubric === 'AE'
+                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
+                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
+                    }`}
+                  >
+                    <span className="font-extrabold block">AE (Approaching)</span>
+                    <span className="text-[11px] opacity-80 block">
+                      {inspectData.summary?.cbcPerformance?.AE || 0} learners (40-59%)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFilterRubric(filterRubric === 'BE' ? 'ALL' : 'BE')}
+                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                      filterRubric === 'BE'
+                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
+                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
+                    }`}
+                  >
+                    <span className="font-extrabold block">BE (Below)</span>
+                    <span className="text-[11px] opacity-80 block">
+                      {inspectData.summary?.cbcPerformance?.BE || 0} learners (0-39%)
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Learner Input */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search student name or admission number..."
+                  value={scoreSearch}
+                  onChange={(e) => setScoreSearch(e.target.value)}
+                  className="w-full bg-white border border-sky-100 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                />
+              </div>
+
+              {/* Student Scores Roster Table */}
+              <div className="max-h-80 overflow-y-auto border border-sky-100 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-sky-50/90 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100 sticky top-0 z-10">
+                    <tr>
+                      <th className="py-2.5 px-3">Adm #</th>
+                      <th className="py-2.5 px-3">Student Name</th>
+                      <th className="py-2.5 px-3 text-center">Score</th>
+                      <th className="py-2.5 px-3 text-center">Percentage</th>
+                      <th className="py-2.5 px-3 text-center">CBC Level</th>
+                      <th className="py-2.5 px-3">Teacher Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-sky-50">
+                    {filteredScores.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                          No student scores match the filter criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredScores.map((s: any) => (
+                        <tr key={s.studentId} className="hover:bg-sky-50/40 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-600">
+                            {s.admissionNumber}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                            {s.studentName}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-800 font-mono">
+                            {s.score} / {s.maxScore}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-black text-sky-700">
+                            {s.percentage}%
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 text-[10px] font-black rounded-md border ${
+                                s.rubric === 'EE'
+                                  ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                  : s.rubric === 'ME'
+                                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                  : s.rubric === 'AE'
+                                  ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                  : 'bg-slate-200 text-slate-800 border-slate-300'
+                              }`}
+                            >
+                              {s.rubric}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 italic">
+                            {s.remarks || '—'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Inline Return for Correction Panel */}
+              {inlineCorrectionMode && (
+                <div className="p-4 bg-sky-50/70 border border-sky-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <RotateCcw className="w-3.5 h-3.5 text-sky-600" />
+                      Specify Correction Instructions for Teacher
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setInlineCorrectionMode(false)}
+                      className="text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    placeholder="e.g. Please verify learner admission #ADM-102 score and recalculate question 4..."
+                    value={inlineReason}
+                    onChange={(e) => setInlineReason(e.target.value)}
+                    className="w-full bg-white border border-sky-200 rounded-xl p-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmCorrectionRequest(inspectData.submission.id, inlineReason)}
+                      disabled={actionProcessing || !inlineReason.trim()}
+                      className="px-4 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {actionProcessing && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                      Send Correction Request
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Action Footer */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-sky-100">
+                <button
+                  type="button"
+                  onClick={() => setInspectModalOpen(false)}
+                  className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Close Inspection
+                </button>
+
+                {inspectData.submission?.status !== 'LOCKED' && (
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {!inlineCorrectionMode && (
+                      <button
+                        type="button"
+                        onClick={() => setInlineCorrectionMode(true)}
+                        className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Request Correction
+                      </button>
+                    )}
+
+                    {inspectData.submission?.status !== 'APPROVED' && (
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(inspectData.submission.id)}
+                        disabled={actionProcessing}
+                        className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Approve Marksheet
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleLock(inspectData.submission.id)}
+                      disabled={actionProcessing}
+                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-slate-500" />
+                      Lock Permanently
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Standalone Request Correction Modal */}
       {rejectionModalSubmission && (
         <Modal
           isOpen={!!rejectionModalSubmission}
@@ -239,15 +626,15 @@ export const MarkReviewView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRejectionModalSubmission(null)}
-                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition-colors"
+                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleConfirmCorrectionRequest}
+                onClick={() => handleConfirmCorrectionRequest(rejectionModalSubmission.submission.id, rejectionReason)}
                 disabled={actionProcessing}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 {actionProcessing && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 Return for Correction
@@ -259,3 +646,4 @@ export const MarkReviewView: React.FC = () => {
     </motion.div>
   );
 };
+
