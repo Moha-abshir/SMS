@@ -12,6 +12,8 @@ import { RoleGuard } from './components/RoleGuard';
 import { OverviewView } from './modules/dashboard/OverviewView';
 import { DeputyDashboardView } from './modules/dashboard/DeputyDashboardView';
 import { DosDashboardView } from './modules/dashboard/DosDashboardView';
+import { TeacherDashboardView } from './modules/dashboard/TeacherDashboardView';
+import { ClassLearnersView } from './modules/learners/ClassLearnersView';
 import { SettingsView } from './modules/settings/SettingsView';
 import { StaffManagementView } from './modules/staff/StaffManagementView';
 import { StudentAdmissionView } from './modules/admissions/StudentAdmissionView';
@@ -40,6 +42,9 @@ const OverviewDispatcher: React.FC<{ user: any }> = ({ user }) => {
   }
   if (userRole === 'DOS') {
     return <DosDashboardView />;
+  }
+  if (userRole === 'TEACHER') {
+    return <TeacherDashboardView />;
   }
   return <OverviewView />;
 };
@@ -178,6 +183,14 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD']} user={currentUser}>
                 <ClassRegisterView />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/my-learners"
+            element={
+              <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD']} user={currentUser}>
+                <ClassLearnersView />
               </RoleGuard>
             }
           />
