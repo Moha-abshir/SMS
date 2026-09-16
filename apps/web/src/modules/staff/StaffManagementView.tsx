@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, KeyRound, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -17,7 +17,7 @@ export const StaffManagementView: React.FC = () => {
   // Modal states
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
+  const [showEmailRecoveryModal, setShowEmailRecoveryModal] = useState(false);
   const [show2FaResetModal, setShow2FaResetModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -138,16 +138,6 @@ export const StaffManagementView: React.FC = () => {
     }
   };
 
-  const handleResetPassword = async () => {
-    try {
-      const res = await apiClient.post(`/api/staff/${selectedStaff.id}/password-reset-request`);
-      toast.success(`Password reset email sent to ${selectedStaff.email}`);
-      setShowResetModal(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to initiate password reset');
-    }
-  };
-
   const handle2FaReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminPasswordConfirm) {
@@ -245,12 +235,12 @@ export const StaffManagementView: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const openResetModal = (staffMember: any) => {
+  const openEmailRecoveryModal = (staffMember: any) => {
     setSelectedStaff(staffMember);
     setNewEmailInput('');
     setConfirmNewEmailInput('');
     setEmailChangeAdminPassword('');
-    setShowResetModal(true);
+    setShowEmailRecoveryModal(true);
   };
 
   const handleInitiateEmailChange = async (e: React.FormEvent) => {
@@ -271,7 +261,7 @@ export const StaffManagementView: React.FC = () => {
         adminPasswordConfirm: emailChangeAdminPassword,
       });
       toast.success(res.data.message || `Email recovery verification link sent to ${newEmailInput}`);
-      setShowResetModal(false);
+      setShowEmailRecoveryModal(false);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to initiate email address recovery');
     } finally {
@@ -430,11 +420,11 @@ export const StaffManagementView: React.FC = () => {
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => openResetModal(s)}
+                              onClick={() => openEmailRecoveryModal(s)}
                               className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                              title="Initiate Password Reset"
+                              title="Recover / Change Staff Email"
                             >
-                              <KeyRound className="w-4 h-4" />
+                              <Mail className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => {
@@ -694,140 +684,119 @@ export const StaffManagementView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Initiate Password Reset & Email Address Recovery Modal */}
-      <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} title="Initiate Password Reset & Email Recovery" maxWidth="max-w-4xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 divide-y md:divide-y-0 md:divide-x divide-sky-100">
-          
-          {/* LEFT PANEL: Standard Password Reset */}
-          <div className="space-y-4 pr-0 md:pr-4">
-            <div className="flex items-center gap-2 font-bold text-sky-600">
-              <KeyRound className="w-5 h-5 text-sky-500" /> Standard Password Reset
-            </div>
-            <div className="p-4 bg-sky-50 text-slate-800 rounded-xl text-xs leading-relaxed border border-sky-100">
-              Send a secure reset email link to current email <strong className="text-slate-900">{selectedStaff?.email}</strong>?
-              <ul className="mt-2 space-y-1 text-xs text-sky-700 list-disc list-inside">
-                <li>Link expires in 60 minutes.</li>
-                <li>Head Teacher will not see or set password.</li>
-                <li>All active sessions logged out upon completion.</li>
-              </ul>
-            </div>
-            <div className="pt-2">
-              <button
-                onClick={handleResetPassword}
-                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass"
-              >
-                <Send className="w-4 h-4" /> Send Reset Link to Current Email
-              </button>
-            </div>
+      {/* Staff Email Recovery & Address Change Modal */}
+      <Modal isOpen={showEmailRecoveryModal} onClose={() => setShowEmailRecoveryModal(false)} title="Staff Email Recovery & Address Change" maxWidth="max-w-lg">
+        <form onSubmit={handleInitiateEmailChange} className="space-y-4">
+          <div className="flex items-center gap-2 font-bold text-sky-600">
+            <Mail className="w-5 h-5 text-sky-500" /> Email Recovery & Address Change
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            If staff member lost access to <strong className="text-slate-900">{selectedStaff?.email}</strong>, enter their new email address below. A verification link will be sent to the new inbox.
+          </p>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">
+              New Email Address *
+            </label>
+            <input
+              type="email"
+              required
+              value={newEmailInput}
+              onChange={(e) => setNewEmailInput(e.target.value)}
+              placeholder="e.g. new.email@gmail.com"
+              className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+            />
           </div>
 
-          {/* RIGHT PANEL: Email Recovery & Address Change */}
-          <form onSubmit={handleInitiateEmailChange} className="space-y-4 pt-4 md:pt-0 pl-0 md:pl-4">
-            <div className="flex items-center gap-2 font-bold text-sky-600">
-              <Mail className="w-5 h-5 text-sky-500" /> Email Recovery & Address Change
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              If staff member lost access to <strong className="text-slate-900">{selectedStaff?.email}</strong>, enter their new email address below. A verification link will be sent to the new inbox.
-            </p>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">
-                New Email Address *
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-600">
+                Confirm New Email Address *
               </label>
+              {confirmNewEmailInput.length > 0 && (
+                <span className={`text-[11px] font-semibold flex items-center gap-1 ${
+                  newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
+                    ? 'text-sky-600'
+                    : 'text-rose-500'
+                }`}>
+                  {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Emails match
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" /> Emails do not match
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
+            <div className="relative">
               <input
                 type="email"
                 required
-                value={newEmailInput}
-                onChange={(e) => setNewEmailInput(e.target.value)}
-                placeholder="e.g. new.email@gmail.com"
-                className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                value={confirmNewEmailInput}
+                onChange={(e) => setConfirmNewEmailInput(e.target.value)}
+                placeholder="Re-enter new email address"
+                className={`w-full bg-white border rounded-xl px-4 py-2 pr-10 text-xs text-slate-800 outline-none transition-all ${
+                  confirmNewEmailInput.length > 0
+                    ? newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
+                      ? 'border-sky-500 ring-1 ring-sky-500/30'
+                      : 'border-rose-500 ring-1 ring-rose-500/30'
+                    : 'border-sky-200 focus:border-sky-500'
+                }`}
+              />
+              {confirmNewEmailInput.length > 0 && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
+                    <CheckCircle2 className="w-4 h-4 text-sky-500" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-rose-500" />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1">
+              Head Teacher Password Authorization *
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="password"
+                required
+                value={emailChangeAdminPassword}
+                onChange={(e) => setEmailChangeAdminPassword(e.target.value)}
+                placeholder="Enter your Head Teacher password"
+                className="w-full bg-white border border-sky-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
+          </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-600">
-                  Confirm New Email Address *
-                </label>
-                {confirmNewEmailInput.length > 0 && (
-                  <span className={`text-[11px] font-semibold flex items-center gap-1 ${
-                    newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
-                      ? 'text-sky-600'
-                      : 'text-rose-500'
-                  }`}>
-                    {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Emails match
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-3.5 h-3.5" /> Emails do not match
-                      </>
-                    )}
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={confirmNewEmailInput}
-                  onChange={(e) => setConfirmNewEmailInput(e.target.value)}
-                  placeholder="Re-enter new email address"
-                  className={`w-full bg-white border rounded-xl px-4 py-2 pr-10 text-xs text-slate-800 outline-none transition-all ${
-                    confirmNewEmailInput.length > 0
-                      ? newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
-                        ? 'border-sky-500 ring-1 ring-sky-500/30'
-                        : 'border-rose-500 ring-1 ring-rose-500/30'
-                      : 'border-sky-200 focus:border-sky-500'
-                  }`}
-                />
-                {confirmNewEmailInput.length > 0 && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
-                      <CheckCircle2 className="w-4 h-4 text-sky-500" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-rose-500" />
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">
-                Head Teacher Password Authorization *
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="password"
-                  required
-                  value={emailChangeAdminPassword}
-                  onChange={(e) => setEmailChangeAdminPassword(e.target.value)}
-                  placeholder="Enter your Head Teacher password"
-                  className="w-full bg-white border border-sky-200 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={
-                  submittingEmailChange ||
-                  confirmNewEmailInput.length === 0 ||
-                  newEmailInput.trim().toLowerCase() !== confirmNewEmailInput.trim().toLowerCase() ||
-                  !emailChangeAdminPassword
-                }
-                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {submittingEmailChange ? 'Sending Link...' : 'Dispatch Email Recovery Link'}
-              </button>
-            </div>
-          </form>
-
-        </div>
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-sky-100">
+            <button
+              type="button"
+              onClick={() => setShowEmailRecoveryModal(false)}
+              className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs min-h-[40px] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={
+                submittingEmailChange ||
+                confirmNewEmailInput.length === 0 ||
+                newEmailInput.trim().toLowerCase() !== confirmNewEmailInput.trim().toLowerCase() ||
+                !emailChangeAdminPassword
+              }
+              className="w-full sm:w-auto px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
+            >
+              {submittingEmailChange ? 'Sending Link...' : 'Dispatch Email Recovery Link'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* Reset 2FA Modal */}
