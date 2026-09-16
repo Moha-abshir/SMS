@@ -24,6 +24,7 @@ import { LeaveManagementView } from './modules/leave/LeaveManagementView';
 import { AttendanceOversightView } from './modules/attendance/AttendanceOversightView';
 import { ClassRegisterView } from './modules/attendance/ClassRegisterView';
 import { MarkReviewView } from './modules/marks/MarkReviewView';
+import { MarksheetEntryView } from './modules/marks/MarksheetEntryView';
 import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
 import { ExamTimetableView } from './modules/exams/ExamTimetableView';
 import { InvigilatorAllocationView } from './modules/exams/InvigilatorAllocationView';
@@ -227,6 +228,14 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['DEPUTY_HEAD']} user={currentUser}>
                 <MarkReviewView />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/marks-entry"
+            element={
+              <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+                <MarksheetEntryView />
               </RoleGuard>
             }
           />

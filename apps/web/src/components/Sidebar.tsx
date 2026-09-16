@@ -51,6 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/attendance', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },
     { path: '/class-register', label: 'Daily Class Register', icon: CalendarCheck, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DEPUTY_HEAD'] },
+    { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/subject-performance', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
     { path: '/invigilation', label: 'Invigilator Allocations', icon: ShieldCheck, roles: ['DOS'] },
