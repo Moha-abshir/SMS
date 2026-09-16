@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
+import { printElement } from '../../lib/printElement';
 
 export const ExamTimetableView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -537,8 +538,8 @@ export const ExamTimetableView: React.FC = () => {
                 Official master timetable for notice boards, class circulation, and parent notices.
               </p>
               <button
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass shrink-0 transition-all"
+                onClick={() => printElement('master-timetable-printable', `${schoolSettings?.schoolName || 'Eldoret Muslim Academy'} - Master Examination Timetable`)}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass shrink-0 transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 Print Master Timetable
@@ -546,7 +547,7 @@ export const ExamTimetableView: React.FC = () => {
             </div>
 
             {/* Paper Preview Sheet */}
-            <div className="p-6 sm:p-8 bg-white border border-slate-300 rounded-xl text-slate-900 shadow-sm print:m-0 print:p-0 print:border-none print:shadow-none space-y-6">
+            <div id="master-timetable-printable" className="p-6 sm:p-8 bg-white border border-slate-300 rounded-xl text-slate-900 shadow-sm space-y-6">
               {/* Header */}
               <div className="text-center border-b-2 border-slate-800 pb-4">
                 <h1 className="text-lg sm:text-xl font-black uppercase tracking-wide text-slate-900">

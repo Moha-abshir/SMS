@@ -27,6 +27,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { printElement } from '../../lib/printElement';
 
 interface FinancialSummary {
   academicYear: number;
@@ -1280,7 +1281,7 @@ export const FinancialManagementView: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printElement('official-receipt-print', `Receipt - ${receiptModalData?.receiptNumber || 'Official Receipt'}`)}
                 className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-4 h-4" /> Print Receipt
