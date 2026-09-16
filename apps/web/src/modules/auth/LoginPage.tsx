@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School, CheckCircle2 } from 'lucide-react';
+import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { apiClient } from '../../lib/apiClient';
@@ -25,11 +25,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [otpCountdown, setOtpCountdown] = useState(300); // 5 minutes = 300 seconds
 
   // Forgot Password State
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+
+  // 5-Minute OTP Countdown Timer
+  useEffect(() => {
+    if (view !== 'otp') return;
+    setOtpCountdown(300);
+    const interval = setInterval(() => {
+      setOtpCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [view]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     apiClient.get('/api/settings/public').then((res) => {
@@ -94,6 +117,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const response = await apiClient.post('/api/auth/resend-otp', { email });
       if (response.data.success) {
         toast.success('A new verification code has been sent to your email.');
+        setOtpCountdown(300);
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to resend code. Please try again.';
@@ -246,9 +270,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </form>
           ) : view === 'otp' ? (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
-              <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl text-xs text-sky-800">
-                A 6-digit 2FA verification code was sent to <strong className="font-bold">{email}</strong>.
+              <div className="flex items-center justify-between p-3.5 bg-sky-50 border border-sky-100 rounded-xl text-xs text-sky-900 gap-2">
+                <div className="leading-relaxed">
+                  A 6-digit 2FA verification code was sent to <strong className="font-bold text-sky-950">{email}</strong>.
+                </div>
+                <div className={`shrink-0 font-mono font-bold text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
+                  otpCountdown <= 60
+                    ? 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse'
+                    : 'bg-white/80 text-sky-700 border-sky-200'
+                }`}>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{formatCountdown(otpCountdown)}</span>
+                </div>
               </div>
+
+              {otpCountdown === 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    Your 2FA code has expired (5-minute security limit). Please click <strong>"Resend Code"</strong> below to get a fresh code.
+                  </span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
@@ -270,8 +313,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
               <button
                 type="submit"
-                disabled={otpLoading}
-                className="w-full min-h-[44px] py-3 sm:py-3.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm rounded-xl shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                disabled={otpLoading || otpCountdown === 0}
+                className="w-full min-h-[44px] py-3 sm:py-3.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm rounded-xl shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {otpLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -293,7 +336,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendLoading}
-                  className="text-sky-600 hover:underline font-bold flex items-center gap-1 min-h-[36px] cursor-pointer"
+                  className="text-sky-600 hover:underline font-bold flex items-center gap-1.5 min-h-[36px] cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
                   <span>Resend Code</span>
