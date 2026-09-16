@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
+import { printElement } from '../../lib/printElement';
 
 interface LetterItem {
   id: string;
@@ -84,7 +85,7 @@ export const OfficialLetterView: React.FC = () => {
   };
 
   const triggerPrint = () => {
-    window.print();
+    printElement('official-letter-paper', printModalData?.letter.title || 'Official Letter');
   };
 
   if (loading) {

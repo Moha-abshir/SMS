@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
+import { printElement } from '../../lib/printElement';
 
 export const LeaveManagementView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -117,7 +118,7 @@ export const LeaveManagementView: React.FC = () => {
   };
 
   const triggerPrint = () => {
-    window.print();
+    printElement('leave-slip-printable', 'Leave Out Sheet');
   };
 
   if (loading) {
@@ -459,7 +460,7 @@ export const LeaveManagementView: React.FC = () => {
             </div>
 
             {/* Recreated Physical Leave Out Sheet */}
-            <div className="printable-sheet-container p-6 sm:p-8 bg-white text-slate-950 font-serif border border-slate-300 rounded-xl max-w-xl mx-auto space-y-4 shadow-sm select-text">
+            <div id="leave-slip-printable" className="printable-sheet-container p-6 sm:p-8 bg-white text-slate-950 font-serif border border-slate-300 rounded-xl max-w-xl mx-auto space-y-4 shadow-sm select-text">
               {/* Header */}
               <div className="text-center font-bold pb-2 border-b border-slate-900">
                 <h2 className="text-base sm:text-lg uppercase tracking-wide font-black">
