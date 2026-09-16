@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Printer, X, FileText, Edit3, School } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate, formatOrdinalDay } from '../../lib/formatters';
+import { printElement } from '../../lib/printElement';
 
 interface EmploymentContractModalProps {
   isOpen: boolean;
@@ -74,32 +75,44 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
   const dot = (len: number = 30) => '.'.repeat(len);
 
   const handlePrint = () => {
-    window.print();
+    printElement(
+      'contract-document',
+      `${schoolSettings.schoolName || 'Eldoret Muslim Academy'} - Employment Contract - ${staffFullName}`
+    );
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, schoolSettings, staffFullName]);
 
   return (
     <>
-      {/* Print-only stylesheet — injected once */}
+      {/* Print-only stylesheet — fallback for direct browser print shortcut */}
       <style>{`
         @media print {
-          /* Hide everything except the contract */
-          body > *:not(#contract-print-root) { display: none !important; }
-          #contract-print-root { display: block !important; }
-          #contract-print-root .no-print { display: none !important; }
-
-          #contract-print-root {
-            position: fixed;
-            inset: 0;
-            z-index: 99999;
-            background: white !important;
-            overflow: visible !important;
+          body * {
+            visibility: hidden;
           }
-
+          #contract-document,
+          #contract-document * {
+            visibility: visible;
+          }
           #contract-document {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 100% !important;
             max-width: none !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 10mm 15mm !important;
             border: none !important;
             box-shadow: none !important;
             background: white !important;
@@ -107,15 +120,12 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
             font-size: 11pt !important;
             line-height: 1.45 !important;
           }
-
-          #contract-document * {
-            color: black !important;
-            background: transparent !important;
+          .no-print {
+            display: none !important;
           }
-
           @page {
-            size: A4;
-            margin: 15mm 15mm;
+            size: A4 portrait;
+            margin: 10mm 10mm;
           }
         }
       `}</style>
