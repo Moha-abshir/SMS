@@ -8,6 +8,7 @@ router.use(authenticate);
 
 router.get('/', ExamsController.getExams);
 router.post('/', authorizePermission('exams:manage'), ExamsController.createExam);
+router.put('/:id/status', authorizePermission('exams:manage'), ExamsController.updateExamStatus);
 router.get('/:id/sessions', ExamsController.getExamSessions);
 router.post('/sessions', authorizePermission('exams:manage'), ExamsController.createExamSession);
 router.delete('/sessions/:id', authorizePermission('exams:manage'), ExamsController.deleteExamSession);

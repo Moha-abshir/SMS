@@ -20,7 +20,19 @@ export class ExamsController {
     }
   }
 
+  static async updateExamStatus(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const updated = await ExamsService.updateExamStatus(id, status);
+      return res.status(200).json({ success: true, data: updated, message: `Exam status updated to ${status}` });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to update exam status' });
+    }
+  }
+
   static async getExamSessions(req: Request, res: Response) {
+
     try {
       const { id } = req.params;
       const sessions = await ExamsService.getExamSessions(id);

@@ -17,9 +17,11 @@ import {
   invigilatorAllocations,
   markingAllocations,
   reportCardLocks,
+  examScores,
   systemSettings,
   academicTerms,
   eq,
+  and,
   count,
   isNull,
   sql,
@@ -163,18 +165,41 @@ export class DashboardService {
 
   static async getDosOverview() {
     const [examsCount] = await db.select({ total: count() }).from(examinations).where(isNull(examinations.deletedAt));
+    const [publishedExamsCount] = await db.select({ total: count() }).from(examinations).where(and(eq(examinations.status, 'APPROVED'), isNull(examinations.deletedAt)));
+    const [sessionsCount] = await db.select({ total: count() }).from(examSessions).where(isNull(examSessions.deletedAt));
     const [invigilationCount] = await db.select({ total: count() }).from(invigilatorAllocations).where(isNull(invigilatorAllocations.deletedAt));
     const [markingCount] = await db.select({ total: count() }).from(markingAllocations).where(isNull(markingAllocations.deletedAt));
-    const [locksCount] = await db.select({ total: count() }).from(reportCardLocks).where(eq(reportCardLocks.isLocked, false));
+    const [locksCount] = await db.select({ total: count() }).from(reportCardLocks).where(isNull(reportCardLocks.deletedAt));
+    const [lockedCount] = await db.select({ total: count() }).from(reportCardLocks).where(and(eq(reportCardLocks.isLocked, true), isNull(reportCardLocks.deletedAt)));
+
+    // Calculate school academic score average
+    const scores = await db
+      .select({
+        marksObtained: examScores.marksObtained,
+      })
+      .from(examScores)
+      .where(isNull(examScores.deletedAt));
+
+    let totalMarks = 0;
+    scores.forEach((s) => {
+      totalMarks += parseFloat(s.marksObtained || '0');
+    });
+    const schoolAverage = scores.length > 0 ? Math.round((totalMarks / scores.length) * 10) / 10 : 0;
 
     const [settings] = await db.select().from(systemSettings).limit(1);
     const [currentTerm] = await db.select().from(academicTerms).where(eq(academicTerms.isCurrent, true));
 
     return {
       totalExams: examsCount?.total || 0,
+      publishedExams: publishedExamsCount?.total || 0,
+      scheduledSessions: sessionsCount?.total || 0,
       invigilationsCount: invigilationCount?.total || 0,
       markingCount: markingCount?.total || 0,
-      releasedReportsCount: locksCount?.total || 0,
+      totalReportLocks: locksCount?.total || 0,
+      activeLocksCount: lockedCount?.total || 0,
+      releasedReportsCount: (locksCount?.total || 0) - (lockedCount?.total || 0),
+      schoolAverage,
+      totalScoresEntered: scores.length,
       schoolName: settings?.schoolName || 'Eldoret Muslim Academy',
       academicYear: settings?.currentAcademicYear || 2026,
       currentTermNumber: currentTerm?.termNumber || 1,

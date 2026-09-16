@@ -12,6 +12,19 @@ export class AcademicAllocationsController {
     }
   }
 
+  static async getAvailableInvigilators(req: Request, res: Response) {
+    try {
+      const sessionId = req.query.sessionId as string;
+      if (!sessionId) {
+        return res.status(400).json({ success: false, message: 'sessionId query parameter is required' });
+      }
+      const data = await AcademicAllocationsService.getAvailableInvigilators(sessionId);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch available invigilators' });
+    }
+  }
+
   static async assignInvigilator(req: Request, res: Response) {
     try {
       const created = await AcademicAllocationsService.assignInvigilator(req.body);
@@ -40,6 +53,19 @@ export class AcademicAllocationsController {
     }
   }
 
+  static async getEligibleMarkingTeachers(req: Request, res: Response) {
+    try {
+      const subjectId = req.query.subjectId as string;
+      if (!subjectId) {
+        return res.status(400).json({ success: false, message: 'subjectId query parameter is required' });
+      }
+      const data = await AcademicAllocationsService.getEligibleMarkingTeachers(subjectId);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch eligible marking teachers' });
+    }
+  }
+
   static async assignMarking(req: Request, res: Response) {
     try {
       const created = await AcademicAllocationsService.assignMarking(req.body);
@@ -58,3 +84,4 @@ export class AcademicAllocationsController {
     }
   }
 }
+
