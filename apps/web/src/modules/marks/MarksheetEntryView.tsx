@@ -8,6 +8,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { printElement } from '../../lib/printElement';
 
 interface StudentScoreRow {
   studentId: string;
@@ -727,7 +728,7 @@ export const MarksheetEntryView: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-end gap-2 mb-2 no-print">
               <button
-                onClick={() => window.print()}
+                onClick={() => printElement('official-marksheet-printable', `${schoolSettings?.schoolName || 'Eldoret Muslim Academy'} - Official Examination Marksheet`)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold shadow-xs cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
@@ -736,7 +737,7 @@ export const MarksheetEntryView: React.FC = () => {
             </div>
 
             {/* Printable Paper Canvas */}
-            <div className="p-6 bg-white border border-slate-300 rounded-lg text-slate-900 font-serif printable-sheet">
+            <div id="official-marksheet-printable" className="p-6 bg-white border border-slate-300 rounded-lg text-slate-900 font-serif printable-sheet">
               {/* Header */}
               <div className="text-center border-b-2 border-slate-900 pb-3 mb-4">
                 <h2 className="text-lg font-black uppercase tracking-wider">
