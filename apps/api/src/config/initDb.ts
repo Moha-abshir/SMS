@@ -20,7 +20,18 @@ export async function initializeDatabaseTables() {
       ON "payment_reversals" ("original_payment_id");
     `);
 
-    console.log('[Database] payment_reversals table verified/initialized');
+    // Ensure leave out sheet specific fields exist
+    await db.execute(sql`
+      ALTER TABLE "teacher_leave_requests" 
+      ADD COLUMN IF NOT EXISTS "departure_time" varchar(50),
+      ADD COLUMN IF NOT EXISTS "duration" varchar(100),
+      ADD COLUMN IF NOT EXISTS "standing_in_teacher_id" uuid,
+      ADD COLUMN IF NOT EXISTS "deputy_reason" text,
+      ADD COLUMN IF NOT EXISTS "head_teacher_reason" text,
+      ADD COLUMN IF NOT EXISTS "reasons_json" text;
+    `);
+
+    console.log('[Database] database schema extensions verified/initialized');
   } catch (err: any) {
     console.warn('[Database] initializeDatabaseTables warning:', err.message);
   }

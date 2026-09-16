@@ -12,6 +12,16 @@ export class MarkSubmissionsController {
     }
   }
 
+  static async getSubmissionScores(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const data = await MarkSubmissionsService.getSubmissionScores(id);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to fetch marksheet scores' });
+    }
+  }
+
   static async approveSubmission(req: Request, res: Response) {
     try {
       const { id } = req.params;

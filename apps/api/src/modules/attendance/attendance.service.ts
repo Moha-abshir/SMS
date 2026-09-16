@@ -77,6 +77,25 @@ export class AttendanceService {
       };
     });
 
+    // 4. Group by class summary for Deputy overview
+    const classSummaries = totalClasses.map((c) => {
+      const reg = registers.find((r) => r.class.id === c.id);
+      const classRecords = reg ? records.filter((r) => r.class.id === c.id) : [];
+      const present = classRecords.filter((r) => r.record.status === 'PRESENT').length;
+      const absent = classRecords.filter((r) => r.record.status === 'ABSENT').length;
+      return {
+        classId: c.id,
+        className: c.name,
+        levelCategory: c.levelCategory,
+        numericOrder: c.numericOrder,
+        isSubmitted: !!reg,
+        registerId: reg?.register.id || null,
+        totalEnrolled: classRecords.length,
+        presentCount: present,
+        absentCount: absent,
+      };
+    }).sort((a, b) => a.numericOrder - b.numericOrder);
+
     return {
       date: dateStr,
       totalClassesCount: totalClasses.length,
@@ -85,6 +104,176 @@ export class AttendanceService {
       totalAbsent: totalAbsentRecords.length,
       totalExcused,
       absentStudents,
+      classSummaries,
+    };
+  }
+
+  static async getClassRegister(classId: string, targetDate?: string) {
+    const dateStr = targetDate || new Date().toISOString().split('T')[0];
+
+    const [targetClass] = await db
+      .select()
+      .from(classes)
+      .where(eq(classes.id, classId));
+
+    if (!targetClass) throw new Error('Class not found');
+
+    const [register] = await db
+      .select()
+      .from(attendanceRegisters)
+      .where(and(eq(attendanceRegisters.classId, classId), eq(attendanceRegisters.date, dateStr)));
+
+    // Fetch active students in this class
+    const classStudents = await db
+      .select({
+        student: students,
+        guardian: guardians,
+      })
+      .from(students)
+      .innerJoin(guardians, eq(students.primaryGuardianId, guardians.id))
+      .where(and(eq(students.classId, classId), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
+      .orderBy(students.firstName, students.lastName);
+
+    let existingRecords: any[] = [];
+    if (register) {
+      existingRecords = await db
+        .select()
+        .from(attendanceRecords)
+        .where(eq(attendanceRecords.registerId, register.id));
+    }
+
+    const recordsMap = new Map<string, any>();
+    existingRecords.forEach((r) => recordsMap.set(r.studentId, r));
+
+    const studentRows = classStudents.map((cs) => {
+      const rec = recordsMap.get(cs.student.id);
+      return {
+        studentId: cs.student.id,
+        firstName: cs.student.firstName,
+        middleName: cs.student.middleName,
+        lastName: cs.student.lastName,
+        assessmentNumber: cs.student.assessmentNumber,
+        gender: cs.student.gender,
+        guardianName: cs.guardian.fullName,
+        guardianPhone: cs.guardian.phoneNumber,
+        status: rec?.status || 'PRESENT',
+        remarks: rec?.remarks || '',
+      };
+    });
+
+    const presentCount = studentRows.filter((s) => s.status === 'PRESENT').length;
+    const absentCount = studentRows.filter((s) => s.status === 'ABSENT').length;
+    const excusedCount = studentRows.filter((s) => s.status === 'EXCUSED').length;
+
+    return {
+      class: targetClass,
+      date: dateStr,
+      isSubmitted: !!register,
+      registerId: register?.id || null,
+      students: studentRows,
+      stats: {
+        total: studentRows.length,
+        present: presentCount,
+        absent: absentCount,
+        excused: excusedCount,
+      },
+    };
+  }
+
+  static async saveClassRegister(
+    classId: string,
+    dateStr: string,
+    records: Array<{ studentId: string; status: 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE'; remarks?: string }>,
+    takenById: string
+  ) {
+    return await db.transaction(async (tx) => {
+      let [register] = await tx
+        .select()
+        .from(attendanceRegisters)
+        .where(and(eq(attendanceRegisters.classId, classId), eq(attendanceRegisters.date, dateStr)));
+
+      if (!register) {
+        const [newRegister] = await tx
+          .insert(attendanceRegisters)
+          .values({
+            classId,
+            date: dateStr,
+            takenById,
+            isSubmitted: true,
+          })
+          .returning();
+        register = newRegister;
+      } else {
+        await tx
+          .update(attendanceRegisters)
+          .set({
+            takenById,
+            isSubmitted: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(attendanceRegisters.id, register.id));
+      }
+
+      for (const item of records) {
+        const [existing] = await tx
+          .select()
+          .from(attendanceRecords)
+          .where(and(eq(attendanceRecords.registerId, register.id), eq(attendanceRecords.studentId, item.studentId)));
+
+        if (existing) {
+          await tx
+            .update(attendanceRecords)
+            .set({
+              status: item.status,
+              remarks: item.remarks || null,
+              updatedAt: new Date(),
+            })
+            .where(eq(attendanceRecords.id, existing.id));
+        } else {
+          await tx.insert(attendanceRecords).values({
+            registerId: register.id,
+            studentId: item.studentId,
+            status: item.status,
+            remarks: item.remarks || null,
+          });
+        }
+      }
+
+      return {
+        registerId: register.id,
+        date: dateStr,
+        totalRecords: records.length,
+        message: 'Class register saved successfully',
+      };
+    });
+  }
+
+  static async notifyAllUnnotifiedAbsent(targetDate?: string) {
+    const data = await this.getSchoolWideAttendance(targetDate);
+    const unnotified = data.absentStudents.filter((s) => !s.smsSentStatus || s.smsSentStatus === 'FAILED');
+
+    let notifiedCount = 0;
+    const errors: string[] = [];
+
+    for (const student of unnotified) {
+      try {
+        await this.notifyParentOfAbsence(
+          student.studentId,
+          student.guardianId,
+          student.guardianPhone,
+          student.studentName
+        );
+        notifiedCount++;
+      } catch (err: any) {
+        errors.push(`Failed to send SMS for ${student.studentName}: ${err.message}`);
+      }
+    }
+
+    return {
+      totalAbsent: data.absentStudents.length,
+      unnotifiedCount: unnotified.length,
+      notifiedCount,
+      errors,
     };
   }
 

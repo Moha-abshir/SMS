@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', MarkSubmissionsController.getSubmissions);
+router.get('/:id/scores', MarkSubmissionsController.getSubmissionScores);
 router.put('/:id/approve', authorizePermission('marks:approve'), MarkSubmissionsController.approveSubmission);
 router.put('/:id/request-correction', authorizePermission('marks:approve'), MarkSubmissionsController.requestCorrection);
 router.put('/:id/lock', authorizePermission('marks:approve'), MarkSubmissionsController.lockSubmission);
