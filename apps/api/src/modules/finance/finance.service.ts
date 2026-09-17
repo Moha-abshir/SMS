@@ -279,10 +279,6 @@ export class FinanceService {
     const methodCounts: Record<string, { count: number; total: number }> = {
       CASH: { count: 0, total: 0 },
       MANUAL_MPESA: { count: 0, total: 0 },
-      MPESA_STK_PUSH: { count: 0, total: 0 },
-      BANK_DEPOSIT: { count: 0, total: 0 },
-      CHEQUE: { count: 0, total: 0 },
-      OTHER: { count: 0, total: 0 },
     };
 
     paymentsList.forEach((p) => {

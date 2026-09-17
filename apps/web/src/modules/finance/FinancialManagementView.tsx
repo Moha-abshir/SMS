@@ -1,28 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Wallet,
-  TrendingUp,
-  Receipt,
-  RotateCcw,
-  FileSpreadsheet,
   Search,
-  Plus,
   CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   Printer,
-  Calendar,
-  DollarSign,
-  User,
+  RotateCcw,
   GraduationCap,
   ShieldAlert,
   Check,
   X,
-  CreditCard,
-  Building2,
-  Clock,
-  Download,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -70,9 +57,8 @@ export const FinancialManagementView: React.FC = () => {
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amountPaid: '',
-    paymentMethod: 'CASH' as 'CASH' | 'MANUAL_MPESA' | 'BANK_DEPOSIT' | 'CHEQUE' | 'OTHER',
+    paymentMethod: 'CASH' as 'CASH' | 'MANUAL_MPESA',
     mpesaRefCode: '',
-    bankRefNumber: '',
     paidBy: '',
     notes: '',
     academicYear: 2026,
@@ -172,7 +158,6 @@ export const FinancialManagementView: React.FC = () => {
         amountPaid: amount,
         paymentMethod: paymentForm.paymentMethod,
         mpesaRefCode: paymentForm.mpesaRefCode || undefined,
-        bankRefNumber: paymentForm.bankRefNumber || undefined,
         paidBy: paymentForm.paidBy,
         notes: paymentForm.notes || undefined,
         academicYear: paymentForm.academicYear,
@@ -193,7 +178,6 @@ export const FinancialManagementView: React.FC = () => {
         amountPaid: '',
         paymentMethod: 'CASH',
         mpesaRefCode: '',
-        bankRefNumber: '',
         paidBy: '',
         notes: '',
         academicYear: 2026,
@@ -314,8 +298,7 @@ export const FinancialManagementView: React.FC = () => {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
-            <Wallet className="w-4 h-4 text-sky-600" />
+          <div className="text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
             Financial Oversight & Fee Accounting
           </div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
@@ -330,9 +313,8 @@ export const FinancialManagementView: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('payment')}
-            className="px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-glass cursor-pointer"
+            className="px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl transition-colors shadow-glass cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
             Record Fee Payment
           </button>
         </div>
@@ -343,56 +325,52 @@ export const FinancialManagementView: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer ${
             activeTab === 'overview'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
           }`}
         >
-          <TrendingUp className="w-4 h-4" />
           Financial Summary
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('payment')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer ${
             activeTab === 'payment'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
           }`}
         >
-          <Receipt className="w-4 h-4" />
           Record Payment
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer ${
             activeTab === 'ledger'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
           }`}
         >
-          <DollarSign className="w-4 h-4" />
           Payments Ledger
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('reversals')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer ${
             activeTab === 'reversals'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
           }`}
         >
-          <RotateCcw className="w-4 h-4" />
           Reversals Queue
           {pendingReversals.length > 0 && (
             <span
-              className={`px-2 py-0.5 text-[10px] font-black rounded-full ${
+              className={`ml-1.5 px-2 py-0.5 text-[10px] font-black rounded-full ${
                 activeTab === 'reversals' ? 'bg-white text-sky-600' : 'bg-rose-100 text-rose-700'
               }`}
             >
@@ -404,13 +382,12 @@ export const FinancialManagementView: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('statements')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer ${
             activeTab === 'statements'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
           }`}
         >
-          <FileSpreadsheet className="w-4 h-4" />
           Fee Statements
         </button>
       </div>
@@ -425,13 +402,10 @@ export const FinancialManagementView: React.FC = () => {
               {/* Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                 <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Collected</span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                      <Wallet className="w-4 h-4" />
-                    </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-sky-600">
+                  <div className="text-2xl sm:text-3xl font-black text-sky-600 font-mono">
                     KES {(summary?.totalCollected || 0).toLocaleString()}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
@@ -440,39 +414,30 @@ export const FinancialManagementView: React.FC = () => {
                 </div>
 
                 <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Billed</span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                      <Calendar className="w-4 h-4" />
-                    </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-800">
+                  <div className="text-2xl sm:text-3xl font-black text-slate-800 font-mono">
                     KES {(summary?.totalBilled || 0).toLocaleString()}
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">Tuition & term fee allocations</p>
                 </div>
 
                 <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Outstanding Balance</span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                      <DollarSign className="w-4 h-4" />
-                    </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-800">
+                  <div className="text-2xl sm:text-3xl font-black text-slate-800 font-mono">
                     KES {(summary?.totalOutstanding || 0).toLocaleString()}
                   </div>
                   <p className="text-[11px] text-sky-700 mt-1 font-semibold">Uncollected term balances</p>
                 </div>
 
                 <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Collection Rate</span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-sky-600">
+                  <div className="text-2xl sm:text-3xl font-black text-sky-600 font-mono">
                     {collectionRate}%
                   </div>
                   <div className="w-full bg-sky-100 h-1.5 rounded-full mt-2 overflow-hidden">
@@ -486,33 +451,51 @@ export const FinancialManagementView: React.FC = () => {
 
               {/* Collections by Payment Method */}
               <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-sky-600" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
                   Collection Channels & Payment Method Split
                 </h3>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                  {Object.entries(summary?.methodBreakdown || {}).map(([method, stats]) => (
-                    <div key={method} className="p-3 bg-sky-50/50 border border-sky-100 rounded-xl text-center">
-                      <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase block">
-                        {method.replace(/_/g, ' ')}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 bg-sky-50/60 border border-sky-100 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold tracking-wider text-slate-700 uppercase">
+                        Cash Deposit
                       </span>
-                      <span className="text-sm sm:text-base font-black text-sky-700 block mt-1">
-                        KES {stats.total.toLocaleString()}
-                      </span>
-                      <span className="text-[10px] text-slate-400 mt-0.5 block font-semibold">
-                        {stats.count} txns
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-full">
+                        Active Channel
                       </span>
                     </div>
-                  ))}
+                    <span className="text-xl sm:text-2xl font-black text-sky-700 block mt-2 font-mono">
+                      KES {(summary?.methodBreakdown?.CASH?.total || 0).toLocaleString()}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-0.5 block font-semibold">
+                      {summary?.methodBreakdown?.CASH?.count || 0} transactions
+                    </span>
+                  </div>
+
+                  <div className="p-4 bg-sky-50/60 border border-sky-100 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold tracking-wider text-slate-700 uppercase">
+                        Manual M-Pesa
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 bg-sky-100 text-sky-800 border border-sky-200 font-bold rounded-full">
+                        Active Channel
+                      </span>
+                    </div>
+                    <span className="text-xl sm:text-2xl font-black text-sky-700 block mt-2 font-mono">
+                      KES {(summary?.methodBreakdown?.MANUAL_MPESA?.total || 0).toLocaleString()}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-0.5 block font-semibold">
+                      {summary?.methodBreakdown?.MANUAL_MPESA?.count || 0} transactions (Manual Ref Entry)
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Recent Payments Section */}
               <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
                 <div className="flex items-center justify-between border-b border-sky-100 pb-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-sky-600" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
                     Recent Fee Receipts
                   </h3>
                   <button
@@ -573,8 +556,7 @@ export const FinancialManagementView: React.FC = () => {
         <form onSubmit={handleRecordPayment} className="space-y-4 sm:space-y-6">
           {/* Step 1: Select Student */}
           <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <User className="w-4 h-4 text-sky-600" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
               1. Learner Lookup & Identification
             </h3>
 
@@ -648,8 +630,7 @@ export const FinancialManagementView: React.FC = () => {
 
           {/* Step 2: Payment Details */}
           <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-sky-600" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
               2. Transaction Particulars & Amount
             </h3>
 
@@ -675,14 +656,11 @@ export const FinancialManagementView: React.FC = () => {
                 </label>
                 <select
                   value={paymentForm.paymentMethod}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as any })}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as 'CASH' | 'MANUAL_MPESA' })}
                   className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 >
-                  <option value="CASH">Cash Deposit</option>
-                  <option value="MANUAL_MPESA">M-Pesa (Manual Code)</option>
-                  <option value="BANK_DEPOSIT">Bank Deposit / Slip</option>
-                  <option value="CHEQUE">Banker's Cheque</option>
-                  <option value="OTHER">Other / Agency</option>
+                  <option value="CASH">Cash Payment</option>
+                  <option value="MANUAL_MPESA">M-Pesa (Manual Code Entry)</option>
                 </select>
               </div>
 
@@ -701,7 +679,7 @@ export const FinancialManagementView: React.FC = () => {
               </div>
 
               {paymentForm.paymentMethod === 'MANUAL_MPESA' && (
-                <div>
+                <div className="sm:col-span-2 md:col-span-3">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     M-Pesa Transaction Code *
                   </label>
@@ -716,21 +694,17 @@ export const FinancialManagementView: React.FC = () => {
                 </div>
               )}
 
-              {(paymentForm.paymentMethod === 'BANK_DEPOSIT' || paymentForm.paymentMethod === 'CHEQUE') && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Bank Reference / Slip Number *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. BOK-89472"
-                    value={paymentForm.bankRefNumber}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, bankRefNumber: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors font-mono"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Academic Year
+                </label>
+                <input
+                  type="number"
+                  value={paymentForm.academicYear}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, academicYear: Number(e.target.value) })}
+                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                />
+              </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -768,10 +742,8 @@ export const FinancialManagementView: React.FC = () => {
               disabled={recordingPayment || !selectedStudent}
               className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 min-h-[44px] cursor-pointer"
             >
-              {recordingPayment ? (
+              {recordingPayment && (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Receipt className="w-4 h-4" />
               )}
               Confirm & Issue Official Receipt
             </button>
@@ -784,8 +756,7 @@ export const FinancialManagementView: React.FC = () => {
         <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-sky-600" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
                 Fee Payments Ledger ({payments.length} Records)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -900,8 +871,7 @@ export const FinancialManagementView: React.FC = () => {
       {activeTab === 'reversals' && (
         <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
           <div className="border-b border-sky-100 pb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-              <RotateCcw className="w-4 h-4 text-sky-600" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
               Pending Payment Reversals Queue ({pendingReversals.length})
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -983,8 +953,7 @@ export const FinancialManagementView: React.FC = () => {
       {activeTab === 'statements' && (
         <div className="space-y-4 sm:space-y-6">
           <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-sky-600" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
               Learner Fee Statement Audit
             </h3>
 
