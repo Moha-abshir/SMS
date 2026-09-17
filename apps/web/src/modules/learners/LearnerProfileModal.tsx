@@ -6,6 +6,7 @@ import {
 import { toast } from 'react-toastify';
 import { Modal } from '../../components/Modal';
 import { apiClient } from '../../lib/apiClient';
+import { isJuniorSecondaryClass } from '@school/shared/types';
 
 interface LearnerProfileModalProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
   }, [studentId, isOpen]);
 
   if (!isOpen) return null;
+
+  const isJunior = profile?.isJunior ?? isJuniorSecondaryClass({ name: profile?.student?.className });
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Learner Academic Profile & Performance History">
@@ -156,8 +159,9 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
                           <tr>
                             <th className="py-1.5 px-2">Subject</th>
                             <th className="py-1.5 px-2 text-center w-20">Score</th>
-                            <th className="py-1.5 px-2 text-center w-24">CBC Level</th>
-                            <th className="py-1.5 px-2 text-center w-16">Points</th>
+                            <th className="py-1.5 px-2 text-center w-24">
+                              {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
+                            </th>
                             <th className="py-1.5 px-2">Teacher Remarks</th>
                           </tr>
                         </thead>
@@ -172,22 +176,51 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
                                 {sc.marksObtained} <span className="text-[10px] text-slate-400 font-normal">/ {sc.maxMarks}</span>
                               </td>
                               <td className="py-2 px-2 text-center">
-                                <span
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                                    sc.cbcRubricLevel === 'EE'
-                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                                      : sc.cbcRubricLevel === 'ME'
-                                      ? 'bg-sky-100 text-sky-800 border-sky-200'
-                                      : sc.cbcRubricLevel === 'AE'
-                                      ? 'bg-amber-100 text-amber-800 border-amber-200'
-                                      : 'bg-rose-100 text-rose-800 border-rose-200'
-                                  }`}
-                                >
-                                  {sc.cbcRubricLevel || '—'}
-                                </span>
-                              </td>
-                              <td className="py-2 px-2 text-center text-slate-600 font-bold">
-                                {sc.juniorPoints ? `${sc.juniorPoints} pts` : '—'}
+                                {isJunior ? (
+                                  sc.juniorPoints !== null && sc.juniorPoints !== undefined ? (
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                                        sc.juniorPoints === 8
+                                          ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                                          : sc.juniorPoints === 7
+                                          ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                          : sc.juniorPoints === 6
+                                          ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                          : sc.juniorPoints === 5
+                                          ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                          : sc.juniorPoints === 4
+                                          ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                          : sc.juniorPoints === 3
+                                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                          : sc.juniorPoints === 2
+                                          ? 'bg-orange-50 text-orange-800 border-orange-200'
+                                          : 'bg-rose-100 text-rose-800 border-rose-200'
+                                      }`}
+                                    >
+                                      {sc.juniorPoints} pts
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 text-xs">—</span>
+                                  )
+                                ) : (
+                                  sc.cbcRubricLevel ? (
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                                        sc.cbcRubricLevel === 'EE'
+                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                          : sc.cbcRubricLevel === 'ME'
+                                          ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                          : sc.cbcRubricLevel === 'AE'
+                                          ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                          : 'bg-rose-100 text-rose-800 border-rose-200'
+                                      }`}
+                                    >
+                                      {sc.cbcRubricLevel}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 text-xs">—</span>
+                                  )
+                                )}
                               </td>
                               <td className="py-2 px-2 text-slate-500 text-[11px]">
                                 {sc.teacherRemarks || '—'}

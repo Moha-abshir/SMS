@@ -975,10 +975,31 @@ Overall Average   67.5%
 - Do NOT make teachers navigate 5 screens
 - Goal: **Open → Mark → Save**
 
-### 10.3 Mark Entry
+### 10.3 Mark Entry & Institutional Grading Methodology
 
-**Requirement** (lines 1079–1133):
+**Requirement** (lines 1079–1133, 1449–1475):
 
+All examination subjects across all grades are scored out of 100 marks. The grading system strictly divides into two distinct methodologies:
+
+1. **Pre-Primary to Grade 6 (below Grade 7)** — **CBC Rubrics**:
+   - Level 4: **E.E** (Exceeding Expectations)   -> `75 – 100%`
+   - Level 3: **M.E** (Meeting Expectations)     -> `50 – 74%`
+   - Level 2: **A.E** (Approaching Expectations) -> `25 – 49%`
+   - Level 1: **B.E** (Below Expectations)       -> `0 – 24%`
+   - *UI Rule*: Only display CBC Rubric levels (EE, ME, AE, BE). Omit Junior Secondary points.
+
+2. **Junior Secondary (Grades 7 to 9)** — **Points System (1 to 8)**:
+   - **8 points**: `90 – 100%`
+   - **7 points**: `75 – 89%`
+   - **6 points**: `58 – 74%`
+   - **5 points**: `41 – 57%`
+   - **4 points**: `31 – 40%`
+   - **3 points**: `21 – 30%`
+   - **2 points**: `11 – 20%`
+   - **1 point**:  `0 – 10%`
+   - *UI Rule*: Only display Points (1–8 pts). Omit Primary rubrics.
+
+**Role-Based Entry Workflow**:
 **Grades 1–3**:
 - Class teacher enters marks for ALL subjects
 - API: `POST /api/marks/entry` — body: `{ examId, classId, subjectId, scores: [{ studentId, marksObtained }] }`

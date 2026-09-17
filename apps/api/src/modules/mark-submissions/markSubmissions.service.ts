@@ -9,6 +9,9 @@ import {
   students,
   teacherSubjectAllocations,
   markingAllocations,
+  calculateCbcRubric,
+  calculateJuniorPoints,
+  isJuniorSecondaryClass,
   eq,
   and,
   isNull,
@@ -16,26 +19,15 @@ import {
   sql,
 } from '@school/shared';
 
-function calculateCbcMetrics(marksObtained: number, maxMarks: number = 100) {
+function computeGradeMetrics(marksObtained: number, maxMarks: number = 100, isJunior: boolean) {
   const percentage = maxMarks > 0 ? (marksObtained / maxMarks) * 100 : marksObtained;
-  let cbcRubricLevel: 'EE' | 'ME' | 'AE' | 'BE' = 'BE';
-  let juniorPoints = 2;
-
-  if (percentage >= 80) {
-    cbcRubricLevel = 'EE';
-    juniorPoints = 8;
-  } else if (percentage >= 65) {
-    cbcRubricLevel = 'ME';
-    juniorPoints = 6;
-  } else if (percentage >= 50) {
-    cbcRubricLevel = 'AE';
-    juniorPoints = 4;
+  if (isJunior) {
+    const juniorPoints = calculateJuniorPoints(marksObtained, maxMarks);
+    return { percentage, cbcRubricLevel: null, juniorPoints };
   } else {
-    cbcRubricLevel = 'BE';
-    juniorPoints = 2;
+    const rubricResult = calculateCbcRubric(marksObtained, maxMarks);
+    return { percentage, cbcRubricLevel: rubricResult.code, juniorPoints: null };
   }
-
-  return { percentage, cbcRubricLevel, juniorPoints };
 }
 
 export class MarkSubmissionsService {
@@ -113,16 +105,21 @@ export class MarkSubmissionsService {
     const scoresMap = new Map<string, any>();
     scores.forEach((s) => scoresMap.set(s.studentId, s));
 
+    const isJunior = isJuniorSecondaryClass(subData.class);
+    const gradingType: 'POINTS' | 'RUBRIC' = isJunior ? 'POINTS' : 'RUBRIC';
+
     let totalMarks = 0;
     let scoredCount = 0;
     let highestMark = 0;
     let lowestMark = 100;
-    const rubricCount = { EE: 0, ME: 0, AE: 0, BE: 0 };
+    const rubricCount: Record<'EE' | 'ME' | 'AE' | 'BE', number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
+    const pointsCount: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
     const studentScores = classStudents.map((st) => {
       const sc = scoresMap.get(st.id);
       const markNum = sc ? parseFloat(sc.marksObtained) : null;
-      let rubric = sc?.cbcRubricLevel || null;
+      let rubric: 'EE' | 'ME' | 'AE' | 'BE' | null = null;
+      let points: number | null = null;
 
       if (markNum !== null) {
         totalMarks += markNum;
@@ -130,26 +127,38 @@ export class MarkSubmissionsService {
         if (markNum > highestMark) highestMark = markNum;
         if (markNum < lowestMark) lowestMark = markNum;
 
-        if (!rubric) {
-          const metrics = calculateCbcMetrics(markNum, sc?.maxMarks || 100);
-          rubric = metrics.cbcRubricLevel;
-        }
-
-        if (rubric && rubric in rubricCount) {
-          (rubricCount as any)[rubric]++;
+        const maxMarks = sc?.maxMarks || 100;
+        if (isJunior) {
+          points = sc?.juniorPoints ?? calculateJuniorPoints(markNum, maxMarks);
+          if (points !== null && points in pointsCount) {
+            pointsCount[points]++;
+          }
+        } else {
+          rubric = (sc?.cbcRubricLevel as 'EE' | 'ME' | 'AE' | 'BE') ?? calculateCbcRubric(markNum, maxMarks).code;
+          if (rubric && rubric in rubricCount) {
+            rubricCount[rubric]++;
+          }
         }
       }
 
       return {
         studentId: st.id,
+        admissionNumber: st.admissionNumber,
         assessmentNumber: st.assessmentNumber,
         fullName: `${st.firstName} ${st.middleName || ''} ${st.lastName}`.replace(/\s+/g, ' ').trim(),
+        studentName: `${st.firstName} ${st.middleName || ''} ${st.lastName}`.replace(/\s+/g, ' ').trim(),
         gender: st.gender,
         marksObtained: markNum,
+        score: markNum,
         maxMarks: sc?.maxMarks || 100,
-        cbcRubricLevel: rubric,
-        juniorPoints: sc?.juniorPoints || null,
+        maxScore: sc?.maxMarks || 100,
+        percentage: markNum !== null ? Math.round(((markNum / (sc?.maxMarks || 100)) * 100) * 10) / 10 : 0,
+        cbcRubricLevel: isJunior ? null : rubric,
+        rubric: isJunior ? null : rubric,
+        juniorPoints: isJunior ? points : null,
+        points: isJunior ? points : null,
         teacherRemarks: sc?.teacherRemarks || '',
+        remarks: sc?.teacherRemarks || '',
       };
     });
 
@@ -161,13 +170,22 @@ export class MarkSubmissionsService {
       subject: subData.subject,
       examination: subData.examination,
       submittedBy: subData.submittedBy,
+      isJunior,
+      gradingType,
       summary: {
+        gradingType,
+        isJunior,
         totalStudents: classStudents.length,
         scoredStudents: scoredCount,
         averageMark,
+        averageScore: averageMark,
         highestMark: scoredCount > 0 ? highestMark : 0,
+        highestScore: scoredCount > 0 ? highestMark : 0,
         lowestMark: scoredCount > 0 ? lowestMark : 0,
-        rubricBreakdown: rubricCount,
+        lowestScore: scoredCount > 0 ? lowestMark : 0,
+        rubricBreakdown: isJunior ? null : rubricCount,
+        cbcPerformance: isJunior ? null : rubricCount,
+        pointsBreakdown: isJunior ? pointsCount : null,
       },
       scores: studentScores,
     };
@@ -307,17 +325,21 @@ export class MarkSubmissionsService {
     const scoreMap = new Map<string, any>();
     scores.forEach((s) => scoreMap.set(s.studentId, s));
 
+    const isJunior = isJuniorSecondaryClass(targetClass);
+    const gradingType: 'POINTS' | 'RUBRIC' = isJunior ? 'POINTS' : 'RUBRIC';
+
     let totalMarks = 0;
     let scoredCount = 0;
     let highestMark = 0;
     let lowestMark = 100;
-    const rubricCount = { EE: 0, ME: 0, AE: 0, BE: 0 };
+    const rubricCount: Record<'EE' | 'ME' | 'AE' | 'BE', number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
+    const pointsCount: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
     const studentRows = classStudents.map((st) => {
       const sc = scoreMap.get(st.id);
       const markNum = sc ? parseFloat(sc.marksObtained) : null;
-      let rubric = sc?.cbcRubricLevel || null;
-      let points = sc?.juniorPoints || null;
+      let rubric: 'EE' | 'ME' | 'AE' | 'BE' | null = null;
+      let points: number | null = null;
 
       if (markNum !== null) {
         totalMarks += markNum;
@@ -325,14 +347,17 @@ export class MarkSubmissionsService {
         if (markNum > highestMark) highestMark = markNum;
         if (markNum < lowestMark) lowestMark = markNum;
 
-        if (!rubric) {
-          const metrics = calculateCbcMetrics(markNum, sc?.maxMarks || 100);
-          rubric = metrics.cbcRubricLevel;
-          points = metrics.juniorPoints;
-        }
-
-        if (rubric && rubric in rubricCount) {
-          (rubricCount as any)[rubric]++;
+        const maxMarks = sc?.maxMarks || 100;
+        if (isJunior) {
+          points = sc?.juniorPoints ?? calculateJuniorPoints(markNum, maxMarks);
+          if (points !== null && points in pointsCount) {
+            pointsCount[points]++;
+          }
+        } else {
+          rubric = (sc?.cbcRubricLevel as 'EE' | 'ME' | 'AE' | 'BE') ?? calculateCbcRubric(markNum, maxMarks).code;
+          if (rubric && rubric in rubricCount) {
+            rubricCount[rubric]++;
+          }
         }
       }
 
@@ -344,8 +369,8 @@ export class MarkSubmissionsService {
         gender: st.gender,
         marksObtained: markNum,
         maxMarks: sc?.maxMarks || 100,
-        cbcRubricLevel: rubric,
-        juniorPoints: points,
+        cbcRubricLevel: isJunior ? null : rubric,
+        juniorPoints: isJunior ? points : null,
         teacherRemarks: sc?.teacherRemarks || '',
       };
     });
@@ -360,14 +385,19 @@ export class MarkSubmissionsService {
       status: currentStatus,
       correctionReason: submission?.correctionReason || null,
       canEdit,
+      isJunior,
+      gradingType,
       scores: studentRows,
       summary: {
+        gradingType,
+        isJunior,
         totalStudents: classStudents.length,
         scoredStudents: scoredCount,
         averageMark,
         highestMark: scoredCount > 0 ? highestMark : 0,
         lowestMark: scoredCount > 0 ? lowestMark : 0,
-        rubricBreakdown: rubricCount,
+        rubricBreakdown: isJunior ? null : rubricCount,
+        pointsBreakdown: isJunior ? pointsCount : null,
       },
     };
   }
@@ -414,13 +444,16 @@ export class MarkSubmissionsService {
       }
     }
 
+    const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId));
+    const isJunior = isJuniorSecondaryClass(targetClass);
+
     await db.transaction(async (tx) => {
       // Upsert scores
       for (const item of scores) {
         if (item.marksObtained !== null && item.marksObtained !== undefined && item.marksObtained !== '') {
           const markNum = Math.max(0, Math.min(100, parseFloat(item.marksObtained as string)));
           const maxMarks = item.maxMarks || 100;
-          const { cbcRubricLevel, juniorPoints } = calculateCbcMetrics(markNum, maxMarks);
+          const { cbcRubricLevel, juniorPoints } = computeGradeMetrics(markNum, maxMarks, isJunior);
 
           await tx
             .insert(examScores)
@@ -529,12 +562,15 @@ export class MarkSubmissionsService {
       );
     }
 
+    const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId));
+    const isJunior = isJuniorSecondaryClass(targetClass);
+
     await db.transaction(async (tx) => {
       // Upsert all scores
       for (const item of scores) {
         const markNum = Math.max(0, Math.min(100, parseFloat(item.marksObtained as string)));
         const maxMarks = item.maxMarks || 100;
-        const { cbcRubricLevel, juniorPoints } = calculateCbcMetrics(markNum, maxMarks);
+        const { cbcRubricLevel, juniorPoints } = computeGradeMetrics(markNum, maxMarks, isJunior);
 
         await tx
           .insert(examScores)

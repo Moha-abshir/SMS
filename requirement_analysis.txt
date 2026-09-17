@@ -1446,3 +1446,30 @@ For Grades 4–9:
 That structure is, in my opinion, the cleanest way to represent the CBC teaching model you've described.
 
 Most importantly, don't hard-code "one teacher = one role." A teacher can be a Class Teacher for Grade 6A while simultaneously being a Mathematics Subject Teacher for Grade 7A and Grade 8A. Your assignment model should allow that from the beginning.
+
+18. Official Grading & Assessment Methodology
+
+All examination subjects across all grades are scored out of a maximum of 100 marks.
+The institutional grading system distinguishes between learners below Grade 7 and learners in Junior Secondary:
+
+A. Pre-Primary & Primary (Playgroup, PP1, PP2, Grades 1 to 6) — 4-Level CBC Rubrics
+Classes from Pre-Primary through Grade 6 follow CBC Competency Rubrics:
+- Level 4: E.E (Exceeding Expectations)   -> 75 – 100%
+- Level 3: M.E (Meeting Expectations)     -> 50 – 74%
+- Level 2: A.E (Approaching Expectations) -> 25 – 49%
+- Level 1: B.E (Below Expectations)       -> 0 – 24%
+
+All marksheet entry grids, review queues, student profile modals, and print stationery for PP to Grade 6 strictly display these 4 CBC Rubrics (EE, ME, AE, BE) and do not show Junior Secondary points.
+
+B. Junior Secondary (Grades 7 to 9) — 8-Level Points System
+Learners in Junior Secondary follow an 8-level points system:
+- 8 points: 90 – 100%
+- 7 points: 75 – 89%
+- 6 points: 58 – 74%
+- 5 points: 41 – 57%
+- 4 points: 31 – 40%
+- 3 points: 21 – 30%
+- 2 points: 11 – 20%
+- 1 point:  0 – 10%
+
+All marksheet entry grids, review queues, student profile modals, and print stationery for Junior Secondary strictly display these Points (1 to 8 pts) and do not show Primary rubrics.

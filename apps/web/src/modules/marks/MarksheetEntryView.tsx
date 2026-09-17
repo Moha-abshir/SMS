@@ -9,6 +9,11 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { printElement } from '../../lib/printElement';
+import {
+  calculateCbcRubric,
+  calculateJuniorPoints,
+  isJuniorSecondaryClass,
+} from '@school/shared/types';
 
 interface StudentScoreRow {
   studentId: string;
@@ -31,14 +36,19 @@ interface MarksheetData {
   status: 'NOT_STARTED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'CORRECTION_REQUESTED' | 'APPROVED' | 'LOCKED';
   correctionReason?: string | null;
   canEdit: boolean;
+  isJunior?: boolean;
+  gradingType?: 'POINTS' | 'RUBRIC';
   scores: StudentScoreRow[];
   summary: {
+    gradingType?: 'POINTS' | 'RUBRIC';
+    isJunior?: boolean;
     totalStudents: number;
     scoredStudents: number;
     averageMark: number;
     highestMark: number;
     lowestMark: number;
-    rubricBreakdown: { EE: number; ME: number; AE: number; BE: number };
+    rubricBreakdown?: { EE: number; ME: number; AE: number; BE: number } | null;
+    pointsBreakdown?: Record<number, number> | null;
   };
 }
 
@@ -133,16 +143,13 @@ export const MarksheetEntryView: React.FC = () => {
     fetchSheet();
   }, [selectedExamId, selectedClassId, selectedSubjectId]);
 
-  // Helper to calculate CBC rubric level and points dynamically on the client
-  const calculateCbc = (markNum: number, maxMarks: number = 100) => {
-    const pct = maxMarks > 0 ? (markNum / maxMarks) * 100 : markNum;
-    if (pct >= 80) return { rubric: 'EE' as const, points: 8 };
-    if (pct >= 65) return { rubric: 'ME' as const, points: 6 };
-    if (pct >= 50) return { rubric: 'AE' as const, points: 4 };
-    return { rubric: 'BE' as const, points: 2 };
-  };
+  const selectedAllocation = teachingAreas.find((a) => a.classId === selectedClassId);
+  const isJunior =
+    sheetData?.isJunior !== undefined
+      ? sheetData.isJunior
+      : isJuniorSecondaryClass(sheetData?.class || (selectedAllocation ? { name: selectedAllocation.className } : null));
 
-  // Score change handler with instant rubric computation
+  // Score change handler with instant rubric or points computation
   const handleScoreChange = (index: number, val: string) => {
     setStudentRows((prev) => {
       const copy = [...prev];
@@ -157,9 +164,13 @@ export const MarksheetEntryView: React.FC = () => {
         if (!isNaN(num)) {
           const clamped = Math.max(0, Math.min(row.maxMarks || 100, num));
           row.marksObtained = clamped;
-          const { rubric, points } = calculateCbc(clamped, row.maxMarks || 100);
-          row.cbcRubricLevel = rubric;
-          row.juniorPoints = points;
+          if (isJunior) {
+            row.juniorPoints = calculateJuniorPoints(clamped, row.maxMarks || 100);
+            row.cbcRubricLevel = null;
+          } else {
+            row.cbcRubricLevel = calculateCbcRubric(clamped, row.maxMarks || 100).code;
+            row.juniorPoints = null;
+          }
         }
       }
 
@@ -309,7 +320,8 @@ export const MarksheetEntryView: React.FC = () => {
   let totalScoreSum = 0;
   let highestScore = 0;
   let lowestScore = 100;
-  const rubricCounts = { EE: 0, ME: 0, AE: 0, BE: 0 };
+  const rubricCounts: Record<'EE' | 'ME' | 'AE' | 'BE', number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
+  const pointsCounts: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
 
   studentRows.forEach((s) => {
     if (s.marksObtained !== null && s.marksObtained !== '' && s.marksObtained !== undefined) {
@@ -317,8 +329,17 @@ export const MarksheetEntryView: React.FC = () => {
       totalScoreSum += num;
       if (num > highestScore) highestScore = num;
       if (num < lowestScore) lowestScore = num;
-      if (s.cbcRubricLevel && s.cbcRubricLevel in rubricCounts) {
-        rubricCounts[s.cbcRubricLevel]++;
+
+      if (isJunior) {
+        const pts = s.juniorPoints ?? calculateJuniorPoints(num, s.maxMarks || 100);
+        if (pts !== null && pts in pointsCounts) {
+          pointsCounts[pts]++;
+        }
+      } else {
+        const rub = s.cbcRubricLevel ?? calculateCbcRubric(num, s.maxMarks || 100).code;
+        if (rub && rub in rubricCounts) {
+          rubricCounts[rub]++;
+        }
       }
     }
   });
@@ -335,7 +356,7 @@ export const MarksheetEntryView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 border border-sky-200">
-                CBC Marksheet Engine
+                {isJunior ? 'Junior Secondary Points Engine' : 'CBC Rubrics Engine'}
               </span>
 
               {/* Status Badge */}
@@ -366,7 +387,9 @@ export const MarksheetEntryView: React.FC = () => {
               Electronic Mark Entry
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Enter assessment marks with real-time CBC rubric calculation (`EE`, `ME`, `AE`, `BE`) and Junior Secondary points.
+              {isJunior
+                ? 'Junior Secondary Assessment: strictly awarding Points from 1 to 8 (90-100% = 8 pts, 75-89% = 7 pts, 58-74% = 6 pts, etc.).'
+                : 'Pre-Primary & Primary Assessment: strictly assessing 4-Level CBC Rubrics (EE: 75-100%, ME: 50-74%, AE: 25-49%, BE: 0-24%).'}
             </p>
           </div>
 
@@ -495,7 +518,7 @@ export const MarksheetEntryView: React.FC = () => {
         </div>
       </div>
 
-      {/* Live Metrics & CBC Rubric Distribution Bar */}
+      {/* Live Metrics & Assessment Distribution Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-100 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Completion</div>
@@ -515,29 +538,59 @@ export const MarksheetEntryView: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-emerald-100 shadow-xs">
-          <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">EE (80-100%)</div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-0.5">{rubricCounts.EE}</div>
-          <div className="text-[10px] text-emerald-600 mt-0.5">Exceeding Exp.</div>
-        </div>
+        {isJunior ? (
+          <>
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-200 shadow-xs">
+              <div className="text-[11px] font-bold text-sky-800 uppercase tracking-wider">8 pts (90-100%)</div>
+              <div className="text-xl sm:text-2xl font-black text-sky-700 mt-0.5">{pointsCounts[8]}</div>
+              <div className="text-[10px] text-sky-600 mt-0.5 font-medium">Distinction</div>
+            </div>
 
-        <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-100 shadow-xs">
-          <div className="text-[11px] font-bold text-sky-700 uppercase tracking-wider">ME (65-79%)</div>
-          <div className="text-xl sm:text-2xl font-black text-sky-700 mt-0.5">{rubricCounts.ME}</div>
-          <div className="text-[10px] text-sky-600 mt-0.5">Meeting Exp.</div>
-        </div>
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-100 shadow-xs">
+              <div className="text-[11px] font-bold text-sky-700 uppercase tracking-wider">7 pts (75-89%)</div>
+              <div className="text-xl sm:text-2xl font-black text-sky-600 mt-0.5">{pointsCounts[7]}</div>
+              <div className="text-[10px] text-sky-500 mt-0.5 font-medium">Excellent</div>
+            </div>
 
-        <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-amber-100 shadow-xs">
-          <div className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">AE (50-64%)</div>
-          <div className="text-xl sm:text-2xl font-black text-amber-700 mt-0.5">{rubricCounts.AE}</div>
-          <div className="text-[10px] text-amber-600 mt-0.5">Approaching Exp.</div>
-        </div>
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-teal-100 shadow-xs">
+              <div className="text-[11px] font-bold text-teal-700 uppercase tracking-wider">5-6 pts (41-74%)</div>
+              <div className="text-xl sm:text-2xl font-black text-teal-700 mt-0.5">{pointsCounts[6] + pointsCounts[5]}</div>
+              <div className="text-[10px] text-teal-600 mt-0.5 font-medium">6 pts: {pointsCounts[6]} • 5 pts: {pointsCounts[5]}</div>
+            </div>
 
-        <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-rose-100 shadow-xs">
-          <div className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">BE (0-49%)</div>
-          <div className="text-xl sm:text-2xl font-black text-rose-700 mt-0.5">{rubricCounts.BE}</div>
-          <div className="text-[10px] text-rose-600 mt-0.5">Below Exp.</div>
-        </div>
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-amber-100 shadow-xs">
+              <div className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">1-4 pts (0-40%)</div>
+              <div className="text-xl sm:text-2xl font-black text-amber-700 mt-0.5">{pointsCounts[4] + pointsCounts[3] + pointsCounts[2] + pointsCounts[1]}</div>
+              <div className="text-[10px] text-amber-600 mt-0.5 font-medium">4 pts: {pointsCounts[4]} • Supp: {pointsCounts[3] + pointsCounts[2] + pointsCounts[1]}</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-emerald-100 shadow-xs">
+              <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">EE (75-100%)</div>
+              <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-0.5">{rubricCounts.EE}</div>
+              <div className="text-[10px] text-emerald-600 mt-0.5 font-medium">Exceeding Exp.</div>
+            </div>
+
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-100 shadow-xs">
+              <div className="text-[11px] font-bold text-sky-700 uppercase tracking-wider">ME (50-74%)</div>
+              <div className="text-xl sm:text-2xl font-black text-sky-700 mt-0.5">{rubricCounts.ME}</div>
+              <div className="text-[10px] text-sky-600 mt-0.5 font-medium">Meeting Exp.</div>
+            </div>
+
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-amber-100 shadow-xs">
+              <div className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">AE (25-49%)</div>
+              <div className="text-xl sm:text-2xl font-black text-amber-700 mt-0.5">{rubricCounts.AE}</div>
+              <div className="text-[10px] text-amber-600 mt-0.5 font-medium">Approaching Exp.</div>
+            </div>
+
+            <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-rose-100 shadow-xs">
+              <div className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">BE (0-24%)</div>
+              <div className="text-xl sm:text-2xl font-black text-rose-700 mt-0.5">{rubricCounts.BE}</div>
+              <div className="text-[10px] text-rose-600 mt-0.5 font-medium">Below Exp.</div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Spreadsheet-Style Mark Entry Grid */}
@@ -563,8 +616,11 @@ export const MarksheetEntryView: React.FC = () => {
                   <th className="py-3 px-4 w-36">
                     Marks / 100 <span className="text-[9px] text-slate-400 lowercase">(↓ or enter)</span>
                   </th>
-                  <th className="py-3 px-3 w-24">CBC Rubric</th>
-                  <th className="py-3 px-3 w-20">Points</th>
+                  {isJunior ? (
+                    <th className="py-3 px-3 w-28 text-center">Points (1-8)</th>
+                  ) : (
+                    <th className="py-3 px-3 w-28 text-center">CBC Rubric</th>
+                  )}
                   <th className="py-3 px-4 min-w-[200px]">Teacher Remarks</th>
                 </tr>
               </thead>
@@ -573,7 +629,13 @@ export const MarksheetEntryView: React.FC = () => {
                   <tr
                     key={row.studentId}
                     className={`hover:bg-sky-50/40 transition-colors ${
-                      row.cbcRubricLevel === 'BE'
+                      isJunior
+                        ? row.juniorPoints === 1
+                          ? 'bg-rose-50/20'
+                          : row.juniorPoints === 8
+                          ? 'bg-sky-50/20'
+                          : ''
+                        : row.cbcRubricLevel === 'BE'
                         ? 'bg-rose-50/20'
                         : row.cbcRubricLevel === 'EE'
                         ? 'bg-emerald-50/15'
@@ -613,6 +675,18 @@ export const MarksheetEntryView: React.FC = () => {
                           className={`w-24 px-3 py-1.5 text-center font-black text-sm rounded-xl border transition-all outline-hidden ${
                             row.marksObtained === null || row.marksObtained === ''
                               ? 'bg-slate-50 border-sky-200 text-slate-400'
+                              : isJunior
+                              ? row.juniorPoints === 8
+                                ? 'bg-sky-50/90 border-sky-400 text-sky-900'
+                                : row.juniorPoints === 7
+                                ? 'bg-sky-50/60 border-sky-300 text-sky-800'
+                                : (row.juniorPoints || 0) >= 5
+                                ? 'bg-teal-50/60 border-teal-300 text-teal-800'
+                                : row.juniorPoints === 4
+                                ? 'bg-slate-50 border-slate-300 text-slate-800'
+                                : (row.juniorPoints || 0) >= 2
+                                ? 'bg-amber-50/60 border-amber-300 text-amber-800'
+                                : 'bg-rose-50/80 border-rose-300 text-rose-800'
                               : row.cbcRubricLevel === 'EE'
                               ? 'bg-emerald-50/80 border-emerald-300 text-emerald-800'
                               : row.cbcRubricLevel === 'ME'
@@ -629,31 +703,56 @@ export const MarksheetEntryView: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* CBC Rubric Pill */}
-                    <td className="py-2.5 px-3">
-                      {row.cbcRubricLevel ? (
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border ${
-                            row.cbcRubricLevel === 'EE'
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                              : row.cbcRubricLevel === 'ME'
-                              ? 'bg-sky-100 text-sky-800 border-sky-200'
-                              : row.cbcRubricLevel === 'AE'
-                              ? 'bg-amber-100 text-amber-800 border-amber-200'
-                              : 'bg-rose-100 text-rose-800 border-rose-200'
-                          }`}
-                        >
-                          {row.cbcRubricLevel}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 text-xs">—</span>
-                      )}
-                    </td>
-
-                    {/* Junior Secondary Points */}
-                    <td className="py-2.5 px-3 font-bold text-slate-700">
-                      {row.juniorPoints ? `${row.juniorPoints} pts` : '—'}
-                    </td>
+                    {/* Dynamic Assessment Column: Points for Junior, Rubric for Primary */}
+                    {isJunior ? (
+                      <td className="py-2.5 px-3 text-center">
+                        {row.juniorPoints !== null && row.juniorPoints !== undefined ? (
+                          <span
+                            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                              row.juniorPoints === 8
+                                ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                                : row.juniorPoints === 7
+                                ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                : row.juniorPoints === 6
+                                ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                : row.juniorPoints === 5
+                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : row.juniorPoints === 4
+                                ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                : row.juniorPoints === 3
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : row.juniorPoints === 2
+                                ? 'bg-orange-50 text-orange-800 border-orange-200'
+                                : 'bg-rose-100 text-rose-800 border-rose-200'
+                            }`}
+                          >
+                            {row.juniorPoints} pts
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </td>
+                    ) : (
+                      <td className="py-2.5 px-3 text-center">
+                        {row.cbcRubricLevel ? (
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                              row.cbcRubricLevel === 'EE'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : row.cbcRubricLevel === 'ME'
+                                ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                : row.cbcRubricLevel === 'AE'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-rose-100 text-rose-800 border-rose-200'
+                            }`}
+                          >
+                            {row.cbcRubricLevel}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
 
                     {/* Remarks Input */}
                     <td className="py-2.5 px-4">
@@ -775,7 +874,9 @@ export const MarksheetEntryView: React.FC = () => {
                     <th className="py-1.5 px-2 border">Learner Name</th>
                     <th className="py-1.5 px-2 border w-24">Assess #</th>
                     <th className="py-1.5 px-2 border w-16 text-center">Marks / 100</th>
-                    <th className="py-1.5 px-2 border w-16 text-center">CBC Level</th>
+                    <th className="py-1.5 px-2 border w-24 text-center">
+                      {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
+                    </th>
                     <th className="py-1.5 px-2 border">Teacher Remarks</th>
                   </tr>
                 </thead>
@@ -789,7 +890,9 @@ export const MarksheetEntryView: React.FC = () => {
                         {r.marksObtained !== null && r.marksObtained !== '' ? r.marksObtained : '—'}
                       </td>
                       <td className="py-1.5 px-2 text-center font-bold border">
-                        {r.cbcRubricLevel || '—'}
+                        {isJunior
+                          ? (r.juniorPoints !== null && r.juniorPoints !== undefined ? `${r.juniorPoints} pts` : '—')
+                          : (r.cbcRubricLevel || '—')}
                       </td>
                       <td className="py-1.5 px-2 text-[11px] border">{r.teacherRemarks || ''}</td>
                     </tr>

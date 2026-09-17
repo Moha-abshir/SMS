@@ -12,6 +12,9 @@ import {
   attendanceRecords,
   users,
   systemSettings,
+  calculateCbcRubric,
+  calculateJuniorPoints,
+  isJuniorSecondaryClass,
   eq,
   and,
   isNull,
@@ -436,6 +439,8 @@ export class TeacherService {
 
     // Group scores by examination
     const examMap = new Map<string, { exam: any; scores: any[]; total: number }>();
+    const isJunior = isJuniorSecondaryClass(studentData.class);
+    const gradingType: 'POINTS' | 'RUBRIC' = isJunior ? 'POINTS' : 'RUBRIC';
 
     for (const item of scores) {
       if (!examMap.has(item.exam.id)) {
@@ -447,14 +452,15 @@ export class TeacherService {
       }
       const entry = examMap.get(item.exam.id)!;
       const markNum = parseFloat(item.score.marksObtained);
+      const maxMarks = item.score.maxMarks || 100;
       entry.scores.push({
         subjectId: item.subject.id,
         subjectName: item.subject.name,
         subjectCode: item.subject.code,
         marksObtained: markNum,
-        maxMarks: item.score.maxMarks,
-        cbcRubricLevel: item.score.cbcRubricLevel,
-        juniorPoints: item.score.juniorPoints,
+        maxMarks,
+        cbcRubricLevel: isJunior ? null : (item.score.cbcRubricLevel || calculateCbcRubric(markNum, maxMarks).code),
+        juniorPoints: isJunior ? (item.score.juniorPoints ?? calculateJuniorPoints(markNum, maxMarks)) : null,
         teacherRemarks: item.score.teacherRemarks,
       });
       entry.total += markNum;
@@ -495,7 +501,11 @@ export class TeacherService {
         className: studentData.class.name,
         guardianName: studentData.guardian.fullName,
         guardianPhone: studentData.guardian.phoneNumber,
+        isJunior,
+        gradingType,
       },
+      isJunior,
+      gradingType,
       examHistory,
       trend,
     };

@@ -4,6 +4,7 @@ import { ClipboardCheck, CheckCircle2, RotateCcw, Lock, AlertCircle, Eye, Search
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { isJuniorSecondaryClass } from '@school/shared/types';
 
 export const MarkReviewView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -18,6 +19,7 @@ export const MarkReviewView: React.FC = () => {
   const [inspectData, setInspectData] = useState<any | null>(null);
   const [scoreSearch, setScoreSearch] = useState('');
   const [filterRubric, setFilterRubric] = useState<'ALL' | 'EE' | 'ME' | 'AE' | 'BE'>('ALL');
+  const [filterPoints, setFilterPoints] = useState<number | 'ALL'>('ALL');
   const [inlineCorrectionMode, setInlineCorrectionMode] = useState(false);
   const [inlineReason, setInlineReason] = useState('');
 
@@ -42,6 +44,7 @@ export const MarkReviewView: React.FC = () => {
     setInspectLoading(true);
     setScoreSearch('');
     setFilterRubric('ALL');
+    setFilterPoints('ALL');
     setInlineCorrectionMode(false);
     setInlineReason('');
     try {
@@ -127,12 +130,23 @@ export const MarkReviewView: React.FC = () => {
     }
   };
 
+  const isJunior = inspectData?.isJunior ?? isJuniorSecondaryClass(inspectData?.class);
+
   const filteredScores = (inspectData?.scores || []).filter((s: any) => {
+    const sName = s.studentName || s.fullName || '';
+    const sAdm = s.admissionNumber || s.assessmentNumber || '';
     const matchesSearch =
-      s.studentName.toLowerCase().includes(scoreSearch.toLowerCase()) ||
-      s.admissionNumber.toLowerCase().includes(scoreSearch.toLowerCase());
-    const matchesRubric = filterRubric === 'ALL' || s.rubric === filterRubric;
-    return matchesSearch && matchesRubric;
+      sName.toLowerCase().includes(scoreSearch.toLowerCase()) ||
+      sAdm.toLowerCase().includes(scoreSearch.toLowerCase());
+    if (isJunior) {
+      const pts = s.juniorPoints ?? s.points;
+      const matchesPoints = filterPoints === 'ALL' || pts === filterPoints;
+      return matchesSearch && matchesPoints;
+    } else {
+      const rub = s.cbcRubricLevel || s.rubric;
+      const matchesRubric = filterRubric === 'ALL' || rub === filterRubric;
+      return matchesSearch && matchesRubric;
+    }
   });
 
   if (loading) {
@@ -367,73 +381,136 @@ export const MarkReviewView: React.FC = () => {
                 </div>
               </div>
 
-              {/* CBC Rubric Performance Distribution */}
-              <div className="p-3.5 bg-sky-50/40 border border-sky-100 rounded-xl space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 block">
-                  CBC Rubric Level Distribution
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setFilterRubric(filterRubric === 'EE' ? 'ALL' : 'EE')}
-                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                      filterRubric === 'EE'
-                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
-                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
-                    }`}
-                  >
-                    <span className="font-extrabold block">EE (Exceeding)</span>
-                    <span className="text-[11px] opacity-80 block">
-                      {inspectData.summary?.cbcPerformance?.EE || 0} learners (80-100%)
+              {/* Assessment Performance Distribution: Points for Junior Secondary vs Rubrics for Primary */}
+              {isJunior ? (
+                <div className="p-3.5 bg-sky-50/40 border border-sky-100 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 block">
+                      Junior Secondary Points Distribution (1–8 pts)
                     </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFilterRubric(filterRubric === 'ME' ? 'ALL' : 'ME')}
-                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                      filterRubric === 'ME'
-                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
-                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
-                    }`}
-                  >
-                    <span className="font-extrabold block">ME (Meeting)</span>
-                    <span className="text-[11px] opacity-80 block">
-                      {inspectData.summary?.cbcPerformance?.ME || 0} learners (60-79%)
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFilterRubric(filterRubric === 'AE' ? 'ALL' : 'AE')}
-                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                      filterRubric === 'AE'
-                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
-                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
-                    }`}
-                  >
-                    <span className="font-extrabold block">AE (Approaching)</span>
-                    <span className="text-[11px] opacity-80 block">
-                      {inspectData.summary?.cbcPerformance?.AE || 0} learners (40-59%)
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFilterRubric(filterRubric === 'BE' ? 'ALL' : 'BE')}
-                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
-                      filterRubric === 'BE'
-                        ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
-                        : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
-                    }`}
-                  >
-                    <span className="font-extrabold block">BE (Below)</span>
-                    <span className="text-[11px] opacity-80 block">
-                      {inspectData.summary?.cbcPerformance?.BE || 0} learners (0-39%)
-                    </span>
-                  </button>
+                    {filterPoints !== 'ALL' && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterPoints('ALL')}
+                        className="text-[11px] text-sky-600 font-bold hover:underline cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
+                    {[
+                      { pt: 8, label: '8 pts', range: '90-100%' },
+                      { pt: 7, label: '7 pts', range: '75-89%' },
+                      { pt: 6, label: '6 pts', range: '58-74%' },
+                      { pt: 5, label: '5 pts', range: '41-57%' },
+                      { pt: 4, label: '4 pts', range: '31-40%' },
+                      { pt: 3, label: '3 pts', range: '21-30%' },
+                      { pt: 2, label: '2 pts', range: '11-20%' },
+                      { pt: 1, label: '1 pt', range: '0-10%' },
+                    ].map((p) => {
+                      const count =
+                        inspectData.summary?.pointsBreakdown?.[p.pt] ??
+                        inspectData.scores?.filter((sc: any) => (sc.juniorPoints ?? sc.points) === p.pt).length ??
+                        0;
+                      return (
+                        <button
+                          key={p.pt}
+                          type="button"
+                          onClick={() => setFilterPoints(filterPoints === p.pt ? 'ALL' : p.pt)}
+                          className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                            filterPoints === p.pt
+                              ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
+                          }`}
+                        >
+                          <span className="font-black block text-xs">{p.label}</span>
+                          <span className="text-[11px] block font-bold opacity-90">{count} learners</span>
+                          <span className="text-[9px] block text-slate-400 mt-0.5">{p.range}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="p-3.5 bg-sky-50/40 border border-sky-100 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800 block">
+                      CBC Rubric Level Distribution
+                    </span>
+                    {filterRubric !== 'ALL' && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterRubric('ALL')}
+                        className="text-[11px] text-sky-600 font-bold hover:underline cursor-pointer"
+                      >
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setFilterRubric(filterRubric === 'EE' ? 'ALL' : 'EE')}
+                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                        filterRubric === 'EE'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-emerald-200 hover:border-emerald-300'
+                      }`}
+                    >
+                      <span className="font-extrabold block">EE (Exceeding)</span>
+                      <span className="text-[11px] opacity-80 block">
+                        {inspectData.summary?.rubricBreakdown?.EE ?? inspectData.summary?.cbcPerformance?.EE ?? 0} learners (75-100%)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFilterRubric(filterRubric === 'ME' ? 'ALL' : 'ME')}
+                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                        filterRubric === 'ME'
+                          ? 'bg-sky-500 text-white border-sky-500 shadow-xs'
+                          : 'bg-white text-slate-700 border-sky-200 hover:border-sky-300'
+                      }`}
+                    >
+                      <span className="font-extrabold block">ME (Meeting)</span>
+                      <span className="text-[11px] opacity-80 block">
+                        {inspectData.summary?.rubricBreakdown?.ME ?? inspectData.summary?.cbcPerformance?.ME ?? 0} learners (50-74%)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFilterRubric(filterRubric === 'AE' ? 'ALL' : 'AE')}
+                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                        filterRubric === 'AE'
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                          : 'bg-white text-slate-700 border-amber-200 hover:border-amber-300'
+                      }`}
+                    >
+                      <span className="font-extrabold block">AE (Approaching)</span>
+                      <span className="text-[11px] opacity-80 block">
+                        {inspectData.summary?.rubricBreakdown?.AE ?? inspectData.summary?.cbcPerformance?.AE ?? 0} learners (25-49%)
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFilterRubric(filterRubric === 'BE' ? 'ALL' : 'BE')}
+                      className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                        filterRubric === 'BE'
+                          ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
+                          : 'bg-white text-slate-700 border-rose-200 hover:border-rose-300'
+                      }`}
+                    >
+                      <span className="font-extrabold block">BE (Below)</span>
+                      <span className="text-[11px] opacity-80 block">
+                        {inspectData.summary?.rubricBreakdown?.BE ?? inspectData.summary?.cbcPerformance?.BE ?? 0} learners (0-24%)
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Search Learner Input */}
               <div className="relative">
@@ -456,7 +533,7 @@ export const MarkReviewView: React.FC = () => {
                       <th className="py-2.5 px-3">Student Name</th>
                       <th className="py-2.5 px-3 text-center">Score</th>
                       <th className="py-2.5 px-3 text-center">Percentage</th>
-                      <th className="py-2.5 px-3 text-center">CBC Level</th>
+                      <th className="py-2.5 px-3 text-center">{isJunior ? 'Points (1–8)' : 'CBC Rubric'}</th>
                       <th className="py-2.5 px-3">Teacher Remarks</th>
                     </tr>
                   </thead>
@@ -468,40 +545,76 @@ export const MarkReviewView: React.FC = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredScores.map((s: any) => (
-                        <tr key={s.studentId} className="hover:bg-sky-50/40 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-600">
-                            {s.admissionNumber}
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900">
-                            {s.studentName}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-bold text-slate-800 font-mono">
-                            {s.score} / {s.maxScore}
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-black text-sky-700">
-                            {s.percentage}%
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span
-                              className={`px-2 py-0.5 text-[10px] font-black rounded-md border ${
-                                s.rubric === 'EE'
-                                  ? 'bg-sky-100 text-sky-800 border-sky-200'
-                                  : s.rubric === 'ME'
-                                  ? 'bg-sky-50 text-sky-700 border-sky-200'
-                                  : s.rubric === 'AE'
-                                  ? 'bg-slate-100 text-slate-700 border-slate-200'
-                                  : 'bg-slate-200 text-slate-800 border-slate-300'
-                              }`}
-                            >
-                              {s.rubric}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 italic">
-                            {s.remarks || '—'}
-                          </td>
-                        </tr>
-                      ))
+                      filteredScores.map((s: any) => {
+                        const pts = s.juniorPoints ?? s.points;
+                        const rub = s.cbcRubricLevel || s.rubric;
+                        return (
+                          <tr key={s.studentId} className="hover:bg-sky-50/40 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-600">
+                              {s.admissionNumber || s.assessmentNumber || '—'}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-900">
+                              {s.studentName || s.fullName}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-bold text-slate-800 font-mono">
+                              {s.score ?? s.marksObtained ?? '—'} / {s.maxScore ?? s.maxMarks ?? 100}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-black text-sky-700">
+                              {s.percentage}%
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              {isJunior ? (
+                                pts !== null && pts !== undefined ? (
+                                  <span
+                                    className={`px-2.5 py-0.5 text-xs font-black rounded-full border ${
+                                      pts === 8
+                                        ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                                        : pts === 7
+                                        ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                        : pts === 6
+                                        ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                        : pts === 5
+                                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                        : pts === 4
+                                        ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                        : pts === 3
+                                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                        : pts === 2
+                                        ? 'bg-orange-50 text-orange-800 border-orange-200'
+                                        : 'bg-rose-100 text-rose-800 border-rose-200'
+                                    }`}
+                                  >
+                                    {pts} pts
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 text-xs">—</span>
+                                )
+                              ) : (
+                                rub ? (
+                                  <span
+                                    className={`px-2.5 py-0.5 text-[10px] font-black rounded-md border ${
+                                      rub === 'EE'
+                                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                        : rub === 'ME'
+                                        ? 'bg-sky-100 text-sky-800 border-sky-200'
+                                        : rub === 'AE'
+                                        ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                        : 'bg-rose-100 text-rose-800 border-rose-200'
+                                    }`}
+                                  >
+                                    {rub}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300 text-xs">—</span>
+                                )
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600 italic">
+                              {s.teacherRemarks || s.remarks || '—'}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

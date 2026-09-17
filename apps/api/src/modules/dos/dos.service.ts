@@ -7,6 +7,9 @@ import {
   examinations,
   academicTerms,
   systemSettings,
+  calculateCbcRubric,
+  calculateJuniorPoints,
+  isJuniorSecondaryClass,
   eq,
   isNull,
   and,
@@ -44,9 +47,10 @@ export class DosService {
       subjectScores.forEach((sc) => {
         const marks = parseFloat(sc.score.marksObtained);
         totalMarksSum += marks;
-        if (marks >= 80) eeCount++;
-        else if (marks >= 65) meCount++;
-        else if (marks >= 50) aeCount++;
+        const rub = calculateCbcRubric(marks, 100).code;
+        if (rub === 'EE') eeCount++;
+        else if (rub === 'ME') meCount++;
+        else if (rub === 'AE') aeCount++;
         else beCount++;
       });
 
@@ -139,16 +143,27 @@ export class DosService {
     let meTotal = 0;
     let aeTotal = 0;
     let beTotal = 0;
+    const pointsTotal: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     const uniqueStudents = new Set<string>();
 
     rawScores.forEach((row) => {
       const marks = parseFloat(row.score.marksObtained);
       totalMarksSum += marks;
       uniqueStudents.add(row.student.id);
-      if (marks >= 80) eeTotal++;
-      else if (marks >= 65) meTotal++;
-      else if (marks >= 50) aeTotal++;
-      else beTotal++;
+
+      const isJunior = isJuniorSecondaryClass(row.class);
+      if (isJunior) {
+        const pts = row.score.juniorPoints ?? calculateJuniorPoints(marks, row.score.maxMarks || 100);
+        if (pts in pointsTotal) {
+          pointsTotal[pts]++;
+        }
+      } else {
+        const rub = row.score.cbcRubricLevel || calculateCbcRubric(marks, row.score.maxMarks || 100).code;
+        if (rub === 'EE') eeTotal++;
+        else if (rub === 'ME') meTotal++;
+        else if (rub === 'AE') aeTotal++;
+        else beTotal++;
+      }
     });
 
     const schoolAverage = rawScores.length > 0 ? Math.round((totalMarksSum / rawScores.length) * 10) / 10 : 0;
@@ -164,16 +179,28 @@ export class DosService {
       let me = 0;
       let ae = 0;
       let be = 0;
+      const subPoints: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+      const isSubJunior = s.levelCategory === 'JUNIOR';
 
       subScores.forEach((sc) => {
         const m = parseFloat(sc.score.marksObtained);
         subMarksSum += m;
         if (m > highest) highest = m;
         if (m < lowest) lowest = m;
-        if (m >= 80) ee++;
-        else if (m >= 65) me++;
-        else if (m >= 50) ae++;
-        else be++;
+
+        const isJunior = isJuniorSecondaryClass(sc.class);
+        if (isJunior) {
+          const pts = sc.score.juniorPoints ?? calculateJuniorPoints(m, sc.score.maxMarks || 100);
+          if (pts in subPoints) {
+            subPoints[pts]++;
+          }
+        } else {
+          const rub = sc.score.cbcRubricLevel || calculateCbcRubric(m, sc.score.maxMarks || 100).code;
+          if (rub === 'EE') ee++;
+          else if (rub === 'ME') me++;
+          else if (rub === 'AE') ae++;
+          else be++;
+        }
       });
 
       const avg = subCount > 0 ? Math.round((subMarksSum / subCount) * 10) / 10 : 0;
@@ -183,12 +210,14 @@ export class DosService {
         subjectName: s.name,
         subjectCode: s.code,
         levelCategory: s.levelCategory,
+        isJunior: isSubJunior,
         testedCount: subCount,
         averageScore: avg,
         highestScore: highest,
         lowestScore: lowest,
         needsAttention: subCount > 0 && (avg < 55 || (be / subCount) > 0.3),
         rubric: { EE: ee, ME: me, AE: ae, BE: be },
+        points: subPoints,
       };
     });
 
@@ -250,6 +279,7 @@ export class DosService {
         classId: cls.id,
         className: cls.name,
         levelCategory: cls.levelCategory,
+        isJunior: isJuniorSecondaryClass(cls),
         testedCount: studentMap.size,
         totalScores: clsScores.length,
         classAverage,
@@ -263,23 +293,31 @@ export class DosService {
     // 7. Learners Requiring Intervention (<50% in any subject)
     const interventionLearners = rawScores
       .filter((r) => parseFloat(r.score.marksObtained) < 50)
-      .map((r) => ({
-        scoreId: r.score.id,
-        studentId: r.student.id,
-        studentName: `${r.student.firstName} ${r.student.lastName}`,
-        admissionNumber: r.student.admissionNumber,
-        className: r.class.name,
-        subjectName: r.subject.name,
-        marksObtained: parseFloat(r.score.marksObtained),
-        rubric: r.score.cbcRubricLevel || 'BE',
-        remarks: r.score.teacherRemarks || 'Needs remedial attention',
-      }));
+      .map((r) => {
+        const isJunior = isJuniorSecondaryClass(r.class);
+        const marks = parseFloat(r.score.marksObtained);
+        return {
+          scoreId: r.score.id,
+          studentId: r.student.id,
+          studentName: `${r.student.firstName} ${r.student.lastName}`,
+          admissionNumber: r.student.admissionNumber,
+          className: r.class.name,
+          subjectName: r.subject.name,
+          marksObtained: marks,
+          isJunior,
+          rubric: isJunior ? null : (r.score.cbcRubricLevel || calculateCbcRubric(marks, 100).code),
+          points: isJunior ? (r.score.juniorPoints ?? calculateJuniorPoints(marks, 100)) : null,
+          remarks: r.score.teacherRemarks || 'Needs remedial attention',
+        };
+      });
 
     // 8. Specific Class Drill-Down (if requested)
     let selectedClassDetail: any = null;
     if (classId) {
       const clsScores = rawScores.filter((r) => r.class.id === classId);
       const studentScoreMap = new Map<string, any>();
+      const targetCls = allClasses.find((c) => c.id === classId);
+      const isJunior = isJuniorSecondaryClass(targetCls);
 
       clsScores.forEach((r) => {
         if (!studentScoreMap.has(r.student.id)) {
@@ -292,12 +330,14 @@ export class DosService {
           });
         }
         const sObj = studentScoreMap.get(r.student.id);
+        const marks = parseFloat(r.score.marksObtained);
         sObj.subjects.push({
           subjectName: r.subject.name,
-          score: parseFloat(r.score.marksObtained),
-          rubric: r.score.cbcRubricLevel || 'ME',
+          score: marks,
+          rubric: isJunior ? null : (r.score.cbcRubricLevel || calculateCbcRubric(marks, 100).code),
+          points: isJunior ? (r.score.juniorPoints ?? calculateJuniorPoints(marks, 100)) : null,
         });
-        sObj.totalMarks += parseFloat(r.score.marksObtained);
+        sObj.totalMarks += marks;
       });
 
       const studentRankings = Array.from(studentScoreMap.values()).map((s) => ({
@@ -309,7 +349,9 @@ export class DosService {
 
       selectedClassDetail = {
         classId,
-        className: allClasses.find((c) => c.id === classId)?.name || 'Class Drill-Down',
+        className: targetCls?.name || 'Class Drill-Down',
+        isJunior,
+        gradingType: isJunior ? 'POINTS' : 'RUBRIC',
         students: studentRankings.map((s, idx) => ({ ...s, rank: idx + 1 })),
       };
     }
@@ -336,6 +378,7 @@ export class DosService {
         topSubject: topSubject ? { name: topSubject.subjectName, average: topSubject.averageScore } : null,
         lowestSubject: lowestSubject ? { name: lowestSubject.subjectName, average: lowestSubject.averageScore } : null,
         rubricDistribution: { EE: eeTotal, ME: meTotal, AE: aeTotal, BE: beTotal },
+        pointsDistribution: pointsTotal,
         strugglingTotal: interventionLearners.length,
       },
       subjects: subjectSummaries,

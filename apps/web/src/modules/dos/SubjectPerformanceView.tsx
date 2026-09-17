@@ -315,12 +315,21 @@ export const SubjectPerformanceView: React.FC = () => {
                         {sub.testedCount > 0 ? `${sub.lowestScore}% / ${sub.highestScore}%` : '—'}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1 font-mono text-[10px] font-bold">
-                          <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded">EE:{sub.rubric.EE}</span>
-                          <span className="px-1.5 py-0.5 bg-sky-50 text-sky-700 rounded border border-sky-100">ME:{sub.rubric.ME}</span>
-                          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded">AE:{sub.rubric.AE}</span>
-                          <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200">BE:{sub.rubric.BE}</span>
-                        </div>
+                        {sub.isJunior || sub.levelCategory === 'JUNIOR' ? (
+                          <div className="flex items-center justify-center gap-1 font-mono text-[10px] font-bold">
+                            <span className="px-1.5 py-0.5 bg-sky-600 text-white rounded" title="8 pts: 90-100%">8p:{sub.points?.[8] || 0}</span>
+                            <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded border border-sky-200" title="7 pts: 75-89%">7p:{sub.points?.[7] || 0}</span>
+                            <span className="px-1.5 py-0.5 bg-teal-50 text-teal-800 rounded border border-teal-200" title="5-6 pts: 41-74%">5-6p:{(sub.points?.[6] || 0) + (sub.points?.[5] || 0)}</span>
+                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200" title="1-4 pts: 0-40%">1-4p:{(sub.points?.[4] || 0) + (sub.points?.[3] || 0) + (sub.points?.[2] || 0) + (sub.points?.[1] || 0)}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1 font-mono text-[10px] font-bold">
+                            <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded" title="EE: 75-100%">EE:{sub.rubric?.EE || 0}</span>
+                            <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded border border-sky-100" title="ME: 50-74%">ME:{sub.rubric?.ME || 0}</span>
+                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded" title="AE: 25-49%">AE:{sub.rubric?.AE || 0}</span>
+                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200" title="BE: 0-24%">BE:{sub.rubric?.BE || 0}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         {sub.needsAttention ? (
@@ -475,7 +484,7 @@ export const SubjectPerformanceView: React.FC = () => {
                                       : 'bg-rose-50 text-rose-800 border border-rose-200'
                                   }`}
                                 >
-                                  {sub.subjectName}: {sub.score}% ({sub.rubric})
+                                  {sub.subjectName}: {sub.score}% ({sub.points != null ? `${sub.points} pts` : (sub.rubric || '—')})
                                 </span>
                               ))}
                             </div>
@@ -530,7 +539,7 @@ export const SubjectPerformanceView: React.FC = () => {
                       <th className="py-3 px-3">Class</th>
                       <th className="py-3 px-4">Struggling Subject</th>
                       <th className="py-3 px-3 text-center">Score</th>
-                      <th className="py-3 px-3 text-center">Rubric</th>
+                      <th className="py-3 px-3 text-center">Assessment</th>
                       <th className="py-3 px-4">Teacher Remark / Prescribed Action</th>
                     </tr>
                   </thead>
@@ -551,8 +560,12 @@ export const SubjectPerformanceView: React.FC = () => {
                           {row.marksObtained}%
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold text-[10px]">
-                            {row.rubric}
+                          <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                            row.isJunior
+                              ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {row.isJunior && row.points != null ? `${row.points} pts` : (row.rubric || 'BE')}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-slate-600 italic">
@@ -679,11 +692,19 @@ export const SubjectPerformanceView: React.FC = () => {
                       <td className="p-2 border border-slate-300 font-bold text-rose-700">{school.lowestSubject?.name} ({school.lowestSubject?.average}%)</td>
                     </tr>
                     <tr>
-                      <td className="p-2 border border-slate-300 font-bold bg-slate-50">CBC Rubric Distribution:</td>
+                      <td className="p-2 border border-slate-300 font-bold bg-slate-50">CBC Rubrics (PP–G6):</td>
                       <td colSpan={3} className="p-2 border border-slate-300 font-mono">
-                        EE (Exceeding): {school.rubricDistribution.EE} | ME (Meeting): {school.rubricDistribution.ME} | AE (Approaching): {school.rubricDistribution.AE} | BE (Below): {school.rubricDistribution.BE}
+                        EE (75–100%): {school.rubricDistribution?.EE || 0} | ME (50–74%): {school.rubricDistribution?.ME || 0} | AE (25–49%): {school.rubricDistribution?.AE || 0} | BE (0–24%): {school.rubricDistribution?.BE || 0}
                       </td>
                     </tr>
+                    {school.pointsDistribution && (
+                      <tr>
+                        <td className="p-2 border border-slate-300 font-bold bg-slate-50">Junior Secondary Points (G7–G9):</td>
+                        <td colSpan={3} className="p-2 border border-slate-300 font-mono text-[10px]">
+                          8 pts (90-100%): {school.pointsDistribution[8] || 0} | 7 pts (75-89%): {school.pointsDistribution[7] || 0} | 6 pts (58-74%): {school.pointsDistribution[6] || 0} | 5 pts (41-57%): {school.pointsDistribution[5] || 0} | 4 pts (31-40%): {school.pointsDistribution[4] || 0} | 3 pts (21-30%): {school.pointsDistribution[3] || 0} | 2 pts (11-20%): {school.pointsDistribution[2] || 0} | 1 pt (0-10%): {school.pointsDistribution[1] || 0}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
