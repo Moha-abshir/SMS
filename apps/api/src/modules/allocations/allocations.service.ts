@@ -19,6 +19,7 @@ export class AllocationsService {
           firstName: users.firstName,
           lastName: users.lastName,
           email: users.email,
+          phoneNumber: users.phoneNumber,
         },
       })
       .from(classes)
@@ -33,6 +34,7 @@ export class AllocationsService {
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
+        phoneNumber: users.phoneNumber,
       })
       .from(users)
       .where(and(eq(users.isActive, true), isNull(users.deletedAt)));
@@ -54,6 +56,8 @@ export class AllocationsService {
           id: users.id,
           firstName: users.firstName,
           lastName: users.lastName,
+          email: users.email,
+          phoneNumber: users.phoneNumber,
         },
         subject: subjects,
         class: classes,

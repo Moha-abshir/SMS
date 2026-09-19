@@ -294,7 +294,7 @@ export const LeaveManagementView: React.FC = () => {
                 <option value="">-- Select Teacher --</option>
                 {teachers.map((t) => (
                   <option key={t.id} value={t.id}>
-                    {t.firstName} {t.lastName} ({t.email})
+                    {t.firstName} {t.lastName}{t.phoneNumber ? ` (${t.phoneNumber})` : ''}
                   </option>
                 ))}
               </select>
@@ -314,7 +314,7 @@ export const LeaveManagementView: React.FC = () => {
                   .filter((t) => t.id !== form.teacherId)
                   .map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.firstName} {t.lastName} ({t.email})
+                      {t.firstName} {t.lastName}{t.phoneNumber ? ` (${t.phoneNumber})` : ''}
                     </option>
                   ))}
               </select>

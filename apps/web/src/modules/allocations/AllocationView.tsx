@@ -174,7 +174,7 @@ export const AllocationView: React.FC = () => {
                         <option value="">-- Assign Class Teacher --</option>
                         {data.teachers.map((t) => (
                           <option key={t.id} value={t.id}>
-                            {t.firstName} {t.lastName} ({t.email})
+                            {t.firstName} {t.lastName}{t.phoneNumber ? ` (${t.phoneNumber})` : ''}
                           </option>
                         ))}
                       </select>
