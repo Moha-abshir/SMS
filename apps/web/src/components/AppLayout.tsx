@@ -12,7 +12,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
   const location = useLocation();
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 flex flex-col lg:flex-row font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 flex flex-col lg:flex-row font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
       {/* Dynamic Route-Aware Sidebar */}
       <Sidebar user={user} onLogout={onLogout} />
 
