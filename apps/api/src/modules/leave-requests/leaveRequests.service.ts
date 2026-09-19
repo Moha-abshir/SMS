@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { teacherLeaveRequests, users, systemSettings, eq, isNull, desc } from '@school/shared';
+import { teacherLeaveRequests, users, classes, systemSettings, eq, and, isNull, desc } from '@school/shared';
 
 export class LeaveRequestsService {
   static async getLeaveRequests() {
@@ -18,9 +18,18 @@ export class LeaveRequestsService {
       .where(isNull(teacherLeaveRequests.deletedAt))
       .orderBy(desc(teacherLeaveRequests.createdAt));
 
-    // Fetch teachers list to map standing in teachers
-    const allUsers = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users);
+    // Fetch teachers and classes to map standing-in teachers and class teacher assignments
+    const [allUsers, allClasses] = await Promise.all([
+      db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users),
+      db.select({ id: classes.id, name: classes.name, classTeacherId: classes.classTeacherId }).from(classes).where(isNull(classes.deletedAt)),
+    ]);
     const usersMap = new Map(allUsers.map((u) => [u.id, u]));
+    const classTeacherMap = new Map<string, { id: string; name: string }>();
+    for (const c of allClasses) {
+      if (c.classTeacherId) {
+        classTeacherMap.set(c.classTeacherId, { id: c.id, name: c.name });
+      }
+    }
 
     return list.map((item) => {
       let parsedNotes: any = {};
@@ -32,6 +41,9 @@ export class LeaveRequestsService {
 
       const standingInId = (item.request as any).standingInTeacherId || parsedNotes.standingInTeacherId;
       const standingInTeacher = standingInId ? usersMap.get(standingInId) : null;
+      const isReturned = Boolean(parsedNotes.isReturned);
+      const returnedAt = parsedNotes.returnedAt || null;
+      const classTeacherOf = classTeacherMap.get(item.teacher.id) || null;
 
       return {
         ...item,
@@ -40,6 +52,9 @@ export class LeaveRequestsService {
         duration: (item.request as any).duration || parsedNotes.duration || '1 day',
         reasons: parsedNotes.reasons || [item.request.reason],
         deputyReason: (item.request as any).deputyReason || parsedNotes.deputyReason || 'Approved',
+        isReturned,
+        returnedAt,
+        classTeacherOf,
       };
     });
   }
@@ -104,6 +119,111 @@ export class LeaveRequestsService {
     return updated;
   }
 
+  static async markReportedBack(id: string, reportedById: string) {
+    const [request] = await db
+      .select()
+      .from(teacherLeaveRequests)
+      .where(eq(teacherLeaveRequests.id, id));
+
+    if (!request) throw new Error('Leave request not found');
+
+    let parsedNotes: any = {};
+    try {
+      if (request.notes && request.notes.startsWith('{')) {
+        parsedNotes = JSON.parse(request.notes);
+      }
+    } catch (e) {}
+
+    parsedNotes.isReturned = true;
+    parsedNotes.returnedAt = new Date().toISOString();
+    parsedNotes.returnedRecordedById = reportedById;
+
+    const [updated] = await db
+      .update(teacherLeaveRequests)
+      .set({
+        notes: JSON.stringify(parsedNotes),
+        updatedAt: new Date(),
+      })
+      .where(eq(teacherLeaveRequests.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  static async getActiveStandInDelegationForTeacher(userId: string) {
+    const approvedRequests = await db
+      .select({
+        request: teacherLeaveRequests,
+        originalTeacher: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        },
+      })
+      .from(teacherLeaveRequests)
+      .innerJoin(users, eq(teacherLeaveRequests.teacherId, users.id))
+      .where(
+        and(
+          eq(teacherLeaveRequests.status, 'APPROVED'),
+          isNull(teacherLeaveRequests.deletedAt)
+        )
+      )
+      .orderBy(desc(teacherLeaveRequests.createdAt));
+
+    for (const item of approvedRequests) {
+      let parsedNotes: any = {};
+      try {
+        if (item.request.notes && item.request.notes.startsWith('{')) {
+          parsedNotes = JSON.parse(item.request.notes);
+        }
+      } catch (e) {}
+
+      const standingInId = (item.request as any).standingInTeacherId || parsedNotes.standingInTeacherId;
+      const isReturned = Boolean(parsedNotes.isReturned);
+
+      if (standingInId === userId && !isReturned) {
+        const [assignedClass] = await db
+          .select()
+          .from(classes)
+          .where(
+            and(
+              eq(classes.classTeacherId, item.originalTeacher.id),
+              isNull(classes.deletedAt)
+            )
+          );
+
+        if (assignedClass) {
+          return {
+            assignedClass,
+            originalTeacher: item.originalTeacher,
+            leaveRequestId: item.request.id,
+            departureTime: (item.request as any).departureTime || parsedNotes.departureTime,
+            duration: (item.request as any).duration || parsedNotes.duration,
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static async isEffectiveClassTeacher(userId: string, classId: string): Promise<boolean> {
+    const [cls] = await db
+      .select()
+      .from(classes)
+      .where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
+
+    if (!cls) return false;
+    if (cls.classTeacherId === userId) return true;
+
+    const delegation = await this.getActiveStandInDelegationForTeacher(userId);
+    if (delegation && delegation.assignedClass.id === classId) {
+      return true;
+    }
+
+    return false;
+  }
+
   static async getLeaveSlipPrintData(id: string) {
     const [request] = await db
       .select({
@@ -138,6 +258,12 @@ export class LeaveRequestsService {
       standingInTeacher = st || null;
     }
 
+    // Check if teacher is class teacher of any class
+    const [assignedClass] = await db
+      .select({ id: classes.id, name: classes.name })
+      .from(classes)
+      .where(and(eq(classes.classTeacherId, request.teacher.id), isNull(classes.deletedAt)));
+
     const [settings] = await db.select().from(systemSettings).limit(1);
 
     const reasons = parsedNotes.reasons && parsedNotes.reasons.length > 0
@@ -152,6 +278,9 @@ export class LeaveRequestsService {
       duration: (request.leave as any).duration || parsedNotes.duration || '1 day',
       reasons,
       deputyReason: (request.leave as any).deputyReason || parsedNotes.deputyReason || 'Approved',
+      isReturned: Boolean(parsedNotes.isReturned),
+      returnedAt: parsedNotes.returnedAt || null,
+      classTeacherOf: assignedClass || null,
       settings: settings || {
         schoolName: 'Eldoret Muslim Academy',
         postalAddress: 'P.O BOX 5080-30100',

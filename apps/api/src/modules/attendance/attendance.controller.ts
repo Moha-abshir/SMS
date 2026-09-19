@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AttendanceService } from './attendance.service.js';
 import { db } from '../../config/db.js';
 import { classes, eq } from '@school/shared';
+import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 
 export class AttendanceController {
   static async getSchoolWideAttendance(req: Request, res: Response) {
@@ -47,9 +48,9 @@ export class AttendanceController {
         req.user?.permissions?.includes('attendance:manage');
 
       if (!isPrivileged) {
-        // Verify user is assigned as Class Teacher for this class
-        const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
-        if (!cls || cls.classTeacherId !== userId) {
+        // Verify user is assigned as Class Teacher for this class or active standing-in teacher
+        const isAuthorized = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
+        if (!isAuthorized) {
           return res.status(403).json({
             success: false,
             message: 'You are only authorized to mark attendance for your assigned class',

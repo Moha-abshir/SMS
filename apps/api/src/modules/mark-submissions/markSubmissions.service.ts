@@ -18,6 +18,7 @@ import {
   desc,
   sql,
 } from '@school/shared';
+import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 
 function computeGradeMetrics(marksObtained: number, maxMarks: number = 100, isJunior: boolean) {
   const percentage = maxMarks > 0 ? (marksObtained / maxMarks) * 100 : marksObtained;
@@ -210,14 +211,14 @@ export class MarkSubmissionsService {
 
     if (!user) return false;
 
-    // Check if class teacher of PPE / Lower Primary (Grades 1-3)
+    // Check if class teacher of PPE / Lower Primary (Grades 1-3), including active standing-in teachers
     const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
     if (
       cls &&
-      cls.classTeacherId === userId &&
       (cls.levelCategory === 'PPE' || cls.levelCategory === 'LOWER_PRIMARY' || cls.numericOrder <= 3)
     ) {
-      return true;
+      const isEffective = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
+      if (isEffective) return true;
     }
 
     // Check teacher_subject_allocations

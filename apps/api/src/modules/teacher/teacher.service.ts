@@ -22,6 +22,7 @@ import {
   inArray,
 } from '@school/shared';
 import { SmsService } from '../../services/sms.service.js';
+import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 
 export class TeacherService {
   /**
@@ -50,11 +51,23 @@ export class TeacherService {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 2. Check if assigned as Class Teacher for any active class
-    const [assignedClass] = await db
+    // 2. Check if assigned as Class Teacher for any active class, or standing in for a class teacher on leave
+    let [assignedClass] = await db
       .select()
       .from(classes)
       .where(and(eq(classes.classTeacherId, userId), isNull(classes.deletedAt)));
+
+    let isStandingIn = false;
+    let standingInFor: string | null = null;
+
+    if (!assignedClass) {
+      const delegation = await LeaveRequestsService.getActiveStandInDelegationForTeacher(userId);
+      if (delegation) {
+        assignedClass = delegation.assignedClass;
+        isStandingIn = true;
+        standingInFor = `${delegation.originalTeacher.firstName} ${delegation.originalTeacher.lastName}`;
+      }
+    }
 
     let classTeacherInfo: any = null;
 
@@ -113,6 +126,8 @@ export class TeacherService {
         numericOrder: assignedClass.numericOrder,
         studentCount: enrolledStudents.length,
         todayAttendance: todayStats,
+        isStandingIn,
+        standingInFor,
       };
     }
 
@@ -280,10 +295,18 @@ export class TeacherService {
     let targetClassId = requestedClassId;
 
     if (!targetClassId) {
-      const [assignedClass] = await db
+      let [assignedClass] = await db
         .select()
         .from(classes)
         .where(and(eq(classes.classTeacherId, userId), isNull(classes.deletedAt)));
+
+      if (!assignedClass) {
+        const delegation = await LeaveRequestsService.getActiveStandInDelegationForTeacher(userId);
+        if (delegation) {
+          assignedClass = delegation.assignedClass;
+        }
+      }
+
       if (!assignedClass) {
         throw new Error('No class assigned to you as Class Teacher');
       }
