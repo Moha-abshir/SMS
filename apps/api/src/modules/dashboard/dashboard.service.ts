@@ -114,19 +114,24 @@ export class DashboardService {
     const [submissionsCount] = await db.select({ total: count() }).from(markSubmissions).where(isNull(markSubmissions.deletedAt));
     const [pendingReviews] = await db.select({ total: count() }).from(markSubmissions).where(eq(markSubmissions.status, 'SUBMITTED'));
     const [approvedCount] = await db.select({ total: count() }).from(markSubmissions).where(eq(markSubmissions.status, 'APPROVED'));
+    const [studentsResult] = await db.select({ total: count() }).from(students).where(eq(students.status, 'ACTIVE'));
 
     // Attendance stats for today
     const todayRegisters = await db.select().from(attendanceRegisters).where(eq(attendanceRegisters.date, todayStr));
     let attendancePercentage = 98.5;
     let absentCount = 0;
+    let presentCount = 0;
+    let totalStudents = studentsResult?.total || 0;
+
     if (todayRegisters.length > 0) {
       const registerIds = todayRegisters.map((r) => r.id);
       const records = await db.select().from(attendanceRecords);
       const todayRecords = records.filter((r) => registerIds.includes(r.registerId));
       if (todayRecords.length > 0) {
-        const present = todayRecords.filter((r) => r.status === 'PRESENT').length;
+        presentCount = todayRecords.filter((r) => r.status === 'PRESENT').length;
         absentCount = todayRecords.filter((r) => r.status === 'ABSENT').length;
-        attendancePercentage = Math.round((present / todayRecords.length) * 1000) / 10;
+        totalStudents = todayRecords.length;
+        attendancePercentage = Math.round((presentCount / todayRecords.length) * 1000) / 10;
       }
     }
 
@@ -152,6 +157,19 @@ export class DashboardService {
       totalMarkSubmissions: submissionsCount?.total || 0,
       pendingMarkReviews: pendingReviews?.total || 0,
       approvedMarkSubmissions: approvedCount?.total || 0,
+      attendance: {
+        totalStudents,
+        presentCount,
+        absentCount,
+        attendanceRate: attendancePercentage,
+        registersSubmitted: todayRegisters.length,
+        totalClasses: classList?.total || 12,
+      },
+      inventory: {
+        activeCheckouts: activeCheckouts.length,
+        overdueCheckouts: overdueCheckouts.length,
+      },
+      staffOnLeaveToday: leavesToday.length,
       todayAttendancePercentage: attendancePercentage,
       todayAbsentCount: absentCount,
       activeCheckoutsCount: activeCheckouts.length,

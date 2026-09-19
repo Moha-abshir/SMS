@@ -61,8 +61,31 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
     try {
       setLoading(true);
       const res = await apiClient.get('/api/dashboard/deputy');
-      if (res.data.data) {
-        setData(res.data.data);
+      if (res.data?.data) {
+        const d = res.data.data;
+        setData({
+          totalClasses: d.totalClasses ?? 12,
+          activeAllocations: d.activeAllocations ?? 0,
+          totalMarkSubmissions: d.totalMarkSubmissions ?? 0,
+          approvedMarkSubmissions: d.approvedMarkSubmissions ?? 0,
+          pendingMarkReviews: d.pendingMarkReviews ?? 0,
+          schoolName: d.schoolName || 'Eldoret Muslim Academy',
+          academicYear: d.academicYear || 2026,
+          currentTermNumber: d.currentTermNumber || 1,
+          attendance: {
+            totalStudents: d.attendance?.totalStudents ?? 0,
+            presentCount: d.attendance?.presentCount ?? 0,
+            absentCount: d.attendance?.absentCount ?? d.todayAbsentCount ?? 0,
+            attendanceRate: d.attendance?.attendanceRate ?? d.todayAttendancePercentage ?? 100,
+            registersSubmitted: d.attendance?.registersSubmitted ?? 0,
+            totalClasses: d.attendance?.totalClasses ?? d.totalClasses ?? 12,
+          },
+          inventory: {
+            activeCheckouts: d.inventory?.activeCheckouts ?? d.activeCheckoutsCount ?? 0,
+            overdueCheckouts: d.inventory?.overdueCheckouts ?? d.overdueCheckoutsCount ?? 0,
+          },
+          staffOnLeaveToday: d.staffOnLeaveToday ?? d.staffOnLeaveTodayCount ?? 0,
+        });
       }
     } catch (error) {
       console.error('Failed to load deputy dashboard stats', error);
@@ -137,9 +160,9 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
               <UserX className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data.attendance.attendanceRate}%</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data?.attendance?.attendanceRate ?? 100}%</div>
           <p className="text-xs text-sky-700 mt-1 font-medium">
-            {data.attendance.presentCount} / {data.attendance.totalStudents} present ({data.attendance.absentCount} absent)
+            {data?.attendance?.presentCount ?? 0} / {data?.attendance?.totalStudents ?? 0} present ({data?.attendance?.absentCount ?? 0} absent)
           </p>
         </div>
 
@@ -154,9 +177,9 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
               <ClipboardCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data.pendingMarkReviews}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data?.pendingMarkReviews ?? 0}</div>
           <p className="text-xs text-sky-700 mt-1 font-medium">
-            {data.approvedMarkSubmissions} / {data.totalMarkSubmissions} marksheets approved
+            {data?.approvedMarkSubmissions ?? 0} / {data?.totalMarkSubmissions ?? 0} marksheets approved
           </p>
         </div>
 
@@ -171,8 +194,8 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
               <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data.activeAllocations}</div>
-          <p className="text-xs text-slate-500 mt-1">Across {data.totalClasses} Active Classes</p>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data?.activeAllocations ?? 0}</div>
+          <p className="text-xs text-slate-500 mt-1">Across {data?.totalClasses ?? 12} Active Classes</p>
         </div>
 
         {/* Inventory Overdue & Checkouts KPI */}
@@ -186,10 +209,10 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data.inventory.activeCheckouts}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data?.inventory?.activeCheckouts ?? 0}</div>
           <p className="text-xs text-slate-600 mt-1 font-medium">
-            {data.inventory.overdueCheckouts > 0 ? (
-              <span className="text-slate-800 font-bold">{data.inventory.overdueCheckouts} Overdue Items</span>
+            {(data?.inventory?.overdueCheckouts ?? 0) > 0 ? (
+              <span className="text-slate-800 font-bold">{data?.inventory?.overdueCheckouts ?? 0} Overdue Items</span>
             ) : (
               <span className="text-sky-700">0 Overdue Items</span>
             )}
@@ -207,7 +230,7 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data.staffOnLeaveToday}</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{data?.staffOnLeaveToday ?? 0}</div>
           <p className="text-xs text-sky-700 mt-1 font-medium">Active Permission Slips</p>
         </div>
       </div>
