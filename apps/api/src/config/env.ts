@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+process.env.TZ = process.env.TZ || 'Africa/Nairobi';
+
 export const env = {
   PORT: process.env.PORT || '5000',
   DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/school_db',

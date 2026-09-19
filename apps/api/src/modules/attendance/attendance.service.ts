@@ -281,7 +281,7 @@ export class AttendanceService {
     const [settings] = await db.select().from(systemSettings).limit(1);
     const schoolName = settings?.schoolName || 'Eldoret Muslim Academy';
 
-    const message = `Dear Parent, your child ${studentName} was marked ABSENT at ${schoolName} today (${new Date().toLocaleDateString()}). Please contact the school if you have any questions.`;
+    const message = `Dear Parent, your child ${studentName} was marked ABSENT at ${schoolName} today (${new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' })}). Please contact the school if you have any questions.`;
 
     const smsLog = await SmsService.sendSms(guardianPhone, message, studentId, guardianId);
     return smsLog;

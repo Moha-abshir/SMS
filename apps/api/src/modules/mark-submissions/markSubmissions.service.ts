@@ -668,7 +668,7 @@ export class MarkSubmissionsService {
       throw new Error(`Correction requests can only be sent for 'SUBMITTED' marksheets (current: ${sub.status})`);
     }
 
-    const note = `[Teacher Request - ${new Date().toLocaleDateString()}]: ${reason}`;
+    const note = `[Teacher Request - ${new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' })}]: ${reason}`;
     const [updated] = await db
       .update(markSubmissions)
       .set({

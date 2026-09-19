@@ -23,6 +23,22 @@ export class InvitationError extends Error {
   }
 }
 
+/**
+ * Formats a Date in East Africa Time (Africa/Nairobi, UTC+3) for Kenyan institutional correspondence
+ */
+export function formatKenyanDateTime(date: Date): string {
+  return `${date.toLocaleString('en-US', {
+    timeZone: 'Africa/Nairobi',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })} EAT`;
+}
+
 export class InvitationsService {
   /**
    * Generates a 32-byte secure random hex token
@@ -159,7 +175,7 @@ export class InvitationsService {
       newInvitation.firstName,
       roleRecord.name,
       inviteUrl,
-      expiresAt.toLocaleString()
+      formatKenyanDateTime(expiresAt)
     );
 
     return { invitation: newInvitation, emailSent };
@@ -201,7 +217,7 @@ export class InvitationsService {
       inv.firstName,
       roleRecord?.name || 'Staff Member',
       inviteUrl,
-      expiresAt.toLocaleString()
+      formatKenyanDateTime(expiresAt)
     );
 
     return { success: true, emailSent };
