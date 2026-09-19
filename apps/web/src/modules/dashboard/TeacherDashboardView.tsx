@@ -123,9 +123,20 @@ export const TeacherDashboardView: React.FC = () => {
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-sky-700 border border-sky-200 uppercase">
                     {classTeacher.levelCategory?.replace('_', ' ')}
                   </span>
+                  {classTeacher.isStandingIn && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 uppercase">
+                      Standing-In
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500">
-                  You are the assigned Class Teacher for {classTeacher.studentCount} active enrolled learners.
+                  {classTeacher.isStandingIn ? (
+                    <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                      You are the temporary Standing-In Class Teacher (covering for {classTeacher.standingInFor || 'assigned teacher'}) for {classTeacher.studentCount} active enrolled learners.
+                    </span>
+                  ) : (
+                    `You are the assigned Class Teacher for ${classTeacher.studentCount} active enrolled learners.`
+                  )}
                 </p>
               </div>
             </div>

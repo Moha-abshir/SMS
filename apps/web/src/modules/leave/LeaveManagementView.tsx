@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Plus, CheckCircle, Printer, FileText, X, Eye, UserCheck, Calendar, FileCheck } from 'lucide-react';
+import { Clock, Plus, CheckCircle, Printer, FileText, X, Eye, UserCheck, Calendar, FileCheck, ShieldAlert } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { printElement } from '../../lib/printElement';
 
 export const LeaveManagementView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [markingReturnId, setMarkingReturnId] = useState<string | null>(null);
   const [printSlipData, setPrintSlipData] = useState<{
     request: any;
     teacher: any;
@@ -19,13 +22,24 @@ export const LeaveManagementView: React.FC = () => {
     settings: any;
   } | null>(null);
 
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
   const [form, setForm] = useState({
     teacherId: '',
     leaveType: 'PERSONAL',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
-    departureTime: '08:30 AM',
-    duration: '2 Hours',
+    departureTime: '',
+    durationValue: 2,
+    durationUnit: 'Hours' as 'Hours' | 'Days',
     standingInTeacherId: '',
     reason1: '',
     reason2: '',
@@ -38,13 +52,15 @@ export const LeaveManagementView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [reqRes, stfRes] = await Promise.all([
+      const [reqRes, stfRes, allocRes] = await Promise.all([
         apiClient.get('/api/leave-requests'),
         apiClient.get('/api/staff'),
+        apiClient.get('/api/allocations').catch(() => ({ data: { data: { classes: [] } } })),
       ]);
 
       setRequests(reqRes.data.data || []);
       setTeachers(stfRes.data.data?.staff || []);
+      setClasses(allocRes.data?.data?.classes || []);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load leave requests');
     } finally {
@@ -56,10 +72,44 @@ export const LeaveManagementView: React.FC = () => {
     fetchData();
   }, []);
 
+  // Map of teacherId -> class object for quick class teacher detection
+  const classTeacherMap = new Map<string, any>();
+  classes.forEach((cItem: any) => {
+    const teacherId = cItem.classTeacher?.id || cItem.class?.classTeacherId;
+    if (teacherId) {
+      classTeacherMap.set(teacherId, cItem.class);
+    }
+  });
+
+  const selectedTeacherClass = form.teacherId ? classTeacherMap.get(form.teacherId) : null;
+
+  const handleOpenModal = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setForm({
+      teacherId: '',
+      leaveType: 'PERSONAL',
+      startDate: todayStr,
+      endDate: todayStr,
+      departureTime: getCurrentTimeString(),
+      durationValue: 2,
+      durationUnit: 'Hours',
+      standingInTeacherId: '',
+      reason1: '',
+      reason2: '',
+      reason3: '',
+      deputyReason: '',
+    });
+    setShowModal(true);
+  };
+
   const handleCreateLeave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.teacherId) {
       toast.error('Please select a teacher');
+      return;
+    }
+    if (selectedTeacherClass && !form.standingInTeacherId) {
+      toast.error(`Please select a standing-in teacher to take over ${selectedTeacherClass.name}`);
       return;
     }
     if (!form.reason1.trim()) {
@@ -71,6 +121,11 @@ export const LeaveManagementView: React.FC = () => {
     if (form.reason2.trim()) reasons.push(form.reason2.trim());
     if (form.reason3.trim()) reasons.push(form.reason3.trim());
 
+    const unitLabel = form.durationValue === 1
+      ? (form.durationUnit === 'Hours' ? 'Hour' : 'Day')
+      : form.durationUnit;
+    const durationStr = `${form.durationValue} ${unitLabel}`;
+
     try {
       setSubmitting(true);
       await apiClient.post('/api/leave-requests', {
@@ -78,33 +133,33 @@ export const LeaveManagementView: React.FC = () => {
         leaveType: form.leaveType,
         startDate: form.startDate,
         endDate: form.endDate,
-        departureTime: form.departureTime,
-        duration: form.duration,
-        standingInTeacherId: form.standingInTeacherId || undefined,
+        departureTime: form.departureTime || getCurrentTimeString(),
+        duration: durationStr,
+        standingInTeacherId: selectedTeacherClass ? form.standingInTeacherId : undefined,
         reasons,
         reason: reasons.join('; '),
         deputyReason: form.deputyReason || 'Approved official leave request',
       });
       toast.success('Official Teacher Leave-Out Sheet logged & approved');
       setShowModal(false);
-      setForm({
-        teacherId: '',
-        leaveType: 'PERSONAL',
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        departureTime: '08:30 AM',
-        duration: '2 Hours',
-        standingInTeacherId: '',
-        reason1: '',
-        reason2: '',
-        reason3: '',
-        deputyReason: '',
-      });
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to log leave request');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleMarkReportedBack = async (leaveId: string) => {
+    try {
+      setMarkingReturnId(leaveId);
+      await apiClient.put(`/api/leave-requests/${leaveId}/report-back`);
+      toast.success('Teacher marked as reported back. Class teacher roles restored.');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to record return');
+    } finally {
+      setMarkingReturnId(null);
     }
   };
 
@@ -177,7 +232,7 @@ export const LeaveManagementView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setShowModal(true)}
+          onClick={handleOpenModal}
           className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -186,82 +241,118 @@ export const LeaveManagementView: React.FC = () => {
       </div>
 
       {/* Leave Requests Table */}
-      <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+      <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-sky-600" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             Teacher Leave History ({requests.length} Records)
           </h3>
-          <span className="text-xs text-slate-500 font-medium">Standardized Official Academy Format</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Standardized Official Academy Format</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[720px]">
-            <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
+          <table className="w-full text-left text-xs min-w-[760px]">
+            <thead className="bg-sky-50/80 dark:bg-[#0c1830] text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#162b4d]">
               <tr>
                 <th className="py-3.5 px-4">Teacher Name</th>
                 <th className="py-3.5 px-4">Departure & Duration</th>
                 <th className="py-3.5 px-4">Standing-In Teacher</th>
                 <th className="py-3.5 px-4">Reasons</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-center">Status & Return</th>
                 <th className="py-3.5 px-4 text-center">Printable Slip</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-sky-100/60">
+            <tbody className="divide-y divide-sky-100/60 dark:divide-[#162b4d]">
               {requests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 italic">
+                  <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
                     No teacher leave-outs recorded yet.
                   </td>
                 </tr>
               ) : (
                 requests.map((row) => (
-                  <tr key={row.request.id} className="hover:bg-sky-50/40 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-800">
-                      {row.teacher.firstName} {row.teacher.lastName}
-                    </td>
+                  <tr key={row.request.id} className="hover:bg-sky-50/40 dark:hover:bg-[#0f2042] transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800">
-                        {formatDate(row.request.startDate)} at {row.request.departureTime || 'Morning'}
+                      <div className="font-bold text-slate-800 dark:text-slate-100">
+                        {row.teacher.firstName} {row.teacher.lastName}
                       </div>
-                      <span className="text-[11px] text-sky-700 font-mono">
-                        {row.request.duration || 'Full Day'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-700 font-medium">
-                      {row.standingInTeacher ? (
-                        <span className="inline-flex items-center gap-1">
-                          <UserCheck className="w-3.5 h-3.5 text-sky-600" />
-                          {row.standingInTeacher.firstName} {row.standingInTeacher.lastName}
+                      {row.classTeacherOf && (
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-[#201804] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-[#523d06]">
+                          Class Teacher: {row.classTeacherOf.name}
                         </span>
-                      ) : (
-                        <span className="text-slate-400 italic">None assigned</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-800 dark:text-slate-100">
+                        {formatDate(row.request.startDate)} at {row.departureTime || 'Morning'}
+                      </div>
+                      <span className="text-[11px] text-sky-700 dark:text-sky-300 font-mono">
+                        {row.duration || 'Full Day'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-medium">
+                      {row.standingInTeacher ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-100">
+                            <UserCheck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                            {row.standingInTeacher.firstName} {row.standingInTeacher.lastName}
+                          </span>
+                          {row.classTeacherOf && !row.isReturned && (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                              Acting Class Teacher for {row.classTeacherOf.name}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 dark:text-slate-500 italic">Not required (Subject Specialist)</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 max-w-xs truncate">
                       {row.request.reasons && row.request.reasons.length > 0
                         ? row.request.reasons.join('; ')
                         : row.request.reason || '—'}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full ${
-                          row.request.status === 'APPROVED'
-                            ? 'bg-sky-50 border border-sky-200 text-sky-700'
-                            : row.request.status === 'REJECTED'
-                            ? 'bg-slate-100 border border-slate-200 text-slate-600'
-                            : 'bg-sky-100/70 border border-sky-200 text-sky-800'
-                        }`}
-                      >
-                        {row.request.status}
-                      </span>
+                      {row.isReturned ? (
+                        <div className="flex flex-col items-center">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50">
+                            <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            Reported Back
+                          </span>
+                          {row.returnedAt && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-mono">
+                              {formatDate(row.returnedAt)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50">
+                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            Away (Active)
+                          </span>
+                          <button
+                            onClick={() => handleMarkReportedBack(row.request.id)}
+                            disabled={markingReturnId === row.request.id}
+                            className="px-2.5 py-1 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                            title="Mark teacher as reported back to school"
+                          >
+                            {markingReturnId === row.request.id ? (
+                              <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <UserCheck className="w-3 h-3" />
+                            )}
+                            <span>Mark Reported Back</span>
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <button
                         onClick={() => handleOpenPrintSlip(row.request.id)}
-                        className="px-3 py-1.5 bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 font-bold text-xs rounded-xl flex items-center gap-1 mx-auto transition-colors shadow-xs cursor-pointer"
+                        className="px-3 py-1.5 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] font-bold text-xs rounded-xl flex items-center gap-1 mx-auto transition-colors shadow-xs cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5 text-sky-600" /> Leave Sheet
+                        <Eye className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Leave Sheet
                       </button>
                     </td>
                   </tr>
@@ -280,50 +371,71 @@ export const LeaveManagementView: React.FC = () => {
         maxWidth="max-w-2xl"
       >
         <form onSubmit={handleCreateLeave} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className={selectedTeacherClass ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Teacher Seeking Permission *
               </label>
-              <select
+              <SearchableSelect
                 required
                 value={form.teacherId}
-                onChange={(e) => setForm({ ...form, teacherId: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-              >
-                <option value="">-- Select Teacher --</option>
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.firstName} {t.lastName}{t.phoneNumber ? ` (${t.phoneNumber})` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => {
+                  const isCt = classTeacherMap.has(val);
+                  setForm({
+                    ...form,
+                    teacherId: val,
+                    standingInTeacherId: isCt ? form.standingInTeacherId : '',
+                  });
+                }}
+                placeholder="-- Select Teacher --"
+                searchPlaceholder="Search teacher by name or phone..."
+                options={teachers.map((t) => {
+                  const ct = classTeacherMap.get(t.id);
+                  return {
+                    value: t.id,
+                    label: `${t.firstName} ${t.lastName}`,
+                    badge: ct ? `Class Teacher (${ct.name})` : 'Teacher',
+                    sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
+                  };
+                })}
+              />
+              {selectedTeacherClass && (
+                <div className="mt-2 p-2.5 rounded-xl bg-amber-50 dark:bg-[#1f1906] border border-amber-200 dark:border-[#63490b] text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="leading-snug">
+                    <span className="font-bold">Assigned Class Teacher: </span>
+                    <span>This teacher is the class teacher for <strong>{selectedTeacherClass.name}</strong>. A Standing-In Teacher is required to temporarily hold all class teacher responsibilities until return.</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Standing-In Teacher in Absence
-              </label>
-              <select
-                value={form.standingInTeacherId}
-                onChange={(e) => setForm({ ...form, standingInTeacherId: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-              >
-                <option value="">-- Select Standing-In Teacher --</option>
-                {teachers
-                  .filter((t) => t.id !== form.teacherId)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.firstName} {t.lastName}{t.phoneNumber ? ` (${t.phoneNumber})` : ''}
-                    </option>
-                  ))}
-              </select>
-            </div>
+            {selectedTeacherClass && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Standing-In Teacher in Absence *
+                </label>
+                <SearchableSelect
+                  required
+                  value={form.standingInTeacherId}
+                  onChange={(val) => setForm({ ...form, standingInTeacherId: val })}
+                  placeholder="-- Select Standing-In Teacher --"
+                  searchPlaceholder="Search standing-in teacher..."
+                  options={teachers
+                    .filter((t) => t.id !== form.teacherId)
+                    .map((t) => ({
+                      value: t.id,
+                      label: `${t.firstName} ${t.lastName}`,
+                      sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
+                    }))}
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Departure Date *
               </label>
               <input
@@ -331,82 +443,97 @@ export const LeaveManagementView: React.FC = () => {
                 required
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value, endDate: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Departure Time *
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. 09:30 AM"
+                placeholder="e.g. 08:30 AM"
                 value={form.departureTime}
                 onChange={(e) => setForm({ ...form, departureTime: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Duration (hours/days) *
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Duration *
               </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. 2 hours, 1 day"
-                value={form.duration}
-                onChange={(e) => setForm({ ...form, duration: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="Qty"
+                  value={form.durationValue}
+                  onChange={(e) => setForm({ ...form, durationValue: Math.max(1, parseInt(e.target.value) || 1) })}
+                  className="w-20 bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                />
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={form.durationUnit}
+                    onChange={(val) => setForm({ ...form, durationUnit: val as 'Hours' | 'Days' })}
+                    placeholder="Unit"
+                    searchPlaceholder="Search unit..."
+                    options={[
+                      { value: 'Hours', label: form.durationValue === 1 ? 'Hour' : 'Hours' },
+                      { value: 'Days', label: form.durationValue === 1 ? 'Day' : 'Days' },
+                    ]}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
           {/* 3 Numbered Reasons matching physical slip */}
-          <div className="p-3.5 bg-sky-50/50 border border-sky-100 rounded-2xl space-y-2.5">
-            <span className="text-xs font-bold text-sky-900 block">
+          <div className="p-3.5 bg-sky-50/50 dark:bg-[#0c1830]/60 border border-sky-100 dark:border-[#162b4d] rounded-2xl space-y-2.5">
+            <span className="text-xs font-bold text-sky-900 dark:text-sky-300 block">
               Reasons for Seeking Permission (Numbered lines on Leave Out Sheet):
             </span>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">1. Primary Reason *</label>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">1. Primary Reason *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Official Ministry of Education cluster briefing..."
                 value={form.reason1}
                 onChange={(e) => setForm({ ...form, reason1: e.target.value })}
-                className="w-full bg-white border border-sky-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">2. Second Reason (Optional)</label>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">2. Second Reason (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. Follow up on student examination registration materials..."
                 value={form.reason2}
                 onChange={(e) => setForm({ ...form, reason2: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#091326] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">3. Third Reason (Optional)</label>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-0.5">3. Third Reason (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. Medical consultation..."
                 value={form.reason3}
                 onChange={(e) => setForm({ ...form, reason3: e.target.value })}
-                className="w-full bg-white border border-sky-100 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#091326] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Deputy / Headteacher Approval Note
             </label>
             <input
@@ -414,22 +541,22 @@ export const LeaveManagementView: React.FC = () => {
               placeholder="e.g. Approved official duties out of school premises"
               value={form.deputyReason}
               onChange={(e) => setForm({ ...form, deputyReason: e.target.value })}
-              className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100 dark:border-[#162b4d]">
             <button
               type="button"
               onClick={() => setShowModal(false)}
-              className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white dark:bg-[#0d1c38] border border-sky-200 dark:border-[#1d3863] hover:bg-sky-50 dark:hover:bg-[#13274c] text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               Save & Generate Slip
