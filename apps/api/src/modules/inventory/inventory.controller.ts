@@ -4,8 +4,17 @@ import { InventoryService } from './inventory.service.js';
 export class InventoryController {
   static async getItems(req: Request, res: Response) {
     try {
-      const items = await InventoryService.getItems();
-      return res.status(200).json({ success: true, data: items });
+      const search = req.query.search as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const all = req.query.all === 'true';
+
+      const result = await InventoryService.getItems({ search, limit, offset, all });
+      return res.status(200).json({
+        success: true,
+        data: result.items,
+        pagination: result.pagination,
+      });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message || 'Failed to fetch inventory items' });
     }

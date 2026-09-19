@@ -1,13 +1,53 @@
 import { db } from '../../config/db.js';
-import { inventoryItems, inventoryCheckouts, users, eq, isNull, desc } from '@school/shared';
+import { inventoryItems, inventoryCheckouts, users, eq, isNull, desc, and, or, ilike, count } from '@school/shared';
 
 export class InventoryService {
-  static async getItems() {
-    return await db
+  static async getItems(options?: { search?: string; limit?: number; offset?: number; all?: boolean }) {
+    const { search, limit, offset = 0, all = false } = options || {};
+
+    const trimmedSearch = search?.trim();
+    const searchFilter = trimmedSearch
+      ? or(
+          ilike(inventoryItems.name, `%${trimmedSearch}%`),
+          ilike(inventoryItems.category, `%${trimmedSearch}%`),
+          ilike(inventoryItems.description, `%${trimmedSearch}%`)
+        )
+      : undefined;
+
+    const whereClause = searchFilter
+      ? and(isNull(inventoryItems.deletedAt), searchFilter)
+      : isNull(inventoryItems.deletedAt);
+
+    // 1. Get total count
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(inventoryItems)
+      .where(whereClause);
+
+    const total = Number(countResult?.count || 0);
+
+    // 2. Query items
+    let query = db
       .select()
       .from(inventoryItems)
-      .where(isNull(inventoryItems.deletedAt))
+      .where(whereClause)
       .orderBy(inventoryItems.name);
+
+    if (!all && limit !== undefined && limit > 0) {
+      query = (query as any).limit(limit).offset(offset);
+    }
+
+    const items = await query;
+
+    return {
+      items,
+      pagination: {
+        total,
+        limit: all ? total : (limit ?? total),
+        offset,
+        hasMore: offset + items.length < total,
+      },
+    };
   }
 
   static async createItem(data: {
