@@ -46,6 +46,16 @@ export class InvitationsController {
     }
   }
 
+  static async deleteInvitation(req: Request, res: Response) {
+    try {
+      const result = await InvitationsService.deleteInvitation(req.params.id);
+      res.json({ success: true, message: 'Staff invitation deleted successfully', data: result });
+    } catch (error: any) {
+      console.error('Error deleting invitation:', error);
+      res.status(400).json({ success: false, message: error.message || 'Failed to delete invitation' });
+    }
+  }
+
   static async validateInvitation(req: Request, res: Response) {
     try {
       const { email, token } = req.body;

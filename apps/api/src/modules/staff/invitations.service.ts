@@ -227,6 +227,25 @@ export class InvitationsService {
   }
 
   /**
+   * Permanently deletes an unaccepted staff invitation (e.g. expired or cancelled)
+   */
+  static async deleteInvitation(invitationId: string) {
+    const inv = await db.query.invitations.findFirst({ where: eq(invitations.id, invitationId) });
+    if (!inv) throw new InvitationError('INVITATION_NOT_FOUND', 'Invitation not found');
+    if (inv.status === 'ACCEPTED') {
+      throw new InvitationError('INVITATION_ACCEPTED', 'Cannot delete an accepted invitation with an active user account');
+    }
+
+    // Delete related invitation subjects first (also cascade-protected)
+    await db.delete(invitationSubjects).where(eq(invitationSubjects.invitationId, invitationId));
+
+    // Permanently remove the invitation record
+    await db.delete(invitations).where(eq(invitations.id, invitationId));
+
+    return { success: true, deletedEmail: inv.email, id: invitationId };
+  }
+
+  /**
    * Validates an invitation token (Readonly Check)
    */
   static async validateInvitation(email: string, rawToken: string) {

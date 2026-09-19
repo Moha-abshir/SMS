@@ -16,6 +16,7 @@ router.get('/', StaffController.getAllStaff);
 router.post('/invitations', InvitationsController.createInvitation);
 router.post('/invitations/:id/resend', InvitationsController.resendInvitation);
 router.post('/invitations/:id/cancel', InvitationsController.cancelInvitation);
+router.delete('/invitations/:id', InvitationsController.deleteInvitation);
 
 // Administrator-Initiated Password, 2FA, & Email Recovery Reset
 router.post('/:id/password-reset-request', authorizePermission('users.password_reset'), PasswordResetController.initiatePasswordReset);

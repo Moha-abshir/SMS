@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -21,6 +21,8 @@ export const StaffManagementView: React.FC = () => {
   const [show2FaResetModal, setShow2FaResetModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [invitationToDelete, setInvitationToDelete] = useState<any | null>(null);
+  const [deletingInvitation, setDeletingInvitation] = useState(false);
 
   const currentUser = (() => {
     try {
@@ -179,6 +181,21 @@ export const StaffManagementView: React.FC = () => {
       fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to cancel invitation');
+    }
+  };
+
+  const handleDeleteInvitation = async () => {
+    if (!invitationToDelete) return;
+    setDeletingInvitation(true);
+    try {
+      await apiClient.delete(`/api/staff/invitations/${invitationToDelete.id}`);
+      toast.success(`Staff invitation for ${invitationToDelete.firstName} ${invitationToDelete.lastName} deleted successfully`);
+      setInvitationToDelete(null);
+      fetchStaff();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete invitation');
+    } finally {
+      setDeletingInvitation(false);
     }
   };
 
@@ -447,23 +464,50 @@ export const StaffManagementView: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            {(s.invitationStatus === 'PENDING' || s.invitationStatus === 'EXPIRED') && (
+                            {s.invitationStatus === 'PENDING' && (
                               <>
                                 <button
                                   onClick={() => handleResendInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                  className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                                   title="Resend Invitation"
                                 >
                                   <Send className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleCancelInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                                   title="Cancel Invitation"
                                 >
                                   <Ban className="w-4 h-4" />
                                 </button>
                               </>
+                            )}
+                            {s.invitationStatus === 'EXPIRED' && (
+                              <>
+                                <button
+                                  onClick={() => handleResendInvitation(s.id)}
+                                  className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Resend Invitation (60 mins)"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setInvitationToDelete(s)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete Expired Staff Member"
+                                >
+                                  <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
+                                </button>
+                              </>
+                            )}
+                            {s.invitationStatus === 'CANCELLED' && (
+                              <button
+                                onClick={() => setInvitationToDelete(s)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Cancelled Staff Member"
+                              >
+                                <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
+                              </button>
                             )}
                           </>
                         )}
@@ -857,6 +901,71 @@ export const StaffManagementView: React.FC = () => {
         onClose={() => setShowSubjectModal(false)}
         onSubjectsUpdated={fetchStaff}
       />
+
+      {/* Delete Staff Member (Expired / Cancelled Invitation) Confirmation Modal */}
+      {invitationToDelete && (
+        <Modal
+          isOpen={!!invitationToDelete}
+          onClose={() => !deletingInvitation && setInvitationToDelete(null)}
+          title="Delete Inactive Staff Member"
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-rose-800 space-y-1">
+                <p className="font-bold">Permanent Deletion</p>
+                <p>
+                  Are you sure you want to delete this staff member? This will permanently remove the expired invitation record from the school directory, ensuring inactive accounts do not linger in the system.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-sky-50/50 border border-sky-100 rounded-xl space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Staff Member:</span>
+                <span className="font-bold text-slate-800">{invitationToDelete.firstName} {invitationToDelete.lastName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Assigned Role:</span>
+                <span className="font-semibold text-sky-700">{invitationToDelete.roleName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Email:</span>
+                <span className="font-mono text-slate-700">{invitationToDelete.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Status:</span>
+                <span className="font-extrabold text-rose-600 uppercase">{invitationToDelete.invitationStatus}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-sky-100">
+              <button
+                type="button"
+                onClick={() => setInvitationToDelete(null)}
+                disabled={deletingInvitation}
+                className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteInvitation}
+                disabled={deletingInvitation}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deletingInvitation ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </motion.div>
   );
