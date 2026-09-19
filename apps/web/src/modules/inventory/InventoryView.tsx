@@ -2,20 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Package, Plus, RotateCcw, Layers, BookOpen,
-  Search, X, ChevronDown, ArrowUpRight
+  Search, X, ChevronDown, ArrowUpRight, Pencil
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 export const InventoryView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
   const [allItemsForCheckout, setAllItemsForCheckout] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [checkouts, setCheckouts] = useState<any[]>([]);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
 
   // Pagination and database search state
   const [pagination, setPagination] = useState({
@@ -36,6 +40,13 @@ export const InventoryView: React.FC = () => {
     totalQuantity: 1,
   });
 
+  const [editForm, setEditForm] = useState({
+    name: '',
+    category: 'Textbooks',
+    description: '',
+    totalQuantity: 1,
+  });
+
   const [checkoutForm, setCheckoutForm] = useState({
     itemId: '',
     checkedOutTo: '',
@@ -46,27 +57,29 @@ export const InventoryView: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  // Initial load: 5 items catalog + checkouts + full items list for checkout dropdown
+  // Initial load: 5 items catalog + checkouts + full items list for checkout dropdown + teachers
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [itRes, chkRes, allItRes] = await Promise.all([
+      const [itRes, chkRes, allItRes, allocRes] = await Promise.all([
         apiClient.get('/api/inventory/items', { params: { limit: 5, offset: 0 } }),
         apiClient.get('/api/inventory/checkouts'),
         apiClient.get('/api/inventory/items', { params: { all: 'true' } }),
+        apiClient.get('/api/allocations').catch(() => ({ data: { data: { teachers: [] } } })),
       ]);
 
-      setItems(itRes.data.data || []);
-      setPagination(
-        itRes.data.pagination || {
-          total: (itRes.data.data || []).length,
-          limit: 5,
-          offset: 0,
-          hasMore: false,
-        }
-      );
+      const initialBatch = (itRes.data.data || []).slice(0, 5);
+      const totalCount = itRes.data.pagination?.total ?? (itRes.data.data || []).length;
+      setItems(initialBatch);
+      setPagination({
+        total: totalCount,
+        limit: 5,
+        offset: 0,
+        hasMore: initialBatch.length < totalCount,
+      });
       setCheckouts(chkRes.data.data || []);
       setAllItemsForCheckout(allItRes.data.data || itRes.data.data || []);
+      setTeachers(allocRes.data?.data?.teachers || []);
       setActiveSearch('');
       setSearchTerm('');
     } catch (error: any) {
@@ -88,15 +101,15 @@ export const InventoryView: React.FC = () => {
       const res = await apiClient.get('/api/inventory/items', {
         params: { search: searchTerm.trim() || undefined, limit: 5, offset: 0 },
       });
-      setItems(res.data.data || []);
-      setPagination(
-        res.data.pagination || {
-          total: (res.data.data || []).length,
-          limit: 5,
-          offset: 0,
-          hasMore: false,
-        }
-      );
+      const searchBatch = (res.data.data || []).slice(0, 5);
+      const totalCount = res.data.pagination?.total ?? searchBatch.length;
+      setItems(searchBatch);
+      setPagination({
+        total: totalCount,
+        limit: 5,
+        offset: 0,
+        hasMore: searchBatch.length < totalCount,
+      });
       setActiveSearch(searchTerm.trim());
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Search failed');
@@ -113,15 +126,15 @@ export const InventoryView: React.FC = () => {
       const res = await apiClient.get('/api/inventory/items', {
         params: { limit: 5, offset: 0 },
       });
-      setItems(res.data.data || []);
-      setPagination(
-        res.data.pagination || {
-          total: (res.data.data || []).length,
-          limit: 5,
-          offset: 0,
-          hasMore: false,
-        }
-      );
+      const initialBatch = (res.data.data || []).slice(0, 5);
+      const totalCount = res.data.pagination?.total ?? initialBatch.length;
+      setItems(initialBatch);
+      setPagination({
+        total: totalCount,
+        limit: 5,
+        offset: 0,
+        hasMore: initialBatch.length < totalCount,
+      });
     } catch (error: any) {
       toast.error('Failed to reset catalog list');
     } finally {
@@ -129,7 +142,7 @@ export const InventoryView: React.FC = () => {
     }
   };
 
-  // Load More pagination
+  // Load More pagination - strictly 5 items increment
   const handleLoadMore = async () => {
     try {
       setLoadingMore(true);
@@ -142,16 +155,21 @@ export const InventoryView: React.FC = () => {
         },
       });
 
-      const newItems = res.data.data || [];
-      setItems((prev) => [...prev, ...newItems]);
-      setPagination(
-        res.data.pagination || {
-          total: pagination.total,
-          limit: 5,
-          offset: nextOffset,
-          hasMore: nextOffset + newItems.length < pagination.total,
-        }
-      );
+      const newItems = (res.data.data || []).slice(0, 5);
+      setItems((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id));
+        const filtered = newItems.filter((i: any) => !existingIds.has(i.id));
+        return [...prev, ...filtered];
+      });
+
+      const totalCount = res.data.pagination?.total ?? pagination.total;
+      const loadedCount = items.length + newItems.length;
+      setPagination({
+        total: totalCount,
+        limit: 5,
+        offset: nextOffset,
+        hasMore: loadedCount < totalCount,
+      });
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load more items');
     } finally {
@@ -175,10 +193,42 @@ export const InventoryView: React.FC = () => {
     }
   };
 
+  const handleOpenEditModal = (item: any) => {
+    setEditingItem(item);
+    setEditForm({
+      name: item.name,
+      category: item.category,
+      description: item.description || '',
+      totalQuantity: item.totalQuantity,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    try {
+      setSubmitting(true);
+      await apiClient.put(`/api/inventory/items/${editingItem.id}`, editForm);
+      toast.success('Inventory item details updated');
+      setShowEditModal(false);
+      setEditingItem(null);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update item details');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleCreateCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutForm.itemId) {
       toast.error('Please select an inventory item');
+      return;
+    }
+    if (!checkoutForm.checkedOutTo) {
+      toast.error('Please select a teacher');
       return;
     }
     try {
@@ -207,8 +257,16 @@ export const InventoryView: React.FC = () => {
 
   const handleOpenCheckoutModal = async (preselectedItemId?: string) => {
     try {
-      const res = await apiClient.get('/api/inventory/items', { params: { all: 'true' } });
-      setAllItemsForCheckout(res.data.data || []);
+      const [allRes, allocRes] = await Promise.all([
+        apiClient.get('/api/inventory/items', { params: { all: 'true' } }),
+        teachers.length === 0
+          ? apiClient.get('/api/allocations').catch(() => ({ data: { data: { teachers: [] } } }))
+          : Promise.resolve({ data: { data: { teachers } } }),
+      ]);
+      setAllItemsForCheckout(allRes.data.data || []);
+      if (allocRes.data?.data?.teachers) {
+        setTeachers(allocRes.data.data.teachers);
+      }
     } catch {
       // Keep existing
     }
@@ -409,12 +467,12 @@ export const InventoryView: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => handleOpenCheckoutModal(row.id)}
-                      disabled={isOutOfStock}
-                      className="px-3 py-1.5 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs"
-                      title={isOutOfStock ? 'Item is completely checked out' : 'Checkout this item'}
+                      onClick={() => handleOpenEditModal(row)}
+                      className="px-3 py-1.5 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs flex items-center gap-1.5"
+                      title="Edit details of this item"
                     >
-                      Checkout
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Edit Details</span>
                     </button>
                   </div>
                 </div>
@@ -548,18 +606,20 @@ export const InventoryView: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Category *
               </label>
-              <select
+              <SearchableSelect
                 required
                 value={itemForm.category}
-                onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
-              >
-                <option value="Textbooks">Textbooks</option>
-                <option value="Brooms">Brooms & Sweepers</option>
-                <option value="Dustbins">Dustbins & Waste Bins</option>
-                <option value="Classroom Accessories">Classroom Accessories (Chalk/Erasers)</option>
-                <option value="Equipment">Sports & Science Equipment</option>
-              </select>
+                onChange={(val) => setItemForm({ ...itemForm, category: val })}
+                placeholder="-- Select Category --"
+                searchPlaceholder="Search category..."
+                options={[
+                  { value: 'Textbooks', label: 'Textbooks (CBC Curriculum)' },
+                  { value: 'Classroom Accessories', label: 'Classroom Accessories (Chalk/Erasers/Stationery)' },
+                  { value: 'Equipment', label: 'Sports, Science Lab & Electronics Equipment' },
+                  { value: 'Brooms', label: 'Brooms & Cleaning Gear' },
+                  { value: 'Dustbins', label: 'Dustbins & Waste Bins' },
+                ]}
+              />
             </div>
 
             <div>
@@ -617,33 +677,39 @@ export const InventoryView: React.FC = () => {
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Select Inventory Item *
             </label>
-            <select
+            <SearchableSelect
               required
               value={checkoutForm.itemId}
-              onChange={(e) => setCheckoutForm({ ...checkoutForm, itemId: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
-            >
-              <option value="">-- Select Item --</option>
-              {allItemsForCheckout.map((i) => (
-                <option key={i.id} value={i.id} disabled={i.availableQuantity <= 0}>
-                  {i.name} ({i.category}) — {i.availableQuantity} left
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setCheckoutForm({ ...checkoutForm, itemId: val })}
+              placeholder="-- Select Item --"
+              searchPlaceholder="Search catalog items..."
+              options={allItemsForCheckout.map((i) => ({
+                value: i.id,
+                label: i.name,
+                badge: i.category,
+                sublabel: `${i.availableQuantity} available in stock (Total: ${i.totalQuantity})`,
+                disabled: i.availableQuantity <= 0,
+              }))}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Checked Out To (Teacher Name / Class) *
+                Checked Out To (Teacher Name) *
               </label>
-              <input
-                type="text"
+              <SearchableSelect
                 required
-                placeholder="e.g. Mr. James (Grade 7 Teacher)"
                 value={checkoutForm.checkedOutTo}
-                onChange={(e) => setCheckoutForm({ ...checkoutForm, checkedOutTo: e.target.value })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                onChange={(val) => setCheckoutForm({ ...checkoutForm, checkedOutTo: val })}
+                placeholder="-- Select Teacher --"
+                searchPlaceholder="Search teacher by name or phone..."
+                options={teachers.map((t) => ({
+                  value: `${t.firstName} ${t.lastName}`,
+                  label: `${t.firstName} ${t.lastName}`,
+                  badge: 'Teacher',
+                  sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
+                }))}
               />
             </div>
 
@@ -689,6 +755,105 @@ export const InventoryView: React.FC = () => {
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
               Complete Checkout
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Item Details Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingItem(null);
+        }}
+        title="Edit Inventory Asset Details"
+      >
+        <form onSubmit={handleUpdateItem} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Item / Asset Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={editForm.name}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Category *
+              </label>
+              <SearchableSelect
+                required
+                value={editForm.category}
+                onChange={(val) => setEditForm({ ...editForm, category: val })}
+                placeholder="-- Select Category --"
+                searchPlaceholder="Search category..."
+                options={[
+                  { value: 'Textbooks', label: 'Textbooks (CBC Curriculum)' },
+                  { value: 'Classroom Accessories', label: 'Classroom Accessories (Chalk/Erasers/Stationery)' },
+                  { value: 'Equipment', label: 'Sports, Science Lab & Electronics Equipment' },
+                  { value: 'Brooms', label: 'Brooms & Cleaning Gear' },
+                  { value: 'Dustbins', label: 'Dustbins & Waste Bins' },
+                ]}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Total Quantity *
+              </label>
+              <input
+                type="number"
+                required
+                min={editingItem ? Math.max(1, editingItem.totalQuantity - editingItem.availableQuantity) : 1}
+                value={editForm.totalQuantity}
+                onChange={(e) => setEditForm({ ...editForm, totalQuantity: parseInt(e.target.value) || 1 })}
+                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              />
+              {editingItem && (
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                  Currently in use by teachers: {Math.max(0, editingItem.totalQuantity - editingItem.availableQuantity)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Description / Notes
+            </label>
+            <input
+              type="text"
+              value={editForm.description}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100 dark:border-[#162b4d]">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditModal(false);
+                setEditingItem(null);
+              }}
+              className="px-4 py-2 bg-white dark:bg-[#0d1c38] border border-sky-200 dark:border-[#1d3863] hover:bg-sky-50 dark:hover:bg-[#13274c] text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+              Save Changes
             </button>
           </div>
         </form>
