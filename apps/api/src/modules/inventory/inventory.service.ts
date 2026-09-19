@@ -70,6 +70,51 @@ export class InventoryService {
     return created;
   }
 
+  static async updateItem(id: string, data: {
+    name?: string;
+    category?: string;
+    description?: string;
+    totalQuantity?: number;
+  }) {
+    const [item] = await db
+      .select()
+      .from(inventoryItems)
+      .where(and(eq(inventoryItems.id, id), isNull(inventoryItems.deletedAt)));
+
+    if (!item) {
+      throw new Error('Inventory item not found');
+    }
+
+    const currentCheckedOut = Math.max(0, item.totalQuantity - item.availableQuantity);
+    let newTotalQuantity = item.totalQuantity;
+    let newAvailableQuantity = item.availableQuantity;
+
+    if (data.totalQuantity !== undefined) {
+      if (data.totalQuantity < currentCheckedOut) {
+        throw new Error(
+          `Cannot reduce total quantity to ${data.totalQuantity}. There are currently ${currentCheckedOut} units checked out.`
+        );
+      }
+      newTotalQuantity = data.totalQuantity;
+      newAvailableQuantity = newTotalQuantity - currentCheckedOut;
+    }
+
+    const [updated] = await db
+      .update(inventoryItems)
+      .set({
+        name: data.name ?? item.name,
+        category: data.category ?? item.category,
+        description: data.description !== undefined ? data.description : item.description,
+        totalQuantity: newTotalQuantity,
+        availableQuantity: newAvailableQuantity,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryItems.id, id))
+      .returning();
+
+    return updated;
+  }
+
   static async getCheckouts() {
     const list = await db
       .select({

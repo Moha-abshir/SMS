@@ -29,6 +29,16 @@ export class InventoryController {
     }
   }
 
+  static async updateItem(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const item = await InventoryService.updateItem(id, req.body);
+      return res.status(200).json({ success: true, data: item, message: 'Inventory item updated successfully' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to update inventory item' });
+    }
+  }
+
   static async getCheckouts(req: Request, res: Response) {
     try {
       const checkouts = await InventoryService.getCheckouts();
