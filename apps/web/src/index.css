@@ -65,3 +65,153 @@
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #0284c7;
 }
+
+/* ==========================================================================
+   Deep Navy Dark Mode Global System (Matches user specification & screenshots)
+   ========================================================================== */
+html.dark {
+  color-scheme: dark;
+}
+
+/* 1. Main Cards, Panels, Headers, and Modals */
+html.dark .bg-white,
+html.dark [class*="bg-white/"] {
+  background-color: rgb(9 19 38 / var(--tw-bg-opacity, 0.92)) !important;
+}
+
+/* 2. Inner Containers, Notice Boxes, Stat Pills, and Table Headers */
+html.dark .bg-sky-50,
+html.dark [class*="bg-sky-50/"],
+html.dark .bg-slate-50,
+html.dark [class*="bg-slate-50/"],
+html.dark .bg-slate-100 {
+  background-color: rgb(12 24 48 / var(--tw-bg-opacity, 0.85)) !important;
+}
+
+/* 3. Card and Component Borders */
+html.dark .border-sky-100,
+html.dark [class*="border-sky-100/"],
+html.dark .border-sky-200,
+html.dark [class*="border-sky-200/"],
+html.dark .border-slate-100,
+html.dark .border-slate-200 {
+  border-color: #162b4d !important;
+}
+
+html.dark [class*="divide-sky-100"] > :not([hidden]) ~ :not([hidden]),
+html.dark [class*="divide-slate-100"] > :not([hidden]) ~ :not([hidden]),
+html.dark [class*="divide-slate-200"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #162b4d !important;
+}
+
+/* 4. Text & Typography */
+html.dark .text-slate-900,
+html.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.dark .text-sky-900,
+html.dark .text-sky-800 {
+  color: #7dd3fc !important;
+}
+
+html.dark .text-sky-700,
+html.dark .text-sky-600 {
+  color: #38bdf8 !important;
+}
+
+/* 5. Hover States */
+html.dark [class*="hover:bg-sky-50"]:hover,
+html.dark [class*="hover:bg-sky-100"]:hover,
+html.dark [class*="hover:bg-slate-50"]:hover {
+  background-color: #0f2042 !important;
+}
+
+html.dark [class*="hover:border-sky-200"]:hover,
+html.dark [class*="hover:border-sky-300"]:hover {
+  border-color: #0284c7 !important;
+}
+
+/* 6. Form Controls (Inputs, Selects, Textareas) */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #0c1830 !important;
+  color: #f8fafc !important;
+  border-color: #1a335a !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark select option {
+  background-color: #091326 !important;
+  color: #f8fafc !important;
+}
+
+/* 7. Tables */
+html.dark table thead,
+html.dark table th {
+  background-color: #0c1830 !important;
+  color: #7dd3fc !important;
+  border-color: #162b4d !important;
+}
+
+html.dark table tbody tr:hover {
+  background-color: #0f2042 !important;
+}
+
+html.dark table td {
+  border-color: #162b4d !important;
+}
+
+/* 8. Status & Category Badges */
+html.dark .bg-sky-50.text-sky-700,
+html.dark [class*="bg-sky-50"][class*="text-sky-700"],
+html.dark [class*="bg-sky-50"][class*="text-sky-800"],
+html.dark [class*="bg-sky-50"][class*="text-sky-900"] {
+  background-color: #072648 !important;
+  color: #38bdf8 !important;
+  border-color: #0c4a6e !important;
+}
+
+html.dark [class*="bg-emerald-50"] {
+  background-color: rgba(6, 78, 59, 0.4) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(4, 120, 87, 0.5) !important;
+}
+
+html.dark [class*="bg-rose-50"],
+html.dark [class*="bg-red-50"] {
+  background-color: rgba(136, 19, 55, 0.4) !important;
+  color: #fda4af !important;
+  border-color: rgba(190, 18, 60, 0.5) !important;
+}
+
+html.dark [class*="bg-amber-50"],
+html.dark [class*="bg-yellow-50"] {
+  background-color: rgba(120, 53, 15, 0.4) !important;
+  color: #fcd34d !important;
+  border-color: rgba(180, 83, 9, 0.5) !important;
+}
+
+/* 9. Card Shadows */
+html.dark .shadow-glass,
+html.dark .shadow-glass-hover {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
