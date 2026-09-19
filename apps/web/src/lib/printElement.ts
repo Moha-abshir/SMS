@@ -50,7 +50,7 @@ export function printElement(elementOrId: string | HTMLElement, title: string = 
         <style>
           @page {
             size: A4 portrait;
-            margin: 12mm 15mm;
+            margin: ${element.id === 'contract-document' ? '0' : '12mm 15mm'};
           }
           * {
             box-sizing: border-box;
@@ -68,8 +68,19 @@ export function printElement(elementOrId: string | HTMLElement, title: string = 
           .no-print {
             display: none !important;
           }
-          /* Ensure document stretches naturally across pages without shadow or border */
-          #contract-document,
+          /* Ensure contract document has top space twice that of sides regardless of printer margin settings */
+          #contract-document {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 30mm 15mm 20mm 15mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            box-sizing: border-box !important;
+          }
+          /* Other printable sheets stretch naturally */
           #official-letter-paper,
           .printable-sheet,
           .printable-sheet-container {

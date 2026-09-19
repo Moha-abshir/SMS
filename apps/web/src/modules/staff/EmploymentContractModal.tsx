@@ -112,20 +112,21 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
             width: 100% !important;
             max-width: none !important;
             margin: 0 !important;
-            padding: 10mm 15mm !important;
+            padding: 30mm 15mm 20mm 15mm !important;
             border: none !important;
             box-shadow: none !important;
             background: white !important;
             color: black !important;
             font-size: 11pt !important;
             line-height: 1.45 !important;
+            box-sizing: border-box !important;
           }
           .no-print {
             display: none !important;
           }
           @page {
             size: A4 portrait;
-            margin: 10mm 10mm;
+            margin: 0;
           }
         }
       `}</style>
@@ -234,10 +235,11 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
               {/* The A4 document */}
               <div
                 id="contract-document"
-                className="bg-white text-black rounded-sm shadow-2xl shadow-black/30 border border-slate-300/50 p-5 sm:p-10 md:p-12 text-xs sm:text-[12.5px]"
+                className="bg-white text-black rounded-sm shadow-2xl shadow-black/30 border border-slate-300/50 pt-12 px-6 pb-8 sm:pt-20 sm:px-10 sm:pb-12 md:pt-24 md:px-12 md:pb-14 text-xs sm:text-[12.5px]"
                 style={{
                   fontFamily: "'Times New Roman', Times, serif",
                   lineHeight: '1.5',
+                  boxSizing: 'border-box',
                 }}
               >
                 {/* Official Letterhead Header with Logo on Left & Dynamic Details */}
