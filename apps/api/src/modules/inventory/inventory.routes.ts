@@ -7,9 +7,9 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/items', InventoryController.getItems);
-router.post('/items', authorizePermission('staff:manage'), InventoryController.createItem);
+router.post('/items', authorizePermission(['inventory:manage', 'staff:manage']), InventoryController.createItem);
 router.get('/checkouts', InventoryController.getCheckouts);
-router.post('/checkouts', authorizePermission('staff:manage'), InventoryController.checkoutItem);
-router.put('/checkouts/:id/return', authorizePermission('staff:manage'), InventoryController.returnItem);
+router.post('/checkouts', authorizePermission(['inventory:manage', 'staff:manage']), InventoryController.checkoutItem);
+router.put('/checkouts/:id/return', authorizePermission(['inventory:manage', 'staff:manage']), InventoryController.returnItem);
 
 export default router;

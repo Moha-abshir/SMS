@@ -82,20 +82,86 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 }
 
-export function authorizePermission(permissionCode: string) {
+export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
+  HEAD_TEACHER: ['*'],
+  DEPUTY_HEAD: [
+    'staff:manage',
+    'inventory:manage',
+    'leave:manage',
+    'allocations:manage',
+    'attendance:manage',
+    'marks:approve',
+    'marks:review',
+    'marks:entry',
+  ],
+  DEPUTY_HEAD_TEACHER: [
+    'staff:manage',
+    'inventory:manage',
+    'leave:manage',
+    'allocations:manage',
+    'attendance:manage',
+    'marks:approve',
+    'marks:review',
+    'marks:entry',
+  ],
+  DOS: [
+    'exams:manage',
+    'reports:lock',
+    'marks:approve',
+    'marks:review',
+    'marks:entry',
+    'attendance:manage',
+  ],
+  BURSAR: [
+    'finance:view',
+    'finance:record_payment',
+    'finance:reversal_approve',
+    'fees:structure-edit',
+  ],
+  SECRETARY: [
+    'students:create',
+    'students:approve',
+    'students:transfer',
+    'attendance:manage',
+    'staff:manage',
+  ],
+  TEACHER: [
+    'attendance:manage',
+    'marks:entry',
+  ],
+};
+
+export function authorizePermission(permissionCode: string | string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
+    const roleName = req.user.roleName;
+
     // HEAD_TEACHER has master access override
-    if (req.user.roleName === 'HEAD_TEACHER' || req.user.permissions.includes(permissionCode)) {
+    if (roleName === 'HEAD_TEACHER') {
       return next();
     }
 
+    const defaultRolePerms = ROLE_DEFAULT_PERMISSIONS[roleName] || [];
+    const userPerms = [...(req.user.permissions || []), ...defaultRolePerms];
+
+    if (userPerms.includes('*')) {
+      return next();
+    }
+
+    const requiredPerms = Array.isArray(permissionCode) ? permissionCode : [permissionCode];
+    const hasPermission = requiredPerms.some((perm) => userPerms.includes(perm));
+
+    if (hasPermission) {
+      return next();
+    }
+
+    const displayCode = Array.isArray(permissionCode) ? permissionCode.join(' or ') : permissionCode;
     return res.status(403).json({
       success: false,
-      message: `Access denied. Requires '${permissionCode}' permission.`,
+      message: `Access denied. Requires '${displayCode}' permission.`,
     });
   };
 }

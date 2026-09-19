@@ -8,7 +8,7 @@ router.use(authenticate);
 
 router.get('/', LeaveRequestsController.getLeaveRequests);
 router.get('/:id/print', LeaveRequestsController.getLeaveSlipPrintData);
-router.post('/', authorizePermission('staff:manage'), LeaveRequestsController.createLeaveRequest);
-router.put('/:id/status', authorizePermission('staff:manage'), LeaveRequestsController.updateLeaveStatus);
+router.post('/', authorizePermission(['leave:manage', 'staff:manage']), LeaveRequestsController.createLeaveRequest);
+router.put('/:id/status', authorizePermission(['leave:manage', 'staff:manage']), LeaveRequestsController.updateLeaveStatus);
 
 export default router;

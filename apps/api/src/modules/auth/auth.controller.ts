@@ -5,6 +5,7 @@ import { db } from '../../config/db.js';
 import { env } from '../../config/env.js';
 import { users, roles, loginSchema, verifyOtpSchema, eq } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
+import { ROLE_DEFAULT_PERMISSIONS } from '../../middleware/auth.js';
 
 export class AuthController {
   static async login(req: Request, res: Response) {
@@ -96,7 +97,7 @@ export class AuthController {
         roleId: user.roleId,
         roleName: roleName,
         tokenVersion: user.tokenVersion,
-        permissions: [], // Will populate based on role_permissions
+        permissions: ROLE_DEFAULT_PERMISSIONS[roleName] || [],
       };
 
       const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
