@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { BookOpen, Users, CheckCircle, ShieldAlert, Plus, Trash2, UserCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 export const AllocationView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -164,20 +165,22 @@ export const AllocationView: React.FC = () => {
                     <td className="py-3.5 px-4 font-bold text-sky-700 dark:text-sky-300">
                       {currentTeacher ? `${currentTeacher.firstName} ${currentTeacher.lastName}` : <span className="text-slate-400 dark:text-slate-500 italic">Unassigned</span>}
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <select
+                    <td className="py-3.5 px-4 text-left min-w-[240px]">
+                      <SearchableSelect
                         value={currentTeacher?.id || ''}
                         disabled={savingClassId === cls.id}
-                        onChange={(e) => handleAssignClassTeacher(cls.id, e.target.value)}
-                        className="bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
-                      >
-                        <option value="">-- Assign Class Teacher --</option>
-                        {data.teachers.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.firstName} {t.lastName}{t.phoneNumber ? ` (${t.phoneNumber})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(val) => handleAssignClassTeacher(cls.id, val)}
+                        placeholder="-- Assign Class Teacher --"
+                        searchPlaceholder="Search teacher..."
+                        options={[
+                          { value: '', label: '-- Unassign / None --' },
+                          ...data.teachers.map((t) => ({
+                            value: t.id,
+                            label: `${t.firstName} ${t.lastName}`,
+                            sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
+                          })),
+                        ]}
+                      />
                     </td>
                   </tr>
                 );

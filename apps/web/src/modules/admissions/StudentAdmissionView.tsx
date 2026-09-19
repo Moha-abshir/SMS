@@ -25,6 +25,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 interface ClassItem {
   id: string;
@@ -758,19 +759,18 @@ export const StudentAdmissionView: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Class Placement *
                 </label>
-                <select
+                <SearchableSelect
                   required
                   value={studentForm.classId}
-                  onChange={(e) => setStudentForm({ ...studentForm, classId: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-                >
-                  <option value="">-- Select Placement --</option>
-                  {classesList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({formatLevelTag(c.levelCategory)})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setStudentForm({ ...studentForm, classId: val })}
+                  placeholder="-- Select Placement --"
+                  searchPlaceholder="Search class placement..."
+                  options={classesList.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    badge: formatLevelTag(c.levelCategory),
+                  }))}
+                />
               </div>
 
               <div>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 interface StudentRegisterRow {
   studentId: string;
@@ -276,17 +277,17 @@ export const ClassRegisterView: React.FC = () => {
             <label className="block text-xs font-semibold text-slate-600 mb-1">
               Class Roster
             </label>
-            <select
+            <SearchableSelect
               value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full bg-white border border-sky-200 rounded-xl px-3 py-2 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all outline-hidden cursor-pointer"
-            >
-              {availableClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {assignedClass?.classId === c.id ? '(My Assigned Class)' : ''}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedClassId(val)}
+              placeholder="-- Select Class --"
+              searchPlaceholder="Search class..."
+              options={availableClasses.map((c) => ({
+                value: c.id,
+                label: c.name,
+                badge: assignedClass?.classId === c.id ? 'My Class' : undefined,
+              }))}
+            />
           </div>
 
           <div>

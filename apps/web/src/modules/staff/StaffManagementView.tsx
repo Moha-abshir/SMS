@@ -4,6 +4,7 @@ import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Se
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { EmploymentContractModal } from './EmploymentContractModal';
 import { SubjectManagementModal } from './SubjectManagementModal';
 
@@ -567,12 +568,17 @@ export const StaffManagementView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
-              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors">
-                <option value="" disabled>Select a role</option>
-                {roles.map(r => (
-                  <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                required
+                value={formData.roleId}
+                onChange={(val) => setFormData({ ...formData, roleId: val })}
+                placeholder="-- Select a role --"
+                searchPlaceholder="Search role..."
+                options={roles.map((r) => ({
+                  value: r.id,
+                  label: r.name.replace(/_/g, ' '),
+                }))}
+              />
             </div>
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Required for Teachers)</span></label>
@@ -675,12 +681,17 @@ export const StaffManagementView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
-              <select required value={formData.roleId} onChange={e => setFormData({...formData, roleId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors">
-                <option value="" disabled>Select a role</option>
-                {roles.map(r => (
-                  <option key={r.id} value={r.id}>{r.name.replace('_', ' ')}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                required
+                value={formData.roleId}
+                onChange={(val) => setFormData({ ...formData, roleId: val })}
+                placeholder="-- Select a role --"
+                searchPlaceholder="Search role..."
+                options={roles.map((r) => ({
+                  value: r.id,
+                  label: r.name.replace(/_/g, ' '),
+                }))}
+              />
             </div>
             <div className="flex flex-col justify-end">
               <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Teachers)</span></label>
