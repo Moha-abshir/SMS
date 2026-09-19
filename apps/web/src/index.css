@@ -3,8 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
   body {
-    @apply min-h-screen font-sans bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 antialiased;
+    @apply font-sans bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 antialiased;
   }
 }
 

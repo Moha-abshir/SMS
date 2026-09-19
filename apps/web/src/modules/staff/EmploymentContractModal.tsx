@@ -62,9 +62,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
     }
   }, [isOpen]);
 
-  if (!isOpen || !staff) return null;
-
-  const staffFullName = `${staff.firstName || ''} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName || ''}`.trim();
+  const staffFullName = staff ? `${staff.firstName || ''} ${staff.middleName ? staff.middleName + ' ' : ''}${staff.lastName || ''}`.trim() : '';
 
   const formatCurrency = (val?: number | string) => {
     if (!val) return '...................';
@@ -82,7 +80,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !staff) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
         e.preventDefault();
@@ -91,7 +89,9 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, schoolSettings, staffFullName]);
+  }, [isOpen, staff, schoolSettings, staffFullName]);
+
+  if (!isOpen || !staff) return null;
 
   return (
     <>

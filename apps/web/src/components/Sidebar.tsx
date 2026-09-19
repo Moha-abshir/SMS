@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   ShieldCheck, Settings, FileText, Package, Clock, LogOut,
-  ChevronLeft, ChevronRight, Menu, X, School, ClipboardCheck
+  Menu, X, School, ClipboardCheck
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 
@@ -110,24 +110,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-50 bg-white/85 backdrop-blur-xl border-r border-sky-100/90 flex flex-col justify-between shadow-glass transition-all duration-300 ${
+        className={`fixed lg:sticky top-0 bottom-0 left-0 z-50 bg-white/85 backdrop-blur-xl border-r border-sky-100/90 flex flex-col h-screen max-h-screen justify-between shadow-glass transition-all duration-300 shrink-0 ${
           collapsed ? 'w-20' : 'w-64'
         } ${mobileOpen ? 'translate-x-0 w-72 max-w-[85vw] shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Top Branding Section */}
-        <div>
-          <div className="p-4 flex items-center justify-between border-b border-sky-100/70">
-            <div className="flex items-center gap-3 overflow-hidden min-w-0">
-              <div className="w-10 h-10 shrink-0 rounded-xl border border-sky-100 bg-sky-50/60 flex items-center justify-center overflow-hidden p-1 shadow-xs">
+        <div className="shrink-0 border-b border-sky-100/70">
+          <div className={`p-4 flex items-center transition-all ${collapsed ? 'justify-center' : 'justify-between'}`}>
+            <div
+              onClick={() => setCollapsed(!collapsed)}
+              title={collapsed ? "Click to expand sidebar" : "Click to collapse sidebar"}
+              className={`flex items-center gap-3 overflow-hidden min-w-0 select-none group/logo ${
+                collapsed ? 'cursor-e-resize justify-center' : 'cursor-w-resize flex-1'
+              }`}
+            >
+              <div
+                className={`w-10 h-10 shrink-0 rounded-xl border border-sky-100 bg-sky-50/60 flex items-center justify-center overflow-hidden p-1 shadow-xs transition-all duration-200 group-hover/logo:scale-105 group-hover/logo:border-sky-300 group-hover/logo:shadow-md ${
+                  collapsed ? 'cursor-e-resize' : 'cursor-w-resize'
+                }`}
+              >
                 {logoUrl ? (
-                  <img src={logoUrl} alt="School Logo" className="w-full h-full object-contain" />
+                  <img src={logoUrl} alt="School Logo" className="w-full h-full object-contain pointer-events-none" />
                 ) : (
                   <School className="w-5 h-5 text-sky-500" />
                 )}
               </div>
               {!collapsed && (
                 <div className="truncate min-w-0">
-                  <h1 className="text-xs font-black text-slate-900 uppercase tracking-wider truncate">
+                  <h1 className="text-xs font-black text-slate-900 uppercase tracking-wider truncate group-hover/logo:text-sky-700 transition-colors">
                     {schoolName}
                   </h1>
                   <span className="text-[10px] font-bold text-sky-600 block mt-0.5">
@@ -137,48 +147,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
               )}
             </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCollapsed(!collapsed)}
-                className="hidden lg:flex p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-              >
-                {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-              </button>
-              {/* Close button inside mobile drawer */}
+            {/* Close button inside mobile drawer only */}
+            <div className="flex items-center lg:hidden">
               <button
                 onClick={() => setMobileOpen(false)}
-                className="lg:hidden p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                title="Close navigation"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
           </div>
-
-          {/* Navigation Links */}
-          <nav className="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-180px)]">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path || (item.path === '/overview' && location.pathname === '/');
-
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileOpen(false)}
-                  title={collapsed ? item.label : undefined}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 min-h-[42px] rounded-xl font-bold text-xs transition-all ${
-                    isActive
-                      ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
-                      : 'text-slate-600 hover:bg-sky-50/80 hover:text-sky-700'
-                  } ${collapsed ? 'justify-center px-0' : ''}`}
-                >
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </NavLink>
-              );
-            })}
-          </nav>
         </div>
+
+        {/* Navigation Links */}
+        <nav className="p-3 space-y-1 overflow-y-auto flex-1 min-h-0">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path || (item.path === '/overview' && location.pathname === '/');
+
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => setMobileOpen(false)}
+                title={collapsed ? item.label : undefined}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 min-h-[42px] rounded-xl font-bold text-xs transition-all ${
+                  isActive
+                    ? 'bg-sky-500 text-white shadow-md shadow-sky-500/20'
+                    : 'text-slate-600 hover:bg-sky-50/80 hover:text-sky-700'
+                } ${collapsed ? 'justify-center px-0' : ''}`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-sky-500'}`} />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </NavLink>
+            );
+          })}
+        </nav>
 
         {/* Bottom Profile & Actions */}
         <div className="p-3 border-t border-sky-100/70 space-y-2">
