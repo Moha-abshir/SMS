@@ -313,14 +313,27 @@ export class LeaveRequestsService {
       ? parsedNotes.reasons
       : [request.leave.reason];
 
+    const departureTime = (request.leave as any).departureTime || parsedNotes.departureTime || '08:00 AM';
+    const duration = (request.leave as any).duration || parsedNotes.duration || '1 day';
+    const deputyReason = (request.leave as any).deputyReason || parsedNotes.deputyReason || 'Approved';
+
+    const requestData = {
+      ...request.leave,
+      departureTime,
+      duration,
+      reasons,
+      deputyReason,
+    };
+
     return {
       leave: request.leave,
+      request: requestData,
       teacher: request.teacher,
       standingInTeacher,
-      departureTime: (request.leave as any).departureTime || parsedNotes.departureTime || '08:00 AM',
-      duration: (request.leave as any).duration || parsedNotes.duration || '1 day',
+      departureTime,
+      duration,
       reasons,
-      deputyReason: (request.leave as any).deputyReason || parsedNotes.deputyReason || 'Approved',
+      deputyReason,
       isReturned: Boolean(parsedNotes.isReturned),
       returnedAt: parsedNotes.returnedAt || null,
       classTeacherOf: assignedClass || null,
