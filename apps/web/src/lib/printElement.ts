@@ -50,7 +50,7 @@ export function printElement(elementOrId: string | HTMLElement, title: string = 
         <style>
           @page {
             size: A4 portrait;
-            margin: ${element.id === 'contract-document' ? '0' : '12mm 15mm'};
+            margin: ${(element.id === 'contract-document' || element.id === 'leave-slip-printable') ? '0' : '12mm 15mm'};
           }
           * {
             box-sizing: border-box;
@@ -78,6 +78,20 @@ export function printElement(elementOrId: string | HTMLElement, title: string = 
             box-shadow: none !important;
             background: #ffffff !important;
             color: #000000 !important;
+            box-sizing: border-box !important;
+          }
+          /* Ensure leave out slip matches physical stationery margins */
+          #leave-slip-printable {
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 20mm 15mm 20mm 15mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            font-size: 11.5pt !important;
+            line-height: 1.6 !important;
             box-sizing: border-box !important;
           }
           /* Other printable sheets stretch naturally */
