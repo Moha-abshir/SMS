@@ -18,6 +18,8 @@ export interface NavItem {
 interface SidebarProps {
   user: any;
   onLogout: () => void;
+  activeView?: string;
+  onNavigate?: (viewId: any) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {

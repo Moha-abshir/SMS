@@ -247,7 +247,7 @@ export const EmploymentContractModal: React.FC<EmploymentContractModalProps> = (
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'flex-start',
+                    justifyContent: 'flex-start',
                     borderBottom: '2.5px solid #000',
                     paddingBottom: '12px',
                     marginBottom: '18px',
