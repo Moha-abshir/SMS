@@ -141,6 +141,21 @@ export const LeaveManagementView: React.FC = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!printSlipData) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        triggerPrint();
+      }
+      if (e.key === 'Escape') {
+        setPrintSlipData(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [printSlipData]);
+
   // Map of teacherId -> class object for quick class teacher detection
   const classTeacherMap = new Map<string, any>();
   classes.forEach((cItem: any) => {
@@ -279,23 +294,32 @@ export const LeaveManagementView: React.FC = () => {
           body * {
             visibility: hidden !important;
           }
-          .printable-sheet-container, .printable-sheet-container * {
+          #leave-slip-printable,
+          #leave-slip-printable * {
             visibility: visible !important;
           }
-          .printable-sheet-container {
-            position: fixed !important;
+          #leave-slip-printable {
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 100vw !important;
+            width: 100% !important;
+            max-width: none !important;
             margin: 0 !important;
-            padding: 24px !important;
+            padding: 20mm 15mm 20mm 15mm !important;
             border: none !important;
             box-shadow: none !important;
-            background: white !important;
-            z-index: 99999 !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            font-size: 11.5pt !important;
+            line-height: 1.6 !important;
+            box-sizing: border-box !important;
           }
           .no-print {
             display: none !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 0;
           }
         }
       `}</style>
@@ -671,174 +695,393 @@ export const LeaveManagementView: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Printable Official Leave Slip Modal */}
+      {/* Official Leave Slip Preview Modal (Employment Contract Style) */}
       {printSlipData && (
-        <Modal
-          isOpen={!!printSlipData}
-          onClose={() => setPrintSlipData(null)}
-          title="Official Teaching Staff Leave Out Sheet"
-          maxWidth="max-w-2xl"
+        <div
+          id="leave-slip-modal-root"
+          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex"
         >
-          <div className="space-y-4">
-            <div className="flex justify-between items-center no-print">
-              <span className="text-xs text-slate-500">
-                Official printed format matching Eldoret Muslim Academy official stationery.
-              </span>
-              <button
-                onClick={triggerPrint}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Printer className="w-4 h-4" /> Print Leave Out Sheet
-              </button>
+          {/* Left Sidebar — Summary Details (hidden on print) */}
+          <div className="no-print hidden lg:flex flex-col w-72 sm:w-80 bg-white dark:bg-[#0c1830] border-r border-slate-200 dark:border-[#1a335a] shrink-0">
+            {/* Sidebar header */}
+            <div className="p-5 border-b border-slate-100 dark:border-[#1a335a]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">Leave Slip Preview</h2>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{printSlipData.settings?.schoolName || 'Eldoret Muslim Academy'}</p>
+                </div>
+              </div>
             </div>
 
-            {/* Recreated Physical Leave Out Sheet */}
-            <div id="leave-slip-printable" className="printable-sheet-container p-6 sm:p-8 bg-white text-slate-950 font-serif border border-slate-300 rounded-xl max-w-xl mx-auto space-y-4 shadow-sm select-text">
-              {/* Header */}
-              <div className="text-center font-bold pb-2 border-b border-slate-900">
-                <h2 className="text-base sm:text-lg uppercase tracking-wide font-black">
-                  {printSlipData.settings?.schoolName || 'ELDORET MUSLIM ACADEMY'}
-                </h2>
-                <p className="text-xs tracking-wider uppercase font-semibold">P.O BOX 5080-30100</p>
-                <p className="text-xs tracking-wider uppercase font-semibold">ELDORET.</p>
-                <h3 className="text-xs sm:text-sm underline font-bold mt-2 tracking-wide uppercase">
-                  TEACHING STAFF LEAVE OUT SHEET
-                </h3>
-              </div>
-
-              {/* Body Sentence 1 */}
-              <div className="text-xs sm:text-sm leading-relaxed pt-1">
-                <span>I MR/MRS/MISS </span>
-                <span className="font-bold underline px-1">
+            {/* Metadata list */}
+            <div className="p-5 space-y-4 flex-1 overflow-y-auto text-xs">
+              <div>
+                <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  Teacher Seeking Leave
+                </span>
+                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
                   {printSlipData.teacher.firstName} {printSlipData.teacher.lastName}
-                </span>
-                <span> Wish to apply for permission off my duties and responsibility.</span>
+                </p>
+                {printSlipData.classTeacherOf ? (
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/40">
+                    Class Teacher · {printSlipData.classTeacherOf.name}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                    Subject Specialist Teacher
+                  </span>
+                )}
               </div>
 
-              {/* Body Sentence 2 */}
-              <div className="text-xs sm:text-sm leading-relaxed">
-                <span>Date </span>
-                <span className="font-bold underline px-1">
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  Schedule & Duration
+                </span>
+                <p className="font-semibold text-slate-800 dark:text-slate-200">
                   {formatDate(printSlipData.request.startDate)}
-                </span>
-                <span> at </span>
-                <span className="font-bold underline px-1">
-                  {printSlipData.request.departureTime || '08:30 AM'}
-                </span>
-                <span> I shall be away for </span>
-                <span className="font-bold underline px-1">
-                  {printSlipData.request.duration || '2 hours'}
-                </span>
-                <span> (hours/days). Reasons for seeking permission ;</span>
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                  Departure Time: <span className="font-medium text-slate-800 dark:text-slate-200">{printSlipData.request.departureTime || '08:30 AM'}</span>
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                  Duration: <span className="font-medium text-slate-800 dark:text-slate-200">{printSlipData.request.duration || '2 Hours'}</span>
+                </p>
               </div>
 
-              {/* 3 Numbered Reasons */}
-              <div className="text-xs sm:text-sm space-y-1 pl-1">
-                <div>
-                  1.{' '}
-                  <span className="font-medium underline pl-1">
-                    {printSlipData.request.reasons?.[0] || '—'}
-                  </span>
-                </div>
-                <div>
-                  2.{' '}
-                  <span className="font-medium underline pl-1">
-                    {printSlipData.request.reasons?.[1] || '____________________________________________________________________'}
-                  </span>
-                </div>
-                <div>
-                  3.{' '}
-                  <span className="font-medium underline pl-1">
-                    {printSlipData.request.reasons?.[2] || '____________________________________________________________________'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Body Sentence 3 */}
-              <div className="text-xs sm:text-sm leading-relaxed pt-1">
-                <span>In my absence MR/MRS/MISS </span>
-                <span className="font-bold underline px-1">
-                  {printSlipData.standingInTeacher
-                    ? `${printSlipData.standingInTeacher.firstName} ${printSlipData.standingInTeacher.lastName}`
-                    : '__________________________________'}
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  Substitute Coverage
                 </span>
-                <span> will be standing in my position.</span>
+                {Boolean(printSlipData.classTeacherOf || printSlipData.standingInTeacher) ? (
+                  printSlipData.standingInTeacher ? (
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                        {printSlipData.standingInTeacher.firstName} {printSlipData.standingInTeacher.lastName}
+                      </p>
+                      {printSlipData.classTeacherOf && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">
+                          Acting Class Teacher for {printSlipData.classTeacherOf.name}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 text-[11px]">Pending assignment</span>
+                  )
+                ) : (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Not required (Subject teacher with distinct timetable).
+                  </p>
+                )}
               </div>
 
-              {/* Two Signatures */}
-              <div className="grid grid-cols-2 gap-6 pt-4 text-xs">
-                <div>
-                  <div className="border-b border-black h-8 mb-1" />
-                  <p className="font-medium text-[10px] sm:text-[11px]">Teacher seeking permission signature</p>
-                </div>
-                <div>
-                  <div className="border-b border-black h-8 mb-1" />
-                  <p className="font-medium text-[10px] sm:text-[11px]">Teacher requested to stand in signature</p>
-                </div>
-              </div>
-
-              {/* Deputy / Head Teacher's Section */}
-              <div className="border-t border-black pt-3 text-xs space-y-2">
-                <div className="flex items-center justify-between font-bold">
-                  <span className="uppercase">DEPUTY/HEAD TEACHER'S</span>
-                  <span>({printSlipData.request.status === 'APPROVED' ? 'Approved' : 'Not approved'})</span>
-                </div>
-                <div>
-                  <span>Reason(s): </span>
-                  <span className="underline">
-                    {printSlipData.request.deputyReason || 'Approved official leave permission.'}
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  Approval & Return Status
+                </span>
+                {printSlipData.isReturned ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    Reported Back
                   </span>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-2 text-[11px]">
-                  <div>
-                    HEAD TEACHER'S SIGNATURE:{' '}
-                    <span className="border-b border-black inline-block w-24 sm:w-28">&nbsp;</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Away (Active Permission)
+                  </span>
+                )}
+              </div>
+
+              <div className="p-3 bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 rounded-xl mt-4">
+                <p className="text-[11px] text-sky-900 dark:text-sky-300 leading-relaxed">
+                  💡 Standardized official leave out sheet. Rendered on white paper with high-fidelity print output. Press <kbd className="font-mono bg-sky-100 dark:bg-sky-900 px-1 py-0.5 rounded text-[10px]">Ctrl+P</kbd> to print.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Main Area — Document Canvas */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Top action bar (hidden on print) */}
+            <div className="no-print flex items-center justify-between px-4 sm:px-6 py-3 bg-white dark:bg-[#0c1830] border-b border-slate-200 dark:border-[#1a335a] shrink-0 gap-3">
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                  {printSlipData.teacher.firstName} {printSlipData.teacher.lastName}
+                </p>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  {printSlipData.classTeacherOf ? `Class Teacher (${printSlipData.classTeacherOf.name})` : 'Teaching Staff'} • Official Leave Out Sheet
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={triggerPrint}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Leave Out Sheet</span>
+                </button>
+                <button
+                  onClick={() => setPrintSlipData(null)}
+                  className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                  title="Close (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Document Area with Muted Backdrop */}
+            <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-8 md:p-12 bg-slate-100 dark:bg-[#060c18]">
+              {/* Pure White A4 Physical Document (Never dark/inverted) */}
+              <div
+                id="leave-slip-printable"
+                className="mx-auto w-full max-w-[760px] shadow-2xl shadow-black/40 border border-slate-300 p-8 sm:p-14 select-text"
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  fontFamily: "'Times New Roman', Times, serif",
+                  boxSizing: 'border-box',
+                }}
+              >
+                {/* 1. Official Centered Header */}
+                <div style={{ textAlign: 'center', fontWeight: 'bold', marginBottom: '28px', color: '#000000' }}>
+                  <div style={{ textDecoration: 'underline', fontSize: '15pt', letterSpacing: '0.5px' }}>
+                    ELDORET MUSLIM ACADEMY
                   </div>
-                  <div>
-                    DATE:{' '}
-                    <span className="underline font-mono">
-                      {formatDate(printSlipData.request.createdAt || new Date())}
+                  <div style={{ textDecoration: 'underline', fontSize: '12pt', marginTop: '4px' }}>
+                    P.O BOX 5080-30100
+                  </div>
+                  <div style={{ fontSize: '12pt', marginTop: '2px' }}>
+                    ELDORET.
+                  </div>
+                  <div style={{ textDecoration: 'underline', fontSize: '13pt', marginTop: '18px', letterSpacing: '0.5px' }}>
+                    TEACHING STAFF LEAVE OUT SHEET
+                  </div>
+                </div>
+
+                {/* 2. First sentence */}
+                <div style={{ fontSize: '12pt', lineHeight: '2.2', marginTop: '14px', color: '#000000' }}>
+                  <span>I &nbsp;MR/MRS/MISS</span>
+                  <span
+                    style={{
+                      borderBottom: '1.5px dotted #000',
+                      padding: '0 12px',
+                      fontWeight: 600,
+                      minWidth: '280px',
+                      display: 'inline-block',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {printSlipData.teacher.firstName} {printSlipData.teacher.lastName}
+                  </span>
+                  <span>Wish to apply for permission off my duties and responsibility.</span>
+                </div>
+
+                {/* 3. Second sentence (Date, Departure Time, Duration) */}
+                <div style={{ fontSize: '12pt', lineHeight: '2.2', marginTop: '10px', color: '#000000' }}>
+                  <span>Date</span>
+                  <span
+                    style={{
+                      borderBottom: '1.5px dotted #000',
+                      padding: '0 10px',
+                      fontWeight: 600,
+                      minWidth: '140px',
+                      display: 'inline-block',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {formatDate(printSlipData.request.startDate)}
+                  </span>
+                  <span>at</span>
+                  <span
+                    style={{
+                      borderBottom: '1.5px dotted #000',
+                      padding: '0 10px',
+                      fontWeight: 600,
+                      minWidth: '110px',
+                      display: 'inline-block',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {printSlipData.request.departureTime || '08:30 AM'}
+                  </span>
+                  <span>I shall be away for</span>
+                  <span
+                    style={{
+                      borderBottom: '1.5px dotted #000',
+                      padding: '0 10px',
+                      fontWeight: 600,
+                      minWidth: '110px',
+                      display: 'inline-block',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {printSlipData.request.duration || '2 Hours'}
+                  </span>
+                  <span>(hours/days).Reasons for seeking permission ;</span>
+                </div>
+
+                {/* 4. Three Numbered Reasons with Dotted Lines */}
+                <div style={{ fontSize: '12pt', lineHeight: '2.4', marginTop: '12px', marginBottom: '16px', color: '#000000' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{ fontWeight: 'bold', width: '28px' }}>1.</span>
+                    <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 8px', fontWeight: 500 }}>
+                      {printSlipData.request.reasons?.[0] || ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '4px' }}>
+                    <span style={{ fontWeight: 'bold', width: '28px' }}>2.</span>
+                    <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 8px', fontWeight: 500 }}>
+                      {printSlipData.request.reasons?.[1] || ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '4px' }}>
+                    <span style={{ fontWeight: 'bold', width: '28px' }}>3.</span>
+                    <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 8px', fontWeight: 500 }}>
+                      {printSlipData.request.reasons?.[2] || ''}
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Headteacher / Director Section & Official Stamp */}
-              <div className="border-t border-black pt-3 text-xs space-y-2">
-                <div className="flex items-center justify-between font-bold">
-                  <span className="uppercase">HEADTEACHER</span>
-                  <span>(Approved/Not approved)</span>
-                </div>
-                <div>
-                  <span>Reason(s): </span>
-                  <span className="underline">
-                    {printSlipData.request.headTeacherReason || '________________________________________________________'}
-                  </span>
-                </div>
-                <div className="flex items-end justify-between pt-2">
-                  <div className="space-y-2 text-[11px]">
-                    <div>
-                      DIRECTOR'S SIGNATURE:{' '}
-                      <span className="border-b border-black inline-block w-24 sm:w-28">&nbsp;</span>
+                {/* 5. Stand-in Teacher Section (ONLY for Class Teachers) */}
+                {Boolean(printSlipData.classTeacherOf || printSlipData.standingInTeacher) && (
+                  <div style={{ fontSize: '12pt', lineHeight: '2.2', marginTop: '14px', color: '#000000' }}>
+                    <span>In my absence MR/MRS/MISS</span>
+                    <span
+                      style={{
+                        borderBottom: '1.5px dotted #000',
+                        padding: '0 12px',
+                        fontWeight: 600,
+                        minWidth: '260px',
+                        display: 'inline-block',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {printSlipData.standingInTeacher
+                        ? `${printSlipData.standingInTeacher.firstName} ${printSlipData.standingInTeacher.lastName}`
+                        : ''}
+                    </span>
+                    <span>will be standing in my position.</span>
+                  </div>
+                )}
+
+                {/* 6. Signatures Section (Stand-in signature ONLY for Class Teachers) */}
+                <div style={{ fontSize: '12pt', lineHeight: '2.4', marginTop: '20px', color: '#000000' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{ minWidth: '280px' }}>Teacher seeking permission signature</span>
+                    <span style={{ borderBottom: '1.5px dotted #000', flex: 1 }} />
+                  </div>
+                  {Boolean(printSlipData.classTeacherOf || printSlipData.standingInTeacher) && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '8px' }}>
+                      <span style={{ minWidth: '280px' }}>Teacher requested to stand in signature</span>
+                      <span style={{ borderBottom: '1.5px dotted #000', flex: 1 }} />
                     </div>
-                    <div>
-                      DATE:{' '}
-                      <span className="border-b border-black inline-block w-24 sm:w-28">&nbsp;</span>
+                  )}
+                </div>
+
+                {/* 7. Deputy / Headteacher Approval Section */}
+                <div style={{ borderTop: '1px solid #000', marginTop: '28px', paddingTop: '16px', fontSize: '11.5pt', lineHeight: '2.2', color: '#000000' }}>
+                  <div style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+                    DEPUTY/ HEADTEACHER'S ( <span style={{ textDecoration: 'underline' }}>Approved</span>/Not approved )
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '6px' }}>
+                    <span style={{ minWidth: '80px' }}>Reason(s)</span>
+                    <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 8px', fontWeight: 500 }}>
+                      {printSlipData.request.deputyReason || 'Approved official leave request'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', flex: 1, marginRight: '24px' }}>
+                      <span style={{ whiteSpace: 'nowrap' }}>HEAD TEACHER'S SIGNATURE</span>
+                      <span style={{ borderBottom: '1.5px dotted #000', flex: 1, marginLeft: '6px' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', width: '220px' }}>
+                      <span style={{ marginRight: '6px' }}>DATE</span>
+                      <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 6px', fontWeight: 500, textAlign: 'center' }}>
+                        {formatDate(printSlipData.request.createdAt || new Date())}
+                      </span>
                     </div>
                   </div>
+                </div>
 
-                  {/* Circular School Stamp */}
-                  <div className="w-24 h-24 rounded-full border-2 border-dashed border-sky-800 flex flex-col items-center justify-center text-center p-1 text-[8px] font-bold text-sky-900 tracking-tighter uppercase leading-tight select-none shrink-0">
-                    <span>ELDORET MUSLIM</span>
-                    <span>ACADEMY</span>
-                    <span className="my-0.5 text-[7px] text-sky-600">★ STAMP ★</span>
-                    <span>P.O BOX 5080</span>
+                {/* 8. Headteacher / Director Section & Circular Stamp */}
+                <div style={{ borderTop: '1px solid #000', marginTop: '24px', paddingTop: '16px', fontSize: '11.5pt', color: '#000000' }}>
+                  <div style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
+                    HEADTEACHER ( Approved/Not approved )
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '6px' }}>
+                    <span style={{ minWidth: '80px' }}>Reason(s)</span>
+                    <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 8px', fontWeight: 500 }}>
+                      {printSlipData.request.headTeacherReason || 'Approved'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '12px' }}>
+                    <div style={{ flex: 1, marginRight: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                        <span style={{ lineHeight: 1.2, whiteSpace: 'nowrap' }}>DIRECTOR'S<br />SIGNATURE</span>
+                        <span style={{ borderBottom: '1.5px dotted #000', flex: 1, marginLeft: '8px', height: '18px' }} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '14px', width: '240px' }}>
+                        <span style={{ marginRight: '6px' }}>DATE</span>
+                        <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 6px', fontWeight: 500, textAlign: 'center' }}>
+                          {formatDate(printSlipData.request.createdAt || new Date())}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Authentic Blue Circular School Stamp matching physical sheet */}
+                    <div
+                      style={{
+                        width: '120px',
+                        height: '120px',
+                        borderRadius: '50%',
+                        border: '2.5px solid #1e40af',
+                        color: '#1e40af',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        padding: '6px',
+                        fontFamily: 'sans-serif',
+                        fontSize: '7.5pt',
+                        fontWeight: 'bold',
+                        lineHeight: 1.15,
+                        textTransform: 'uppercase',
+                        transform: 'rotate(-5deg)',
+                        userSelect: 'none',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span style={{ fontSize: '7pt', letterSpacing: '0.4px' }}>ELDORET MUSLIM</span>
+                      <span style={{ fontSize: '8pt' }}>ACADEMY</span>
+                      <div
+                        style={{
+                          margin: '3px 0',
+                          padding: '1px 6px',
+                          borderTop: '1px dashed #2563eb',
+                          borderBottom: '1px dashed #2563eb',
+                          fontSize: '8pt',
+                          fontFamily: 'monospace',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {formatDate(printSlipData.request.startDate)}
+                      </div>
+                      <span style={{ fontSize: '6pt', letterSpacing: '-0.2px' }}>P.O BOX 5080-30100</span>
+                      <span style={{ fontSize: '6pt' }}>ELDORET</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </Modal>
+        </div>
       )}
     </motion.div>
   );
