@@ -795,11 +795,7 @@ export const LeaveManagementView: React.FC = () => {
                 )}
               </div>
 
-              <div className="p-3 bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 rounded-xl mt-4">
-                <p className="text-[11px] text-sky-900 dark:text-sky-300 leading-relaxed">
-                  💡 Standardized official leave out sheet. Rendered on white paper with high-fidelity print output. Press <kbd className="font-mono bg-sky-100 dark:bg-sky-900 px-1 py-0.5 rounded text-[10px]">Ctrl+P</kbd> to print.
-                </p>
-              </div>
+              
             </div>
           </div>
 
