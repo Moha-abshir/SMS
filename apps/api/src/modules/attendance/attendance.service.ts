@@ -1,56 +1,62 @@
 import { db } from '../../config/db.js';
-import { attendanceRegisters, attendanceRecords, students, guardians, classes, absenceSmsLogs, systemSettings, eq, inArray, isNull, and, desc } from '@school/shared';
+import { attendanceRegisters, attendanceRecords, students, guardians, classes, users, absenceSmsLogs, systemSettings, eq, inArray, isNull, and, desc } from '@school/shared';
 import { SmsService } from '../../services/sms.service.js';
 
 export class AttendanceService {
   static async getSchoolWideAttendance(targetDate?: string) {
     const dateStr = targetDate || new Date().toISOString().split('T')[0];
 
-    // 1. Fetch all class registers for the date
+    // 1. Fetch all classes ordered
+    const totalClasses = await db
+      .select()
+      .from(classes)
+      .where(isNull(classes.deletedAt))
+      .orderBy(classes.numericOrder);
+
+    // 2. Fetch all active students count per class
+    const allActiveStudents = await db
+      .select({
+        id: students.id,
+        classId: students.classId,
+      })
+      .from(students)
+      .where(and(eq(students.status, 'ACTIVE'), isNull(students.deletedAt)));
+
+    // 3. Fetch all class registers for the date with submitted teacher details
     const registers = await db
       .select({
         register: attendanceRegisters,
         class: classes,
+        takenByUser: {
+          firstName: users.firstName,
+          lastName: users.lastName,
+        },
       })
       .from(attendanceRegisters)
       .innerJoin(classes, eq(attendanceRegisters.classId, classes.id))
+      .leftJoin(users, eq(attendanceRegisters.takenById, users.id))
       .where(and(eq(attendanceRegisters.date, dateStr), isNull(attendanceRegisters.deletedAt)))
       .orderBy(classes.numericOrder);
 
-    // 2. Total classes count
-    const totalClasses = await db
-      .select()
-      .from(classes)
-      .where(isNull(classes.deletedAt));
-
-    if (registers.length === 0) {
-      return {
-        date: dateStr,
-        totalClassesCount: totalClasses.length,
-        registersSubmittedCount: 0,
-        totalPresent: 0,
-        totalAbsent: 0,
-        totalExcused: 0,
-        absentStudents: [],
-      };
-    }
-
     const registerIds = registers.map((r) => r.register.id);
 
-    // 3. Fetch all records for these registers
-    const records = await db
-      .select({
-        record: attendanceRecords,
-        student: students,
-        guardian: guardians,
-        class: classes,
-      })
-      .from(attendanceRecords)
-      .innerJoin(students, eq(attendanceRecords.studentId, students.id))
-      .innerJoin(guardians, eq(students.primaryGuardianId, guardians.id))
-      .innerJoin(attendanceRegisters, eq(attendanceRecords.registerId, attendanceRegisters.id))
-      .innerJoin(classes, eq(attendanceRegisters.classId, classes.id))
-      .where(inArray(attendanceRecords.registerId, registerIds));
+    // 4. Fetch all records for these registers
+    let records: any[] = [];
+    if (registerIds.length > 0) {
+      records = await db
+        .select({
+          record: attendanceRecords,
+          student: students,
+          guardian: guardians,
+          class: classes,
+        })
+        .from(attendanceRecords)
+        .innerJoin(students, eq(attendanceRecords.studentId, students.id))
+        .leftJoin(guardians, eq(students.primaryGuardianId, guardians.id))
+        .innerJoin(attendanceRegisters, eq(attendanceRecords.registerId, attendanceRegisters.id))
+        .innerJoin(classes, eq(attendanceRegisters.classId, classes.id))
+        .where(inArray(attendanceRecords.registerId, registerIds));
+    }
 
     const totalPresent = records.filter((r) => r.record.status === 'PRESENT').length;
     const totalAbsentRecords = records.filter((r) => r.record.status === 'ABSENT');
@@ -70,36 +76,45 @@ export class AttendanceService {
         studentName: `${r.student.firstName} ${r.student.lastName}`,
         assessmentNumber: r.student.assessmentNumber,
         className: r.class.name,
-        guardianName: r.guardian.fullName,
-        guardianPhone: r.guardian.phoneNumber,
-        guardianId: r.guardian.id,
+        guardianName: r.guardian?.fullName || 'Parent / Guardian',
+        guardianPhone: r.guardian?.phoneNumber || '',
+        guardianId: r.guardian?.id || null,
         smsSentStatus: smsSent ? smsSent.status : null,
       };
     });
 
-    // 4. Group by class summary for Deputy overview
+    // 5. Group by class summary for Deputy overview
     const classSummaries = totalClasses.map((c) => {
       const reg = registers.find((r) => r.class.id === c.id);
       const classRecords = reg ? records.filter((r) => r.class.id === c.id) : [];
       const present = classRecords.filter((r) => r.record.status === 'PRESENT').length;
       const absent = classRecords.filter((r) => r.record.status === 'ABSENT').length;
+      const excused = classRecords.filter((r) => r.record.status === 'EXCUSED').length;
+      const enrolledCount = allActiveStudents.filter((s) => s.classId === c.id).length || classRecords.length;
+      const teacherName = reg?.takenByUser?.firstName ? `${reg.takenByUser.firstName} ${reg.takenByUser.lastName}`.trim() : null;
+
       return {
         classId: c.id,
         className: c.name,
         levelCategory: c.levelCategory,
         numericOrder: c.numericOrder,
-        isSubmitted: !!reg,
+        isSubmitted: Boolean(reg?.register?.isSubmitted ?? !!reg),
+        submitted: Boolean(reg?.register?.isSubmitted ?? !!reg),
         registerId: reg?.register.id || null,
-        totalEnrolled: classRecords.length,
+        totalEnrolled: enrolledCount,
+        totalStudents: enrolledCount,
         presentCount: present,
         absentCount: absent,
+        excusedCount: excused,
+        submittedAt: reg?.register.updatedAt || reg?.register.createdAt || null,
+        submittedByTeacher: teacherName,
       };
     }).sort((a, b) => a.numericOrder - b.numericOrder);
 
     return {
       date: dateStr,
       totalClassesCount: totalClasses.length,
-      registersSubmittedCount: registers.length,
+      registersSubmittedCount: registers.filter((r) => r.register.isSubmitted).length,
       totalPresent,
       totalAbsent: totalAbsentRecords.length,
       totalExcused,
@@ -123,14 +138,14 @@ export class AttendanceService {
       .from(attendanceRegisters)
       .where(and(eq(attendanceRegisters.classId, classId), eq(attendanceRegisters.date, dateStr)));
 
-    // Fetch active students in this class
+    // Fetch active students in this class with leftJoin to guardians
     const classStudents = await db
       .select({
         student: students,
         guardian: guardians,
       })
       .from(students)
-      .innerJoin(guardians, eq(students.primaryGuardianId, guardians.id))
+      .leftJoin(guardians, eq(students.primaryGuardianId, guardians.id))
       .where(and(eq(students.classId, classId), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
       .orderBy(students.firstName, students.lastName);
 
@@ -152,10 +167,12 @@ export class AttendanceService {
         firstName: cs.student.firstName,
         middleName: cs.student.middleName,
         lastName: cs.student.lastName,
-        assessmentNumber: cs.student.assessmentNumber,
+        studentName: `${cs.student.firstName} ${cs.student.lastName}`.trim(),
+        assessmentNumber: cs.student.assessmentNumber || cs.student.admissionNumber || cs.student.id.slice(0, 8),
+        admissionNumber: cs.student.admissionNumber || cs.student.assessmentNumber || cs.student.id.slice(0, 8),
         gender: cs.student.gender,
-        guardianName: cs.guardian.fullName,
-        guardianPhone: cs.guardian.phoneNumber,
+        guardianName: cs.guardian?.fullName || 'Parent / Guardian',
+        guardianPhone: cs.guardian?.phoneNumber || '',
         status: rec?.status || 'PRESENT',
         remarks: rec?.remarks || '',
       };
@@ -165,12 +182,25 @@ export class AttendanceService {
     const absentCount = studentRows.filter((s) => s.status === 'ABSENT').length;
     const excusedCount = studentRows.filter((s) => s.status === 'EXCUSED').length;
 
+    const records = studentRows.map((s) => ({
+      studentId: s.studentId,
+      admissionNumber: s.admissionNumber,
+      studentName: s.studentName,
+      status: s.status,
+      remarks: s.remarks,
+      gender: s.gender,
+      guardianName: s.guardianName,
+      guardianPhone: s.guardianPhone,
+    }));
+
     return {
       class: targetClass,
       date: dateStr,
       isSubmitted: !!register,
+      submitted: !!register,
       registerId: register?.id || null,
       students: studentRows,
+      records,
       stats: {
         total: studentRows.length,
         present: presentCount,
