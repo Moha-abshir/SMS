@@ -52,15 +52,84 @@ export const LeaveManagementView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [reqRes, stfRes, allocRes] = await Promise.all([
-        apiClient.get('/api/leave-requests'),
-        apiClient.get('/api/staff'),
-        apiClient.get('/api/allocations').catch(() => ({ data: { data: { classes: [] } } })),
+      const [reqRes, formDataRes, stfRes, allocRes] = await Promise.all([
+        apiClient.get('/api/leave-requests').catch(() => ({ data: { data: [] } })),
+        apiClient.get('/api/leave-requests/form-data').catch(() => ({ data: { data: null } })),
+        apiClient.get('/api/staff').catch(() => ({ data: { data: [] } })),
+        apiClient.get('/api/allocations').catch(() => ({ data: { data: { classes: [], teachers: [] } } })),
       ]);
 
-      setRequests(reqRes.data.data || []);
-      setTeachers(stfRes.data.data?.staff || []);
-      setClasses(allocRes.data?.data?.classes || []);
+      setRequests(reqRes.data?.data || []);
+
+      // Build unified, deduplicated teacher list
+      const teacherMap = new Map<string, any>();
+
+      // 1. Direct from /api/leave-requests/form-data (custom tailor-made endpoint)
+      if (formDataRes.data?.data?.teachers && Array.isArray(formDataRes.data.data.teachers)) {
+        formDataRes.data.data.teachers.forEach((t: any) => {
+          teacherMap.set(t.id, {
+            id: t.id,
+            firstName: t.firstName,
+            lastName: t.lastName,
+            email: t.email,
+            phoneNumber: t.phoneNumber,
+            roleName: t.roleName,
+          });
+        });
+      }
+
+      // 2. From /api/staff (handle both array and { staff: [] } structures)
+      const rawStaff = Array.isArray(stfRes.data?.data)
+        ? stfRes.data.data
+        : (stfRes.data?.data?.staff || []);
+
+      rawStaff.forEach((s: any) => {
+        if (!s.isInvitation && s.isActive !== false) {
+          if (!teacherMap.has(s.id)) {
+            teacherMap.set(s.id, {
+              id: s.id,
+              firstName: s.firstName,
+              lastName: s.lastName,
+              email: s.email,
+              phoneNumber: s.phoneNumber,
+              roleName: s.roleName,
+            });
+          } else {
+            const existing = teacherMap.get(s.id);
+            teacherMap.set(s.id, {
+              ...existing,
+              phoneNumber: existing.phoneNumber || s.phoneNumber,
+              roleName: existing.roleName || s.roleName,
+            });
+          }
+        }
+      });
+
+      // 3. From /api/allocations
+      const allocTeachers = allocRes.data?.data?.teachers || [];
+      allocTeachers.forEach((t: any) => {
+        if (!teacherMap.has(t.id)) {
+          teacherMap.set(t.id, {
+            id: t.id,
+            firstName: t.firstName,
+            lastName: t.lastName,
+            email: t.email,
+            phoneNumber: t.phoneNumber,
+            roleName: 'TEACHER',
+          });
+        }
+      });
+
+      const resolvedTeachers = Array.from(teacherMap.values()).sort((a, b) =>
+        `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
+      );
+      setTeachers(resolvedTeachers);
+
+      // Classes: prioritize form-data classes, then allocations classes
+      const rawClasses = (formDataRes.data?.data?.classes && formDataRes.data.data.classes.length > 0)
+        ? formDataRes.data.data.classes
+        : (allocRes.data?.data?.classes || []);
+      setClasses(rawClasses);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load leave requests');
     } finally {
@@ -75,9 +144,10 @@ export const LeaveManagementView: React.FC = () => {
   // Map of teacherId -> class object for quick class teacher detection
   const classTeacherMap = new Map<string, any>();
   classes.forEach((cItem: any) => {
-    const teacherId = cItem.classTeacher?.id || cItem.class?.classTeacherId;
-    if (teacherId) {
-      classTeacherMap.set(teacherId, cItem.class);
+    const teacherId = cItem.classTeacherId || cItem.classTeacher?.id || cItem.class?.classTeacherId;
+    const clsObj = cItem.class || cItem;
+    if (teacherId && clsObj && clsObj.name) {
+      classTeacherMap.set(teacherId, clsObj);
     }
   });
 
@@ -109,7 +179,7 @@ export const LeaveManagementView: React.FC = () => {
       return;
     }
     if (selectedTeacherClass && !form.standingInTeacherId) {
-      toast.error(`Please select a standing-in teacher to take over ${selectedTeacherClass.name}`);
+      toast.error(`Please select a substitute class teacher to take over ${selectedTeacherClass.name}`);
       return;
     }
     if (!form.reason1.trim()) {
@@ -394,7 +464,9 @@ export const LeaveManagementView: React.FC = () => {
                   return {
                     value: t.id,
                     label: `${t.firstName} ${t.lastName}`,
-                    badge: ct ? `Class Teacher (${ct.name})` : 'Teacher',
+                    badge: ct
+                      ? `Class Teacher (${ct.name})`
+                      : (t.roleName ? t.roleName.replace(/_/g, ' ') : 'Teacher'),
                     sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
                   };
                 })}
@@ -404,7 +476,7 @@ export const LeaveManagementView: React.FC = () => {
                   <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div className="leading-snug">
                     <span className="font-bold">Assigned Class Teacher: </span>
-                    <span>This teacher is the class teacher for <strong>{selectedTeacherClass.name}</strong>. A Standing-In Teacher is required to temporarily hold all class teacher responsibilities until return.</span>
+                    <span>This teacher is the class teacher for <strong>{selectedTeacherClass.name}</strong>. A Substitute Class Teacher is required to temporarily hold all class teacher responsibilities until return.</span>
                   </div>
                 </div>
               )}
@@ -413,22 +485,31 @@ export const LeaveManagementView: React.FC = () => {
             {selectedTeacherClass && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Standing-In Teacher in Absence *
+                  Substitute / Standing-In Class Teacher *
                 </label>
                 <SearchableSelect
                   required
                   value={form.standingInTeacherId}
                   onChange={(val) => setForm({ ...form, standingInTeacherId: val })}
-                  placeholder="-- Select Standing-In Teacher --"
-                  searchPlaceholder="Search standing-in teacher..."
+                  placeholder="-- Select Substitute Class Teacher --"
+                  searchPlaceholder="Search substitute teacher by name or phone..."
                   options={teachers
                     .filter((t) => t.id !== form.teacherId)
-                    .map((t) => ({
-                      value: t.id,
-                      label: `${t.firstName} ${t.lastName}`,
-                      sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
-                    }))}
+                    .map((t) => {
+                      const ct = classTeacherMap.get(t.id);
+                      return {
+                        value: t.id,
+                        label: `${t.firstName} ${t.lastName}`,
+                        badge: ct
+                          ? `Class Teacher (${ct.name})`
+                          : (t.roleName ? t.roleName.replace(/_/g, ' ') : 'Available'),
+                        sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
+                      };
+                    })}
                 />
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  This teacher will temporarily assume all class teacher duties (marking daily attendance registers, learner rosters, and report card reviews) for <strong>{selectedTeacherClass.name}</strong> until the permanent class teacher reports back.
+                </p>
               </div>
             )}
           </div>
