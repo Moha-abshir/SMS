@@ -236,7 +236,19 @@ export const LeaveManagementView: React.FC = () => {
   const handleOpenPrintSlip = async (leaveId: string) => {
     try {
       const res = await apiClient.get(`/api/leave-requests/${leaveId}/print-slip`);
-      setPrintSlipData(res.data.data);
+      const data = res.data?.data;
+      if (!data) throw new Error('No data received');
+      const reqObj = data.request || data.leave || {};
+      setPrintSlipData({
+        ...data,
+        request: {
+          ...reqObj,
+          departureTime: data.departureTime || reqObj.departureTime || '08:30 AM',
+          duration: data.duration || reqObj.duration || '2 Hours',
+          reasons: data.reasons || reqObj.reasons || [],
+          deputyReason: data.deputyReason || reqObj.deputyReason || 'Approved official leave permission.',
+        },
+      });
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load leave slip');
     }
@@ -289,21 +301,21 @@ export const LeaveManagementView: React.FC = () => {
       `}</style>
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-xl border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl shadow-xs">
         <div>
-          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
-            <Clock className="w-4 h-4 text-sky-600" />
-            Eldoret Muslim Academy Staff Absence & Permissions
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">
+            <Clock className="w-4 h-4" />
+            Staff Absence & Permissions
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Teaching Staff Leave Out Sheets</h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Teaching Staff Leave Out Sheets</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Log official duty and personal permission slips, assign standing-in teachers, and print standardized academy leave out sheets.
           </p>
         </div>
 
         <button
           onClick={handleOpenModal}
-          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
+          className="w-full sm:w-auto justify-center min-h-[40px] px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-xs flex items-center gap-2 shadow-xs transition-colors shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Log Leave Out Slip
@@ -311,119 +323,132 @@ export const LeaveManagementView: React.FC = () => {
       </div>
 
       {/* Leave Requests Table */}
-      <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+      <div className="p-5 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-4 shadow-xs">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            Teacher Leave History ({requests.length} Records)
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-sky-500" />
+            Teacher Leave History ({requests.length} {requests.length === 1 ? 'Record' : 'Records'})
           </h3>
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Standardized Official Academy Format</span>
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Standardized Academy Format</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[760px]">
-            <thead className="bg-sky-50/80 dark:bg-[#0c1830] text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#162b4d]">
+          <table className="w-full text-left text-xs min-w-[700px]">
+            <thead className="bg-slate-50/70 dark:bg-[#081224] text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider border-b border-slate-200/60 dark:border-[#1a335a]">
               <tr>
-                <th className="py-3.5 px-4">Teacher Name</th>
-                <th className="py-3.5 px-4">Departure & Duration</th>
-                <th className="py-3.5 px-4">Standing-In Teacher</th>
-                <th className="py-3.5 px-4">Reasons</th>
-                <th className="py-3.5 px-4 text-center">Status & Return</th>
-                <th className="py-3.5 px-4 text-center">Printable Slip</th>
+                <th className="py-3 px-4">Teacher</th>
+                <th className="py-3 px-4">Schedule & Duration</th>
+                <th className="py-3 px-4">Substitute Teacher</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-sky-100/60 dark:divide-[#162b4d]">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#152a4a]">
               {requests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
+                  <td colSpan={5} className="py-10 text-center text-slate-400 dark:text-slate-500 italic">
                     No teacher leave-outs recorded yet.
                   </td>
                 </tr>
               ) : (
                 requests.map((row) => (
-                  <tr key={row.request.id} className="hover:bg-sky-50/40 dark:hover:bg-[#0f2042] transition-colors">
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800 dark:text-slate-100">
+                  <tr key={row.request.id} className="hover:bg-slate-50/50 dark:hover:bg-[#0f2042]/50 transition-colors">
+                    {/* Teacher Column */}
+                    <td className="py-3.5 px-4 align-middle">
+                      <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs sm:text-sm">
                         {row.teacher.firstName} {row.teacher.lastName}
                       </div>
-                      {row.classTeacherOf && (
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-[#201804] text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-[#523d06]">
-                          Class Teacher: {row.classTeacherOf.name}
-                        </span>
+                      {row.classTeacherOf ? (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/40">
+                            Class Teacher · {row.classTeacherOf.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          {row.teacher.email || 'Teaching Staff'}
+                        </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800 dark:text-slate-100">
-                        {formatDate(row.request.startDate)} at {row.departureTime || 'Morning'}
+
+                    {/* Schedule & Duration Column */}
+                    <td className="py-3.5 px-4 align-middle">
+                      <div className="font-medium text-slate-700 dark:text-slate-200 text-xs">
+                        {formatDate(row.request.startDate)} · {row.departureTime || 'Morning'}
                       </div>
-                      <span className="text-[11px] text-sky-700 dark:text-sky-300 font-mono">
-                        {row.duration || 'Full Day'}
-                      </span>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-normal">
+                        Duration: <span className="font-medium text-slate-600 dark:text-slate-300">{row.duration || 'Full Day'}</span>
+                      </div>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-medium">
+
+                    {/* Substitute Teacher Column */}
+                    <td className="py-3.5 px-4 align-middle">
                       {row.standingInTeacher ? (
                         <div>
-                          <span className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-slate-100">
-                            <UserCheck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                            {row.standingInTeacher.firstName} {row.standingInTeacher.lastName}
-                          </span>
+                          <div className="font-medium text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
+                            <UserCheck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                            <span>{row.standingInTeacher.firstName} {row.standingInTeacher.lastName}</span>
+                          </div>
                           {row.classTeacherOf && !row.isReturned && (
-                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                            <div className="text-[10px] text-amber-600/90 dark:text-amber-400/90 font-medium mt-0.5">
                               Acting Class Teacher for {row.classTeacherOf.name}
-                            </p>
+                            </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-400 dark:text-slate-500 italic">Not required (Subject Specialist)</span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">None required (Subject Specialist)</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 max-w-xs truncate">
-                      {row.request.reasons && row.request.reasons.length > 0
-                        ? row.request.reasons.join('; ')
-                        : row.request.reason || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
+
+                    {/* Status Column */}
+                    <td className="py-3.5 px-4 align-middle text-center">
                       {row.isReturned ? (
-                        <div className="flex flex-col items-center">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50">
-                            <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                        <div className="inline-flex flex-col items-center">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             Reported Back
                           </span>
                           {row.returnedAt && (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-mono">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                               {formatDate(row.returnedAt)}
                             </span>
                           )}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-extrabold rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50">
-                            <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                            Away (Active)
-                          </span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Away (Active)
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Actions Column */}
+                    <td className="py-3.5 px-4 align-middle text-right">
+                      <div className="inline-flex items-center justify-end gap-2">
+                        {!row.isReturned && (
                           <button
                             onClick={() => handleMarkReportedBack(row.request.id)}
                             disabled={markingReturnId === row.request.id}
-                            className="px-2.5 py-1 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
-                            title="Mark teacher as reported back to school"
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-emerald-600/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                            title="Confirm teacher has reported back"
                           >
                             {markingReturnId === row.request.id ? (
-                              <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                             ) : (
-                              <UserCheck className="w-3 h-3" />
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             )}
-                            <span>Mark Reported Back</span>
+                            <span>Mark Returned</span>
                           </button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => handleOpenPrintSlip(row.request.id)}
-                        className="px-3 py-1.5 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] font-bold text-xs rounded-xl flex items-center gap-1 mx-auto transition-colors shadow-xs cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Leave Sheet
-                      </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenPrintSlip(row.request.id)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700/80 bg-white/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          title="View & print official leave out sheet"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                          <span>Leave Sheet</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
