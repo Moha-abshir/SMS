@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/form-data', LeaveRequestsController.getFormData);
 router.get('/', LeaveRequestsController.getLeaveRequests);
 router.get('/:id/print', LeaveRequestsController.getLeaveSlipPrintData);
 router.post('/', authorizePermission(['leave:manage', 'staff:manage']), LeaveRequestsController.createLeaveRequest);

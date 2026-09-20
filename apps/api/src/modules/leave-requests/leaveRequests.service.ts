@@ -1,7 +1,50 @@
 import { db } from '../../config/db.js';
-import { teacherLeaveRequests, users, classes, systemSettings, eq, and, isNull, desc } from '@school/shared';
+import { teacherLeaveRequests, users, classes, roles, systemSettings, eq, and, isNull, desc } from '@school/shared';
 
 export class LeaveRequestsService {
+  static async getFormData() {
+    // 1. Fetch active teachers and staff with their roles
+    const teachersList = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phoneNumber: users.phoneNumber,
+        roleId: users.roleId,
+        roleName: roles.name,
+      })
+      .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
+      .where(and(eq(users.isActive, true), isNull(users.deletedAt)))
+      .orderBy(users.firstName, users.lastName);
+
+    // 2. Fetch all classes with assigned class teacher details
+    const classesList = await db
+      .select({
+        id: classes.id,
+        name: classes.name,
+        levelCategory: classes.levelCategory,
+        classTeacherId: classes.classTeacherId,
+        classTeacher: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          phoneNumber: users.phoneNumber,
+        },
+      })
+      .from(classes)
+      .leftJoin(users, eq(classes.classTeacherId, users.id))
+      .where(isNull(classes.deletedAt))
+      .orderBy(classes.numericOrder);
+
+    return {
+      teachers: teachersList,
+      classes: classesList,
+    };
+  }
+
   static async getLeaveRequests() {
     const list = await db
       .select({
