@@ -8,10 +8,12 @@ import { Modal } from '../../components/Modal';
 interface ClassSummary {
   classId: string;
   className: string;
-  gradeLevel: string;
-  stream: string;
-  totalStudents: number;
-  submitted: boolean;
+  gradeLevel?: string;
+  stream?: string;
+  totalStudents?: number;
+  totalEnrolled?: number;
+  submitted?: boolean;
+  isSubmitted?: boolean;
   submittedAt?: string;
   submittedByTeacher?: string;
   presentCount: number;
@@ -134,11 +136,15 @@ export const AttendanceOversightView: React.FC = () => {
     try {
       setRegisterLoading(true);
       const res = await apiClient.get(`/api/attendance/classes/${cls.classId}/register?date=${targetDate}`);
-      if (res.data.data?.records) {
-        setRegisterRecords(res.data.data.records);
-      } else {
-        setRegisterRecords([]);
-      }
+      const rawRecords = res.data.data?.records || res.data.data?.students || [];
+      const normalized: AttendanceRecord[] = rawRecords.map((r: any) => ({
+        studentId: r.studentId,
+        admissionNumber: r.admissionNumber || r.assessmentNumber || r.studentId?.slice(0, 8) || 'N/A',
+        studentName: r.studentName || `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Unknown Learner',
+        status: r.status || 'PRESENT',
+        remarks: r.remarks || '',
+      }));
+      setRegisterRecords(normalized);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load class register');
     } finally {
@@ -359,67 +365,72 @@ export const AttendanceOversightView: React.FC = () => {
                 No active classes found.
               </div>
             ) : (
-              data.classSummaries?.map((cls) => (
-                <div
-                  key={cls.classId}
-                  className="p-4 rounded-2xl bg-white border border-sky-100 hover:border-sky-300 transition-all shadow-xs flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900">{cls.className}</h4>
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          {cls.totalStudents} enrolled learners
-                        </span>
-                      </div>
-                      <span
-                        className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full border ${
-                          cls.submitted
-                            ? 'bg-sky-100 text-sky-800 border-sky-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        {cls.submitted ? 'SUBMITTED' : 'PENDING'}
-                      </span>
-                    </div>
+              data.classSummaries?.map((cls) => {
+                const isSubmitted = Boolean(cls.submitted ?? cls.isSubmitted);
+                const totalLearners = cls.totalStudents ?? cls.totalEnrolled ?? (cls.presentCount + cls.absentCount + cls.excusedCount);
 
-                    <div className="grid grid-cols-3 gap-2 py-2.5 my-2 border-y border-sky-50 text-center">
-                      <div className="bg-sky-50/60 rounded-xl p-1.5">
-                        <span className="text-[10px] uppercase font-bold text-sky-700 block">Present</span>
-                        <span className="text-sm font-black text-sky-700">{cls.presentCount}</span>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-1.5">
-                        <span className="text-[10px] uppercase font-bold text-slate-600 block">Absent</span>
-                        <span className="text-sm font-black text-slate-800">{cls.absentCount}</span>
-                      </div>
-                      <div className="bg-sky-50/40 rounded-xl p-1.5">
-                        <span className="text-[10px] uppercase font-bold text-slate-500 block">Excused</span>
-                        <span className="text-sm font-black text-slate-700">{cls.excusedCount}</span>
-                      </div>
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-sky-500" />
-                      {cls.submitted ? (
-                        <span>
-                          By <strong className="text-slate-700">{cls.submittedByTeacher || 'Staff'}</strong> at{' '}
-                          {cls.submittedAt ? new Date(cls.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recorded'}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">Not yet submitted today</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenRegisterModal(cls)}
-                    className="mt-3 w-full py-2 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                return (
+                  <div
+                    key={cls.classId}
+                    className="p-4 rounded-2xl bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all shadow-xs flex flex-col justify-between"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Inspect / Edit Register</span>
-                  </button>
-                </div>
-              ))
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">{cls.className}</h4>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                            {totalLearners} enrolled learners
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${
+                            isSubmitted
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          }`}
+                        >
+                          {isSubmitted ? 'SUBMITTED' : 'PENDING'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 py-2.5 my-2 border-y border-sky-50 dark:border-slate-800 text-center">
+                        <div className="bg-sky-50/60 dark:bg-sky-950/30 rounded-xl p-1.5 border border-sky-100/50 dark:border-sky-900/30">
+                          <span className="text-[10px] uppercase font-bold text-sky-700 dark:text-sky-300 block">Present</span>
+                          <span className="text-sm font-black text-sky-700 dark:text-sky-300">{cls.presentCount}</span>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-1.5 border border-slate-100 dark:border-slate-700/40">
+                          <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block">Absent</span>
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-200">{cls.absentCount}</span>
+                        </div>
+                        <div className="bg-sky-50/40 dark:bg-sky-950/20 rounded-xl p-1.5 border border-sky-100/30 dark:border-sky-900/20">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">Excused</span>
+                          <span className="text-sm font-black text-slate-700 dark:text-slate-300">{cls.excusedCount}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-sky-500 shrink-0" />
+                        {isSubmitted ? (
+                          <span>
+                            By <strong className="text-slate-700 dark:text-slate-200">{cls.submittedByTeacher || 'Class Teacher'}</strong> at{' '}
+                            {cls.submittedAt ? new Date(cls.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recorded'}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-500 italic">Not yet submitted today</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleOpenRegisterModal(cls)}
+                      className="mt-3 w-full py-2 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Inspect / Edit Register</span>
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -545,18 +556,18 @@ export const AttendanceOversightView: React.FC = () => {
         >
           <div className="space-y-4">
             {/* Modal Subheader with Stats & Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-sky-50/70 border border-sky-100 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/40 rounded-xl">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-700">
-                  Total: <strong className="text-slate-900">{registerRecords.length}</strong>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Total: <strong className="text-slate-900 dark:text-slate-100">{registerRecords.length}</strong>
                 </span>
-                <span className="text-xs font-bold text-sky-700">
+                <span className="text-xs font-bold text-sky-700 dark:text-sky-300">
                   Present: <strong>{modalPresentCount}</strong>
                 </span>
-                <span className="text-xs font-bold text-slate-600">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
                   Absent: <strong>{modalAbsentCount}</strong>
                 </span>
-                <span className="text-xs font-bold text-slate-500">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                   Excused: <strong>{modalExcusedCount}</strong>
                 </span>
               </div>
@@ -565,7 +576,7 @@ export const AttendanceOversightView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleMarkAllPresent}
-                  className="px-3 py-1.5 bg-white border border-sky-200 hover:bg-sky-100 text-sky-700 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                  className="px-3 py-1.5 bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   <span>Mark All Present</span>
@@ -581,7 +592,7 @@ export const AttendanceOversightView: React.FC = () => {
                 placeholder="Search learner by name or admission number..."
                 value={registerSearch}
                 onChange={(e) => setRegisterSearch(e.target.value)}
-                className="w-full bg-white border border-sky-100 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
@@ -591,9 +602,9 @@ export const AttendanceOversightView: React.FC = () => {
                 <div className="w-6 h-6 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
-              <div className="max-h-96 overflow-y-auto border border-sky-100 rounded-xl">
+              <div className="max-h-96 overflow-y-auto border border-sky-100 dark:border-[#1a335a] rounded-xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-sky-50/90 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100 sticky top-0 z-10">
+                  <thead className="bg-sky-50/90 dark:bg-[#0c1830] text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#1a335a] sticky top-0 z-10">
                     <tr>
                       <th className="py-2.5 px-3">Adm #</th>
                       <th className="py-2.5 px-3">Student Name</th>
@@ -601,7 +612,7 @@ export const AttendanceOversightView: React.FC = () => {
                       <th className="py-2.5 px-3">Remarks</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-sky-50">
+                  <tbody className="divide-y divide-sky-50 dark:divide-slate-800/60">
                     {filteredRegisterRecords.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="py-6 text-center text-slate-400 italic">
@@ -610,22 +621,22 @@ export const AttendanceOversightView: React.FC = () => {
                       </tr>
                     ) : (
                       filteredRegisterRecords.map((r) => (
-                        <tr key={r.studentId} className="hover:bg-sky-50/40 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-600">
+                        <tr key={r.studentId} className="hover:bg-sky-50/40 dark:hover:bg-sky-950/20 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-600 dark:text-slate-400">
                             {r.admissionNumber}
                           </td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900">
+                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">
                             {r.studentName}
                           </td>
                           <td className="py-2.5 px-3 text-center">
-                            <div className="inline-flex rounded-lg p-0.5 bg-sky-50/80 border border-sky-100">
+                            <div className="inline-flex rounded-lg p-0.5 bg-sky-50/80 dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800">
                               <button
                                 type="button"
                                 onClick={() => handleRecordStatusChange(r.studentId, 'PRESENT')}
                                 className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
                                   r.status === 'PRESENT'
                                     ? 'bg-sky-500 text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-sky-700'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
                                 }`}
                               >
                                 Present
@@ -636,7 +647,7 @@ export const AttendanceOversightView: React.FC = () => {
                                 className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
                                   r.status === 'ABSENT'
                                     ? 'bg-slate-800 text-white shadow-xs'
-                                    : 'text-slate-600 hover:text-slate-900'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                                 }`}
                               >
                                 Absent
@@ -646,8 +657,8 @@ export const AttendanceOversightView: React.FC = () => {
                                 onClick={() => handleRecordStatusChange(r.studentId, 'EXCUSED')}
                                 className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
                                   r.status === 'EXCUSED'
-                                    ? 'bg-sky-100 text-sky-800 font-extrabold border border-sky-200'
-                                    : 'text-slate-600 hover:text-sky-700'
+                                    ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 font-extrabold border border-sky-200 dark:border-sky-800'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
                                 }`}
                               >
                                 Excused
@@ -660,7 +671,7 @@ export const AttendanceOversightView: React.FC = () => {
                               placeholder="Reason / Notes..."
                               value={r.remarks || ''}
                               onChange={(e) => handleRecordRemarkChange(r.studentId, e.target.value)}
-                              className="w-full bg-white border border-sky-100 rounded-lg px-2 py-1 text-[11px] text-slate-700 outline-none focus:border-sky-400 transition-colors"
+                              className="w-full bg-white dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 outline-none focus:border-sky-400 transition-colors"
                             />
                           </td>
                         </tr>
