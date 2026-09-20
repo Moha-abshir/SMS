@@ -20,6 +20,8 @@ export const LeaveManagementView: React.FC = () => {
     teacher: any;
     standingInTeacher: any;
     settings: any;
+    classTeacherOf?: any;
+    isReturned?: boolean;
   } | null>(null);
 
   const getCurrentTimeString = () => {
@@ -1016,61 +1018,16 @@ export const LeaveManagementView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '12px' }}>
-                    <div style={{ flex: 1, marginRight: '20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                        <span style={{ lineHeight: 1.2, whiteSpace: 'nowrap' }}>DIRECTOR'S<br />SIGNATURE</span>
-                        <span style={{ borderBottom: '1.5px dotted #000', flex: 1, marginLeft: '8px', height: '18px' }} />
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', marginTop: '14px', width: '240px' }}>
-                        <span style={{ marginRight: '6px' }}>DATE</span>
-                        <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 6px', fontWeight: 500, textAlign: 'center' }}>
-                          {formatDate(printSlipData.request.createdAt || new Date())}
-                        </span>
-                      </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', flex: 1, marginRight: '24px' }}>
+                      <span style={{ whiteSpace: 'nowrap' }}>DIRECTOR'S SIGNATURE</span>
+                      <span style={{ borderBottom: '1.5px dotted #000', flex: 1, marginLeft: '6px' }} />
                     </div>
-
-                    {/* Authentic Blue Circular School Stamp matching physical sheet */}
-                    <div
-                      style={{
-                        width: '120px',
-                        height: '120px',
-                        borderRadius: '50%',
-                        border: '2.5px solid #1e40af',
-                        color: '#1e40af',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        textAlign: 'center',
-                        padding: '6px',
-                        fontFamily: 'sans-serif',
-                        fontSize: '7.5pt',
-                        fontWeight: 'bold',
-                        lineHeight: 1.15,
-                        textTransform: 'uppercase',
-                        transform: 'rotate(-5deg)',
-                        userSelect: 'none',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span style={{ fontSize: '7pt', letterSpacing: '0.4px' }}>ELDORET MUSLIM</span>
-                      <span style={{ fontSize: '8pt' }}>ACADEMY</span>
-                      <div
-                        style={{
-                          margin: '3px 0',
-                          padding: '1px 6px',
-                          borderTop: '1px dashed #2563eb',
-                          borderBottom: '1px dashed #2563eb',
-                          fontSize: '8pt',
-                          fontFamily: 'monospace',
-                          fontWeight: 'bold',
-                        }}
-                      >
-                        {formatDate(printSlipData.request.startDate)}
-                      </div>
-                      <span style={{ fontSize: '6pt', letterSpacing: '-0.2px' }}>P.O BOX 5080-30100</span>
-                      <span style={{ fontSize: '6pt' }}>ELDORET</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', width: '220px' }}>
+                      <span style={{ marginRight: '6px' }}>DATE</span>
+                      <span style={{ borderBottom: '1.5px dotted #000', flex: 1, padding: '0 6px', fontWeight: 500, textAlign: 'center' }}>
+                        {formatDate(printSlipData.request.createdAt || new Date())}
+                      </span>
                     </div>
                   </div>
                 </div>
