@@ -62,14 +62,21 @@ export class AttendanceService {
     const totalAbsentRecords = records.filter((r) => r.record.status === 'ABSENT');
     const totalExcused = records.filter((r) => r.record.status === 'EXCUSED').length;
 
-    // Fetch SMS logs sent today
+    // Fetch SMS logs and match ONLY logs dispatched for this specific target date
     const smsLogs = await db
       .select()
       .from(absenceSmsLogs)
       .orderBy(desc(absenceSmsLogs.createdAt));
 
     const absentStudents = totalAbsentRecords.map((r) => {
-      const smsSent = smsLogs.find((s) => s.studentId === r.student.id);
+      const smsSent = smsLogs.find((s) => {
+        if (s.studentId !== r.student.id) return false;
+        if (!s.sentAt) return false;
+        // Format log sentAt to YYYY-MM-DD in school timezone (Africa/Nairobi)
+        const logDate = new Date(s.sentAt).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+        return logDate === dateStr;
+      });
+
       return {
         recordId: r.record.id,
         studentId: r.student.id,
