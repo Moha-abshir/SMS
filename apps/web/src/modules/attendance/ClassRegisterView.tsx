@@ -351,7 +351,7 @@ export const ClassRegisterView: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-rose-500"></span> Absent
               </div>
               <div className="text-xl sm:text-2xl font-black text-rose-700 mt-0.5">{absentCount}</div>
-              <div className="text-[10px] text-rose-600 mt-0.5">Flagged for Deputy SMS</div>
+              <div className="text-[10px] text-rose-600 mt-0.5">Parent to be notified</div>
             </div>
 
             <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-100 shadow-xs">
