@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Send, CheckCircle, AlertCircle, Phone, UserX, CheckCheck, Users, Search, Edit3, Clock, Sparkles } from 'lucide-react';
+import { Calendar, Send, CheckCircle, AlertCircle, Phone, UserX, CheckCheck, Users, Search, Edit3, Clock, Sparkles, Eye, ShieldCheck, Lock } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -145,6 +145,20 @@ export const AttendanceOversightView: React.FC = () => {
         remarks: r.remarks || '',
       }));
       setRegisterRecords(normalized);
+
+      // Hydrate audit metadata from backend response if available
+      if (res.data.data) {
+        setSelectedClass((prev) =>
+          prev
+            ? {
+                ...prev,
+                isSubmitted: Boolean(res.data.data.isSubmitted ?? prev.isSubmitted),
+                submittedAt: res.data.data.submittedAt || prev.submittedAt,
+                submittedByTeacher: res.data.data.submittedBy || prev.submittedByTeacher,
+              }
+            : null
+        );
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load class register');
     } finally {
@@ -153,24 +167,37 @@ export const AttendanceOversightView: React.FC = () => {
   };
 
   const handleRecordStatusChange = (studentId: string, newStatus: 'PRESENT' | 'ABSENT' | 'EXCUSED') => {
+    if (selectedClass?.isSubmitted) {
+      toast.warning('Submitted registers cannot be modified under zero-trust policy.');
+      return;
+    }
     setRegisterRecords((prev) =>
       prev.map((r) => (r.studentId === studentId ? { ...r, status: newStatus } : r))
     );
   };
 
   const handleRecordRemarkChange = (studentId: string, remark: string) => {
+    if (selectedClass?.isSubmitted) return;
     setRegisterRecords((prev) =>
       prev.map((r) => (r.studentId === studentId ? { ...r, remarks: remark } : r))
     );
   };
 
   const handleMarkAllPresent = () => {
+    if (selectedClass?.isSubmitted) {
+      toast.warning('Submitted registers cannot be modified.');
+      return;
+    }
     setRegisterRecords((prev) => prev.map((r) => ({ ...r, status: 'PRESENT' })));
     toast.info('Marked all learners as PRESENT');
   };
 
   const handleSaveRegister = async () => {
     if (!selectedClass) return;
+    if (selectedClass.isSubmitted) {
+      toast.warning('This register has already been submitted and locked. Modifications are blocked to preserve audit integrity.');
+      return;
+    }
     try {
       setRegisterSaving(true);
       await apiClient.post(`/api/attendance/classes/${selectedClass.classId}/register`, {
@@ -447,13 +474,25 @@ export const AttendanceOversightView: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleOpenRegisterModal(cls)}
-                      className="mt-3 w-full py-2 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Inspect / Edit Register</span>
-                    </button>
+                    {isSubmitted ? (
+                      <button
+                        onClick={() => handleOpenRegisterModal(cls)}
+                        className="mt-3 w-full py-2 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        title="Audit and inspect submitted register records"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                        <span>Inspect Register</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenRegisterModal(cls)}
+                        className="mt-3 w-full py-2 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        title="Complete roll-call for this unsubmitted class register"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Complete Register</span>
+                      </button>
+                    )}
                   </div>
                 );
               })
@@ -589,37 +628,74 @@ export const AttendanceOversightView: React.FC = () => {
         <Modal
           isOpen={!!selectedClass}
           onClose={() => setSelectedClass(null)}
-          title={`Daily Attendance: ${selectedClass.className} (${targetDate})`}
+          title={
+            selectedClass.isSubmitted
+              ? `Daily Register Inspection: ${selectedClass.className} (${targetDate})`
+              : `Complete Daily Register: ${selectedClass.className} (${targetDate})`
+          }
           maxWidth="max-w-3xl"
         >
           <div className="space-y-4">
+            {/* Zero-Trust Locked Audit Banner (When Submitted) */}
+            {selectedClass.isSubmitted && (
+              <div className="flex items-start sm:items-center justify-between gap-3 p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-900 dark:text-emerald-200">
+                <div className="flex items-start sm:items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                  <div>
+                    <div className="font-extrabold flex items-center gap-1.5">
+                      <span>Register Locked & Submitted</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/70 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200 font-bold">
+                        Zero-Trust Audit Active
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300/90 mt-0.5">
+                      Submitted by <strong className="text-emerald-950 dark:text-white">{selectedClass.submittedByTeacher || 'Class Teacher'}</strong>
+                      {selectedClass.submittedAt && (
+                        <span> at {new Date(selectedClass.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      )}
+                      . Read-only inspection mode is strictly enforced to protect data integrity and avoid resubmission conflicts.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-bold text-[10px] uppercase tracking-wider">
+                  <Lock className="w-3 h-3" /> Read-Only
+                </div>
+              </div>
+            )}
+
             {/* Modal Subheader with Stats & Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/40 rounded-xl">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Total: <strong className="text-slate-900 dark:text-slate-100">{registerRecords.length}</strong>
                 </span>
-                <span className="text-xs font-bold text-sky-700 dark:text-sky-300">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
                   Present: <strong>{modalPresentCount}</strong>
                 </span>
-                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                <span className="text-xs font-bold text-rose-700 dark:text-rose-400">
                   Absent: <strong>{modalAbsentCount}</strong>
                 </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold text-sky-700 dark:text-sky-300">
                   Excused: <strong>{modalExcusedCount}</strong>
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleMarkAllPresent}
-                  className="px-3 py-1.5 bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                >
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  <span>Mark All Present</span>
-                </button>
-              </div>
+              {!selectedClass.isSubmitted ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleMarkAllPresent}
+                    className="px-3 py-1.5 bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span>Mark All Present</span>
+                  </button>
+                </div>
+              ) : (
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 italic">
+                  Immutable roll-call record
+                </span>
+              )}
             </div>
 
             {/* Search Input */}
@@ -667,50 +743,70 @@ export const AttendanceOversightView: React.FC = () => {
                             {r.studentName}
                           </td>
                           <td className="py-2.5 px-3 text-center">
-                            <div className="inline-flex rounded-lg p-0.5 bg-sky-50/80 dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800">
-                              <button
-                                type="button"
-                                onClick={() => handleRecordStatusChange(r.studentId, 'PRESENT')}
-                                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                            {selectedClass.isSubmitted ? (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-1 text-[11px] font-bold rounded-lg ${
                                   r.status === 'PRESENT'
-                                    ? 'bg-sky-500 text-white shadow-xs'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                    : r.status === 'ABSENT'
+                                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                                    : 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
                                 }`}
                               >
-                                Present
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRecordStatusChange(r.studentId, 'ABSENT')}
-                                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
-                                  r.status === 'ABSENT'
-                                    ? 'bg-slate-800 text-white shadow-xs'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                                }`}
-                              >
-                                Absent
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRecordStatusChange(r.studentId, 'EXCUSED')}
-                                className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
-                                  r.status === 'EXCUSED'
-                                    ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 font-extrabold border border-sky-200 dark:border-sky-800'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
-                                }`}
-                              >
-                                Excused
-                              </button>
-                            </div>
+                                {r.status}
+                              </span>
+                            ) : (
+                              <div className="inline-flex rounded-lg p-0.5 bg-sky-50/80 dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRecordStatusChange(r.studentId, 'PRESENT')}
+                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                                    r.status === 'PRESENT'
+                                      ? 'bg-sky-500 text-white shadow-xs'
+                                      : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
+                                  }`}
+                                >
+                                  Present
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRecordStatusChange(r.studentId, 'ABSENT')}
+                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                                    r.status === 'ABSENT'
+                                      ? 'bg-slate-800 text-white shadow-xs'
+                                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                                  }`}
+                                >
+                                  Absent
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRecordStatusChange(r.studentId, 'EXCUSED')}
+                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                                    r.status === 'EXCUSED'
+                                      ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 font-extrabold border border-sky-200 dark:border-sky-800'
+                                      : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
+                                  }`}
+                                >
+                                  Excused
+                                </button>
+                              </div>
+                            )}
                           </td>
                           <td className="py-2.5 px-3">
-                            <input
-                              type="text"
-                              placeholder="Reason / Notes..."
-                              value={r.remarks || ''}
-                              onChange={(e) => handleRecordRemarkChange(r.studentId, e.target.value)}
-                              className="w-full bg-white dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 outline-none focus:border-sky-400 transition-colors"
-                            />
+                            {selectedClass.isSubmitted ? (
+                              <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                                {r.remarks || <span className="text-slate-300 dark:text-slate-600 italic">None</span>}
+                              </span>
+                            ) : (
+                              <input
+                                type="text"
+                                placeholder="Reason / Notes..."
+                                value={r.remarks || ''}
+                                onChange={(e) => handleRecordRemarkChange(r.studentId, e.target.value)}
+                                className="w-full bg-white dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 outline-none focus:border-sky-400 transition-colors"
+                              />
+                            )}
                           </td>
                         </tr>
                       ))
@@ -721,23 +817,35 @@ export const AttendanceOversightView: React.FC = () => {
             )}
 
             {/* Modal Actions */}
-            <div className="flex justify-end gap-3 pt-3 border-t border-sky-100">
-              <button
-                type="button"
-                onClick={() => setSelectedClass(null)}
-                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveRegister}
-                disabled={registerSaving}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {registerSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Save Daily Register
-              </button>
+            <div className="flex justify-end gap-3 pt-3 border-t border-sky-100 dark:border-slate-800">
+              {selectedClass.isSubmitted ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedClass(null)}
+                  className="px-5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Close Inspection
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClass(null)}
+                    className="px-4 py-2 bg-white dark:bg-slate-900 border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveRegister}
+                    disabled={registerSaving}
+                    className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {registerSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    Save Daily Register
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </Modal>

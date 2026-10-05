@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, CheckCircle2, XCircle, AlertCircle, Clock, Save,
   Users, CheckCheck, RotateCcw, Search, ChevronRight, UserCheck,
-  TrendingDown, Sparkles, Filter, AlertTriangle, Lock, BookOpen
+  TrendingDown, Sparkles, Filter, AlertTriangle, Lock, BookOpen, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -143,6 +143,10 @@ export const ClassRegisterView: React.FC = () => {
 
   // Quick action: Mark all present
   const handleMarkAllPresent = () => {
+    if (isSubmitted) {
+      toast.warning("Today's register has already been submitted and locked under zero-trust policy.");
+      return;
+    }
     setStudents((prev) =>
       prev.map((s) => ({
         ...s,
@@ -154,6 +158,10 @@ export const ClassRegisterView: React.FC = () => {
 
   // Quick action: Set status for single student
   const handleStatusChange = (studentId: string, newStatus: 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE') => {
+    if (isSubmitted) {
+      toast.warning('Register is locked. Roll-call cannot be modified once submitted.');
+      return;
+    }
     setStudents((prev) =>
       prev.map((s) => (s.studentId === studentId ? { ...s, status: newStatus } : s))
     );
@@ -161,6 +169,7 @@ export const ClassRegisterView: React.FC = () => {
 
   // Remark change
   const handleRemarksChange = (studentId: string, remarks: string) => {
+    if (isSubmitted) return;
     setStudents((prev) =>
       prev.map((s) => (s.studentId === studentId ? { ...s, remarks } : s))
     );
@@ -169,6 +178,10 @@ export const ClassRegisterView: React.FC = () => {
   // Save register
   const handleSaveRegister = async () => {
     if (!selectedClassId) return;
+    if (isSubmitted) {
+      toast.warning('This register has already been submitted and locked. Resubmission is blocked to preserve audit integrity.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -182,7 +195,7 @@ export const ClassRegisterView: React.FC = () => {
 
       await apiClient.post(`/api/attendance/classes/${selectedClassId}/register`, payload);
       setIsSubmitted(true);
-      toast.success(`Register for ${selectedDate} saved and synced successfully!`);
+      toast.success(`Register for ${selectedDate} saved and locked successfully!`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save attendance register');
     } finally {
@@ -346,27 +359,57 @@ export const ClassRegisterView: React.FC = () => {
           <div className="flex items-end gap-2">
             <button
               onClick={handleMarkAllPresent}
-              disabled={loading || students.length === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/80 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+              disabled={loading || students.length === 0 || isSubmitted}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/80 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <CheckCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Mark All Present
             </button>
 
-            <button
-              onClick={handleSaveRegister}
-              disabled={loading || saving || students.length === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Register'}
-            </button>
+            {isSubmitted ? (
+              <div className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-100/90 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 font-bold text-xs select-none">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Register Locked</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleSaveRegister}
+                disabled={loading || saving || students.length === 0}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save Register'}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {activeTab === 'today' ? (
         <>
+          {/* Zero-Trust Immutability Banner When Submitted */}
+          {isSubmitted && (
+            <div className="p-3.5 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <div>
+                  <div className="font-extrabold flex items-center gap-1.5">
+                    <span>Today's Daily Register Submitted & Locked</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/70 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200 font-bold">
+                      Zero-Trust Policy Active
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300/90 mt-0.5">
+                    This class register is finalized and immutable. Roll-call cannot be modified or resubmitted to prevent conflicts and ensure audit integrity.
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-bold text-[10px] uppercase tracking-wider">
+                <Lock className="w-3 h-3" /> Locked
+              </div>
+            </div>
+          )}
+
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="bg-white/85 backdrop-blur-md rounded-2xl p-3.5 border border-sky-100 shadow-xs">
@@ -493,11 +536,12 @@ export const ClassRegisterView: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => handleStatusChange(student.studentId, 'PRESENT')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        disabled={isSubmitted}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                           student.status === 'PRESENT'
                             ? 'bg-emerald-500 text-white shadow-xs'
                             : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
-                        }`}
+                        } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Present
@@ -505,11 +549,12 @@ export const ClassRegisterView: React.FC = () => {
 
                       <button
                         onClick={() => handleStatusChange(student.studentId, 'ABSENT')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        disabled={isSubmitted}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                           student.status === 'ABSENT'
                             ? 'bg-rose-500 text-white shadow-xs'
                             : 'bg-slate-100 text-slate-600 hover:bg-rose-50 hover:text-rose-700'
-                        }`}
+                        } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         Absent
@@ -517,11 +562,12 @@ export const ClassRegisterView: React.FC = () => {
 
                       <button
                         onClick={() => handleStatusChange(student.studentId, 'EXCUSED')}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        disabled={isSubmitted}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                           student.status === 'EXCUSED'
                             ? 'bg-sky-500 text-white shadow-xs'
                             : 'bg-slate-100 text-slate-600 hover:bg-sky-50 hover:text-sky-700'
-                        }`}
+                        } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
                       >
                         <AlertCircle className="w-3.5 h-3.5" />
                         Excused
@@ -529,11 +575,12 @@ export const ClassRegisterView: React.FC = () => {
 
                       <button
                         onClick={() => handleStatusChange(student.studentId, 'LATE')}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        disabled={isSubmitted}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                           student.status === 'LATE'
                             ? 'bg-amber-500 text-white shadow-xs'
                             : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700'
-                        }`}
+                        } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
                       >
                         <Clock className="w-3.5 h-3.5" />
                         Late
@@ -546,8 +593,9 @@ export const ClassRegisterView: React.FC = () => {
                         type="text"
                         value={student.remarks || ''}
                         onChange={(e) => handleRemarksChange(student.studentId, e.target.value)}
-                        placeholder="Optional remarks..."
-                        className="w-full bg-slate-50 border border-sky-100 rounded-lg px-2.5 py-1 text-xs text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-1 focus:ring-sky-400 outline-hidden transition-all"
+                        disabled={isSubmitted}
+                        placeholder={isSubmitted ? 'None' : 'Optional remarks...'}
+                        className="w-full bg-slate-50 border border-sky-100 rounded-lg px-2.5 py-1 text-xs text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-1 focus:ring-sky-400 outline-hidden transition-all disabled:bg-slate-100/60 disabled:cursor-not-allowed disabled:text-slate-500"
                       />
                     </div>
                   </div>
@@ -564,14 +612,21 @@ export const ClassRegisterView: React.FC = () => {
               <span className="font-bold text-slate-800">{totalCount}</span> total
             </div>
 
-            <button
-              onClick={handleSaveRegister}
-              disabled={loading || saving || students.length === 0}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Register'}
-            </button>
+            {isSubmitted ? (
+              <div className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Register Locked</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleSaveRegister}
+                disabled={loading || saving || students.length === 0}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving...' : 'Save Register'}
+              </button>
+            )}
           </div>
         </>
       ) : (
