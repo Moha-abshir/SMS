@@ -140,10 +140,26 @@ export class AttendanceService {
 
     if (!targetClass) throw new Error('Class not found');
 
-    const [register] = await db
-      .select()
+    const [registerData] = await db
+      .select({
+        register: attendanceRegisters,
+        takenByUser: {
+          firstName: users.firstName,
+          lastName: users.lastName,
+        },
+      })
       .from(attendanceRegisters)
-      .where(and(eq(attendanceRegisters.classId, classId), eq(attendanceRegisters.date, dateStr)));
+      .leftJoin(users, eq(attendanceRegisters.takenById, users.id))
+      .where(
+        and(
+          eq(attendanceRegisters.classId, classId),
+          eq(attendanceRegisters.date, dateStr),
+          isNull(attendanceRegisters.deletedAt)
+        )
+      );
+
+    const register = registerData?.register;
+    const takenByUser = registerData?.takenByUser;
 
     // Fetch active students in this class with leftJoin to guardians
     const classStudents = await db
@@ -203,9 +219,11 @@ export class AttendanceService {
     return {
       class: targetClass,
       date: dateStr,
-      isSubmitted: !!register,
-      submitted: !!register,
+      isSubmitted: Boolean(register?.isSubmitted ?? !!register),
+      submitted: Boolean(register?.isSubmitted ?? !!register),
       registerId: register?.id || null,
+      submittedBy: takenByUser?.firstName ? `${takenByUser.firstName} ${takenByUser.lastName || ''}`.trim() : null,
+      submittedAt: register?.updatedAt || register?.createdAt || null,
       students: studentRows,
       records,
       stats: {
@@ -227,7 +245,19 @@ export class AttendanceService {
       let [register] = await tx
         .select()
         .from(attendanceRegisters)
-        .where(and(eq(attendanceRegisters.classId, classId), eq(attendanceRegisters.date, dateStr)));
+        .where(
+          and(
+            eq(attendanceRegisters.classId, classId),
+            eq(attendanceRegisters.date, dateStr),
+            isNull(attendanceRegisters.deletedAt)
+          )
+        );
+
+      if (register && register.isSubmitted) {
+        throw new Error(
+          `The attendance register for this class on ${dateStr} has already been submitted and locked. Resubmission is blocked to preserve audit integrity.`
+        );
+      }
 
       if (!register) {
         const [newRegister] = await tx
