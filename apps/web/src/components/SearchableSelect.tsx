@@ -88,7 +88,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative select-none ${className}`}>
+    <div ref={containerRef} className={`relative select-none ${isOpen ? 'z-50' : ''} ${className}`}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -141,7 +141,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1.5 bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute z-[100] left-0 right-0 mt-1.5 bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           {/* Pinned Search Input at the Top */}
           <div className="p-2 border-b border-sky-100 dark:border-[#162b4d] bg-sky-50/50 dark:bg-[#0c1830]/80 flex items-center gap-2">
             <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0 ml-1" />

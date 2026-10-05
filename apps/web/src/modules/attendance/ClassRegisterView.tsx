@@ -219,7 +219,7 @@ export const ClassRegisterView: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top Header Card */}
-      <div className="bg-white/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 shadow-glass">
+      <div className="relative z-30 bg-white/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 shadow-glass">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -273,7 +273,7 @@ export const ClassRegisterView: React.FC = () => {
 
         {/* Class and Date Selectors */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-5 pt-5 border-t border-sky-100">
-          <div>
+          <div className="relative z-20">
             <label className="block text-xs font-semibold text-slate-600 mb-1">
               Class Roster
             </label>
