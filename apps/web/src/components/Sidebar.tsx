@@ -13,6 +13,7 @@ export interface NavItem {
   label: string;
   icon: any;
   roles?: string[]; // Allowed roles (if omitted, visible to all)
+  isClassTeacherFeature?: boolean; // Visible if user is an active Class Teacher (any role) OR has TEACHER role
 }
 
 interface SidebarProps {
@@ -27,6 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
+  const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
+  const [assignedClassName, setAssignedClassName] = useState<string | null>(null);
 
   const location = useLocation();
   const userRole = user?.roleName || user?.role || 'HEAD_TEACHER';
@@ -38,7 +41,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         if (res.data.data.schoolName) setSchoolName(res.data.data.schoolName);
       }
     }).catch(() => {});
-  }, []);
+
+    // Check if the current logged-in staff member (regardless of title) is an assigned Class Teacher
+    apiClient.get('/api/teacher/workstation')
+      .then((res) => {
+        if (res.data?.data?.classTeacher) {
+          setIsClassTeacher(true);
+          setAssignedClassName(res.data.data.classTeacher.className);
+        } else {
+          setIsClassTeacher(false);
+          setAssignedClassName(null);
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   // Strict Navigation Items defined per system role according to blueprint & requirements
   const allNavItems: NavItem[] = [
@@ -52,8 +68,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/inventory', label: 'School Inventory', icon: Package, roles: ['DEPUTY_HEAD'] },
     { path: '/leave-requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['DEPUTY_HEAD'] },
     { path: '/attendance', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },
-    { path: '/class-register', label: 'Daily Class Register', icon: CalendarCheck, roles: ['TEACHER'] },
-    { path: '/my-learners', label: 'Class Learners', icon: Users, roles: ['TEACHER'] },
+    { path: '/class-register', label: 'Daily Class Register', icon: CalendarCheck, isClassTeacherFeature: true, roles: ['TEACHER'] },
+    { path: '/my-learners', label: 'Class Learners', icon: Users, isClassTeacherFeature: true, roles: ['TEACHER'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DEPUTY_HEAD'] },
     { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/subject-performance', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
@@ -64,8 +80,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 
-  // Strictly filter items based on logged in user role
+  // Filter items based on logged in user role OR active Class Teacher assignment
   const navItems = allNavItems.filter((item) => {
+    // If it's a class-teacher feature, show if user is an active allocated Class Teacher OR has TEACHER role
+    if (item.isClassTeacherFeature && (isClassTeacher || userRole === 'TEACHER')) {
+      return true;
+    }
+
     if (!item.roles) return true;
     return item.roles.some((role) => {
       if (role === 'DEPUTY_HEAD') {
@@ -185,7 +206,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
                 } ${collapsed ? 'justify-center px-0' : ''}`}
               >
                 <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-sky-500 dark:text-slate-500 dark:group-hover:text-sky-400'}`} />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!collapsed && (
+                  <div className="flex items-center justify-between gap-1.5 flex-1 min-w-0">
+                    <span className="truncate">{item.label}</span>
+                    {item.isClassTeacherFeature && assignedClassName && (
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase shrink-0 ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-sky-100 text-sky-700 dark:bg-[#072648] dark:text-sky-300'
+                        }`}
+                      >
+                        {assignedClassName}
+                      </span>
+                    )}
+                  </div>
+                )}
               </NavLink>
             );
           })}
