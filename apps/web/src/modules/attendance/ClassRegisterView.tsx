@@ -3,11 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, CheckCircle2, XCircle, AlertCircle, Clock, Save,
   Users, CheckCheck, RotateCcw, Search, ChevronRight, UserCheck,
-  TrendingDown, Sparkles, Filter, AlertTriangle
+  TrendingDown, Sparkles, Filter, AlertTriangle, Lock, BookOpen
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
-import { SearchableSelect } from '../../components/SearchableSelect';
 
 interface StudentRegisterRow {
   studentId: string;
@@ -46,13 +45,23 @@ export const ClassRegisterView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'today' | 'history'>('today');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  // Fixed today's date in Africa/Nairobi timezone (locked, cannot be edited)
+  const todayDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+  const todayDisplayStr = new Date().toLocaleDateString('en-KE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Africa/Nairobi',
+  });
+  const selectedDate = todayDateStr;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'EXCUSED' | 'LATE'>('ALL');
 
   // Teacher & Class state
   const [assignedClass, setAssignedClass] = useState<any>(null);
-  const [availableClasses, setAvailableClasses] = useState<any[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [students, setStudents] = useState<StudentRegisterRow[]>([]);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
@@ -76,15 +85,9 @@ export const ClassRegisterView: React.FC = () => {
         if (workstation?.classTeacher) {
           setAssignedClass(workstation.classTeacher);
           setSelectedClassId(workstation.classTeacher.classId);
-        }
-
-        // Also fetch all classes in case user is admin or deputy
-        const classesRes = await apiClient.get('/api/admissions/classes');
-        const allClasses = classesRes.data?.data || [];
-        setAvailableClasses(allClasses);
-
-        if (!workstation?.classTeacher && allClasses.length > 0) {
-          setSelectedClassId(allClasses[0].id);
+        } else {
+          setAssignedClass(null);
+          setSelectedClassId('');
         }
       } catch (err: any) {
         toast.error(err.response?.data?.message || 'Failed to load teacher class assignment');
@@ -216,6 +219,30 @@ export const ClassRegisterView: React.FC = () => {
     );
   });
 
+  if (!loading && !assignedClass) {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto py-8">
+        <div className="bg-white/90 dark:bg-[#091326]/90 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-sky-100 dark:border-[#162b4d] shadow-glass text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] flex items-center justify-center mx-auto text-sky-600 dark:text-sky-400 shadow-xs">
+            <Users className="w-8 h-8" />
+          </div>
+          <div className="max-w-md mx-auto space-y-2">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">No Class Assigned Yet</h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              You are currently not assigned as a Class Teacher to any class. The Deputy Head Teacher assigns class teachers via Class & Teacher Allocations.
+            </p>
+          </div>
+          <div className="pt-2">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 text-xs font-semibold border border-sky-100 dark:border-[#0c4a6e]">
+              <span className="w-2 h-2 rounded-full bg-sky-500" />
+              Role: Subject Specialist / Unassigned Class Teacher
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Top Header Card */}
@@ -242,7 +269,7 @@ export const ClassRegisterView: React.FC = () => {
               Daily Class Register
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Rapid mobile-first roll call. Submitting immediately synchronizes with the Deputy Head's attendance oversight and absentee notifications.
+              Rapid mobile-first roll call for <strong className="text-slate-700 dark:text-slate-200">{assignedClass?.className}</strong>. Submitting immediately synchronizes with the Deputy Head's attendance oversight and absentee notifications.
             </p>
           </div>
 
@@ -271,36 +298,48 @@ export const ClassRegisterView: React.FC = () => {
           </div>
         </div>
 
-        {/* Class and Date Selectors */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-5 pt-5 border-t border-sky-100">
-          <div className="relative z-20">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Class Roster
+        {/* Class and Date Locked Indicators */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-5 pt-5 border-t border-sky-100 dark:border-[#162b4d]">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Assigned Class
             </label>
-            <SearchableSelect
-              value={selectedClassId}
-              onChange={(val) => setSelectedClassId(val)}
-              placeholder="-- Select Class --"
-              searchPlaceholder="Search class..."
-              options={availableClasses.map((c) => ({
-                value: c.id,
-                label: c.name,
-                badge: assignedClass?.classId === c.id ? 'My Class' : undefined,
-              }))}
-            />
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a]">
+              <BookOpen className="w-4 h-4 text-sky-500 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 truncate block">
+                  {assignedClass?.className || 'Class'}
+                </span>
+              </div>
+              {assignedClass?.isStandingIn ? (
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0"
+                  title={`Standing in for ${assignedClass.standingInFor || 'absent class teacher'}`}
+                >
+                  Standing In
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0">
+                  Class Teacher
+                </span>
+              )}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
               Register Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full bg-white border border-sky-200 rounded-xl px-3 py-2 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all outline-hidden cursor-pointer"
-              />
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a]">
+              <Calendar className="w-4 h-4 text-sky-500 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 truncate block">
+                  {todayDisplayStr}
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5" /> Today Locked
+              </span>
             </div>
           </div>
 
@@ -308,16 +347,16 @@ export const ClassRegisterView: React.FC = () => {
             <button
               onClick={handleMarkAllPresent}
               disabled={loading || students.length === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/80 border border-emerald-200 dark:border-emerald-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
             >
-              <CheckCheck className="w-4 h-4 text-emerald-600" />
+              <CheckCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Mark All Present
             </button>
 
             <button
               onClick={handleSaveRegister}
               disabled={loading || saving || students.length === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save Register'}
