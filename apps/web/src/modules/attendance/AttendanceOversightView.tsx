@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Send, CheckCircle, AlertCircle, Phone, UserX, CheckCheck, Users, Search, Edit3, Clock, Sparkles, Eye, ShieldCheck, Lock } from 'lucide-react';
+import { Calendar, Send, CheckCircle, AlertCircle, Phone, UserX, CheckCheck, Users, Search, Edit3, Clock, Sparkles, Eye, ShieldCheck, Lock, MessageSquare } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -19,6 +19,19 @@ interface ClassSummary {
   presentCount: number;
   absentCount: number;
   excusedCount: number;
+}
+
+interface AbsentStudent {
+  recordId: string;
+  studentId: string;
+  studentName: string;
+  assessmentNumber?: string;
+  className: string;
+  guardianName: string;
+  guardianPhone: string;
+  guardianId: string | null;
+  smsSentStatus: 'SENT' | 'FAILED' | 'PENDING' | string | null;
+  remarks: string | null;
 }
 
 interface AttendanceRecord {
@@ -42,7 +55,7 @@ export const AttendanceOversightView: React.FC = () => {
     totalPresent: number;
     totalAbsent: number;
     totalExcused: number;
-    absentStudents: any[];
+    absentStudents: AbsentStudent[];
     classSummaries: ClassSummary[];
   }>({
     date: new Date().toISOString().split('T')[0],
@@ -110,11 +123,13 @@ export const AttendanceOversightView: React.FC = () => {
       return;
     }
 
-    if (
-      !confirm(
-        `Are you sure you want to send automated SMS notifications to all ${unnotified.length} parents of absent learners for ${targetDate}?`
-      )
-    ) {
+    const notedCount = unnotified.filter((s) => Boolean(s.remarks)).length;
+    const confirmMessage =
+      notedCount > 0
+        ? `Send automated SMS notifications to all ${unnotified.length} parents of absent learners for ${targetDate}?\n\nNote: ${notedCount} learner(s) have teacher remarks recorded (e.g. sick, doctor visit). Please review their notes in the hub if you wish to exclude them.`
+        : `Are you sure you want to send automated SMS notifications to all ${unnotified.length} parents of absent learners for ${targetDate}?`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -551,6 +566,7 @@ export const AttendanceOversightView: React.FC = () => {
                 <tr>
                   <th className="py-3.5 px-4">Student Name</th>
                   <th className="py-3.5 px-4">Class</th>
+                  <th className="py-3.5 px-4">Teacher Note / Reason</th>
                   <th className="py-3.5 px-4">Parent / Guardian</th>
                   <th className="py-3.5 px-4">Parent Phone Number</th>
                   <th className="py-3.5 px-4 text-center">SMS Status</th>
@@ -560,7 +576,7 @@ export const AttendanceOversightView: React.FC = () => {
               <tbody className="divide-y divide-sky-100/60 dark:divide-slate-800/60">
                 {filteredAbsentStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
+                    <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
                       No absent learners match the selected filter.
                     </td>
                   </tr>
@@ -572,6 +588,19 @@ export const AttendanceOversightView: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-slate-600 dark:text-slate-400">
                         {row.className}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {row.remarks ? (
+                          <div
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 font-medium text-[11px] max-w-xs"
+                            title={row.remarks}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span className="truncate">{row.remarks}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-500 italic text-[11px]">No note recorded</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-slate-800 dark:text-slate-200 font-bold">
                         {row.guardianName || 'Parent / Guardian'}

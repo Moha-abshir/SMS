@@ -166,6 +166,12 @@ export const ClassRegisterView: React.FC = () => {
     setStudents((prev) =>
       prev.map((s) => (s.studentId === studentId ? { ...s, status: newStatus } : s))
     );
+    if (newStatus === 'PRESENT') {
+      const target = students.find((s) => s.studentId === studentId);
+      if (!target?.remarks && expandedRemarkId === studentId) {
+        setExpandedRemarkId(null);
+      }
+    }
   };
 
   // Remark change
@@ -568,16 +574,16 @@ export const ClassRegisterView: React.FC = () => {
                           </button>
                         </div>
 
-                        {!isSubmitted && (
+                        {!isSubmitted && (student.status !== 'PRESENT' || Boolean(student.remarks)) && (
                           <button
                             type="button"
                             onClick={() => setExpandedRemarkId(isRemarkOpen ? null : student.studentId)}
                             className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                               student.remarks
-                                ? 'text-sky-600 bg-sky-50 dark:bg-sky-950/50'
+                                ? 'text-amber-700 bg-amber-100/80 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60'
                                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
                             }`}
-                            title={student.remarks ? `Remark: ${student.remarks}` : "Add remark"}
+                            title={student.remarks ? `Note: ${student.remarks}` : "Add note for absence/late arrival"}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                           </button>
