@@ -272,11 +272,11 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                   />
                   <input
                     type="text"
-                    maxLength={6}
-                    placeholder="Code"
+                    maxLength={15}
+                    placeholder="Code (e.g. LP-MATH)"
                     value={row.code}
                     onChange={(e) => handleBulkRowChange(idx, 'code', e.target.value)}
-                    className="w-20 sm:w-28 shrink-0 bg-white border border-sky-100 rounded-xl px-2 sm:px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-800 focus:border-sky-500 outline-none"
+                    className="w-24 sm:w-36 shrink-0 bg-white border border-sky-100 rounded-xl px-2 sm:px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-800 focus:border-sky-500 outline-none"
                   />
                   <button
                     type="button"
@@ -343,8 +343,8 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                 <input
                   type="text"
                   required
-                  maxLength={6}
-                  placeholder="MATH"
+                  maxLength={15}
+                  placeholder="e.g. LP-MATH"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   className="w-full bg-white border border-sky-100 rounded-xl px-2.5 py-2 text-xs uppercase font-mono font-bold text-slate-800 focus:border-sky-500 outline-none"

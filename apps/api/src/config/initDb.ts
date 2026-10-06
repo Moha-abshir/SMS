@@ -32,6 +32,16 @@ export async function initializeDatabaseTables() {
     `);
 
     console.log('[Database] database schema extensions verified/initialized');
+
+    // Ensure CBC subjects exist
+    const [subCount] = await db.execute<{ count: string }>(sql`
+      SELECT count(*) as count FROM "subjects" WHERE "deleted_at" IS NULL;
+    `);
+    if (Number(subCount?.count || 0) === 0) {
+      console.log('[Database] No subjects found. Auto-seeding CBC subjects catalog...');
+      const { seedSubjects } = await import('../scripts/seed-subjects.js');
+      await seedSubjects();
+    }
   } catch (err: any) {
     console.warn('[Database] initializeDatabaseTables warning:', err.message);
   }
