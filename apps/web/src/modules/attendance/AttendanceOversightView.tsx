@@ -1,6 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Send, CheckCircle, AlertCircle, Phone, UserX, CheckCheck, Users, Search, Edit3, Clock, Sparkles, Eye, ShieldCheck, Lock, MessageSquare } from 'lucide-react';
+import {
+  Calendar,
+  Send,
+  CheckCircle,
+  AlertCircle,
+  Phone,
+  CheckCheck,
+  Users,
+  Search,
+  Edit3,
+  Clock,
+  Sparkles,
+  Eye,
+  ShieldCheck,
+  Lock,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -42,9 +60,39 @@ interface AttendanceRecord {
   remarks: string;
 }
 
+// Kenya school date helper: dd/mm/yy (e.g. 06/10/26) or dd/mm/yyyy
+const formatToDdMmYy = (iso: string) => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y.slice(2)}`;
+};
+
+const parseDdMmYyToIso = (val: string): string | null => {
+  const cleaned = val.trim();
+  const match = cleaned.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2}|\d{4})$/);
+  if (!match) return null;
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  let year = parseInt(match[3], 10);
+  if (match[3].length === 2) {
+    year = 2000 + year;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return iso;
+};
+
 export const AttendanceOversightView: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' });
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [targetDate, setTargetDate] = useState(todayIso);
+  const [dateInputValue, setDateInputValue] = useState(formatToDdMmYy(todayIso));
+  const datePickerRef = useRef<HTMLInputElement>(null);
+
   const [activeTab, setActiveTab] = useState<'registers' | 'absentees'>('registers');
   const [absentFilter, setAbsentFilter] = useState<'ALL' | 'UNNOTIFIED' | 'SENT'>('ALL');
 
@@ -58,7 +106,7 @@ export const AttendanceOversightView: React.FC = () => {
     absentStudents: AbsentStudent[];
     classSummaries: ClassSummary[];
   }>({
-    date: new Date().toISOString().split('T')[0],
+    date: todayIso,
     totalClassesCount: 0,
     registersSubmittedCount: 0,
     totalPresent: 0,
@@ -78,23 +126,51 @@ export const AttendanceOversightView: React.FC = () => {
   const [registerRecords, setRegisterRecords] = useState<AttendanceRecord[]>([]);
   const [registerSearch, setRegisterSearch] = useState('');
 
+  // Keep input in sync with targetDate
+  useEffect(() => {
+    setDateInputValue(formatToDdMmYy(targetDate));
+  }, [targetDate]);
+
   const fetchAttendance = async (dateStr?: string) => {
+    const fetchDate = dateStr || targetDate;
     try {
-      setLoading(true);
-      const res = await apiClient.get(`/api/attendance/school-wide?date=${dateStr || targetDate}`);
+      setIsFetching(true);
+      const res = await apiClient.get(`/api/attendance/school-wide?date=${fetchDate}`);
       if (res.data.data) {
         setData(res.data.data);
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load attendance oversight data');
     } finally {
-      setLoading(false);
+      setIsFetching(false);
+      setInitialLoading(false);
     }
   };
 
   useEffect(() => {
     fetchAttendance();
   }, [targetDate]);
+
+  const handleCommitDateInput = () => {
+    const parsedIso = parseDdMmYyToIso(dateInputValue);
+    if (parsedIso) {
+      if (parsedIso !== targetDate) {
+        setTargetDate(parsedIso);
+      }
+    } else {
+      toast.warning('Please enter date as DD/MM/YY (e.g. 06/10/26)');
+      setDateInputValue(formatToDdMmYy(targetDate));
+    }
+  };
+
+  const handleStepDate = (days: number) => {
+    const d = new Date(targetDate);
+    d.setDate(d.getDate() + days);
+    const nextIso = d.toISOString().split('T')[0];
+    setTargetDate(nextIso);
+  };
+
+  const isToday = targetDate === todayIso;
 
   const handleSendSms = async (student: any) => {
     try {
@@ -257,7 +333,7 @@ export const AttendanceOversightView: React.FC = () => {
   const modalAbsentCount = registerRecords.filter((r) => r.status === 'ABSENT').length;
   const modalExcusedCount = registerRecords.filter((r) => r.status === 'EXCUSED').length;
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
@@ -273,40 +349,119 @@ export const AttendanceOversightView: React.FC = () => {
       className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
     >
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 shadow-glass">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 bg-white/90 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 dark:border-[#1a335a] shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
-            <UserX className="w-4 h-4 text-sky-500" />
-            Attendance Register & Parent Notification System
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-wider mb-1">
+            <Users className="w-4 h-4 text-sky-500" />
+            Attendance Oversight
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">School-Wide Attendance Oversight</h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
-            Audit daily classroom registers, inspect or override entries, and dispatch automated Africa's Talking parent SMS notifications.
+          <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+            Daily Attendance Oversight
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
+            School-wide daily register completion status and absentee notifications for parents.
           </p>
         </div>
 
-        {/* Controls Bar: Date Selector & Bulk SMS Action */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto shrink-0">
-          <div className="flex items-center gap-2 px-3 py-2 bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/40 rounded-xl sm:rounded-2xl backdrop-blur-md">
-            <Calendar className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-            <span className="text-[10px] font-bold tracking-wider text-sky-700 dark:text-sky-300 uppercase">Target Date:</span>
-            <input
-              type="date"
-              value={targetDate}
-              onChange={(e) => setTargetDate(e.target.value)}
-              className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs font-bold px-2 py-1 rounded-lg border border-sky-200 dark:border-slate-700 outline-none cursor-pointer focus:border-sky-500 transition-colors"
-            />
+        {/* Controls Bar: DD/MM/YY Date Navigator & Bulk SMS Action */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
+          {/* Enhanced Date Navigator in DD/MM/YY format */}
+          <div className="flex items-center gap-1.5 p-1 bg-sky-50/70 dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800 rounded-xl sm:rounded-2xl">
+            {/* Prev Day button */}
+            <button
+              type="button"
+              onClick={() => handleStepDate(-1)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Previous Day"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Date Input in dd/mm/yy format */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-slate-700 rounded-lg shadow-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  if (datePickerRef.current) {
+                    if (datePickerRef.current.showPicker) {
+                      datePickerRef.current.showPicker();
+                    } else {
+                      datePickerRef.current.focus();
+                    }
+                  }
+                }}
+                className="text-sky-600 dark:text-sky-400 hover:text-sky-700 cursor-pointer p-0.5"
+                title="Click to pick date from calendar"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+              </button>
+              <input
+                type="text"
+                value={dateInputValue}
+                onChange={(e) => setDateInputValue(e.target.value)}
+                onBlur={handleCommitDateInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCommitDateInput();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                placeholder="dd/mm/yy"
+                className="w-18 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-slate-100 outline-none text-center"
+                title="Date in dd/mm/yy format (Press Enter to apply)"
+              />
+              {/* Hidden native date input for the calendar popup */}
+              <input
+                type="date"
+                ref={datePickerRef}
+                value={targetDate}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setTargetDate(e.target.value);
+                  }
+                }}
+                className="sr-only"
+                tabIndex={-1}
+              />
+            </div>
+
+            {/* Next Day button */}
+            <button
+              type="button"
+              onClick={() => handleStepDate(1)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Next Day"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {/* Jump to Today button */}
+            {!isToday && (
+              <button
+                type="button"
+                onClick={() => setTargetDate(todayIso)}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 hover:bg-sky-200 transition-colors cursor-pointer"
+                title="Jump to Today"
+              >
+                Today
+              </button>
+            )}
+
+            {isFetching && (
+              <div className="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0 mx-1" />
+            )}
           </div>
 
+          {/* Bulk SMS Action Button */}
           <button
             onClick={handleNotifyAllAbsent}
             disabled={bulkSendingSms || unnotifiedCount === 0}
-            className={`px-4 py-2.5 font-bold text-xs rounded-xl sm:rounded-2xl shadow-glass flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`px-4 py-2 font-bold text-xs rounded-xl sm:rounded-2xl shadow-glass flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               unnotifiedCount === 0 && data.absentStudents.length > 0
                 ? 'bg-emerald-600 text-white'
                 : 'bg-sky-500 hover:bg-sky-600 text-white'
             }`}
-            title="Dispatch bulk SMS notifications to all unnotified parents of absent learners"
+            title="Dispatch SMS notifications to all unnotified parents of absent learners"
           >
             {bulkSendingSms ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -317,7 +472,7 @@ export const AttendanceOversightView: React.FC = () => {
             )}
             <span>
               {unnotifiedCount === 0 && data.absentStudents.length > 0
-                ? 'All SMS Dispatched'
+                ? 'All SMS Sent'
                 : `Notify All Absent (${unnotifiedCount})`}
             </span>
           </button>
@@ -325,54 +480,63 @@ export const AttendanceOversightView: React.FC = () => {
       </div>
 
       {/* Aggregate KPI Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Registers Submitted */}
         <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Registers Submitted</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Registers Submitted
+          </span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
             {data.registersSubmittedCount} / {data.totalClassesCount}
           </div>
-          <div className="flex items-center justify-between text-xs mt-1">
-            <span className="text-sky-600 dark:text-sky-400 font-medium">Class Registers Completed</span>
-            <span className="font-bold text-slate-700 dark:text-slate-300">
-              {data.totalClassesCount > 0 ? Math.round((data.registersSubmittedCount / data.totalClassesCount) * 100) : 0}%
-            </span>
+          <div className="text-xs text-sky-600 dark:text-sky-400 font-semibold mt-1">
+            {data.totalClassesCount > 0 ? Math.round((data.registersSubmittedCount / data.totalClassesCount) * 100) : 0}% completed
           </div>
         </div>
 
+        {/* Card 2: Present Learners */}
         <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Present Learners</span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-sky-600 dark:text-sky-400 mt-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Present Learners
+          </span>
+          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
             {data.totalPresent}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">In School Today</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Learners in school</p>
         </div>
 
+        {/* Card 3: Absent Learners */}
         <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Absent Learners</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Absent Learners
+          </span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">
             {data.totalAbsent}
           </div>
           {data.totalAbsent === 0 ? (
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Full Attendance Today</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">Full attendance</p>
           ) : unnotifiedCount > 0 ? (
             <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              {unnotifiedCount} Awaiting SMS Dispatch
+              {unnotifiedCount} Pending SMS
             </p>
           ) : (
             <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
               <CheckCircle className="w-3.5 h-3.5" />
-              All {data.totalAbsent} SMS Dispatched
+              All SMS Dispatched
             </p>
           )}
         </div>
 
+        {/* Card 4: Excused */}
         <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Excused Absences</span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Excused Absences
+          </span>
+          <div className="text-2xl sm:text-3xl font-extrabold text-sky-600 dark:text-sky-400 mt-1">
             {data.totalExcused}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Medical or Official Reason</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Authorized absences</p>
         </div>
       </div>
 
@@ -387,7 +551,7 @@ export const AttendanceOversightView: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Daily Class Registers ({data.classSummaries?.length || 0})</span>
+          <span>Class Registers ({data.classSummaries?.length || 0})</span>
         </button>
 
         <button
@@ -414,17 +578,15 @@ export const AttendanceOversightView: React.FC = () => {
 
       {/* TAB 1: Class Registers Oversight Grid */}
       {activeTab === 'registers' && (
-        <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Users className="w-4 h-4 text-sky-600" />
-                Class-by-Class Attendance Registers ({targetDate})
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Click "Inspect / Edit Register" on any class to view roster, change attendance, or complete pending registers.
-              </p>
-            </div>
+        <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+              <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              Class Registers ({formatToDdMmYy(targetDate)})
+            </h3>
+            <span className="text-xs text-slate-400 font-medium">
+              {data.classSummaries?.length || 0} Classes
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -522,7 +684,7 @@ export const AttendanceOversightView: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
               <Phone className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              Absentee Parent Notification Hub ({filteredAbsentStudents.length} Learners)
+              Absentee Learners & Parent Alerts ({filteredAbsentStudents.length})
             </h3>
 
             {/* Filter pills */}
@@ -659,34 +821,31 @@ export const AttendanceOversightView: React.FC = () => {
           onClose={() => setSelectedClass(null)}
           title={
             selectedClass.isSubmitted
-              ? `Daily Register Inspection: ${selectedClass.className} (${targetDate})`
-              : `Complete Daily Register: ${selectedClass.className} (${targetDate})`
+              ? `Register: ${selectedClass.className} (${formatToDdMmYy(targetDate)})`
+              : `Complete Register: ${selectedClass.className} (${formatToDdMmYy(targetDate)})`
           }
           maxWidth="max-w-3xl"
         >
           <div className="space-y-4">
-            {/* Zero-Trust Locked Audit Banner (When Submitted) */}
+            {/* Submitted Notice Banner */}
             {selectedClass.isSubmitted && (
-              <div className="flex items-start sm:items-center justify-between gap-3 p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-900 dark:text-emerald-200">
-                <div className="flex items-start sm:items-center gap-2.5">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="flex items-center justify-between gap-3 p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-900 dark:text-emerald-200">
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <div>
                     <div className="font-extrabold flex items-center gap-1.5">
-                      <span>Register Locked & Submitted</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-200/70 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200 font-bold">
-                        Zero-Trust Audit Active
-                      </span>
+                      <span>Submitted Register</span>
                     </div>
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300/90 mt-0.5">
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
                       Submitted by <strong className="text-emerald-950 dark:text-white">{selectedClass.submittedByTeacher || 'Class Teacher'}</strong>
                       {selectedClass.submittedAt && (
                         <span> at {new Date(selectedClass.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       )}
-                      . Read-only inspection mode is strictly enforced to protect data integrity and avoid resubmission conflicts.
+                      . Read-only inspection mode is active.
                     </p>
                   </div>
                 </div>
-                <div className="shrink-0 hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-bold text-[10px] uppercase tracking-wider">
+                <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-bold text-[10px] uppercase tracking-wider">
                   <Lock className="w-3 h-3" /> Read-Only
                 </div>
               </div>
