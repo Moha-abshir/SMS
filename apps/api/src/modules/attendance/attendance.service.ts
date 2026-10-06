@@ -87,6 +87,7 @@ export class AttendanceService {
         guardianPhone: r.guardian?.phoneNumber || '',
         guardianId: r.guardian?.id || null,
         smsSentStatus: smsSent ? smsSent.status : null,
+        remarks: r.record.remarks || null,
       };
     });
 
