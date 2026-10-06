@@ -66,6 +66,9 @@ export const ClassRegisterView: React.FC = () => {
   const [students, setStudents] = useState<StudentRegisterRow[]>([]);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [expandedRemarkId, setExpandedRemarkId] = useState<string | null>(null);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
+
+  const draftStorageKey = selectedClassId ? `attendance_draft_${selectedClassId}_${selectedDate}` : null;
 
   // History state
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -101,25 +104,68 @@ export const ClassRegisterView: React.FC = () => {
   }, []);
 
   // 2. Load register whenever selectedClassId or selectedDate changes
-  useEffect(() => {
+  const fetchRegister = async () => {
     if (!selectedClassId) return;
+    setLoading(true);
+    try {
+      const res = await apiClient.get(`/api/attendance/classes/${selectedClassId}/register?date=${selectedDate}`);
+      const regData = res.data?.data;
+      if (regData) {
+        const backendSubmitted = Boolean(regData.isSubmitted);
+        setIsSubmitted(backendSubmitted);
 
-    const fetchRegister = async () => {
-      setLoading(true);
-      try {
-        const res = await apiClient.get(`/api/attendance/classes/${selectedClassId}/register?date=${selectedDate}`);
-        const regData = res.data?.data;
-        if (regData) {
+        if (backendSubmitted) {
+          // If locked on server, clear any local draft
+          if (draftStorageKey) {
+            try {
+              localStorage.removeItem(draftStorageKey);
+            } catch (_) {}
+          }
+          setHasRestoredDraft(false);
           setStudents(regData.students || []);
-          setIsSubmitted(regData.isSubmitted);
-        }
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to load class register');
-      } finally {
-        setLoading(false);
-      }
-    };
+        } else {
+          // If not submitted yet, restore draft if present
+          let currentStudents: StudentRegisterRow[] = regData.students || [];
+          if (draftStorageKey) {
+            try {
+              const cached = localStorage.getItem(draftStorageKey);
+              if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  const draftMap = new Map<string, { status: any; remarks?: string }>();
+                  parsed.forEach((item: any) => {
+                    if (item.studentId) draftMap.set(item.studentId, item);
+                  });
 
+                  currentStudents = currentStudents.map((s) => {
+                    const draft = draftMap.get(s.studentId);
+                    if (draft) {
+                      return {
+                        ...s,
+                        status: draft.status || s.status,
+                        remarks: draft.remarks !== undefined ? draft.remarks : s.remarks,
+                      };
+                    }
+                    return s;
+                  });
+                  setHasRestoredDraft(true);
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to load local draft', e);
+            }
+          }
+          setStudents(currentStudents);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to load class register');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchRegister();
   }, [selectedClassId, selectedDate]);
 
@@ -182,6 +228,30 @@ export const ClassRegisterView: React.FC = () => {
     );
   };
 
+  // Auto-save in-progress roll-call changes to localStorage
+  useEffect(() => {
+    if (!draftStorageKey || isSubmitted || students.length === 0) return;
+    try {
+      const payload = students.map((s) => ({
+        studentId: s.studentId,
+        status: s.status,
+        remarks: s.remarks || '',
+      }));
+      localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+    } catch (_) {}
+  }, [students, isSubmitted, draftStorageKey]);
+
+  // Discard draft and reload original server state
+  const handleDiscardDraft = async () => {
+    if (!draftStorageKey) return;
+    try {
+      localStorage.removeItem(draftStorageKey);
+      setHasRestoredDraft(false);
+      toast.info('Restored original server register.');
+      fetchRegister();
+    } catch (_) {}
+  };
+
   // Save register
   const handleSaveRegister = async () => {
     if (!selectedClassId) return;
@@ -201,6 +271,12 @@ export const ClassRegisterView: React.FC = () => {
       };
 
       await apiClient.post(`/api/attendance/classes/${selectedClassId}/register`, payload);
+      if (draftStorageKey) {
+        try {
+          localStorage.removeItem(draftStorageKey);
+        } catch (_) {}
+      }
+      setHasRestoredDraft(false);
       setIsSubmitted(true);
       toast.success(`Register for ${selectedDate} saved and locked successfully!`);
     } catch (err: any) {
@@ -283,10 +359,26 @@ export const ClassRegisterView: React.FC = () => {
                 Submitted & Locked
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                Pending
-              </span>
+              <>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  Pending
+                </span>
+                {hasRestoredDraft && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Draft Restored</span>
+                    <button
+                      type="button"
+                      onClick={handleDiscardDraft}
+                      className="ml-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300 underline hover:text-rose-600 cursor-pointer"
+                      title="Discard local draft changes and revert to original register"
+                    >
+                      Reset
+                    </button>
+                  </span>
+                )}
+              </>
             )}
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
