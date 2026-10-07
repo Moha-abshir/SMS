@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -15,6 +15,7 @@ export const StaffManagementView: React.FC = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'ACTIVE' | 'INVITATIONS' | 'DEACTIVATED'>('ACTIVE');
 
   // Modal states
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -131,14 +132,25 @@ export const StaffManagementView: React.FC = () => {
   };
 
   const handleToggleStatus = async (staffMember: any) => {
+    if (staffMember.isActive) {
+      const confirmed = window.confirm(
+        `Are you sure you want to deactivate ${staffMember.firstName} ${staffMember.lastName}? Their session tokens will be revoked and they will be blocked from logging into the system.`
+      );
+      if (!confirmed) return;
+    }
+
     try {
       await apiClient.patch(`/api/staff/${staffMember.id}/status`, {
         isActive: !staffMember.isActive
       });
-      toast.success(`Staff account ${!staffMember.isActive ? 'activated' : 'deactivated'}`);
+      toast.success(
+        staffMember.isActive
+          ? `Staff account for ${staffMember.firstName} ${staffMember.lastName} deactivated. System access blocked.`
+          : `Staff account for ${staffMember.firstName} ${staffMember.lastName} reactivated. Login access restored.`
+      );
       fetchStaff();
-    } catch (error) {
-      toast.error('Failed to change status');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to change staff status');
     }
   };
 
@@ -288,16 +300,32 @@ export const StaffManagementView: React.FC = () => {
     }
   };
 
+  const activeStaff = useMemo(() => staff.filter((s) => !s.isInvitation && s.isActive), [staff]);
+  const deactivatedStaff = useMemo(() => staff.filter((s) => !s.isInvitation && !s.isActive), [staff]);
+  const pendingInvitations = useMemo(() => staff.filter((s) => s.isInvitation), [staff]);
+
+  const displayedList = useMemo(() => {
+    if (activeTab === 'ACTIVE') return activeStaff;
+    if (activeTab === 'DEACTIVATED') return deactivatedStaff;
+    return pendingInvitations;
+  }, [activeTab, activeStaff, deactivatedStaff, pendingInvitations]);
+
   const getStatusBadge = (s: any) => {
     if (!s.isInvitation) {
       return (
         <div className="flex flex-col gap-1 items-start">
-          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max ${s.isActive ? 'bg-sky-50 text-sky-700 border border-sky-200/80' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
-            {s.isActive ? <UserCheck className="w-3 h-3" /> : <UserX className="w-3 h-3" />}
-            {s.isActive ? 'Active' : 'Inactive'}
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 w-max ${
+              s.isActive
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50'
+                : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50'
+            }`}
+          >
+            {s.isActive ? <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> : <UserX className="w-3.5 h-3.5 text-rose-500" />}
+            {s.isActive ? 'Active' : 'Deactivated & Blocked'}
           </span>
           {s.twoFactorResetRequired && (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-100/60 text-sky-800 border border-sky-200">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-100/60 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
               2FA: Setup Required
             </span>
           )}
@@ -307,20 +335,20 @@ export const StaffManagementView: React.FC = () => {
       switch (s.invitationStatus) {
         case 'PENDING':
           return (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-sky-100/60 text-sky-800 border border-sky-200">
-              <MailWarning className="w-3 h-3" /> Pending Invitation
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 w-max bg-sky-100/60 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+              <MailWarning className="w-3.5 h-3.5" /> Pending Invitation
             </span>
           );
         case 'EXPIRED':
           return (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-rose-50 text-rose-600 border border-rose-100">
-              <Clock className="w-3 h-3" /> Expired
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 w-max bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-100 dark:border-rose-900/50">
+              <Clock className="w-3.5 h-3.5" /> Expired
             </span>
           );
         case 'CANCELLED':
           return (
-            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 w-max bg-slate-100 text-slate-600 border border-slate-200">
-              <Ban className="w-3 h-3" /> Cancelled
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 w-max bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+              <Ban className="w-3.5 h-3.5" /> Cancelled
             </span>
           );
         default:
@@ -336,14 +364,14 @@ export const StaffManagementView: React.FC = () => {
       transition={{ duration: 0.2 }}
       className="space-y-4 sm:space-y-6"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
             <Users className="w-4 h-4 text-sky-500" />
             Human Resources & Staff Management
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Staff Directory & User Invitations</h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Staff Directory & User Invitations</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
             Manage school employees, subject qualifications, role invitations, and employment contracts.
           </p>
         </div>
@@ -351,7 +379,7 @@ export const StaffManagementView: React.FC = () => {
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setShowSubjectModal(true)}
-            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-50 hover:bg-sky-100/80 text-sky-700 border border-sky-200/70 rounded-xl font-bold text-xs flex items-center gap-2 transition-all min-h-[42px] cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-50 dark:bg-[#0c1830] hover:bg-sky-100/80 dark:hover:bg-[#122347] text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-[#162b4d] rounded-xl font-bold text-xs flex items-center gap-2 transition-all min-h-[42px] cursor-pointer"
           >
             <BookOpen className="w-4 h-4 text-sky-500" /> Manage Subjects
           </button>
@@ -367,11 +395,70 @@ export const StaffManagementView: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white/85 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-glass border border-sky-100 overflow-hidden">
+      {/* Directory Section Navigation Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white/80 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ACTIVE')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'ACTIVE'
+                ? 'bg-sky-500 text-white shadow-glass'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-sky-50/50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <UserCheck className="w-4 h-4 text-emerald-400" />
+            <span>Active Staff ({activeStaff.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('INVITATIONS')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'INVITATIONS'
+                ? 'bg-sky-500 text-white shadow-glass'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-sky-50/50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <Mail className="w-4 h-4 text-sky-400" />
+            <span>Pending Invitations ({pendingInvitations.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('DEACTIVATED')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'DEACTIVATED'
+                ? 'bg-rose-500 text-white shadow-glass'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-rose-50/50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <UserX className="w-4 h-4 text-rose-400" />
+            <span>Deactivated Staff ({deactivatedStaff.length})</span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          Showing {displayedList.length} staff records
+        </div>
+      </div>
+
+      {/* Zero Trust Alert Banner when on Deactivated Tab */}
+      {activeTab === 'DEACTIVATED' && (
+        <div className="p-3.5 sm:p-4 bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 rounded-2xl flex items-start sm:items-center gap-3 text-xs text-rose-900 dark:text-rose-200 shadow-xs">
+          <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
+          <div className="flex-1 leading-relaxed">
+            <strong className="font-bold">Zero-Trust Access Restriction:</strong> Deactivated staff accounts are completely blocked from logging in, accessing school portals, and taking roll call. All active session tokens have been revoked. Click <strong>Reactivate</strong> on any staff member below to restore access.
+          </div>
+        </div>
+      )}
+
+      {/* Staff Table */}
+      <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-glass border border-sky-100 dark:border-[#162b4d] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
-              <tr className="bg-sky-50/70 border-b border-sky-100 text-xs uppercase tracking-wider text-slate-600 font-bold">
+              <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold">
                 <th className="p-3.5 sm:p-4">Name</th>
                 <th className="p-3.5 sm:p-4">Role</th>
                 <th className="p-3.5 sm:p-4">Contact</th>
@@ -379,141 +466,165 @@ export const StaffManagementView: React.FC = () => {
                 <th className="p-3.5 sm:p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-sky-50 text-sm">
+            <tbody className="divide-y divide-sky-50 dark:divide-[#162b4d] text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">Loading staff...</td>
+                  <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">Loading staff directory...</td>
                 </tr>
-              ) : staff.length === 0 ? (
+              ) : displayedList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">No staff found. Send an invitation!</td>
+                  <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                    {activeTab === 'ACTIVE' && 'No active staff members found.'}
+                    {activeTab === 'DEACTIVATED' && 'No deactivated staff accounts. All registered staff are currently active.'}
+                    {activeTab === 'INVITATIONS' && 'No pending invitations. Click "Invite Staff" above to invite new team members.'}
+                  </td>
                 </tr>
               ) : (
-                staff.map((s) => (
-                  <tr key={s.id} className="hover:bg-sky-50/40 transition-colors">
-                    <td className="p-4 font-semibold text-slate-900">
-                      {s.firstName} {s.lastName}
+                displayedList.map((s) => (
+                  <tr key={s.id} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/50 transition-colors">
+                    <td className="p-4 font-semibold text-slate-900 dark:text-slate-100">
+                      <div>{s.firstName} {s.lastName}</div>
+                      {s.tscNumber && (
+                        <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal">
+                          TSC: {s.tscNumber}
+                        </div>
+                      )}
                     </td>
                     <td className="p-4">
-                      <div className="space-y-1">
-                        <span className="px-2.5 py-1 bg-sky-50 border border-sky-100 text-sky-700 rounded-lg text-xs font-semibold inline-block">
-                          {s.roleName}
-                        </span>
-                        {s.assignedSubjects && s.assignedSubjects.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {s.assignedSubjects.map((sub: any) => (
-                              <span key={sub.id} className="px-1.5 py-0.5 bg-sky-100/70 text-sky-800 border border-sky-200 text-[10px] font-mono font-bold rounded">
-                                {sub.code}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold inline-block">
+                        {s.roleName ? s.roleName.replace(/_/g, ' ') : 'STAFF'}
+                      </span>
                     </td>
                     <td className="p-4">
-                      <div className="text-slate-900">{s.email}</div>
-                      <div className="text-xs text-slate-500">{s.phoneNumber}</div>
+                      <div className="text-slate-900 dark:text-slate-200">{s.email}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{s.phoneNumber}</div>
                     </td>
                     <td className="p-4">
                       {getStatusBadge(s)}
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => {
-                            setSelectedStaff(s);
-                            setShowContractModal(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                          title="Employment Contract Preview & Print"
-                        >
-                          <FileText className="w-4 h-4" />
-                        </button>
-                        {!s.isInvitation ? (
-                          <>
-                            <button
-                              onClick={() => openEditModal(s)}
-                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                              title="Edit Details"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openEmailRecoveryModal(s)}
-                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                              title="Recover / Change Staff Email"
-                            >
-                              <Mail className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedStaff(s);
-                                setAdminPasswordConfirm('');
-                                setShow2FaResetModal(true);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                              title="Reset 2FA Configuration"
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatus(s)}
-                              className={`p-1.5 transition-colors ${s.isActive ? 'text-slate-400 hover:text-red-600' : 'text-slate-400 hover:text-sky-600'}`}
-                              title={s.isActive ? "Deactivate Account" : "Activate Account"}
-                            >
-                              <ShieldAlert className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {s.invitationStatus === 'PENDING' && (
-                              <>
-                                <button
-                                  onClick={() => handleResendInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Resend Invitation"
-                                >
-                                  <Send className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleCancelInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                                  title="Cancel Invitation"
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                            {s.invitationStatus === 'EXPIRED' && (
-                              <>
-                                <button
-                                  onClick={() => handleResendInvitation(s.id)}
-                                  className="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Resend Invitation (60 mins)"
-                                >
-                                  <Send className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => setInvitationToDelete(s)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete Expired Staff Member"
-                                >
-                                  <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
-                                </button>
-                              </>
-                            )}
-                            {s.invitationStatus === 'CANCELLED' && (
+                      {activeTab === 'DEACTIVATED' ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleToggleStatus(s)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                            title="Restore account access and allow login"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>Reactivate</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedStaff(s);
+                              setShowContractModal(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            title="Employment Contract Preview & Print"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(s)}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Details"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : !s.isInvitation ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => {
+                              setSelectedStaff(s);
+                              setShowContractModal(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            title="Employment Contract Preview & Print"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(s)}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Details & Teaching Subjects"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openEmailRecoveryModal(s)}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            title="Recover / Change Staff Email"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedStaff(s);
+                              setAdminPasswordConfirm('');
+                              setShow2FaResetModal(true);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            title="Reset 2FA Configuration"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(s)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                            title="Deactivate Staff Account (Block Access)"
+                          >
+                            <ShieldAlert className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {s.invitationStatus === 'PENDING' && (
+                            <>
+                              <button
+                                onClick={() => handleResendInvitation(s.id)}
+                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title="Resend Invitation"
+                              >
+                                <Send className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleCancelInvitation(s.id)}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title="Cancel Invitation"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {s.invitationStatus === 'EXPIRED' && (
+                            <>
+                              <button
+                                onClick={() => handleResendInvitation(s.id)}
+                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title="Resend Invitation (60 mins)"
+                              >
+                                <Send className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => setInvitationToDelete(s)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                title="Delete Cancelled Staff Member"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Expired Staff Member"
                               >
                                 <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
                               </button>
-                            )}
-                          </>
-                        )}
-                      </div>
+                            </>
+                          )}
+                          {s.invitationStatus === 'CANCELLED' && (
+                            <button
+                              onClick={() => setInvitationToDelete(s)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Cancelled Staff Member"
+                            >
+                              <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -524,7 +635,7 @@ export const StaffManagementView: React.FC = () => {
       </div>
 
       {/* Invite Staff Modal */}
-      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite New Staff">
+      <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite New Staff" maxWidth="max-w-2xl lg:max-w-3xl">
         <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2">
           
           <div className="pb-2 border-b border-sky-100">
@@ -628,35 +739,49 @@ export const StaffManagementView: React.FC = () => {
       </Modal>
 
       {/* Edit Staff Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Staff Details">
-        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2">
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Staff Details" maxWidth="max-w-2xl lg:max-w-3xl">
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1 sm:px-2">
+          
+          <div className="pb-2 border-b border-sky-100 dark:border-[#162b4d]">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Personal Details</h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">First Name *</label>
-              <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">First Name *</label>
+              <input type="text" required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Last Name *</label>
-              <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Last Name *</label>
+              <input type="text" required value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">National ID / Passport *</label>
-              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">National ID / Passport *</label>
+              <input type="text" required value={formData.nationalId} onChange={e => setFormData({...formData, nationalId: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Phone Number *</label>
-              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Phone Number *</label>
+              <input type="text" required value={formData.phoneNumber} onChange={e => setFormData({...formData, phoneNumber: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Email Address *</label>
-            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Address</label>
+            <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
+          </div>
+
+          <div className="pb-2 pt-4 border-b border-sky-100 dark:border-[#162b4d]">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Professional Details</h3>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Email Address *</label>
+            <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <div className="flex flex-col justify-end">
-              <label className="block text-xs font-bold text-slate-500 mb-1">Role *</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Role *</label>
               <SearchableSelect
                 required
                 value={formData.roleId}
@@ -670,8 +795,8 @@ export const StaffManagementView: React.FC = () => {
               />
             </div>
             <div className="flex flex-col justify-end">
-              <label className="block text-xs font-bold text-slate-500 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Teachers)</span></label>
-              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">TSC Number <span className="font-normal text-slate-400 text-[11px]">(Teachers)</span></label>
+              <input type="text" value={formData.tscNumber} onChange={e => setFormData({...formData, tscNumber: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
             </div>
           </div>
 
@@ -683,8 +808,24 @@ export const StaffManagementView: React.FC = () => {
               onClearAll={() => setSelectedSubjectIds([])}
             />
           )}
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-sky-100">
-            <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
+
+          <div className="pb-2 pt-4 border-b border-sky-100 dark:border-[#162b4d]">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Financial Details</h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Salary Amount (KSH)</label>
+              <input type="number" value={formData.salaryAmount} onChange={e => setFormData({...formData, salaryAmount: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Payment Day (1-31)</label>
+              <input type="number" min="1" max="31" value={formData.salaryPaymentDay} onChange={e => setFormData({...formData, salaryPaymentDay: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-sky-100 dark:border-[#162b4d] sticky bottom-0 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-md mt-4">
+            <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
             <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl shadow-glass min-h-[40px] transition-all">Save Changes</button>
           </div>
         </form>

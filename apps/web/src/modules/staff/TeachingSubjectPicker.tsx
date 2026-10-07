@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, X, Check, Layers } from 'lucide-react';
+import { Search, X, Check, CheckCircle2, BookOpen } from 'lucide-react';
 
 export interface SubjectItem {
   id: string;
@@ -51,10 +51,13 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
   if (subjects.length === 0) {
     return (
       <div className="space-y-2 pt-1">
-        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400">
-          Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+          Assigned Teaching Subjects{' '}
+          <span className="font-normal text-slate-400 dark:text-slate-500 text-[11px]">
+            (Select subjects this teacher can teach)
+          </span>
         </label>
-        <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-sky-50/50 dark:bg-[#0c1830] p-2.5 rounded-xl border border-sky-100 dark:border-[#162b4d]">
+        <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-sky-50/50 dark:bg-[#0c1830] p-3 rounded-xl border border-sky-100 dark:border-[#162b4d]">
           No subjects registered yet. Use "Manage Subjects" button to register school subjects.
         </p>
       </div>
@@ -62,44 +65,78 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
   }
 
   return (
-    <div className="space-y-2.5 pt-1">
-      {/* Label and Selection Counter */}
+    <div className="space-y-3 pt-2">
+      {/* Header Label and Selection Counter */}
       <div className="flex items-center justify-between gap-2">
-        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-          Assigned Teaching Subjects{' '}
-          <span className="font-normal text-slate-400 dark:text-slate-500 text-[11px]">
-            (Select subjects this teacher can teach)
+        <div className="flex items-center gap-1.5">
+          <BookOpen className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+          <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+            Assigned Teaching Subjects
+          </label>
+          <span className="font-normal text-slate-400 dark:text-slate-500 text-[11px] hidden sm:inline">
+            (Subjects this teacher is qualified to instruct)
           </span>
-        </label>
+        </div>
+
         <div className="flex items-center gap-2">
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold transition-colors ${
-            selectedSubjectIds.length > 0
-              ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
-              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-          }`}>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors ${
+              selectedSubjectIds.length > 0
+                ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+            }`}
+          >
             {selectedSubjectIds.length} Selected
           </span>
           {selectedSubjectIds.length > 0 && onClearAll && (
             <button
               type="button"
               onClick={onClearAll}
-              className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+              className="text-[11px] font-bold text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
             >
-              Clear
+              Clear All
             </button>
           )}
         </div>
       </div>
 
-      {/* Search Input Box */}
+      {/* Currently Assigned Subjects Tray (Always visible when items are selected) */}
+      {selectedSubjects.length > 0 && (
+        <div className="p-2.5 sm:p-3 rounded-xl bg-sky-50/80 dark:bg-[#0b162c] border border-sky-200/80 dark:border-[#162b4d] space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-bold text-sky-800 dark:text-sky-300">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              Active Subject Assignments ({selectedSubjects.length}):
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">Click a subject chip to remove</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+            {selectedSubjects.map((sub) => (
+              <button
+                key={sub.id}
+                type="button"
+                onClick={() => onToggleSubject(sub.id)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 border border-sky-200 dark:border-sky-800 text-xs font-semibold cursor-pointer hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 transition-all group shadow-2xs"
+                title={`Remove ${sub.name}`}
+              >
+                <span className="font-mono text-[10px] font-bold text-sky-600 dark:text-sky-400">{sub.code}</span>
+                <span className="truncate max-w-[140px] sm:max-w-none">{sub.name}</span>
+                <X className="w-3 h-3 text-slate-400 group-hover:text-rose-500 transition-colors" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Real-Time Search Box */}
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search subject by name or code (e.g. Math, IRE, JSS, LP)..."
-          className="w-full bg-slate-50/80 dark:bg-[#091326] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-[#0c1830] focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none transition-all"
+          placeholder="Type to filter subjects (e.g. Mathematics, English, Kiswahili, UP-ENG)..."
+          className="w-full bg-slate-50 dark:bg-[#081224] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-[#0c1830] focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-none transition-all"
         />
         {searchQuery && (
           <button
@@ -114,13 +151,13 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
       </div>
 
       {/* Quick Level Filter Tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px] font-semibold scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] font-semibold scrollbar-none">
         <button
           type="button"
           onClick={() => setLevelFilter('ALL')}
           className={`px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
             levelFilter === 'ALL'
-              ? 'bg-sky-500 text-white shadow-xs font-bold'
+              ? 'bg-sky-500 text-white shadow-2xs font-bold'
               : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
@@ -131,7 +168,7 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
           onClick={() => setLevelFilter('PPE')}
           className={`px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
             levelFilter === 'PPE'
-              ? 'bg-sky-500 text-white shadow-xs font-bold'
+              ? 'bg-sky-500 text-white shadow-2xs font-bold'
               : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
@@ -142,7 +179,7 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
           onClick={() => setLevelFilter('LOWER_PRIMARY')}
           className={`px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
             levelFilter === 'LOWER_PRIMARY'
-              ? 'bg-sky-500 text-white shadow-xs font-bold'
+              ? 'bg-sky-500 text-white shadow-2xs font-bold'
               : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
@@ -153,7 +190,7 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
           onClick={() => setLevelFilter('UPPER_PRIMARY')}
           className={`px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
             levelFilter === 'UPPER_PRIMARY'
-              ? 'bg-sky-500 text-white shadow-xs font-bold'
+              ? 'bg-sky-500 text-white shadow-2xs font-bold'
               : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
@@ -164,7 +201,7 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
           onClick={() => setLevelFilter('JUNIOR')}
           className={`px-2.5 py-1 rounded-lg transition-all shrink-0 cursor-pointer ${
             levelFilter === 'JUNIOR'
-              ? 'bg-sky-500 text-white shadow-xs font-bold'
+              ? 'bg-sky-500 text-white shadow-2xs font-bold'
               : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
@@ -172,34 +209,10 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
         </button>
       </div>
 
-      {/* Selected Subjects Tag Tray (shows currently selected items even when searching) */}
-      {selectedSubjects.length > 0 && searchQuery && (
-        <div className="p-2 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 space-y-1">
-          <div className="text-[10px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider flex items-center gap-1">
-            <Check className="w-3 h-3 text-sky-600 dark:text-sky-400" />
-            Currently Selected ({selectedSubjects.length}):
-          </div>
-          <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-            {selectedSubjects.map((sub) => (
-              <span
-                key={sub.id}
-                onClick={() => onToggleSubject(sub.id)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-[#0c1830] text-sky-800 dark:text-sky-200 border border-sky-200 dark:border-sky-800 text-[11px] font-medium cursor-pointer hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 transition-colors"
-                title="Click to remove"
-              >
-                <span className="font-mono font-bold text-[10px]">{sub.code}</span>
-                <span className="truncate max-w-[120px]">{sub.name}</span>
-                <X className="w-2.5 h-2.5 opacity-60" />
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Scrollable Subjects Grid */}
-      <div className="p-3 bg-sky-50/40 dark:bg-[#0c1830]/80 rounded-xl border border-sky-100 dark:border-[#162b4d] max-h-48 overflow-y-auto space-y-2">
+      {/* Subjects Selection Grid */}
+      <div className="p-3 bg-slate-50/60 dark:bg-[#081224] rounded-xl border border-slate-200 dark:border-[#162b4d] max-h-56 overflow-y-auto">
         {filteredSubjects.length === 0 ? (
-          <div className="py-6 text-center space-y-2">
+          <div className="py-8 text-center space-y-1.5">
             <p className="text-xs text-slate-400 dark:text-slate-500">
               No subjects found matching <span className="font-bold text-slate-600 dark:text-slate-300">"{searchQuery}"</span>
             </p>
@@ -215,7 +228,7 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
             </button>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {filteredSubjects.map((sub) => {
               const isSelected = selectedSubjectIds.includes(sub.id);
               return (
@@ -223,23 +236,41 @@ export const TeachingSubjectPicker: React.FC<TeachingSubjectPickerProps> = ({
                   key={sub.id}
                   type="button"
                   onClick={() => onToggleSubject(sub.id)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`p-2 rounded-xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer ${
                     isSelected
-                      ? 'bg-sky-500 text-white border-sky-500 shadow-glass'
-                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-200 border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-500 hover:bg-sky-50 dark:hover:bg-sky-950/40'
+                      ? 'bg-sky-500/10 dark:bg-sky-500/15 border-sky-500 dark:border-sky-400 shadow-2xs'
+                      : 'bg-white dark:bg-[#0c1830] border-slate-200/80 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-600'
                   }`}
                 >
-                  {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
-                  <span
-                    className={`font-mono font-bold text-[10px] px-1 py-0.2 rounded ${
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`font-mono font-bold text-[10px] px-1.5 py-0.5 rounded ${
+                          isSelected
+                            ? 'bg-sky-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-400'
+                        }`}
+                      >
+                        {sub.code}
+                      </span>
+                      <span className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">
+                        {sub.name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium block truncate mt-0.5">
+                      {sub.levelCategory.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-colors ${
                       isSelected
-                        ? 'bg-sky-600/70 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-400'
+                        ? 'bg-sky-500 border-sky-500 text-white'
+                        : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-transparent'
                     }`}
                   >
-                    {sub.code}
-                  </span>
-                  <span>{sub.name}</span>
+                    <Check className="w-3.5 h-3.5" />
+                  </div>
                 </button>
               );
             })}

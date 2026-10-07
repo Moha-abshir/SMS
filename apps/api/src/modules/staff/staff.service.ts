@@ -1,6 +1,7 @@
 import argon2 from 'argon2';
 import { db } from '../../config/db.js';
 import { users, roles, eq, desc, invitations, ne, sql, subjects, userSubjects, invitationSubjects, inArray } from '@school/shared';
+import { invalidateUserSessionCache } from '../../middleware/auth.js';
 
 let cachedRoles: { id: string; name: string }[] | null = null;
 let rolesCachedAt = 0;
@@ -171,9 +172,15 @@ export class StaffService {
 
   static async toggleStatus(id: string, isActive: boolean) {
     const updatedStaff = await db.update(users)
-      .set({ isActive, updatedAt: new Date() })
+      .set({
+        isActive,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date()
+      })
       .where(eq(users.id, id))
       .returning();
+
+    invalidateUserSessionCache(id);
     return updatedStaff[0];
   }
 

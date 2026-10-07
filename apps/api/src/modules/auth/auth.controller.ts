@@ -66,6 +66,9 @@ export class AuthController {
       }
 
       const user = userList[0];
+      if (!user.isActive) {
+        return res.status(403).json({ success: false, message: 'Account is deactivated. Contact Head Teacher.' });
+      }
 
       if (!user.twoFactorOtp || !user.twoFactorExpiresAt) {
         return res.status(400).json({ success: false, message: 'No pending 2FA session. Please log in again.' });
