@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { EmploymentContractModal } from './EmploymentContractModal';
 import { SubjectManagementModal } from './SubjectManagementModal';
+import { TeachingSubjectPicker } from './TeachingSubjectPicker';
 
 export const StaffManagementView: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
@@ -587,37 +588,12 @@ export const StaffManagementView: React.FC = () => {
           </div>
 
           {isTeachingRole(formData.roleId) && (
-            <div className="space-y-2 pt-1">
-              <label className="block text-xs font-bold text-slate-500">
-                Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
-              </label>
-              {subjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic bg-sky-50/50 p-2.5 rounded-xl border border-sky-100">
-                  No subjects registered yet. Use "Manage Subjects" button to register school subjects.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5 p-3 bg-sky-50/50 rounded-xl border border-sky-100 max-h-36 overflow-y-auto">
-                  {subjects.map((sub) => {
-                    const isSelected = selectedSubjectIds.includes(sub.id);
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => toggleSubjectSelection(sub.id)}
-                        className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'bg-sky-500 text-white border-sky-500 shadow-glass'
-                            : 'bg-white text-slate-700 border-sky-100 hover:bg-sky-50'
-                        }`}
-                      >
-                        <span className="font-mono font-bold text-[10px] opacity-80">{sub.code}</span>
-                        <span>{sub.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <TeachingSubjectPicker
+              subjects={subjects}
+              selectedSubjectIds={selectedSubjectIds}
+              onToggleSubject={toggleSubjectSelection}
+              onClearAll={() => setSelectedSubjectIds([])}
+            />
           )}
 
           <div className="pb-2 pt-4 border-b border-sky-100">
@@ -700,37 +676,12 @@ export const StaffManagementView: React.FC = () => {
           </div>
 
           {isTeachingRole(formData.roleId) && (
-            <div className="space-y-2 pt-1">
-              <label className="block text-xs font-bold text-slate-500">
-                Assigned Teaching Subjects <span className="font-normal text-slate-400 text-[11px]">(Select subjects this teacher can teach)</span>
-              </label>
-              {subjects.length === 0 ? (
-                <p className="text-xs text-slate-400 italic bg-sky-50/50 p-2.5 rounded-xl border border-sky-100">
-                  No subjects registered yet. Use "Manage Subjects" button to register school subjects.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5 p-3 bg-sky-50/50 rounded-xl border border-sky-100 max-h-36 overflow-y-auto">
-                  {subjects.map((sub) => {
-                    const isSelected = selectedSubjectIds.includes(sub.id);
-                    return (
-                      <button
-                        key={sub.id}
-                        type="button"
-                        onClick={() => toggleSubjectSelection(sub.id)}
-                        className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'bg-sky-500 text-white border-sky-500 shadow-glass'
-                            : 'bg-white text-slate-700 border-sky-100 hover:bg-sky-50'
-                        }`}
-                      >
-                        <span className="font-mono font-bold text-[10px] opacity-80">{sub.code}</span>
-                        <span>{sub.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <TeachingSubjectPicker
+              subjects={subjects}
+              selectedSubjectIds={selectedSubjectIds}
+              onToggleSubject={toggleSubjectSelection}
+              onClearAll={() => setSelectedSubjectIds([])}
+            />
           )}
           <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-sky-100">
             <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
