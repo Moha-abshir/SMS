@@ -249,7 +249,8 @@ export const StaffManagementView: React.FC = () => {
 
   const openEditModal = (staffMember: any) => {
     setSelectedStaff(staffMember);
-    setSelectedSubjectIds(staffMember.assignedSubjects ? staffMember.assignedSubjects.map((s: any) => s.id) : []);
+    const qualifiedList = staffMember.qualifiedSubjects || staffMember.assignedSubjects || [];
+    setSelectedSubjectIds(qualifiedList.map((s: any) => s.id));
     setFormData({
       firstName: staffMember.firstName,
       middleName: staffMember.middleName || '',
@@ -546,7 +547,7 @@ export const StaffManagementView: React.FC = () => {
                           <button
                             onClick={() => openEditModal(s)}
                             className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Details & Teaching Subjects"
+                            title="Edit Details & Teaching Qualifications"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>

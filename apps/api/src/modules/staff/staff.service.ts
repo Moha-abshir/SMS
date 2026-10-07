@@ -113,6 +113,7 @@ export class StaffService {
         ...s,
         isInvitation: false,
         invitationStatus: null,
+        qualifiedSubjects: userSubMap.get(s.id) || [],
         assignedSubjects: userSubMap.get(s.id) || [],
       })),
       ...invitationList.map(i => {
@@ -121,6 +122,7 @@ export class StaffService {
           ...i,
           isInvitation: true,
           invitationStatus: isExpired ? 'EXPIRED' : i.invitationStatus,
+          qualifiedSubjects: invSubMap.get(i.id) || [],
           assignedSubjects: invSubMap.get(i.id) || [],
         };
       })
