@@ -26,6 +26,15 @@ export const StaffManagementView: React.FC = () => {
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [invitationToDelete, setInvitationToDelete] = useState<any | null>(null);
   const [deletingInvitation, setDeletingInvitation] = useState(false);
+  const [classTeacherWarningModal, setClassTeacherWarningModal] = useState<{
+    isOpen: boolean;
+    teacherName: string;
+    classNames: string;
+  }>({
+    isOpen: false,
+    teacherName: '',
+    classNames: '',
+  });
 
   const currentUser = (() => {
     try {
@@ -147,6 +156,17 @@ export const StaffManagementView: React.FC = () => {
   const handleToggleStatus = async (staffMember: any) => {
     if (togglingStaffId) return;
     if (staffMember.isActive) {
+      // 1. Client-side protection: Check if user is currently assigned as class teacher
+      if (staffMember.classTeacherFor && staffMember.classTeacherFor.length > 0) {
+        const classNames = staffMember.classTeacherFor.map((c: any) => c.name).join(', ');
+        setClassTeacherWarningModal({
+          isOpen: true,
+          teacherName: `${staffMember.firstName} ${staffMember.lastName}`,
+          classNames,
+        });
+        return;
+      }
+
       const confirmed = window.confirm(
         `Are you sure you want to deactivate ${staffMember.firstName} ${staffMember.lastName}? Their session tokens will be revoked and they will be blocked from logging into the system.`
       );
@@ -165,6 +185,18 @@ export const StaffManagementView: React.FC = () => {
       );
       await fetchStaff();
     } catch (error: any) {
+      if (error.response?.data?.code === 'CANNOT_DEACTIVATE_CLASS_TEACHER') {
+        const assignedClasses = error.response.data.assignedClasses;
+        const classNames = assignedClasses && assignedClasses.length > 0
+          ? assignedClasses.map((c: any) => c.name).join(', ')
+          : 'an assigned class';
+        setClassTeacherWarningModal({
+          isOpen: true,
+          teacherName: `${staffMember.firstName} ${staffMember.lastName}`,
+          classNames,
+        });
+        return;
+      }
       toast.error(error.response?.data?.message || 'Failed to change staff status');
     } finally {
       setTogglingStaffId(null);
@@ -509,7 +541,17 @@ export const StaffManagementView: React.FC = () => {
                 displayedList.map((s) => (
                   <tr key={s.id} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/50 transition-colors">
                     <td className="p-4 font-semibold text-slate-900 dark:text-slate-100">
-                      <div>{s.firstName} {s.lastName}</div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span>{s.firstName} {s.lastName}</span>
+                        {s.classTeacherFor && s.classTeacherFor.length > 0 && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                            title={`Assigned Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')}`}
+                          >
+                            Class Teacher ({s.classTeacherFor.map((c: any) => c.name).join(', ')})
+                          </span>
+                        )}
+                      </div>
                       {s.tscNumber && (
                         <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal">
                           TSC: {s.tscNumber}
@@ -607,8 +649,16 @@ export const StaffManagementView: React.FC = () => {
                           <button
                             onClick={() => handleToggleStatus(s)}
                             disabled={togglingStaffId === s.id}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Deactivate Staff Account (Block Access)"
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                              s.classTeacherFor && s.classTeacherFor.length > 0
+                                ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                                : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                            }`}
+                            title={
+                              s.classTeacherFor && s.classTeacherFor.length > 0
+                                ? `Active Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')} (Cannot be deactivated)`
+                                : "Deactivate Staff Account (Block Access)"
+                            }
                           >
                             {togglingStaffId === s.id ? (
                               <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
@@ -1166,6 +1216,53 @@ export const StaffManagementView: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* Class Teacher Deactivation Protection Modal */}
+      <Modal
+        isOpen={classTeacherWarningModal.isOpen}
+        onClose={() => setClassTeacherWarningModal({ isOpen: false, teacherName: '', classNames: '' })}
+        title="Action Restricted: Active Class Teacher"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-900/50 rounded-2xl flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-amber-500 text-white shrink-0 mt-0.5 shadow-xs">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Cannot Deactivate Class Teacher
+              </h4>
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                <span className="font-semibold text-amber-950 dark:text-amber-100">{classTeacherWarningModal.teacherName}</span> is currently assigned as the active Class Teacher for <span className="font-bold text-amber-950 dark:text-amber-100 underline">{classTeacherWarningModal.classNames}</span>.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-600 dark:text-slate-400 space-y-2.5 leading-relaxed bg-slate-50 dark:bg-[#071328] p-4 rounded-xl border border-slate-200/60 dark:border-slate-800">
+            <p>
+              In accordance with CBC academic structure and system integrity, an active class teacher cannot be deactivated while leading a class. Doing so would leave learners and classroom records without teacher oversight.
+            </p>
+            <div className="pt-1 border-t border-slate-200 dark:border-slate-800 space-y-1">
+              <p className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span className="text-sky-500">👉</span> Required Action:
+              </p>
+              <p>
+                Please contact the <strong className="text-sky-600 dark:text-sky-400">Deputy Head Teacher</strong> to unassign or reassign them from <strong className="text-slate-800 dark:text-slate-200">{classTeacherWarningModal.classNames}</strong> in the <span className="font-semibold text-slate-700 dark:text-slate-300">Academic Workstation & Allocations</span> tab. Once unassigned, you will be able to deactivate this account.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setClassTeacherWarningModal({ isOpen: false, teacherName: '', classNames: '' })}
+              className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      </Modal>
 
     </motion.div>
   );

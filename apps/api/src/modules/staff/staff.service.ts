@@ -1,6 +1,6 @@
 import argon2 from 'argon2';
 import { db } from '../../config/db.js';
-import { users, roles, eq, desc, invitations, ne, sql, subjects, userSubjects, invitationSubjects, inArray } from '@school/shared';
+import { users, roles, classes, eq, and, desc, invitations, ne, sql, subjects, userSubjects, invitationSubjects, inArray, isNull, isNotNull } from '@school/shared';
 import { invalidateUserSessionCache } from '../../middleware/auth.js';
 
 let cachedRoles: { id: string; name: string }[] | null = null;
@@ -19,7 +19,7 @@ export class StaffService {
   }
 
   static async getAllStaff() {
-    const [staffList, invitationList, allUserSubjects, allInvSubjects] = await Promise.all([
+    const [staffList, invitationList, allUserSubjects, allInvSubjects, allAssignedClasses] = await Promise.all([
       db
         .select({
           id: users.id,
@@ -91,6 +91,15 @@ export class StaffService {
         })
         .from(invitationSubjects)
         .innerJoin(subjects, eq(invitationSubjects.subjectId, subjects.id)),
+
+      db
+        .select({
+          id: classes.id,
+          name: classes.name,
+          classTeacherId: classes.classTeacherId,
+        })
+        .from(classes)
+        .where(and(isNotNull(classes.classTeacherId), isNull(classes.deletedAt))),
     ]);
 
     // Group user subjects by userId
@@ -107,6 +116,15 @@ export class StaffService {
       invSubMap.get(isub.invitationId)!.push({ id: isub.subjectId, name: isub.subjectName, code: isub.subjectCode });
     }
 
+    // Group classes by classTeacherId
+    const classTeacherMap = new Map<string, { id: string; name: string }[]>();
+    for (const c of allAssignedClasses) {
+      if (c.classTeacherId) {
+        if (!classTeacherMap.has(c.classTeacherId)) classTeacherMap.set(c.classTeacherId, []);
+        classTeacherMap.get(c.classTeacherId)!.push({ id: c.id, name: c.name });
+      }
+    }
+
     // Map both lists to a unified format
     const unifiedStaff = [
       ...staffList.map(s => ({
@@ -115,6 +133,7 @@ export class StaffService {
         invitationStatus: null,
         qualifiedSubjects: userSubMap.get(s.id) || [],
         assignedSubjects: userSubMap.get(s.id) || [],
+        classTeacherFor: classTeacherMap.get(s.id) || [],
       })),
       ...invitationList.map(i => {
         const isExpired = i.invitationStatus === 'PENDING' && i.expiresAt && new Date() > new Date(i.expiresAt);
@@ -124,6 +143,7 @@ export class StaffService {
           invitationStatus: isExpired ? 'EXPIRED' : i.invitationStatus,
           qualifiedSubjects: invSubMap.get(i.id) || [],
           assignedSubjects: invSubMap.get(i.id) || [],
+          classTeacherFor: [],
         };
       })
     ];
@@ -173,6 +193,24 @@ export class StaffService {
   }
 
   static async toggleStatus(id: string, isActive: boolean) {
+    if (!isActive) {
+      // Check if user is currently assigned as class teacher
+      const assignedClasses = await db
+        .select({ id: classes.id, name: classes.name })
+        .from(classes)
+        .where(and(eq(classes.classTeacherId, id), isNull(classes.deletedAt)));
+
+      if (assignedClasses.length > 0) {
+        const classNames = assignedClasses.map(c => c.name).join(', ');
+        const error: any = new Error(
+          `Cannot deactivate staff member. This teacher is currently assigned as the Class Teacher for ${classNames}. Please contact the Deputy Head Teacher to unassign or reassign them before deactivating.`
+        );
+        error.code = 'CANNOT_DEACTIVATE_CLASS_TEACHER';
+        error.assignedClasses = assignedClasses;
+        throw error;
+      }
+    }
+
     const updatedStaff = await db.update(users)
       .set({
         isActive,

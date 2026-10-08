@@ -45,9 +45,17 @@ export class StaffController {
         return res.status(404).json({ success: false, message: 'Staff not found' });
       }
       res.json({ success: true, message: `Staff account ${isActive ? 'activated' : 'deactivated'}`, data: staff });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling staff status:', error);
-      res.status(500).json({ success: false, message: 'Failed to toggle staff status' });
+      if (error.code === 'CANNOT_DEACTIVATE_CLASS_TEACHER') {
+        return res.status(400).json({
+          success: false,
+          code: error.code,
+          message: error.message,
+          assignedClasses: error.assignedClasses,
+        });
+      }
+      res.status(500).json({ success: false, message: error.message || 'Failed to toggle staff status' });
     }
   }
 

@@ -16,7 +16,12 @@ export class AllocationsController {
     try {
       const { classId, teacherId, academicYear } = req.body;
       const updated = await AllocationsService.assignClassTeacher(classId, teacherId, academicYear);
-      return res.status(200).json({ success: true, data: updated, message: 'Class teacher assigned successfully' });
+      const isAssigned = teacherId && typeof teacherId === 'string' && teacherId.trim() !== '';
+      return res.status(200).json({
+        success: true,
+        data: updated,
+        message: isAssigned ? 'Class teacher assigned successfully' : 'Class teacher unassigned successfully',
+      });
     } catch (error: any) {
       return res.status(400).json({ success: false, message: error.message || 'Failed to assign class teacher' });
     }

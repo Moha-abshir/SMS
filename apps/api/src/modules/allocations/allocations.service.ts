@@ -83,14 +83,15 @@ export class AllocationsService {
     };
   }
 
-  static async assignClassTeacher(classId: string, teacherId: string, academicYear?: number) {
+  static async assignClassTeacher(classId: string, teacherId?: string | null, academicYear?: number) {
     const year = academicYear || (await this.getCurrentAcademicYear());
+    const normalizedTeacherId = teacherId && teacherId.trim() !== '' ? teacherId.trim() : null;
 
     // 1. Update class teacher ID on classes table
     const [updatedClass] = await db
       .update(classes)
       .set({
-        classTeacherId: teacherId,
+        classTeacherId: normalizedTeacherId,
         updatedAt: new Date(),
       })
       .where(eq(classes.id, classId))
@@ -98,44 +99,58 @@ export class AllocationsService {
 
     if (!updatedClass) throw new Error('Class not found');
 
-    // 2. CBC Rule: If class is PPE or LOWER_PRIMARY (Grades 1-3), auto-assign class teacher to ALL learning areas!
+    // 2. CBC Rule: If class is PPE or LOWER_PRIMARY (Grades 1-3)
     if (updatedClass.levelCategory === 'PPE' || updatedClass.levelCategory === 'LOWER_PRIMARY') {
-      const levelSubjects = await db
-        .select()
-        .from(subjects)
-        .where(
-          and(
-            eq(subjects.levelCategory, updatedClass.levelCategory),
-            isNull(subjects.deletedAt)
-          )
-        );
-
-      for (const subj of levelSubjects) {
-        // Check if allocation already exists
-        const [existing] = await db
-          .select()
-          .from(teacherSubjectAllocations)
+      if (!normalizedTeacherId) {
+        // Teacher unassigned: soft-delete auto-allocated subject records for this class in this academic year
+        await db
+          .update(teacherSubjectAllocations)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
           .where(
             and(
               eq(teacherSubjectAllocations.classId, classId),
-              eq(teacherSubjectAllocations.subjectId, subj.id),
               eq(teacherSubjectAllocations.academicYear, year),
               isNull(teacherSubjectAllocations.deletedAt)
             )
           );
+      } else {
+        const levelSubjects = await db
+          .select()
+          .from(subjects)
+          .where(
+            and(
+              eq(subjects.levelCategory, updatedClass.levelCategory),
+              isNull(subjects.deletedAt)
+            )
+          );
 
-        if (existing) {
-          await db
-            .update(teacherSubjectAllocations)
-            .set({ teacherId, updatedAt: new Date() })
-            .where(eq(teacherSubjectAllocations.id, existing.id));
-        } else {
-          await db.insert(teacherSubjectAllocations).values({
-            teacherId,
-            classId,
-            subjectId: subj.id,
-            academicYear: year,
-          });
+        for (const subj of levelSubjects) {
+          // Check if allocation already exists
+          const [existing] = await db
+            .select()
+            .from(teacherSubjectAllocations)
+            .where(
+              and(
+                eq(teacherSubjectAllocations.classId, classId),
+                eq(teacherSubjectAllocations.subjectId, subj.id),
+                eq(teacherSubjectAllocations.academicYear, year),
+                isNull(teacherSubjectAllocations.deletedAt)
+              )
+            );
+
+          if (existing) {
+            await db
+              .update(teacherSubjectAllocations)
+              .set({ teacherId: normalizedTeacherId, updatedAt: new Date() })
+              .where(eq(teacherSubjectAllocations.id, existing.id));
+          } else {
+            await db.insert(teacherSubjectAllocations).values({
+              teacherId: normalizedTeacherId,
+              classId,
+              subjectId: subj.id,
+              academicYear: year,
+            });
+          }
         }
       }
     }
