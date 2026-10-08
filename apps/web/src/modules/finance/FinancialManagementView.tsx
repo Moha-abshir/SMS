@@ -44,6 +44,7 @@ export const FinancialManagementView: React.FC = () => {
   const [pendingReversals, setPendingReversals] = useState<any[]>([]);
   const [loadingReversals, setLoadingReversals] = useState(false);
   const [processingReversalId, setProcessingReversalId] = useState<string | null>(null);
+  const [processingReversalAction, setProcessingReversalAction] = useState<'APPROVE' | 'REJECT' | null>(null);
 
   // Request Reversal Modal State
   const [reversalModalPayment, setReversalModalPayment] = useState<any | null>(null);
@@ -220,31 +221,35 @@ export const FinancialManagementView: React.FC = () => {
 
   // Handle Approve Reversal
   const handleApproveReversal = async (reversalId: string) => {
+    if (processingReversalId) return;
     try {
       setProcessingReversalId(reversalId);
+      setProcessingReversalAction('APPROVE');
       const res = await apiClient.put(`/api/finance/reversals/${reversalId}/approve`);
       toast.success(res.data.message || 'Reversal approved successfully');
-      fetchReversals();
-      fetchOverview();
+      await Promise.all([fetchReversals(), fetchOverview()]);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to approve reversal');
     } finally {
       setProcessingReversalId(null);
+      setProcessingReversalAction(null);
     }
   };
 
   // Handle Reject / Dismiss Reversal
   const handleRejectReversal = async (reversalId: string) => {
+    if (processingReversalId) return;
     try {
       setProcessingReversalId(reversalId);
+      setProcessingReversalAction('REJECT');
       await apiClient.put(`/api/finance/reversals/${reversalId}/reject`);
       toast.success('Reversal request dismissed');
-      fetchReversals();
-      fetchOverview();
+      await Promise.all([fetchReversals(), fetchOverview()]);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to dismiss reversal');
     } finally {
       setProcessingReversalId(null);
+      setProcessingReversalAction(null);
     }
   };
 
@@ -925,18 +930,28 @@ export const FinancialManagementView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleApproveReversal(rev.reversalId)}
-                            disabled={processingReversalId === rev.reversalId}
-                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-colors"
+                            disabled={!!processingReversalId}
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Check className="w-3.5 h-3.5" /> Approve Reversal
+                            {processingReversalId === rev.reversalId && processingReversalAction === 'APPROVE' ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5" />
+                            )}
+                            <span>{processingReversalId === rev.reversalId && processingReversalAction === 'APPROVE' ? 'Approving...' : 'Approve Reversal'}</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => handleRejectReversal(rev.reversalId)}
-                            disabled={processingReversalId === rev.reversalId}
-                            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                            disabled={!!processingReversalId}
+                            className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                           >
-                            <X className="w-3.5 h-3.5" /> Dismiss
+                            {processingReversalId === rev.reversalId && processingReversalAction === 'REJECT' ? (
+                              <div className="w-3.5 h-3.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <X className="w-3.5 h-3.5" />
+                            )}
+                            <span>{processingReversalId === rev.reversalId && processingReversalAction === 'REJECT' ? 'Dismissing...' : 'Dismiss'}</span>
                           </button>
                         </div>
                       </td>

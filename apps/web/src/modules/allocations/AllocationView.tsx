@@ -202,21 +202,31 @@ export const AllocationView: React.FC = () => {
                       {currentTeacher ? `${currentTeacher.firstName} ${currentTeacher.lastName}` : <span className="text-slate-400 dark:text-slate-500 italic">Unassigned</span>}
                     </td>
                     <td className="py-3.5 px-4 text-left min-w-[240px]">
-                      <SearchableSelect
-                        value={currentTeacher?.id || ''}
-                        disabled={savingClassId === cls.id}
-                        onChange={(val) => handleAssignClassTeacher(cls.id, val)}
-                        placeholder="-- Assign Class Teacher --"
-                        searchPlaceholder="Search teacher..."
-                        options={[
-                          { value: '', label: '-- Unassign / None --' },
-                          ...data.teachers.map((t) => ({
-                            value: t.id,
-                            label: `${t.firstName} ${t.lastName}`,
-                            sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
-                          })),
-                        ]}
-                      />
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <SearchableSelect
+                            value={currentTeacher?.id || ''}
+                            disabled={savingClassId === cls.id}
+                            onChange={(val) => handleAssignClassTeacher(cls.id, val)}
+                            placeholder="-- Assign Class Teacher --"
+                            searchPlaceholder="Search teacher..."
+                            options={[
+                              { value: '', label: '-- Unassign / None --' },
+                              ...data.teachers.map((t) => ({
+                                value: t.id,
+                                label: `${t.firstName} ${t.lastName}`,
+                                sublabel: t.phoneNumber ? `Phone: ${t.phoneNumber}` : (t.email || undefined),
+                              })),
+                            ]}
+                          />
+                        </div>
+                        {savingClassId === cls.id && (
+                          <div
+                            className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0"
+                            title="Saving class teacher..."
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

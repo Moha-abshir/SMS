@@ -37,6 +37,11 @@ export const StaffManagementView: React.FC = () => {
   })();
   const [adminPasswordConfirm, setAdminPasswordConfirm] = useState('');
   const [submitting2Fa, setSubmitting2Fa] = useState(false);
+  const [submittingInvite, setSubmittingInvite] = useState(false);
+  const [submittingEdit, setSubmittingEdit] = useState(false);
+  const [togglingStaffId, setTogglingStaffId] = useState<string | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+  const [cancellingInviteId, setCancellingInviteId] = useState<string | null>(null);
   
   // Selected staff for edit/reset
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
@@ -97,6 +102,8 @@ export const StaffManagementView: React.FC = () => {
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingInvite) return;
+    setSubmittingInvite(true);
     try {
       const payload = { 
         ...formData,
@@ -109,14 +116,18 @@ export const StaffManagementView: React.FC = () => {
       toast.success(res.data.emailSent ? 'Invitation sent successfully!' : 'Invitation created, but failed to send email. Check API key.', { autoClose: false });
       setShowInviteModal(false);
       resetForm();
-      fetchStaff();
+      await fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to send invitation');
+    } finally {
+      setSubmittingInvite(false);
     }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingEdit) return;
+    setSubmittingEdit(true);
     try {
       const payload = {
         ...formData,
@@ -125,13 +136,16 @@ export const StaffManagementView: React.FC = () => {
       await apiClient.put(`/api/staff/${selectedStaff.id}`, payload);
       toast.success('Staff details updated');
       setShowEditModal(false);
-      fetchStaff();
+      await fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update staff');
+    } finally {
+      setSubmittingEdit(false);
     }
   };
 
   const handleToggleStatus = async (staffMember: any) => {
+    if (togglingStaffId) return;
     if (staffMember.isActive) {
       const confirmed = window.confirm(
         `Are you sure you want to deactivate ${staffMember.firstName} ${staffMember.lastName}? Their session tokens will be revoked and they will be blocked from logging into the system.`
@@ -139,6 +153,7 @@ export const StaffManagementView: React.FC = () => {
       if (!confirmed) return;
     }
 
+    setTogglingStaffId(staffMember.id);
     try {
       await apiClient.patch(`/api/staff/${staffMember.id}/status`, {
         isActive: !staffMember.isActive
@@ -148,9 +163,11 @@ export const StaffManagementView: React.FC = () => {
           ? `Staff account for ${staffMember.firstName} ${staffMember.lastName} deactivated. System access blocked.`
           : `Staff account for ${staffMember.firstName} ${staffMember.lastName} reactivated. Login access restored.`
       );
-      fetchStaff();
+      await fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to change staff status');
+    } finally {
+      setTogglingStaffId(null);
     }
   };
 
@@ -169,7 +186,7 @@ export const StaffManagementView: React.FC = () => {
       toast.success('2FA configuration reset successfully. Staff member will be required to re-verify upon next sign-in.');
       setShow2FaResetModal(false);
       setAdminPasswordConfirm('');
-      fetchStaff();
+      await fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to reset 2FA');
     } finally {
@@ -178,23 +195,31 @@ export const StaffManagementView: React.FC = () => {
   };
 
   const handleResendInvitation = async (invitationId: string) => {
+    if (resendingInviteId) return;
+    setResendingInviteId(invitationId);
     try {
       const res = await apiClient.post(`/api/staff/invitations/${invitationId}/resend`);
       toast.success(res.data.emailSent ? 'Invitation resent successfully!' : 'Invitation resent, but email failed to send.');
-      fetchStaff();
+      await fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to resend invitation');
+    } finally {
+      setResendingInviteId(null);
     }
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
+    if (cancellingInviteId) return;
     if (!window.confirm("Are you sure you want to cancel this invitation?")) return;
+    setCancellingInviteId(invitationId);
     try {
       await apiClient.post(`/api/staff/invitations/${invitationId}/cancel`);
       toast.success('Invitation cancelled successfully');
-      fetchStaff();
+      await fetchStaff();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to cancel invitation');
+    } finally {
+      setCancellingInviteId(null);
     }
   };
 
@@ -508,11 +533,21 @@ export const StaffManagementView: React.FC = () => {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleToggleStatus(s)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                            disabled={togglingStaffId === s.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                             title="Restore account access and allow login"
                           >
-                            <UserCheck className="w-3.5 h-3.5" />
-                            <span>Reactivate</span>
+                            {togglingStaffId === s.id ? (
+                              <>
+                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                                <span>Reactivating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="w-3.5 h-3.5" />
+                                <span>Reactivate</span>
+                              </>
+                            )}
                           </button>
                           <button
                             onClick={() => {
@@ -571,10 +606,15 @@ export const StaffManagementView: React.FC = () => {
                           </button>
                           <button
                             onClick={() => handleToggleStatus(s)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                            disabled={togglingStaffId === s.id}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Deactivate Staff Account (Block Access)"
                           >
-                            <ShieldAlert className="w-4 h-4" />
+                            {togglingStaffId === s.id ? (
+                              <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <ShieldAlert className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       ) : (
@@ -583,17 +623,27 @@ export const StaffManagementView: React.FC = () => {
                             <>
                               <button
                                 onClick={() => handleResendInvitation(s.id)}
-                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                disabled={resendingInviteId === s.id}
+                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Resend Invitation"
                               >
-                                <Send className="w-4 h-4" />
+                                {resendingInviteId === s.id ? (
+                                  <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
                               </button>
                               <button
                                 onClick={() => handleCancelInvitation(s.id)}
-                                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                disabled={cancellingInviteId === s.id}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Cancel Invitation"
                               >
-                                <Ban className="w-4 h-4" />
+                                {cancellingInviteId === s.id ? (
+                                  <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <Ban className="w-4 h-4" />
+                                )}
                               </button>
                             </>
                           )}
@@ -601,10 +651,15 @@ export const StaffManagementView: React.FC = () => {
                             <>
                               <button
                                 onClick={() => handleResendInvitation(s.id)}
-                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                disabled={resendingInviteId === s.id}
+                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Resend Invitation (60 mins)"
                               >
-                                <Send className="w-4 h-4" />
+                                {resendingInviteId === s.id ? (
+                                  <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
                               </button>
                               <button
                                 onClick={() => setInvitationToDelete(s)}
@@ -732,8 +787,22 @@ export const StaffManagementView: React.FC = () => {
             >
               <FileText className="w-4 h-4 text-sky-600" /> Preview Contract
             </button>
-            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-glass min-h-[40px] transition-all">
-              <Send className="w-4 h-4" /> Send Invitation
+            <button
+              type="submit"
+              disabled={submittingInvite}
+              className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-glass min-h-[40px] transition-all"
+            >
+              {submittingInvite ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span>Sending Invitation...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  <span>Send Invitation</span>
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -827,7 +896,20 @@ export const StaffManagementView: React.FC = () => {
 
           <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-sky-100 dark:border-[#162b4d] sticky bottom-0 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-md mt-4">
             <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
-            <button type="submit" className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl shadow-glass min-h-[40px] transition-all">Save Changes</button>
+            <button
+              type="submit"
+              disabled={submittingEdit}
+              className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-glass min-h-[40px] transition-all"
+            >
+              {submittingEdit ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span>Saving Changes...</span>
+                </>
+              ) : (
+                <span>Save Changes</span>
+              )}
+            </button>
           </div>
         </form>
       </Modal>
@@ -941,7 +1023,14 @@ export const StaffManagementView: React.FC = () => {
               }
               className="w-full sm:w-auto px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
             >
-              {submittingEmailChange ? 'Sending Link...' : 'Dispatch Email Recovery Link'}
+              {submittingEmailChange ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span>Sending Link...</span>
+                </>
+              ) : (
+                'Dispatch Email Recovery Link'
+              )}
             </button>
           </div>
         </form>
@@ -983,9 +1072,16 @@ export const StaffManagementView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting2Fa}
-              className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-glass disabled:opacity-50 transition-all"
+              className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-glass disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              {submitting2Fa ? 'Resetting 2FA...' : 'Confirm & Reset 2FA'}
+              {submitting2Fa ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span>Resetting 2FA...</span>
+                </>
+              ) : (
+                'Confirm & Reset 2FA'
+              )}
             </button>
           </div>
         </form>

@@ -80,6 +80,7 @@ export const StudentAdmissionView: React.FC = () => {
   const [importingCsv, setImportingCsv] = useState(false);
 
   const [processingAction, setProcessingAction] = useState(false);
+  const [approvingStudentId, setApprovingStudentId] = useState<string | null>(null);
 
   const [studentForm, setStudentForm] = useState({
     assessmentNumber: '',
@@ -215,15 +216,18 @@ export const StudentAdmissionView: React.FC = () => {
   };
 
   const handleApprovePending = async (studentId: string) => {
+    if (processingAction) return;
     try {
       setProcessingAction(true);
+      setApprovingStudentId(studentId);
       await apiClient.put(`/api/admissions/students/${studentId}/approve`);
       toast.success('Student admission approved successfully');
-      fetchData();
+      await fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to approve admission');
     } finally {
       setProcessingAction(false);
+      setApprovingStudentId(null);
     }
   };
 
@@ -1019,9 +1023,14 @@ export const StudentAdmissionView: React.FC = () => {
                             type="button"
                             onClick={() => handleApprovePending(row.student.id)}
                             disabled={processingAction}
-                            className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-colors"
+                            className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Check className="w-3.5 h-3.5" /> Approve
+                            {approvingStudentId === row.student.id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5" />
+                            )}
+                            <span>{approvingStudentId === row.student.id ? 'Approving...' : 'Approve'}</span>
                           </button>
                           <button
                             type="button"

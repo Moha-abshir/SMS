@@ -26,6 +26,7 @@ export const ReportCardLockView: React.FC = () => {
   }, []);
 
   const handleToggleLock = async (classId: string, currentIsLocked: boolean) => {
+    if (togglingClassId) return;
     try {
       setTogglingClassId(classId);
       const newStatus = !currentIsLocked;
@@ -35,7 +36,7 @@ export const ReportCardLockView: React.FC = () => {
         notes: newStatus ? 'Report cards locked by DoS' : 'Report cards published & released by DoS',
       });
       toast.success(res.data.message || (newStatus ? 'Report cards locked' : 'Report cards published'));
-      fetchLocks();
+      await fetchLocks();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update lock status');
     } finally {
@@ -144,14 +145,17 @@ export const ReportCardLockView: React.FC = () => {
                     <button
                       onClick={() => handleToggleLock(row.class.id, row.isLocked)}
                       disabled={togglingClassId === row.class.id}
-                      className={`px-3.5 py-1.5 font-bold text-xs rounded-xl flex items-center gap-1.5 mx-auto transition-all ${
+                      className={`px-3.5 py-1.5 font-bold text-xs rounded-xl flex items-center gap-1.5 mx-auto transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
                         row.isLocked
                           ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-glass'
                           : 'bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 shadow-xs'
                       }`}
                     >
                       {togglingClassId === row.class.id ? (
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                          <span>{row.isLocked ? 'Releasing...' : 'Locking...'}</span>
+                        </>
                       ) : row.isLocked ? (
                         <>
                           <Unlock className="w-3.5 h-3.5" /> Publish / Release

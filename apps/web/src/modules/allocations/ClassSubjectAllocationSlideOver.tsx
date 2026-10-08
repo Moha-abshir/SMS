@@ -71,6 +71,7 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ALLOCATED' | 'UNALLOCATED'>('ALL');
   const [savingSubjectId, setSavingSubjectId] = useState<string | null>(null);
+  const [removingAllocationId, setRemovingAllocationId] = useState<string | null>(null);
 
   // Selected teacher per subject dropdown
   const [pendingTeacherMap, setPendingTeacherMap] = useState<Record<string, string>>({});
@@ -166,10 +167,14 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
   };
 
   const handleRemove = async (allocationId: string) => {
+    if (removingAllocationId) return;
     try {
+      setRemovingAllocationId(allocationId);
       await onRemoveSubjectAllocation(allocationId);
     } catch (err: any) {
       toast.error(err.message || 'Failed to remove allocation');
+    } finally {
+      setRemovingAllocationId(null);
     }
   };
 
@@ -410,9 +415,12 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                                         type="button"
                                         disabled={isSaving}
                                         onClick={() => handleSaveAllocation(subj.id, t.id)}
-                                        className="text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline font-extrabold cursor-pointer ml-0.5"
+                                        className="text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline font-extrabold cursor-pointer ml-0.5 inline-flex items-center gap-1 disabled:opacity-50"
                                       >
-                                        Quick Assign
+                                        {isSaving && savingSubjectId === subj.id && (
+                                          <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                                        )}
+                                        <span>Quick Assign</span>
                                       </button>
                                     )}
                                   </div>
@@ -475,11 +483,16 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                           {currentAlloc && (
                             <button
                               type="button"
+                              disabled={removingAllocationId === currentAlloc.allocation.id}
                               onClick={() => handleRemove(currentAlloc.allocation.id)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors cursor-pointer shrink-0"
+                              className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Remove teacher from subject"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              {removingAllocationId === currentAlloc.allocation.id ? (
+                                <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           )}
                         </div>

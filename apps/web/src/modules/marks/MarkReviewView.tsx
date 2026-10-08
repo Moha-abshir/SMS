@@ -12,6 +12,8 @@ export const MarkReviewView: React.FC = () => {
   const [rejectionModalSubmission, setRejectionModalSubmission] = useState<any | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionProcessing, setActionProcessing] = useState(false);
+  const [actionSubmissionId, setActionSubmissionId] = useState<string | null>(null);
+  const [actionType, setActionType] = useState<'APPROVE' | 'LOCK' | null>(null);
 
   // Scores Inspection State
   const [inspectModalOpen, setInspectModalOpen] = useState(false);
@@ -59,8 +61,11 @@ export const MarkReviewView: React.FC = () => {
   };
 
   const handleApprove = async (id: string) => {
+    if (actionProcessing) return;
     try {
       setActionProcessing(true);
+      setActionSubmissionId(id);
+      setActionType('APPROVE');
       await apiClient.put(`/api/mark-submissions/${id}/approve`);
       toast.success('Marksheet approved successfully');
       if (inspectModalOpen && inspectData?.submission?.id === id) {
@@ -69,11 +74,13 @@ export const MarkReviewView: React.FC = () => {
           submission: { ...inspectData.submission, status: 'APPROVED' },
         });
       }
-      fetchSubmissions();
+      await fetchSubmissions();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to approve marksheet');
     } finally {
       setActionProcessing(false);
+      setActionSubmissionId(null);
+      setActionType(null);
     }
   };
 
@@ -111,9 +118,12 @@ export const MarkReviewView: React.FC = () => {
   };
 
   const handleLock = async (id: string) => {
+    if (actionProcessing) return;
     if (!confirm('Are you sure you want to permanently lock this marksheet? No further edits will be permitted.')) return;
     try {
       setActionProcessing(true);
+      setActionSubmissionId(id);
+      setActionType('LOCK');
       await apiClient.put(`/api/mark-submissions/${id}/lock`);
       toast.success('Marksheet permanently locked');
       if (inspectModalOpen && inspectData?.submission?.id === id) {
@@ -122,11 +132,13 @@ export const MarkReviewView: React.FC = () => {
           submission: { ...inspectData.submission, status: 'LOCKED' },
         });
       }
-      fetchSubmissions();
+      await fetchSubmissions();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to lock marksheet');
     } finally {
       setActionProcessing(false);
+      setActionSubmissionId(null);
+      setActionType(null);
     }
   };
 
@@ -262,16 +274,21 @@ export const MarkReviewView: React.FC = () => {
                               <button
                                 onClick={() => handleApprove(row.submission.id)}
                                 disabled={actionProcessing}
-                                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                                className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                                {actionProcessing && actionSubmissionId === row.submission.id && actionType === 'APPROVE' ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                )}
+                                <span>{actionProcessing && actionSubmissionId === row.submission.id && actionType === 'APPROVE' ? 'Approving...' : 'Approve'}</span>
                               </button>
                             )}
 
                             <button
                               onClick={() => setRejectionModalSubmission(row)}
                               disabled={actionProcessing}
-                              className="px-3 py-1.5 bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                              className="px-3 py-1.5 bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 font-bold text-xs rounded-xl flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <RotateCcw className="w-3.5 h-3.5" /> Correction
                             </button>
@@ -279,9 +296,14 @@ export const MarkReviewView: React.FC = () => {
                             <button
                               onClick={() => handleLock(row.submission.id)}
                               disabled={actionProcessing}
-                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                              className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs rounded-xl flex items-center gap-1 transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <Lock className="w-3.5 h-3.5 text-slate-500" /> Lock
+                              {actionProcessing && actionSubmissionId === row.submission.id && actionType === 'LOCK' ? (
+                                <div className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                              ) : (
+                                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              )}
+                              <span>{actionProcessing && actionSubmissionId === row.submission.id && actionType === 'LOCK' ? 'Locking...' : 'Lock'}</span>
                             </button>
                           </>
                         )}
@@ -685,10 +707,14 @@ export const MarkReviewView: React.FC = () => {
                         type="button"
                         onClick={() => handleApprove(inspectData.submission.id)}
                         disabled={actionProcessing}
-                        className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                        className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Approve Marksheet
+                        {actionProcessing && actionSubmissionId === inspectData.submission.id && actionType === 'APPROVE' ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>{actionProcessing && actionSubmissionId === inspectData.submission.id && actionType === 'APPROVE' ? 'Approving...' : 'Approve Marksheet'}</span>
                       </button>
                     )}
 
@@ -696,10 +722,14 @@ export const MarkReviewView: React.FC = () => {
                       type="button"
                       onClick={() => handleLock(inspectData.submission.id)}
                       disabled={actionProcessing}
-                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+                      className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Lock className="w-3.5 h-3.5 text-slate-500" />
-                      Lock Permanently
+                      {actionProcessing && actionSubmissionId === inspectData.submission.id && actionType === 'LOCK' ? (
+                        <div className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5 text-slate-500" />
+                      )}
+                      <span>{actionProcessing && actionSubmissionId === inspectData.submission.id && actionType === 'LOCK' ? 'Locking...' : 'Lock Permanently'}</span>
                     </button>
                   </div>
                 )}

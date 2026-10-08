@@ -31,6 +31,7 @@ export const OfficialLetterView: React.FC = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [deletingLetterId, setDeletingLetterId] = useState<string | null>(null);
 
   const fetchLetters = async () => {
     try {
@@ -74,13 +75,17 @@ export const OfficialLetterView: React.FC = () => {
   };
 
   const handleDeleteLetter = async (id: string) => {
+    if (deletingLetterId) return;
     if (!confirm('Are you sure you want to delete this letter?')) return;
     try {
+      setDeletingLetterId(id);
       await apiClient.delete(`/api/official-letters/${id}`);
       toast.success('Letter deleted');
-      fetchLetters();
+      await fetchLetters();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete letter');
+    } finally {
+      setDeletingLetterId(null);
     }
   };
 
@@ -214,9 +219,15 @@ export const OfficialLetterView: React.FC = () => {
                         </button>
                         <button
                           onClick={() => handleDeleteLetter(letItem.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+                          disabled={deletingLetterId === letItem.id}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete Letter"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {deletingLetterId === letItem.id ? (
+                            <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </td>

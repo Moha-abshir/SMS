@@ -31,6 +31,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(null);
 
   // Form mode: 'single' vs 'bulk'
   const [addMode, setAddMode] = useState<'single' | 'bulk'>('bulk');
@@ -172,15 +173,19 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
   };
 
   const handleDelete = async (id: string, subName: string) => {
+    if (deletingSubjectId) return;
     if (!window.confirm(`Are you sure you want to delete "${subName}"?`)) return;
 
     try {
+      setDeletingSubjectId(id);
       await apiClient.delete(`/api/subjects/${id}`);
       toast.success(`Subject "${subName}" deleted`);
-      fetchSubjects();
+      await fetchSubjects();
       if (onSubjectsUpdated) onSubjectsUpdated();
     } catch (error: any) {
       toast.error(sanitizeErrorMessage(error.response?.data?.message) || 'Failed to delete subject');
+    } finally {
+      setDeletingSubjectId(null);
     }
   };
 
@@ -433,10 +438,15 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
                           </button>
                           <button
                             onClick={() => handleDelete(sub.id, sub.name)}
-                            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                            disabled={deletingSubjectId === sub.id}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Delete Subject"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingSubjectId === sub.id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
                           </button>
                         </div>
                       </div>

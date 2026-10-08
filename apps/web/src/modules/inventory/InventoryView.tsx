@@ -56,6 +56,7 @@ export const InventoryView: React.FC = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [returningCheckoutId, setReturningCheckoutId] = useState<string | null>(null);
 
   // Initial load: 5 items catalog + checkouts + full items list for checkout dropdown + teachers
   const fetchData = async () => {
@@ -246,12 +247,16 @@ export const InventoryView: React.FC = () => {
   };
 
   const handleReturnItem = async (checkoutId: string) => {
+    if (returningCheckoutId) return;
     try {
+      setReturningCheckoutId(checkoutId);
       await apiClient.put(`/api/inventory/checkouts/${checkoutId}/return`);
       toast.success('Asset marked as returned');
-      fetchData();
+      await fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to process return');
+    } finally {
+      setReturningCheckoutId(null);
     }
   };
 
@@ -570,9 +575,15 @@ export const InventoryView: React.FC = () => {
                       {row.checkout.status !== 'RETURNED' && (
                         <button
                           onClick={() => handleReturnItem(row.checkout.id)}
-                          className="px-2.5 py-1 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] font-bold text-[10px] rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                          disabled={returningCheckoutId === row.checkout.id}
+                          className="px-2.5 py-1 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] font-bold text-[10px] rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <RotateCcw className="w-3 h-3 text-sky-600 dark:text-sky-400" /> Mark Returned
+                          {returningCheckoutId === row.checkout.id ? (
+                            <div className="w-3 h-3 border-2 border-sky-600 dark:border-sky-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : (
+                            <RotateCcw className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                          )}
+                          <span>{returningCheckoutId === row.checkout.id ? 'Returning...' : 'Mark Returned'}</span>
                         </button>
                       )}
                     </td>

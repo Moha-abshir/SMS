@@ -39,6 +39,7 @@ export const InvigilatorAllocationView: React.FC = () => {
 
   const [searchFilter, setSearchFilter] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [removingAllocationId, setRemovingAllocationId] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -130,13 +131,17 @@ export const InvigilatorAllocationView: React.FC = () => {
   };
 
   const handleRemoveInvigilator = async (id: string) => {
+    if (removingAllocationId) return;
     if (!confirm('Are you sure you want to remove this invigilator allocation?')) return;
     try {
+      setRemovingAllocationId(id);
       await apiClient.delete(`/api/academic-allocations/invigilators/${id}`);
       toast.success('Invigilator allocation removed');
-      fetchData();
+      await fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to remove invigilator');
+    } finally {
+      setRemovingAllocationId(null);
     }
   };
 
@@ -300,10 +305,15 @@ export const InvigilatorAllocationView: React.FC = () => {
                     <td className="py-3.5 px-4 text-center">
                       <button
                         title="Remove allocation"
+                        disabled={removingAllocationId === row.allocation.id}
                         onClick={() => handleRemoveInvigilator(row.allocation.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {removingAllocationId === row.allocation.id ? (
+                          <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </td>
                   </tr>

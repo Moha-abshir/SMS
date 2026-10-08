@@ -427,9 +427,13 @@ export const ClassRegisterView: React.FC = () => {
                   <button
                     onClick={handleSaveRegister}
                     disabled={loading || saving || students.length === 0}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    {saving ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
                     <span>{saving ? 'Saving...' : 'Submit Register'}</span>
                   </button>
                 </>
@@ -493,9 +497,10 @@ export const ClassRegisterView: React.FC = () => {
                   <button
                     onClick={handleSaveRegister}
                     disabled={loading || saving || students.length === 0}
-                    className="px-3 py-1 text-[11px] font-bold rounded-lg bg-sky-500 hover:bg-sky-600 text-white shadow-xs cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1 text-[11px] font-bold rounded-lg bg-sky-500 hover:bg-sky-600 text-white shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                   >
-                    {saving ? 'Saving...' : 'Submit'}
+                    {saving && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                    <span>{saving ? 'Saving...' : 'Submit'}</span>
                   </button>
                 </div>
               )}

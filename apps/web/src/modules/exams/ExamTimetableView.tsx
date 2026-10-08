@@ -33,6 +33,8 @@ export const ExamTimetableView: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<string | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -109,9 +111,10 @@ export const ExamTimetableView: React.FC = () => {
   };
 
   const handleUpdateStatus = async (newStatus: string) => {
-    if (!selectedExam) return;
+    if (!selectedExam || updatingStatus) return;
     try {
       setUpdatingStatus(true);
+      setTargetStatus(newStatus);
       await apiClient.put(`/api/exams/${selectedExam.exam.id}/status`, { status: newStatus });
       toast.success(`Exam timetable status updated to ${newStatus}`);
       await fetchData();
@@ -119,6 +122,7 @@ export const ExamTimetableView: React.FC = () => {
       toast.error(error.response?.data?.message || 'Failed to update exam status');
     } finally {
       setUpdatingStatus(false);
+      setTargetStatus(null);
     }
   };
 
@@ -151,13 +155,17 @@ export const ExamTimetableView: React.FC = () => {
   };
 
   const handleDeleteSession = async (sessionId: string) => {
+    if (deletingSessionId) return;
     if (!confirm('Are you sure you want to remove this paper session?')) return;
     try {
+      setDeletingSessionId(sessionId);
       await apiClient.delete(`/api/exams/sessions/${sessionId}`);
       toast.success('Exam session removed');
-      if (selectedExam) fetchSessions(selectedExam.exam.id);
+      if (selectedExam) await fetchSessions(selectedExam.exam.id);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete session');
+    } finally {
+      setDeletingSessionId(null);
     }
   };
 
@@ -276,10 +284,14 @@ export const ExamTimetableView: React.FC = () => {
                 <button
                   disabled={updatingStatus}
                   onClick={() => handleUpdateStatus('APPROVED')}
-                  className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50"
+                  className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Approve & Publish Timetable
+                  {updatingStatus && targetStatus === 'APPROVED' ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  <span>{updatingStatus && targetStatus === 'APPROVED' ? 'Publishing...' : 'Approve & Publish Timetable'}</span>
                 </button>
               )}
 
@@ -288,18 +300,26 @@ export const ExamTimetableView: React.FC = () => {
                   <button
                     disabled={updatingStatus}
                     onClick={() => handleUpdateStatus('DRAFT')}
-                    className="px-3 py-1.5 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <Unlock className="w-3.5 h-3.5 text-amber-600" />
-                    Revert to Draft
+                    {updatingStatus && targetStatus === 'DRAFT' ? (
+                      <div className="w-3.5 h-3.5 border-2 border-slate-700 border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-amber-600" />
+                    )}
+                    <span>{updatingStatus && targetStatus === 'DRAFT' ? 'Reverting...' : 'Revert to Draft'}</span>
                   </button>
                   <button
                     disabled={updatingStatus}
                     onClick={() => handleUpdateStatus('LOCKED')}
-                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <Lock className="w-3.5 h-3.5 text-white" />
-                    Lock Examination
+                    {updatingStatus && targetStatus === 'LOCKED' ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-white" />
+                    )}
+                    <span>{updatingStatus && targetStatus === 'LOCKED' ? 'Locking...' : 'Lock Examination'}</span>
                   </button>
                 </>
               )}
@@ -308,10 +328,14 @@ export const ExamTimetableView: React.FC = () => {
                 <button
                   disabled={updatingStatus}
                   onClick={() => handleUpdateStatus('APPROVED')}
-                  className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50"
+                  className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <Unlock className="w-3.5 h-3.5" />
-                  Unlock Timetable
+                  {updatingStatus && targetStatus === 'APPROVED' ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                  ) : (
+                    <Unlock className="w-3.5 h-3.5" />
+                  )}
+                  <span>{updatingStatus && targetStatus === 'APPROVED' ? 'Unlocking...' : 'Unlock Timetable'}</span>
                 </button>
               )}
 
@@ -382,10 +406,15 @@ export const ExamTimetableView: React.FC = () => {
                         <td className="py-3.5 px-4 text-center">
                           <button
                             title="Delete session"
+                            disabled={deletingSessionId === row.session.id}
                             onClick={() => handleDeleteSession(row.session.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {deletingSessionId === row.session.id ? (
+                              <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         </td>
                       </tr>
