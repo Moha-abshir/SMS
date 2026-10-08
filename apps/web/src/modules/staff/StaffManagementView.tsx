@@ -1239,12 +1239,10 @@ export const StaffManagementView: React.FC = () => {
           </div>
 
           <div className="text-xs text-slate-600 dark:text-slate-400 space-y-2.5 leading-relaxed bg-slate-50 dark:bg-[#071328] p-4 rounded-xl border border-slate-200/60 dark:border-slate-800">
-            <p>
-              In accordance with CBC academic structure and system integrity, an active class teacher cannot be deactivated while leading a class. Doing so would leave learners and classroom records without teacher oversight.
-            </p>
+            
             <div className="pt-1 border-t border-slate-200 dark:border-slate-800 space-y-1">
               <p className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <span className="text-sky-500">👉</span> Required Action:
+                <span className="text-sky-500"></span> Required Action:
               </p>
               <p>
                 Please contact the <strong className="text-sky-600 dark:text-sky-400">Deputy Head Teacher</strong> to unassign or reassign them from <strong className="text-slate-800 dark:text-slate-200">{classTeacherWarningModal.classNames}</strong> in the <span className="font-semibold text-slate-700 dark:text-slate-300">Academic Workstation & Allocations</span> tab. Once unassigned, you will be able to deactivate this account.
