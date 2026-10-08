@@ -73,28 +73,28 @@ html.dark {
   color-scheme: dark;
 }
 
-/* 1. Main Cards, Panels, Headers, and Modals */
-html.dark .bg-white,
-html.dark [class*="bg-white/"] {
+/* 1. Main Cards, Panels, Headers, and Modals (Excluding physical paper documents) */
+html.dark .bg-white:not(.physical-paper-document):not(#contract-document):not(#official-letter-paper):not(#leave-slip-printable),
+html.dark [class*="bg-white/"]:not(.physical-paper-document):not(#contract-document):not(#official-letter-paper):not(#leave-slip-printable) {
   background-color: rgb(9 19 38 / var(--tw-bg-opacity, 0.92)) !important;
 }
 
 /* 2. Inner Containers, Notice Boxes, Stat Pills, and Table Headers */
-html.dark .bg-sky-50,
-html.dark [class*="bg-sky-50/"],
-html.dark .bg-slate-50,
-html.dark [class*="bg-slate-50/"],
-html.dark .bg-slate-100 {
+html.dark .bg-sky-50:not(.physical-paper-document *),
+html.dark [class*="bg-sky-50/"]:not(.physical-paper-document *),
+html.dark .bg-slate-50:not(.physical-paper-document *),
+html.dark [class*="bg-slate-50/"]:not(.physical-paper-document *),
+html.dark .bg-slate-100:not(.physical-paper-document *) {
   background-color: rgb(12 24 48 / var(--tw-bg-opacity, 0.85)) !important;
 }
 
 /* 3. Card and Component Borders */
-html.dark .border-sky-100,
-html.dark [class*="border-sky-100/"],
-html.dark .border-sky-200,
-html.dark [class*="border-sky-200/"],
-html.dark .border-slate-100,
-html.dark .border-slate-200 {
+html.dark .border-sky-100:not(.physical-paper-document *),
+html.dark [class*="border-sky-100/"]:not(.physical-paper-document *),
+html.dark .border-sky-200:not(.physical-paper-document *),
+html.dark [class*="border-sky-200/"]:not(.physical-paper-document *),
+html.dark .border-slate-100:not(.physical-paper-document *),
+html.dark .border-slate-200:not(.physical-paper-document *) {
   border-color: #162b4d !important;
 }
 
@@ -215,3 +215,64 @@ html.dark .shadow-glass,
 html.dark .shadow-glass-hover {
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05) !important;
 }
+
+/* ==========================================================================
+   10. Authentic Physical Paper Document Protection (Never dark-mode inverted)
+   Ensures contracts, official letterheads, and leave slips always render as
+   authentic physical white paper documents with rich black ink typography.
+   ========================================================================== */
+#contract-document,
+#official-letter-paper,
+#leave-slip-printable,
+.physical-paper-document {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  color-scheme: light !important;
+}
+
+#contract-document *,
+#official-letter-paper *,
+#leave-slip-printable *,
+.physical-paper-document * {
+  color-scheme: light !important;
+}
+
+html.dark #contract-document,
+html.dark #official-letter-paper,
+html.dark #leave-slip-printable,
+html.dark .physical-paper-document {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.2) !important;
+}
+
+html.dark #contract-document h1,
+html.dark #contract-document h2,
+html.dark #contract-document h3,
+html.dark #contract-document p,
+html.dark #contract-document span,
+html.dark #contract-document b,
+html.dark #contract-document u,
+html.dark #contract-document i,
+html.dark #contract-document li,
+html.dark #contract-document div:not(.stamp-box),
+html.dark #official-letter-paper h1,
+html.dark #official-letter-paper h2,
+html.dark #official-letter-paper h3,
+html.dark #official-letter-paper p,
+html.dark #official-letter-paper span,
+html.dark #official-letter-paper b,
+html.dark #official-letter-paper u,
+html.dark #official-letter-paper i,
+html.dark #official-letter-paper li,
+html.dark #official-letter-paper div,
+html.dark #leave-slip-printable * {
+  color: #000000 !important;
+}
+
+html.dark #contract-document .letterhead-subtext,
+html.dark #official-letter-paper .letterhead-subtext {
+  color: #334155 !important;
+}
+

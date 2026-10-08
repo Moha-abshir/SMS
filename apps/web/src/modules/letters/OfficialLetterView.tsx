@@ -320,9 +320,19 @@ export const OfficialLetterView: React.FC = () => {
               </button>
             </div>
 
-            {/* Pure A4 Letter Paper Canvas */}
-            <div className="overflow-x-auto">
-              <div id="official-letter-paper" className="min-w-[580px] p-5 sm:p-10 md:p-14 bg-white text-slate-900 rounded-xl border border-slate-200 shadow-md space-y-6 mx-auto">
+            {/* Pure A4 Letter Paper Canvas on Desk Backdrop */}
+            <div className="overflow-x-auto p-3 sm:p-6 bg-slate-200/70 dark:bg-[#060c18] rounded-2xl">
+              <div
+                id="official-letter-paper"
+                className="physical-paper-document min-w-[580px] max-w-[760px] p-6 sm:p-12 md:p-14 bg-white text-black rounded-sm border border-slate-300 shadow-2xl shadow-black/40 space-y-6 mx-auto select-text"
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  fontFamily: "'Times New Roman', Times, serif",
+                  lineHeight: '1.6',
+                  boxSizing: 'border-box',
+                }}
+              >
                 {/* Header Letterhead */}
                 <div className="flex items-center gap-4 sm:gap-5 border-b-2 border-slate-900 pb-4 text-left">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
