@@ -54,6 +54,7 @@ export const FeeStructureView: React.FC = () => {
   };
 
   const handleSaveRow = async (row: MatrixRow) => {
+    if (savingRowCat) return;
     const updates = [];
     if (row.term1?.id) updates.push({ id: row.term1.id, totalAmount: parseFloat(amounts[row.term1.id] || '0') });
     if (row.term2?.id) updates.push({ id: row.term2.id, totalAmount: parseFloat(amounts[row.term2.id] || '0') });
@@ -63,7 +64,7 @@ export const FeeStructureView: React.FC = () => {
       setSavingRowCat(row.levelCategory);
       await apiClient.put('/api/fee-structures/batch', { updates });
       toast.success(`${row.title} fee structures saved successfully`);
-      fetchMatrix();
+      await fetchMatrix();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to save fee structures');
     } finally {
@@ -72,6 +73,7 @@ export const FeeStructureView: React.FC = () => {
   };
 
   const handleSaveAll = async () => {
+    if (submitting) return;
     const updates: Array<{ id: string; totalAmount: number }> = [];
     Object.entries(amounts).forEach(([id, val]) => {
       const num = parseFloat(val);
@@ -86,7 +88,7 @@ export const FeeStructureView: React.FC = () => {
       setSubmitting(true);
       await apiClient.put('/api/fee-structures/batch', { updates });
       toast.success('All 3-term fee structures saved successfully!');
-      fetchMatrix();
+      await fetchMatrix();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to batch save fee structures');
     } finally {
@@ -125,10 +127,14 @@ export const FeeStructureView: React.FC = () => {
         <button
           onClick={handleSaveAll}
           disabled={submitting}
-          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
+          className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all shrink-0 cursor-pointer"
         >
-          <Save className="w-4 h-4" />
-          {submitting ? 'Saving Changes...' : 'Save Fee Matrix'}
+          {submitting ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          <span>{submitting ? 'Saving Changes...' : 'Save Fee Matrix'}</span>
         </button>
       </div>
 
@@ -227,14 +233,14 @@ export const FeeStructureView: React.FC = () => {
                       <button
                         onClick={() => handleSaveRow(row)}
                         disabled={isSaving}
-                        className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-1 mx-auto transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-1 mx-auto transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isSaving ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
                         ) : (
                           <Save className="w-3.5 h-3.5" />
                         )}
-                        Save
+                        <span>{isSaving ? 'Saving...' : 'Save'}</span>
                       </button>
                     </td>
                   </tr>

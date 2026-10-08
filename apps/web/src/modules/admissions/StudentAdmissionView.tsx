@@ -177,6 +177,7 @@ export const StudentAdmissionView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!studentForm.classId) {
       toast.error('Please select a class placement for the student');
       return;
@@ -232,7 +233,7 @@ export const StudentAdmissionView: React.FC = () => {
   };
 
   const handleRejectPending = async () => {
-    if (!rejectModalStudent) return;
+    if (!rejectModalStudent || processingAction) return;
     try {
       setProcessingAction(true);
       await apiClient.put(`/api/admissions/students/${rejectModalStudent.student.id}/reject`, {
@@ -250,7 +251,7 @@ export const StudentAdmissionView: React.FC = () => {
   };
 
   const handleConfirmTransfer = async () => {
-    if (!transferModalStudent) return;
+    if (!transferModalStudent || processingAction) return;
     try {
       setProcessingAction(true);
       await apiClient.put(`/api/admissions/students/${transferModalStudent.student.id}/transfer`, {
@@ -268,7 +269,7 @@ export const StudentAdmissionView: React.FC = () => {
   };
 
   const handleConfirmExpulsion = async () => {
-    if (!expelModalStudent) return;
+    if (!expelModalStudent || processingAction) return;
     if (!expelReason.trim()) {
       toast.error('Expulsion reason is required');
       return;
@@ -335,6 +336,7 @@ export const StudentAdmissionView: React.FC = () => {
   };
 
   const handleExecuteBulkImport = async () => {
+    if (importingCsv) return;
     if (!csvText.trim()) {
       toast.error('Please upload or provide a valid CSV file');
       return;
@@ -952,14 +954,14 @@ export const StudentAdmissionView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 min-h-[44px] cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
             >
               {submitting ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
               ) : (
                 <Plus className="w-4 h-4" />
               )}
-              Complete Student Admission
+              {submitting ? 'Admitting Student...' : 'Complete Student Admission'}
             </button>
           </div>
         </form>
@@ -1136,14 +1138,14 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleExecuteBulkImport}
                 disabled={importingCsv || !csvText}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {importingCsv ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
                 ) : (
                   <Upload className="w-3.5 h-3.5" />
                 )}
-                Import Students
+                {importingCsv ? 'Importing Students...' : 'Import Students'}
               </button>
             </div>
           </div>
@@ -1183,7 +1185,7 @@ export const StudentAdmissionView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRejectModalStudent(null)}
-                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1191,10 +1193,10 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleRejectPending}
                 disabled={processingAction}
-                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Confirm Rejection
+                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                {processingAction ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
           </div>
@@ -1245,10 +1247,10 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmExpulsion}
                 disabled={processingAction || !expelReason.trim()}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Confirm Expulsion
+                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                {processingAction ? 'Expelling...' : 'Confirm Expulsion'}
               </button>
             </div>
           </div>
@@ -1284,7 +1286,7 @@ export const StudentAdmissionView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTransferModalStudent(null)}
-                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                className="px-4 py-2 bg-white border border-sky-200 hover:bg-sky-50 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1292,10 +1294,10 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmTransfer}
                 disabled={processingAction}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Confirm Transfer
+                {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                {processingAction ? 'Transferring...' : 'Confirm Transfer'}
               </button>
             </div>
           </div>

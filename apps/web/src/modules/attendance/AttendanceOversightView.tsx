@@ -173,6 +173,7 @@ export const AttendanceOversightView: React.FC = () => {
   const isToday = targetDate === todayIso;
 
   const handleSendSms = async (student: any) => {
+    if (sendingSmsId) return;
     try {
       setSendingSmsId(student.studentId);
       await apiClient.post('/api/attendance/notify-parent', {
@@ -191,6 +192,7 @@ export const AttendanceOversightView: React.FC = () => {
   };
 
   const handleNotifyAllAbsent = async () => {
+    if (bulkSendingSms) return;
     const unnotified = data.absentStudents.filter(
       (s) => !s.smsSentStatus || s.smsSentStatus === 'PENDING' || s.smsSentStatus === 'FAILED'
     );
@@ -284,7 +286,7 @@ export const AttendanceOversightView: React.FC = () => {
   };
 
   const handleSaveRegister = async () => {
-    if (!selectedClass) return;
+    if (!selectedClass || registerSaving) return;
     if (selectedClass.isSubmitted) {
       toast.warning('This register has already been submitted and locked. Modifications are blocked to preserve audit integrity.');
       return;
@@ -790,7 +792,7 @@ export const AttendanceOversightView: React.FC = () => {
                         <button
                           onClick={() => handleSendSms(row)}
                           disabled={sendingSmsId === row.studentId || !row.guardianPhone}
-                          className={`px-3.5 py-1.5 font-bold text-xs rounded-xl inline-flex items-center gap-1.5 mx-auto transition-all disabled:opacity-50 cursor-pointer shadow-xs ${
+                          className={`px-3.5 py-1.5 font-bold text-xs rounded-xl inline-flex items-center gap-1.5 mx-auto transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs ${
                             row.smsSentStatus === 'SENT'
                               ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                               : 'bg-sky-500 hover:bg-sky-600 text-white shadow-glass'
@@ -798,11 +800,11 @@ export const AttendanceOversightView: React.FC = () => {
                           title={row.smsSentStatus === 'SENT' ? 'Resend absentee SMS' : 'Send absentee SMS'}
                         >
                           {sendingSmsId === row.studentId ? (
-                            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
                           ) : (
                             <Send className="w-3.5 h-3.5" />
                           )}
-                          {row.smsSentStatus === 'SENT' ? 'Resend SMS' : 'Send SMS'}
+                          {sendingSmsId === row.studentId ? 'Sending...' : (row.smsSentStatus === 'SENT' ? 'Resend SMS' : 'Send SMS')}
                         </button>
                       </td>
                     </tr>
@@ -1027,10 +1029,10 @@ export const AttendanceOversightView: React.FC = () => {
                     type="button"
                     onClick={handleSaveRegister}
                     disabled={registerSaving}
-                    className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {registerSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                    Save Daily Register
+                    {registerSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                    {registerSaving ? 'Saving...' : 'Save Daily Register'}
                   </button>
                 </>
               )}

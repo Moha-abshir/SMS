@@ -124,7 +124,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
   const smsSegments = Math.ceil(charCount / 160) || 1;
 
   const handleSendSms = async () => {
-    if (!studentId) return;
+    if (!studentId || sendingSms) return;
     if (templateType === 'CUSTOM_CONTROLLED' && !customNote.trim()) {
       toast.error('Please enter a note for the custom message');
       return;

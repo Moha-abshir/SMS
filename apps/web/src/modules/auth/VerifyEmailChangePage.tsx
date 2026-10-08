@@ -47,6 +47,7 @@ export const VerifyEmailChangePage: React.FC = () => {
   }, [emailParam, tokenParam]);
 
   const handleConfirmUpdate = async () => {
+    if (submitting) return;
     setSubmitting(true);
     try {
       const res = await apiClient.post('/api/auth/email-change/complete', {
@@ -176,7 +177,7 @@ export const VerifyEmailChangePage: React.FC = () => {
           <button
             onClick={handleConfirmUpdate}
             disabled={submitting}
-            className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {submitting ? (
               <>

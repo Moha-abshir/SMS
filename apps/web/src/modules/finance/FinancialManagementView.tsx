@@ -151,6 +151,7 @@ export const FinancialManagementView: React.FC = () => {
       toast.error('Payer name is required');
       return;
     }
+    if (recordingPayment) return;
 
     try {
       setRecordingPayment(true);
@@ -195,7 +196,7 @@ export const FinancialManagementView: React.FC = () => {
 
   // Handle Request Reversal
   const handleRequestReversal = async () => {
-    if (!reversalModalPayment) return;
+    if (!reversalModalPayment || requestingReversal) return;
     if (!reversalReason.trim()) {
       toast.error('Please provide a reason for payment reversal');
       return;
@@ -745,12 +746,12 @@ export const FinancialManagementView: React.FC = () => {
             <button
               type="submit"
               disabled={recordingPayment || !selectedStudent}
-              className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 min-h-[44px] cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
             >
               {recordingPayment && (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
               )}
-              Confirm & Issue Official Receipt
+              {recordingPayment ? 'Recording Payment...' : 'Confirm & Issue Official Receipt'}
             </button>
           </div>
         </form>
@@ -1173,10 +1174,10 @@ export const FinancialManagementView: React.FC = () => {
                 type="button"
                 onClick={handleRequestReversal}
                 disabled={requestingReversal || !reversalReason.trim()}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {requestingReversal && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Submit Reversal Request
+                {requestingReversal && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                {requestingReversal ? 'Submitting Reversal...' : 'Submit Reversal Request'}
               </button>
             </div>
           </div>

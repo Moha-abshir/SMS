@@ -52,6 +52,7 @@ export const ResetPasswordPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
 
     if (password.length < 8) {
       alert('Password must be at least 8 characters long.');
@@ -219,7 +220,7 @@ export const ResetPasswordPage: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full min-h-[44px] py-3 sm:py-3.5 px-4 bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition-all shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {submitting ? (
                 <>

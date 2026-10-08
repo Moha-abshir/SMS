@@ -71,6 +71,7 @@ export const SettingsView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     try {
       setSubmitting(true);
       await apiClient.put('/api/settings', form);
@@ -84,6 +85,7 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (uploadingLogo) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -114,6 +116,7 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleSetCurrentTerm = async (termId: string) => {
+    if (settingActiveTermId) return;
     try {
       setSettingActiveTermId(termId);
       await apiClient.put(`/api/academic-terms/${termId}`, { isCurrent: true });
@@ -134,7 +137,7 @@ export const SettingsView: React.FC = () => {
 
   const handleSaveTermDates = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTerm) return;
+    if (!editingTerm || savingTerm) return;
 
     try {
       setSavingTerm(true);
@@ -221,8 +224,14 @@ export const SettingsView: React.FC = () => {
             </p>
 
             <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">
-              <label className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass cursor-pointer inline-flex items-center gap-2 transition-all">
-                <Upload className="w-4 h-4" />
+              <label className={`w-full sm:w-auto justify-center min-h-[42px] px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass inline-flex items-center gap-2 transition-all ${
+                uploadingLogo ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'
+              }`}>
+                {uploadingLogo ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
                 {uploadingLogo ? 'Compressing & Uploading...' : 'Select & Upload Logo'}
                 <input
                   type="file"
@@ -385,14 +394,14 @@ export const SettingsView: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full sm:w-auto justify-center min-h-[44px] px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-2 transition-all cursor-pointer"
+            className="w-full sm:w-auto justify-center min-h-[44px] px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
             ) : (
               <Save className="w-4 h-4" />
             )}
-            Save School Settings
+            {submitting ? 'Saving School Settings...' : 'Save School Settings'}
           </button>
         </div>
       </form>
@@ -449,8 +458,11 @@ export const SettingsView: React.FC = () => {
                         <button
                           onClick={() => handleSetCurrentTerm(t.id)}
                           disabled={settingActiveTermId === t.id}
-                          className="px-3 py-1.5 bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 font-bold text-xs rounded-xl transition-colors disabled:opacity-50"
+                          className="px-3 py-1.5 bg-sky-50 text-sky-700 border border-sky-100 hover:bg-sky-100 font-bold text-xs rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                         >
+                          {settingActiveTermId === t.id && (
+                            <div className="w-3 h-3 border-2 border-sky-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                          )}
                           {settingActiveTermId === t.id ? 'Setting...' : 'Set Active'}
                         </button>
                       )}
@@ -514,10 +526,10 @@ export const SettingsView: React.FC = () => {
               <button
                 type="submit"
                 disabled={savingTerm}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors"
+                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {savingTerm && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                Save Term Dates
+                {savingTerm && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+                {savingTerm ? 'Saving...' : 'Save Term Dates'}
               </button>
             </div>
           </form>

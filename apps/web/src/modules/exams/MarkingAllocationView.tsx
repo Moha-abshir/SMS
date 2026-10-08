@@ -100,6 +100,7 @@ export const MarkingAllocationView: React.FC = () => {
 
   const handleAssignMarking = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!form.examId || !form.subjectId || !form.classId || !form.teacherId) {
       toast.error('Please complete all selection fields');
       return;
@@ -461,10 +462,10 @@ export const MarkingAllocationView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              Assign Examiner
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+              {submitting ? 'Assigning...' : 'Assign Examiner'}
             </button>
           </div>
         </form>

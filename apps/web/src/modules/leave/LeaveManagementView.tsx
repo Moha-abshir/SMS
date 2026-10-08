@@ -15,6 +15,7 @@ export const LeaveManagementView: React.FC = () => {
   const [classes, setClasses] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [markingReturnId, setMarkingReturnId] = useState<string | null>(null);
+  const [loadingSlipId, setLoadingSlipId] = useState<string | null>(null);
   const [printSlipData, setPrintSlipData] = useState<{
     request: any;
     teacher: any;
@@ -191,6 +192,7 @@ export const LeaveManagementView: React.FC = () => {
 
   const handleCreateLeave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!form.teacherId) {
       toast.error('Please select a teacher');
       return;
@@ -238,6 +240,7 @@ export const LeaveManagementView: React.FC = () => {
   };
 
   const handleMarkReportedBack = async (leaveId: string) => {
+    if (markingReturnId) return;
     try {
       setMarkingReturnId(leaveId);
       await apiClient.put(`/api/leave-requests/${leaveId}/report-back`);
@@ -251,7 +254,9 @@ export const LeaveManagementView: React.FC = () => {
   };
 
   const handleOpenPrintSlip = async (leaveId: string) => {
+    if (loadingSlipId) return;
     try {
+      setLoadingSlipId(leaveId);
       const res = await apiClient.get(`/api/leave-requests/${leaveId}/print-slip`);
       const data = res.data?.data;
       if (!data) throw new Error('No data received');
@@ -268,6 +273,8 @@ export const LeaveManagementView: React.FC = () => {
       });
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load leave slip');
+    } finally {
+      setLoadingSlipId(null);
     }
   };
 
@@ -455,24 +462,29 @@ export const LeaveManagementView: React.FC = () => {
                           <button
                             onClick={() => handleMarkReportedBack(row.request.id)}
                             disabled={markingReturnId === row.request.id}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-emerald-600/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-emerald-600/30 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Confirm teacher has reported back"
                           >
                             {markingReturnId === row.request.id ? (
-                              <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                              <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin shrink-0" />
                             ) : (
                               <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             )}
-                            <span>Mark Returned</span>
+                            <span>{markingReturnId === row.request.id ? 'Returning...' : 'Mark Returned'}</span>
                           </button>
                         )}
                         <button
                           onClick={() => handleOpenPrintSlip(row.request.id)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700/80 bg-white/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                          disabled={loadingSlipId === row.request.id}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700/80 bg-white/50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           title="View & print official leave out sheet"
                         >
-                          <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                          <span>Leave Sheet</span>
+                          {loadingSlipId === row.request.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : (
+                            <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                          )}
+                          <span>{loadingSlipId === row.request.id ? 'Loading...' : 'Leave Sheet'}</span>
                         </button>
                       </div>
                     </td>
@@ -688,10 +700,10 @@ export const LeaveManagementView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              Save & Generate Slip
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+              {submitting ? 'Saving...' : 'Save & Generate Slip'}
             </button>
           </div>
         </form>

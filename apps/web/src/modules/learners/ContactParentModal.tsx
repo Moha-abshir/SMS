@@ -53,6 +53,7 @@ export const ContactParentModal: React.FC<ContactParentModalProps> = ({
   const preview = getPreviewText();
 
   const handleSendSms = async () => {
+    if (sending) return;
     if (templateType === 'CUSTOM_CONTROLLED' && !customNote.trim()) {
       toast.error('Please enter a note for the custom message');
       return;
@@ -189,9 +190,13 @@ export const ContactParentModal: React.FC<ContactParentModalProps> = ({
             type="button"
             onClick={handleSendSms}
             disabled={sending || !student.guardianPhone}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send className="w-3.5 h-3.5" />
+            {sending ? (
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
             {sending ? 'Dispatching SMS...' : 'Send SMS to Guardian'}
           </button>
         </div>

@@ -87,6 +87,7 @@ export const ExamTimetableView: React.FC = () => {
 
   const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!examForm.termId) {
       toast.error('Please select an academic term');
       return;
@@ -128,6 +129,7 @@ export const ExamTimetableView: React.FC = () => {
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!selectedExam || !sessionForm.subjectId) {
       toast.error('Please select a subject');
       return;
@@ -474,10 +476,10 @@ export const ExamTimetableView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              Create Exam
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+              {submitting ? 'Creating Exam...' : 'Create Exam'}
             </button>
           </div>
         </form>
@@ -545,10 +547,10 @@ export const ExamTimetableView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all"
+              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              Schedule Session
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
+              {submitting ? 'Scheduling Session...' : 'Schedule Session'}
             </button>
           </div>
         </form>
