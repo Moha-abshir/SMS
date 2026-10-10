@@ -32,6 +32,7 @@ import { ExamTimetableView } from './modules/exams/ExamTimetableView';
 import { InvigilatorAllocationView } from './modules/exams/InvigilatorAllocationView';
 import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
 import { ReportCardLockView } from './modules/exams/ReportCardLockView';
+import { TimetableManagementView } from './modules/timetable/TimetableManagementView';
 import { apiClient } from './lib/apiClient';
 
 // Helper component that selects the appropriate Dashboard Overview based on logged-in role
@@ -217,6 +218,14 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['DEPUTY_HEAD']} user={currentUser}>
                 <AllocationView />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/timetable"
+            element={
+              <RoleGuard allowedRoles={['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER', 'DOS']} user={currentUser}>
+                <TimetableManagementView user={currentUser} />
               </RoleGuard>
             }
           />
