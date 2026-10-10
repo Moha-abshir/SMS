@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { PasswordConfirmModal } from './PasswordConfirmModal';
 
 interface TimetableWizardModalProps {
   isOpen: boolean;
@@ -34,7 +35,8 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
-  const [generating, setGenerating] = useState<boolean>(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
+  const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
 
   // Available metadata
   const [classesList, setClassesList] = useState<any[]>([]);
@@ -114,25 +116,33 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     const loadData = async () => {
       try {
         setLoading(true);
-        const [configRes, allocRes] = await Promise.all([
+        const [configRes, allocRes, classesRes] = await Promise.all([
           apiClient.get(`/api/timetable/config?academicYear=${academicYear}&term=${term}`),
           apiClient.get('/api/allocations'),
+          apiClient.get('/api/timetable/classes'),
         ]);
 
+        let targetClasses: any[] = [];
+        if (classesRes.data?.data && Array.isArray(classesRes.data.data) && classesRes.data.data.length > 0) {
+          targetClasses = classesRes.data.data;
+        } else if (allocRes.data?.data?.classes) {
+          targetClasses = allocRes.data.data.classes
+            .map((c: any) => c.class || c)
+            .filter(
+              (c: any) => c.levelCategory === 'UPPER_PRIMARY' || c.levelCategory === 'JUNIOR'
+            );
+        }
+        setClassesList(targetClasses);
+
         if (allocRes.data?.data) {
-          const { classes, teachers, subjects, subjectAllocations } = allocRes.data.data;
-          // Filter classes for Upper Primary & Junior Secondary (Grades 4-9)
-          const targetClasses = (classes || []).filter(
-            (c: any) => c.levelCategory === 'UPPER_PRIMARY' || c.levelCategory === 'JUNIOR'
-          );
-          setClassesList(targetClasses);
+          const { teachers, subjects, subjectAllocations } = allocRes.data.data;
           setTeachersList(teachers || []);
           setSubjectsList(subjects || []);
           setAllocationsList(subjectAllocations || []);
+        }
 
-          if (targetClasses.length > 0 && !selectedClassTab) {
-            setSelectedClassTab(targetClasses[0].id);
-          }
+        if (targetClasses.length > 0 && !selectedClassTab) {
+          setSelectedClassTab(targetClasses[0].id);
         }
 
         if (configRes.data?.data) {
@@ -227,11 +237,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
 
   const handleSaveConfig = async (triggerGenerate = false) => {
     try {
-      if (triggerGenerate) {
-        setGenerating(true);
-      } else {
-        setSaving(true);
-      }
+      setSaving(true);
 
       const payload = {
         academicYear,
@@ -254,10 +260,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
       await apiClient.post('/api/timetable/config', payload);
 
       if (triggerGenerate) {
-        const genRes = await apiClient.post('/api/timetable/generate', { academicYear, term });
-        toast.success(genRes.data.message || 'Timetable generated successfully!');
-        onGenerated();
-        onClose();
+        setIsPasswordModalOpen(true);
       } else {
         toast.success('Timetable settings saved successfully.');
       }
@@ -266,7 +269,26 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
       toast.error(err.response?.data?.message || 'Failed to save configuration');
     } finally {
       setSaving(false);
-      setGenerating(false);
+    }
+  };
+
+  const handleAuthorizeAndGenerate = async (password: string) => {
+    setIsAuthorizing(true);
+    try {
+      const genRes = await apiClient.post('/api/timetable/generate', {
+        academicYear,
+        term,
+        password,
+      });
+      toast.success(genRes.data?.message || 'Timetable generated successfully!');
+      setIsPasswordModalOpen(false);
+      onClose();
+      onGenerated();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to generate timetable';
+      throw new Error(msg);
+    } finally {
+      setIsAuthorizing(false);
     }
   };
 
@@ -889,7 +911,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSaveConfig(false)}
-                disabled={saving || generating}
+                disabled={saving || isAuthorizing}
                 className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 transition-colors cursor-pointer shadow-xs"
               >
                 <Save className="w-4 h-4" />
@@ -899,16 +921,25 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleSaveConfig(true)}
-                disabled={saving || generating}
+                disabled={saving || isAuthorizing}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
               >
                 <Zap className="w-4 h-4" />
-                {generating ? 'Generating Timetable...' : 'Save & Generate Live Timetable'}
+                {saving ? 'Saving...' : 'Save & Generate Live Timetable'}
               </button>
             </div>
           </div>
         </motion.div>
       </div>
+
+      <PasswordConfirmModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onConfirm={handleAuthorizeAndGenerate}
+        isSubmitting={isAuthorizing}
+        title="Authorize School Timetable Generation"
+        warningMessage="Generating or updating the live timetable will refresh scheduled periods across all Grades 4–9 and staff schedules. This action requires your Deputy Head Teacher password."
+      />
     </AnimatePresence>
   );
 };
