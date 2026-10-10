@@ -1,3 +1,4 @@
+import argon2 from 'argon2';
 import { db } from '../../config/db.js';
 import {
   timetableSettings,
@@ -35,6 +36,95 @@ export class TimetableService {
     const [settings] = await db.select().from(systemSettings).limit(1);
     const academicYear = settings?.currentAcademicYear || 2026;
     return { academicYear, term: 1 };
+  }
+
+  /**
+   * Returns clean target classes list for Grades 4 to 9.
+   */
+  static async getTargetClasses() {
+    return db
+      .select({
+        id: classes.id,
+        name: classes.name,
+        levelCategory: classes.levelCategory,
+        numericOrder: classes.numericOrder,
+      })
+      .from(classes)
+      .where(
+        and(
+          inArray(classes.levelCategory, ['UPPER_PRIMARY', 'JUNIOR']),
+          isNull(classes.deletedAt)
+        )
+      )
+      .orderBy(classes.numericOrder);
+  }
+
+  /**
+   * Verifies whether all subjects for Grades 4 to 9 have assigned teachers before timetable creation.
+   */
+  static async checkAllocationsStatus(academicYear?: number) {
+    const current = await this.getCurrentAcademicYearAndTerm();
+    const year = academicYear || current.academicYear;
+
+    const targetClasses = await this.getTargetClasses();
+    if (targetClasses.length === 0) {
+      return {
+        isReady: false,
+        totalRequired: 0,
+        totalAllocated: 0,
+        missing: [],
+        message: 'No Upper Primary or Junior Secondary classes found.',
+      };
+    }
+
+    const classIds = targetClasses.map((c) => c.id);
+    const targetSubjects = await db
+      .select()
+      .from(subjects)
+      .where(isNull(subjects.deletedAt));
+
+    const currentAllocations = await db
+      .select({
+        classId: teacherSubjectAllocations.classId,
+        subjectId: teacherSubjectAllocations.subjectId,
+      })
+      .from(teacherSubjectAllocations)
+      .where(
+        and(
+          inArray(teacherSubjectAllocations.classId, classIds),
+          eq(teacherSubjectAllocations.academicYear, year),
+          isNull(teacherSubjectAllocations.deletedAt)
+        )
+      );
+
+    const missing: Array<{ className: string; subjectName: string; subjectCode: string }> = [];
+    let totalRequired = 0;
+
+    targetClasses.forEach((cls) => {
+      const levelSubjects = targetSubjects.filter((s) => s.levelCategory === cls.levelCategory);
+      levelSubjects.forEach((sub) => {
+        totalRequired++;
+        const isAllocated = currentAllocations.some(
+          (a) => a.classId === cls.id && a.subjectId === sub.id
+        );
+        if (!isAllocated) {
+          missing.push({
+            className: cls.name,
+            subjectName: sub.name,
+            subjectCode: sub.code,
+          });
+        }
+      });
+    });
+
+    const isReady = missing.length === 0 && currentAllocations.length > 0;
+
+    return {
+      isReady,
+      totalRequired,
+      totalAllocated: currentAllocations.length,
+      missing,
+    };
   }
 
   /**
@@ -162,9 +252,29 @@ export class TimetableService {
   }
 
   /**
-   * Generates and commits a live timetable for Grades 4 through 9.
+   * Generates and commits a live timetable for Grades 4 through 9 with password authorization.
    */
-  static async generate(academicYear?: number, term?: number) {
+  static async generate(academicYear?: number, term?: number, userId?: string, password?: string) {
+    if (userId) {
+      if (!password || typeof password !== 'string' || password.trim() === '') {
+        const err: any = new Error('Deputy password is required to authorize timetable generation.');
+        err.statusCode = 401;
+        throw err;
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!user) {
+        const err: any = new Error('User not found.');
+        err.statusCode = 404;
+        throw err;
+      }
+      const isMatch = await argon2.verify(user.passwordHash, password);
+      if (!isMatch) {
+        const err: any = new Error('Incorrect password. Deputy authorization is required to generate the timetable.');
+        err.statusCode = 401;
+        throw err;
+      }
+    }
+
     const current = await this.getCurrentAcademicYearAndTerm();
     const year = academicYear || current.academicYear;
     const t = term || current.term;

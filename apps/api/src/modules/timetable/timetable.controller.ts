@@ -29,10 +29,32 @@ export class TimetableController {
     }
   }
 
+  static async getTargetClasses(req: Request, res: Response) {
+    try {
+      const data = await TimetableService.getTargetClasses();
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      console.error('Error fetching target classes:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch target classes' });
+    }
+  }
+
+  static async getAllocationsStatus(req: Request, res: Response) {
+    try {
+      const year = req.query.academicYear ? parseInt(req.query.academicYear as string, 10) : undefined;
+      const data = await TimetableService.checkAllocationsStatus(year);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      console.error('Error checking allocations status:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Failed to check allocations status' });
+    }
+  }
+
   static async generate(req: Request, res: Response) {
     try {
-      const { academicYear, term } = req.body;
-      const result = await TimetableService.generate(academicYear, term);
+      const { academicYear, term, password } = req.body;
+      const userId = (req as any).user?.id;
+      const result = await TimetableService.generate(academicYear, term, userId, password);
       return res.status(200).json({
         success: true,
         data: result,
@@ -40,7 +62,8 @@ export class TimetableController {
       });
     } catch (error: any) {
       console.error('Error generating timetable:', error);
-      return res.status(400).json({ success: false, message: error.message || 'Failed to generate timetable' });
+      const status = error.statusCode || 400;
+      return res.status(status).json({ success: false, message: error.message || 'Failed to generate timetable' });
     }
   }
 

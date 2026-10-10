@@ -25,6 +25,10 @@ router.post('/config', requireDeputyHead, TimetableController.saveConfig);
 // Generation endpoint
 router.post('/generate', requireDeputyHead, TimetableController.generate);
 
+// Metadata & Status
+router.get('/classes', TimetableController.getTargetClasses);
+router.get('/status', TimetableController.getAllocationsStatus);
+
 // Timetable views
 router.get('/master', requireDeputyHead, TimetableController.getMasterTimetable);
 router.get('/classes/:classId', TimetableController.getClassTimetable);
