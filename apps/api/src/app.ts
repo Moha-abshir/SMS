@@ -23,6 +23,7 @@ import reportLocksRoutes from './modules/report-locks/reportLocks.routes.js';
 import dosRoutes from './modules/dos/dos.routes.js';
 import financeRoutes from './modules/finance/finance.routes.js';
 import teacherRoutes from './modules/teacher/teacher.routes.js';
+import timetableRoutes from './modules/timetable/timetable.routes.js';
 
 const app = express();
 
@@ -88,5 +89,6 @@ app.use('/api/report-card-locks', reportLocksRoutes);
 app.use('/api/dos', dosRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/teacher', teacherRoutes);
+app.use('/api/timetable', timetableRoutes);
 
 export default app;
