@@ -6,20 +6,32 @@ const router = Router();
 
 router.use(authenticate);
 
+// Middleware to restrict timetable setup & management exclusively to Deputy Head Teacher
+const requireDeputyHead = (req: any, res: any, next: any) => {
+  const role = req.user?.roleName;
+  if (role === 'DEPUTY_HEAD' || role === 'DEPUTY_HEAD_TEACHER') {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: 'Access restricted: Only the Deputy Head Teacher is authorized to set up, configure, or modify the school timetable.',
+  });
+};
+
 // Config endpoints
 router.get('/config', TimetableController.getConfig);
-router.post('/config', TimetableController.saveConfig);
+router.post('/config', requireDeputyHead, TimetableController.saveConfig);
 
 // Generation endpoint
-router.post('/generate', TimetableController.generate);
+router.post('/generate', requireDeputyHead, TimetableController.generate);
 
 // Timetable views
-router.get('/master', TimetableController.getMasterTimetable);
+router.get('/master', requireDeputyHead, TimetableController.getMasterTimetable);
 router.get('/classes/:classId', TimetableController.getClassTimetable);
 router.get('/teachers/:teacherId', TimetableController.getTeacherTimetable);
 
 // Slot movement & swapping
-router.post('/validate-movement', TimetableController.validateMovement);
-router.patch('/swap', TimetableController.swapSlots);
+router.post('/validate-movement', requireDeputyHead, TimetableController.validateMovement);
+router.patch('/swap', requireDeputyHead, TimetableController.swapSlots);
 
 export default router;

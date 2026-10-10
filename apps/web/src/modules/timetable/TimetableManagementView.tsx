@@ -40,14 +40,13 @@ const DAYS_OF_WEEK = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 
 export const TimetableManagementView: React.FC<TimetableManagementViewProps> = ({ user }) => {
   const userRole = user?.roleName || user?.role || 'TEACHER';
-  const isDeputyOrHead =
-    userRole === 'DEPUTY_HEAD' ||
-    userRole === 'DEPUTY_HEAD_TEACHER' ||
-    userRole === 'HEAD_TEACHER';
+  const isDeputy = userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER';
+  const isHeadTeacher = userRole === 'HEAD_TEACHER';
 
   // Navigation mode: 'master' | 'class' | 'teacher'
+  // Head teacher is strictly restricted to viewing their personal timetable
   const [activeTab, setActiveTab] = useState<'master' | 'class' | 'teacher'>(
-    isDeputyOrHead ? 'master' : 'teacher'
+    isDeputy ? 'master' : 'teacher'
   );
 
   // Filters & State
@@ -162,7 +161,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           if (t) setTerm(t);
         }
       } else if (activeTab === 'teacher') {
-        const teacherIdToUse = isDeputyOrHead ? selectedTeacherId : user?.id;
+        const teacherIdToUse = isDeputy ? selectedTeacherId : user?.id;
         if (!teacherIdToUse) {
           setLoading(false);
           return;
@@ -209,8 +208,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
   // Slot click handler for swapping
   const handleSlotClick = async (slot: any) => {
-    // Only Deputy Head or Head Teacher can manually adjust slots
-    if (!isDeputyOrHead) return;
+    // Only Deputy Head Teacher can manually adjust slots
+    if (!isDeputy) return;
 
     if (!selectedSwapSlotA) {
       // Step 1: Select slot A
@@ -278,12 +277,13 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
   const activeClassName =
     classesList.find((c) => c.id === selectedClassId)?.name || 'Class Timetable';
-  const activeTeacherName =
-    teachersList.find((t) => t.id === (isDeputyOrHead ? selectedTeacherId : user?.id))
-      ? `${teachersList.find((t) => t.id === (isDeputyOrHead ? selectedTeacherId : user?.id))?.firstName} ${
-          teachersList.find((t) => t.id === (isDeputyOrHead ? selectedTeacherId : user?.id))?.lastName
-        }`
-      : 'Teacher Schedule';
+  const activeTeacherName = isHeadTeacher
+    ? `${user?.firstName || 'Head Teacher'} ${user?.lastName || ''}`
+    : teachersList.find((t) => t.id === (isDeputy ? selectedTeacherId : user?.id))
+    ? `${teachersList.find((t) => t.id === (isDeputy ? selectedTeacherId : user?.id))?.firstName} ${
+        teachersList.find((t) => t.id === (isDeputy ? selectedTeacherId : user?.id))?.lastName
+      }`
+    : 'Teacher Schedule';
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -296,10 +296,12 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                School Timetable (Grades 4–9)
+                {isHeadTeacher ? 'My Teaching Timetable' : 'School Timetable (Grades 4–9)'}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Dynamic & Conflict-Free Upper Primary and Junior Secondary Schedule • Eldoret Muslim Academy
+                {isHeadTeacher
+                  ? `Personal Teaching Schedule • ${user?.firstName || 'Head Teacher'} ${user?.lastName || ''}`
+                  : 'Dynamic & Conflict-Free Upper Primary and Junior Secondary Schedule • Eldoret Muslim Academy'}
               </p>
             </div>
           </div>
@@ -307,7 +309,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
         {/* Global Actions */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {isDeputyOrHead && (
+          {isDeputy && (
             <>
               <button
                 type="button"
@@ -343,49 +345,56 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
       {/* Navigation Tabs Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] rounded-2xl w-fit">
-          {isDeputyOrHead && (
+        {isHeadTeacher ? (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 font-bold text-xs">
+            <UserCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span>Personal Teaching Schedule</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] rounded-2xl w-fit">
+            {isDeputy && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('master')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'master'
+                    ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                Master Timetable
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setActiveTab('master')}
+              onClick={() => setActiveTab('class')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'master'
+                activeTab === 'class'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
-              Master Timetable
+              Class Timetable
             </button>
-          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('class')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'class'
-                ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            Class Timetable
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('teacher')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'teacher'
-                ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            Teacher Schedule
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('teacher')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'teacher'
+                  ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              Teacher Schedule
+            </button>
+          </div>
+        )}
 
         {/* Dynamic Filters depending on active tab */}
         <div className="flex items-center gap-3">
-          {activeTab === 'class' && (
+          {activeTab === 'class' && !isHeadTeacher && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Select Grade:</span>
               <select
@@ -402,7 +411,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
             </div>
           )}
 
-          {activeTab === 'teacher' && isDeputyOrHead && (
+          {activeTab === 'teacher' && isDeputy && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Select Teacher:</span>
               <select
@@ -463,7 +472,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-5">
             The timetable for Academic Year {academicYear}, Term {term} has not been created. Click below to launch the Deputy Setup Wizard.
           </p>
-          {isDeputyOrHead && (
+          {isDeputy && (
             <button
               type="button"
               onClick={() => setIsWizardOpen(true)}

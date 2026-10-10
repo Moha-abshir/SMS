@@ -73,7 +73,14 @@ export class TimetableController {
 
   static async getTeacherTimetable(req: Request, res: Response) {
     try {
-      const { teacherId } = req.params;
+      let { teacherId } = req.params;
+      const userRole = (req as any).user?.roleName;
+
+      // If user is HEAD_TEACHER or regular TEACHER, strictly scope to their personal timetable
+      if (userRole === 'HEAD_TEACHER' || userRole === 'TEACHER') {
+        teacherId = (req as any).user?.id || teacherId;
+      }
+
       const year = req.query.academicYear ? parseInt(req.query.academicYear as string, 10) : undefined;
       const term = req.query.term ? parseInt(req.query.term as string, 10) : undefined;
 
