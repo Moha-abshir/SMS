@@ -5,3 +5,4 @@ export * from './attendance.js';
 export * from './finance.js';
 export * from './audit.js';
 export * from './operations.js';
+export * from './timetable.js';
