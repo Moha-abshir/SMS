@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Clock, BookOpen, UserCheck, CheckCircle2, Plus, Trash2,
-  Sparkles, AlertCircle, HelpCircle, Save, Zap, ChevronRight, ChevronLeft,
-  X, Layers, Info
+  HelpCircle, Save, Zap, ChevronRight, ChevronLeft,
+  X, Layers, Info, Atom, Palette, ShieldCheck, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -23,6 +23,75 @@ const ALL_DAYS = [
   { id: 'WEDNESDAY', label: 'Wednesday' },
   { id: 'THURSDAY', label: 'Thursday' },
   { id: 'FRIDAY', label: 'Friday' },
+];
+
+const SUBJECT_GROUPS = [
+  {
+    id: 'languages_humanities',
+    title: 'Languages & Humanities',
+    description: 'English, Kiswahili, Arabic Language, Social Studies, Islamic Religious Education',
+    icon: BookOpen,
+    badgeColor: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+    matches: (code: string, name: string) => {
+      const c = (code || '').toUpperCase();
+      const n = (name || '').toUpperCase();
+      return (
+        c.includes('ENG') ||
+        c.includes('KISW') ||
+        c.includes('ARAB') ||
+        c.includes('SOC') ||
+        c.includes('IRE') ||
+        c.includes('CRE') ||
+        n.includes('ENGLISH') ||
+        n.includes('KISWAHILI') ||
+        n.includes('ARABIC') ||
+        n.includes('SOCIAL') ||
+        n.includes('RELIGIOUS')
+      );
+    },
+  },
+  {
+    id: 'sciences_mathematics',
+    title: 'Mathematics & Sciences',
+    description: 'Mathematics, Science & Technology, Integrated Science, Health Education, Computing',
+    icon: Atom,
+    badgeColor: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+    matches: (code: string, name: string) => {
+      const c = (code || '').toUpperCase();
+      const n = (name || '').toUpperCase();
+      return (
+        c.includes('MATH') ||
+        c.includes('SCI') ||
+        c.includes('HLTH') ||
+        c.includes('COMP') ||
+        n.includes('MATH') ||
+        n.includes('SCIENCE') ||
+        n.includes('HEALTH') ||
+        n.includes('COMPUTER')
+      );
+    },
+  },
+  {
+    id: 'technical_creative',
+    title: 'Technical, Creative & Applied Arts',
+    description: 'Agriculture & Nutrition, Pre-Technical Studies, Creative Arts & Sports, Physical & Health Education',
+    icon: Palette,
+    badgeColor: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+    matches: (code: string, name: string) => {
+      const c = (code || '').toUpperCase();
+      const n = (name || '').toUpperCase();
+      return (
+        c.includes('AGR') ||
+        c.includes('PRE') ||
+        c.includes('ART') ||
+        c.includes('PHE') ||
+        n.includes('AGRICULTURE') ||
+        n.includes('TECHNICAL') ||
+        n.includes('CREATIVE') ||
+        n.includes('PHYSICAL')
+      );
+    },
+  },
 ];
 
 export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
@@ -109,6 +178,25 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   const [minFreePeriodsPerWeek, setMinFreePeriodsPerWeek] = useState<number>(5);
   const [specialStaffLimits, setSpecialStaffLimits] = useState<Record<string, number>>({});
 
+  // Helper to calculate total minutes from HH:mm
+  const timeToMinutes = (t: string) => {
+    if (!t) return 0;
+    const [h, m] = t.split(':').map((v) => parseInt(v, 10) || 0);
+    return h * 60 + m;
+  };
+
+  // Estimated periods calculation based on user's custom times
+  const estimatedPeriods = useMemo(() => {
+    const totalDayMins = Math.max(0, timeToMinutes(endTime) - timeToMinutes(startTime));
+    const totalBreakMins = breaks.reduce((acc, b) => {
+      const bMins = Math.max(0, timeToMinutes(b.endTime) - timeToMinutes(b.startTime));
+      return acc + bMins;
+    }, 0);
+    const teachingMins = Math.max(0, totalDayMins - totalBreakMins);
+    const duration = lessonDurationMinutes > 0 ? lessonDurationMinutes : 40;
+    return Math.max(1, Math.floor(teachingMins / duration));
+  }, [startTime, endTime, breaks, lessonDurationMinutes]);
+
   // Fetch initial config & metadata
   useEffect(() => {
     if (!isOpen) return;
@@ -179,62 +267,6 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     loadData();
   }, [isOpen, academicYear, term]);
 
-  // CBC Standard Presets
-  const applyCbcPresets = () => {
-    const updated: Record<string, Record<string, any>> = {};
-
-    classesList.forEach((cls) => {
-      updated[cls.id] = {};
-      const isJunior = cls.levelCategory === 'JUNIOR';
-
-      subjectsList.forEach((sub) => {
-        const nameUpper = sub.name.toUpperCase();
-        let weekly = 3;
-        let allowsDouble = false;
-        let doubleCount = 0;
-
-        if (nameUpper.includes('MATHEMATICS') || nameUpper.includes('MATH')) {
-          weekly = 5;
-        } else if (nameUpper.includes('ENGLISH')) {
-          weekly = 5;
-        } else if (nameUpper.includes('KISWAHILI')) {
-          weekly = 4;
-        } else if (nameUpper.includes('SCIENCE') || nameUpper.includes('INTEGRATED SCIENCE')) {
-          weekly = isJunior ? 5 : 4;
-          allowsDouble = true;
-          doubleCount = 1;
-        } else if (nameUpper.includes('SOCIAL STUDIES')) {
-          weekly = 3;
-        } else if (nameUpper.includes('RELIGIOUS') || nameUpper.includes('CRE') || nameUpper.includes('IRE')) {
-          weekly = 3;
-        } else if (nameUpper.includes('CREATIVE ARTS') || nameUpper.includes('MUSIC') || nameUpper.includes('ART')) {
-          weekly = 3;
-          allowsDouble = true;
-          doubleCount = 1;
-        } else if (nameUpper.includes('AGRICULTURE') || nameUpper.includes('NUTRITION')) {
-          weekly = 3;
-          allowsDouble = true;
-          doubleCount = 1;
-        } else if (nameUpper.includes('PRE-TECHNICAL')) {
-          weekly = 4;
-          allowsDouble = true;
-          doubleCount = 1;
-        } else {
-          weekly = 3;
-        }
-
-        updated[cls.id][sub.id] = {
-          weeklyLessons: weekly,
-          doubleLessonsAllowed: allowsDouble,
-          doubleLessonCount: doubleCount,
-        };
-      });
-    });
-
-    setSubjectRequirements(updated);
-    toast.success('Recommended Kenya CBC lesson distribution applied across all grades!');
-  };
-
   const handleSaveConfig = async (triggerGenerate = false) => {
     try {
       setSaving(true);
@@ -262,7 +294,9 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
       if (triggerGenerate) {
         setIsPasswordModalOpen(true);
       } else {
-        toast.success('Timetable settings saved successfully.');
+        // Short notification at most 6 words as requested by user
+        toast.success('Settings saved successfully.');
+        onClose();
       }
     } catch (err: any) {
       console.error('Error saving timetable config:', err);
@@ -304,29 +338,62 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     setBreaks([...breaks, newBreak]);
   };
 
-  const removeBreak = (id: string) => {
-    setBreaks(breaks.filter((b) => b.id !== id));
+  const updateBreak = (index: number, field: string, value: any) => {
+    const copy = [...breaks];
+    copy[index] = { ...copy[index], [field]: value };
+    setBreaks(copy);
   };
 
-  const updateBreak = (id: string, field: string, value: any) => {
-    setBreaks(
-      breaks.map((b) => (b.id === id ? { ...b, [field]: value } : b))
-    );
+  const removeBreak = (index: number) => {
+    setBreaks(breaks.filter((_, i) => i !== index));
   };
+
+  // Filter subjects for the selected class: ONLY Upper Primary or Junior Secondary!
+  // Exclude PPE and Lower Primary completely!
+  const currentSelectedClass = useMemo(() => {
+    return classesList.find((c) => c.id === selectedClassTab) || classesList[0];
+  }, [classesList, selectedClassTab]);
+
+  const classLevelCategory = currentSelectedClass?.levelCategory; // 'UPPER_PRIMARY' or 'JUNIOR'
+
+  const filteredClassSubjects = useMemo(() => {
+    return subjectsList.filter(
+      (s) =>
+        (s.levelCategory === 'UPPER_PRIMARY' || s.levelCategory === 'JUNIOR') &&
+        s.levelCategory === classLevelCategory
+    );
+  }, [subjectsList, classLevelCategory]);
+
+  // Administrative leaders from teachersList (Head Teacher, Deputy Head Teacher, DOS)
+  const adminLeaders = useMemo(() => {
+    return teachersList.filter((t: any) => {
+      const r = (t.roleName || t.role || '').toUpperCase();
+      const name = `${t.firstName} ${t.lastName}`.toUpperCase();
+      return (
+        r.includes('HEAD') ||
+        r.includes('DEPUTY') ||
+        r.includes('DOS') ||
+        name.includes('MOHAMED') ||
+        name.includes('ABDI')
+      );
+    });
+  }, [teachersList]);
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        {/* Backdrop overlay */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-xs"
+          className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
         />
 
+        {/* Modal Window Container */}
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -365,7 +432,6 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                 { num: 3, label: 'Subject Lessons', icon: BookOpen },
                 { num: 4, label: 'Teacher Caps', icon: UserCheck },
               ].map((step) => {
-                const Icon = step.icon;
                 const isActive = currentStep === step.num;
                 const isPassed = currentStep > step.num;
 
@@ -411,14 +477,14 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                     <div className="p-4 rounded-xl bg-sky-50/60 dark:bg-[#0b1b36] border border-sky-100 dark:border-sky-900/40 text-xs text-sky-800 dark:text-sky-300 flex items-start gap-2.5">
                       <Info className="w-4 h-4 shrink-0 mt-0.5" />
                       <div>
-                        <strong>Foundation Setup:</strong> Assemblies and morning devotions occur before school start time. The timetable schedules lessons between your declared start and finish times.
+                        <strong>Flexible Schedule Setup:</strong> Input your preferred start time, finish time, and custom lesson duration. The timetable engine automatically adapts the period slots across the week.
                       </div>
                     </div>
 
                     {/* School Days */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                        School Days
+                        Active School Days
                       </label>
                       <div className="flex flex-wrap gap-2">
                         {ALL_DAYS.map((day) => {
@@ -449,7 +515,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Start Time, End Time & Period Duration */}
+                    {/* Direct Inputs for Start Time, End Time & Custom Lesson Duration */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -459,7 +525,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                           type="time"
                           value={startTime}
                           onChange={(e) => setStartTime(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b172e] text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-sky-500"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b172e] text-slate-900 dark:text-slate-100 text-sm font-semibold focus:ring-2 focus:ring-sky-500"
                         />
                       </div>
 
@@ -471,7 +537,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                           type="time"
                           value={endTime}
                           onChange={(e) => setEndTime(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b172e] text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-sky-500"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b172e] text-slate-900 dark:text-slate-100 text-sm font-semibold focus:ring-2 focus:ring-sky-500"
                         />
                       </div>
 
@@ -479,17 +545,54 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                           Lesson Duration (Minutes)
                         </label>
-                        <select
-                          value={lessonDurationMinutes}
-                          onChange={(e) => setLessonDurationMinutes(parseInt(e.target.value, 10))}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b172e] text-slate-900 dark:text-slate-100 text-sm focus:ring-2 focus:ring-sky-500"
-                        >
-                          <option value={35}>35 Minutes</option>
-                          <option value={40}>40 Minutes (Standard CBC)</option>
-                          <option value={45}>45 Minutes</option>
-                          <option value={50}>50 Minutes</option>
-                        </select>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={15}
+                            max={120}
+                            step={5}
+                            value={lessonDurationMinutes}
+                            onChange={(e) =>
+                              setLessonDurationMinutes(parseInt(e.target.value, 10) || 40)
+                            }
+                            className="w-full px-3 py-2 pr-16 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b172e] text-slate-900 dark:text-slate-100 text-sm font-bold focus:ring-2 focus:ring-sky-500"
+                            placeholder="e.g. 40"
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-semibold pointer-events-none">
+                            Mins
+                          </span>
+                        </div>
+                        {/* Quick preset suggestions */}
+                        <div className="flex items-center gap-1.5 mt-2">
+                          {[35, 40, 45, 50].map((dur) => (
+                            <button
+                              key={dur}
+                              type="button"
+                              onClick={() => setLessonDurationMinutes(dur)}
+                              className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+                                lessonDurationMinutes === dur
+                                  ? 'bg-sky-600 text-white'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                              }`}
+                            >
+                              {dur}m{dur === 40 ? ' (CBC)' : ''}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Live Adaptive Periods Counter */}
+                    <div className="p-3.5 rounded-xl border border-sky-200/80 dark:border-sky-900/40 bg-sky-50/40 dark:bg-[#0a162b] flex items-center justify-between text-xs text-sky-900 dark:text-sky-200">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-sky-600 shrink-0" />
+                        <span>
+                          <strong>Calculated Daily Schedule:</strong> Based on {startTime} to {endTime} ({lessonDurationMinutes} mins/lesson):
+                        </span>
+                      </div>
+                      <span className="font-bold px-2.5 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300">
+                        ~{estimatedPeriods} Teaching Periods / Day
+                      </span>
                     </div>
                   </div>
                 )}
@@ -505,7 +608,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                             Daily Break Intervals
                           </h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Configure Tea Breaks, Lunch, and prayer intervals.
+                            Configure Morning Tea Breaks, Lunch & Dhuhr prayer breaks.
                           </p>
                         </div>
                         <button
@@ -519,38 +622,40 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       </div>
 
                       <div className="space-y-3">
-                        {breaks.map((b) => (
+                        {breaks.map((b, idx) => (
                           <div
-                            key={b.id}
-                            className="p-3.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center gap-3"
+                            key={b.id || idx}
+                            className="p-3.5 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center gap-3 text-xs"
                           >
                             <input
                               type="text"
                               value={b.name}
-                              onChange={(e) => updateBreak(b.id, 'name', e.target.value)}
-                              placeholder="Break Name"
-                              className="w-full sm:flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs"
+                              onChange={(e) => updateBreak(idx, 'name', e.target.value)}
+                              placeholder="Break Name (e.g. Morning Tea Break)"
+                              className="w-full sm:w-1/3 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-semibold"
                             />
+
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                               <span className="text-[11px] text-slate-400">From</span>
                               <input
                                 type="time"
                                 value={b.startTime}
-                                onChange={(e) => updateBreak(b.id, 'startTime', e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs"
+                                onChange={(e) => updateBreak(idx, 'startTime', e.target.value)}
+                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-mono text-xs"
                               />
                               <span className="text-[11px] text-slate-400">To</span>
                               <input
                                 type="time"
                                 value={b.endTime}
-                                onChange={(e) => updateBreak(b.id, 'endTime', e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs"
+                                onChange={(e) => updateBreak(idx, 'endTime', e.target.value)}
+                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-mono text-xs"
                               />
                             </div>
+
                             <button
                               type="button"
-                              onClick={() => removeBreak(b.id)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                              onClick={() => removeBreak(idx)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors ml-auto cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -559,45 +664,44 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Friday Special Jumuaa Schedule */}
-                    <div className="p-4 rounded-2xl border border-sky-100 dark:border-[#162b4d] bg-sky-50/40 dark:bg-[#0b172e]/60 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold text-[11px]">
-                              FRIDAY SPECIAL
-                            </span>
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                              Friday Jumuaa Prayer & Afternoon Schedule
-                            </h4>
-                          </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            Accounting for Jumuaa prayers in the nearby mosque with prompt afternoon resumption at 2:00 PM.
-                          </p>
+                    {/* Friday Jumuaa Routine */}
+                    <div className="p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-[#081826]">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                            Friday Jummah Prayer Routine
+                          </h4>
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={fridaySpecial.isSpecial}
-                          onChange={(e) =>
-                            setFridaySpecial({ ...fridaySpecial, isSpecial: e.target.checked })
-                          }
-                          className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-                        />
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={fridaySpecial.isSpecial}
+                            onChange={(e) =>
+                              setFridaySpecial({ ...fridaySpecial, isSpecial: e.target.checked })
+                            }
+                            className="rounded text-sky-600 cursor-pointer"
+                          />
+                          <span>Enable Extended Jummah Break</span>
+                        </label>
                       </div>
 
                       {fridaySpecial.isSpecial && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-emerald-100 dark:border-emerald-900/30">
                           <div>
                             <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                              Jumuaa Break Starts
+                              Jummah Break Starts
                             </label>
                             <input
                               type="time"
                               value={fridaySpecial.jummahBreakStart}
                               onChange={(e) =>
-                                setFridaySpecial({ ...fridaySpecial, jummahBreakStart: e.target.value })
+                                setFridaySpecial({
+                                  ...fridaySpecial,
+                                  jummahBreakStart: e.target.value,
+                                })
                               }
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs"
+                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs font-mono"
                             />
                           </div>
 
@@ -614,7 +718,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                                   afternoonReturnTime: e.target.value,
                                 })
                               }
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs font-bold text-sky-700 dark:text-sky-300"
+                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs font-mono font-bold text-sky-700 dark:text-sky-300"
                             />
                           </div>
 
@@ -631,7 +735,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                                   afternoonDismissalTime: e.target.value,
                                 })
                               }
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs"
+                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs font-mono"
                             />
                           </div>
                         </div>
@@ -640,27 +744,16 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                   </div>
                 )}
 
-                {/* STEP 3: Subject Lessons & Double Periods */}
+                {/* STEP 3: Subject Lessons & Double Periods (Grouped, PPE/Lower Primary Removed) */}
                 {currentStep === 3 && (
                   <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                          Subject Allocation & Double Periods
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Customize weekly lessons and double-period frequency for Grades 4 to 9.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={applyCbcPresets}
-                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white text-xs font-bold flex items-center gap-2 hover:opacity-90 shadow-xs transition-opacity cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Apply Recommended CBC Presets
-                      </button>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        Subject Lessons & Double Periods (Grades 4–9)
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Configure weekly lesson allocations and double periods organized by learning area for each grade.
+                      </p>
                     </div>
 
                     {/* Class Selector Tabs */}
@@ -670,94 +763,141 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                           key={cls.id}
                           type="button"
                           onClick={() => setSelectedClassTab(cls.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                          className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
                             selectedClassTab === cls.id
                               ? 'bg-sky-600 text-white shadow-xs'
-                              : 'bg-slate-100 dark:bg-[#0d1c38] text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                              : 'bg-slate-100 dark:bg-[#0d1c38] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                           }`}
                         >
-                          {cls.name}
+                          <span>{cls.name}</span>
+                          <span className="text-[10px] opacity-75 font-normal">
+                            ({cls.levelCategory === 'JUNIOR' ? 'Junior' : 'Upper'})
+                          </span>
                         </button>
                       ))}
                     </div>
 
-                    {/* Subject Rows for Selected Class */}
+                    {/* Grouped Subjects for the Selected Grade */}
                     {selectedClassTab && (
-                      <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                        {subjectsList.map((sub) => {
-                          const req =
-                            subjectRequirements[selectedClassTab]?.[sub.id] || {
-                              weeklyLessons: 3,
-                              doubleLessonsAllowed: false,
-                              doubleLessonCount: 0,
-                            };
+                      <div className="space-y-5 max-h-[460px] overflow-y-auto pr-1">
+                        {SUBJECT_GROUPS.map((group) => {
+                          const groupSubjects = filteredClassSubjects.filter((s) =>
+                            group.matches(s.code, s.name)
+                          );
 
-                          const updateReq = (field: string, value: any) => {
-                            setSubjectRequirements({
-                              ...subjectRequirements,
-                              [selectedClassTab]: {
-                                ...(subjectRequirements[selectedClassTab] || {}),
-                                [sub.id]: {
-                                  ...req,
-                                  [field]: value,
-                                },
-                              },
-                            });
-                          };
+                          if (groupSubjects.length === 0) return null;
+                          const GroupIcon = group.icon;
 
                           return (
                             <div
-                              key={sub.id}
-                              className="p-3 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
+                              key={group.id}
+                              className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#091326] p-4 space-y-3 shadow-xs"
                             >
-                              <div className="w-full sm:w-1/3">
-                                <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                                  {sub.name}
-                                </span>
-                                <span className="text-[10px] text-slate-400">{sub.code}</span>
+                              {/* Group Header */}
+                              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+                                <div className={`p-1.5 rounded-lg border ${group.badgeColor}`}>
+                                  <GroupIcon className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                                    {group.title}
+                                  </h5>
+                                  <p className="text-[10px] text-slate-400">
+                                    {group.description}
+                                  </p>
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] text-slate-500">Weekly Lessons:</span>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={10}
-                                    value={req.weeklyLessons ?? 3}
-                                    onChange={(e) =>
-                                      updateReq('weeklyLessons', parseInt(e.target.value, 10) || 1)
-                                    }
-                                    className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold"
-                                  />
-                                </div>
+                              {/* Group Subjects List */}
+                              <div className="space-y-2">
+                                {groupSubjects.map((sub) => {
+                                  const req =
+                                    subjectRequirements[selectedClassTab]?.[sub.id] || {
+                                      weeklyLessons: 3,
+                                      doubleLessonsAllowed: false,
+                                      doubleLessonCount: 0,
+                                    };
 
-                                <div className="flex items-center gap-2">
-                                  <label className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={req.doubleLessonsAllowed ?? false}
-                                      onChange={(e) =>
-                                        updateReq('doubleLessonsAllowed', e.target.checked)
-                                      }
-                                      className="rounded text-sky-600 cursor-pointer"
-                                    />
-                                    <span>Double Lesson</span>
-                                  </label>
+                                  const updateReq = (field: string, value: any) => {
+                                    setSubjectRequirements({
+                                      ...subjectRequirements,
+                                      [selectedClassTab]: {
+                                        ...(subjectRequirements[selectedClassTab] || {}),
+                                        [sub.id]: {
+                                          ...req,
+                                          [field]: value,
+                                        },
+                                      },
+                                    });
+                                  };
 
-                                  {req.doubleLessonsAllowed && (
-                                    <select
-                                      value={req.doubleLessonCount ?? 1}
-                                      onChange={(e) =>
-                                        updateReq('doubleLessonCount', parseInt(e.target.value, 10))
-                                      }
-                                      className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-[11px]"
+                                  return (
+                                    <div
+                                      key={sub.id}
+                                      className="p-3 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
                                     >
-                                      <option value={1}>1 double / wk</option>
-                                      <option value={2}>2 doubles / wk</option>
-                                    </select>
-                                  )}
-                                </div>
+                                      <div className="w-full sm:w-1/3">
+                                        <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                                          {sub.name}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                          {sub.code}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[11px] text-slate-500 font-medium">
+                                            Lessons / Wk:
+                                          </span>
+                                          <input
+                                            type="number"
+                                            min={1}
+                                            max={10}
+                                            value={req.weeklyLessons ?? 3}
+                                            onChange={(e) =>
+                                              updateReq(
+                                                'weeklyLessons',
+                                                parseInt(e.target.value, 10) || 1
+                                              )
+                                            }
+                                            className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold"
+                                          />
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                          <label className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={req.doubleLessonsAllowed ?? false}
+                                              onChange={(e) =>
+                                                updateReq('doubleLessonsAllowed', e.target.checked)
+                                              }
+                                              className="rounded text-sky-600 cursor-pointer"
+                                            />
+                                            <span>Double</span>
+                                          </label>
+
+                                          {req.doubleLessonsAllowed && (
+                                            <select
+                                              value={req.doubleLessonCount ?? 1}
+                                              onChange={(e) =>
+                                                updateReq(
+                                                  'doubleLessonCount',
+                                                  parseInt(e.target.value, 10)
+                                                )
+                                              }
+                                              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-[11px] font-semibold"
+                                            >
+                                              <option value={1}>1 double / wk</option>
+                                              <option value={2}>2 doubles / wk</option>
+                                            </select>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
@@ -767,88 +907,61 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                   </div>
                 )}
 
-                {/* STEP 4: Teacher Workload Limits & Administration Caps */}
+                {/* STEP 4: Administrative Routines & Teacher Workload Caps */}
                 {currentStep === 4 && (
                   <div className="space-y-6">
-                    <div className="p-4 rounded-xl bg-sky-50/60 dark:bg-[#0b1b36] border border-sky-100 dark:border-sky-900/40 text-xs text-sky-800 dark:text-sky-300 flex items-start gap-2.5">
-                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                      <div>
-                        <strong>Fair Workload & Rest Hours:</strong> To ensure teaching quality and prevent fatigue, set the limits on consecutive lessons and specify weekly limits for administrative leaders (Deputy Head & Headteacher).
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e]">
-                        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                          Max Consecutive Lessons
-                        </label>
-                        <p className="text-[11px] text-slate-500 mb-2">
-                          Maximum lessons a teacher can teach without a break or free period.
-                        </p>
-                        <input
-                          type="number"
-                          min={1}
-                          max={5}
-                          value={maxConsecutiveLessons}
-                          onChange={(e) => setMaxConsecutiveLessons(parseInt(e.target.value, 10) || 1)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-sm font-bold"
-                        />
-                      </div>
-
-                      <div className="p-4 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e]">
-                        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                          Min Free Periods per Week
-                        </label>
-                        <p className="text-[11px] text-slate-500 mb-2">
-                          Guaranteed preparation / free periods for each regular teacher.
-                        </p>
-                        <input
-                          type="number"
-                          min={1}
-                          max={15}
-                          value={minFreePeriodsPerWeek}
-                          onChange={(e) => setMinFreePeriodsPerWeek(parseInt(e.target.value, 10) || 0)}
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-sm font-bold"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Administrative Caps Section */}
+                    {/* Administrative Leaders Routines Section */}
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
-                        Administrative Staff Workload Caps (Optional)
-                      </h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <ShieldCheck className="w-4 h-4 text-sky-600" />
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                          Administrative Leaders Routines & Workload Caps
+                        </h4>
+                      </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                        Deputy Head Teacher and Headteacher lesson caps. Leave blank if standard load applies.
+                        Configure routine workload limits for the Headteacher and Deputy Head Teacher to reserve their administrative hours.
                       </p>
 
-                      <div className="space-y-2.5 max-h-[220px] overflow-y-auto">
-                        {teachersList
-                          .filter(
-                            (t: any) =>
-                              t.roleName === 'DEPUTY_HEAD' ||
-                              t.roleName === 'HEAD_TEACHER' ||
-                              t.roleName === 'DOS'
-                          )
-                          .map((teacher) => {
-                            const currentLimit = specialStaffLimits[teacher.id] ?? '';
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        {adminLeaders.map((leader) => {
+                          const currentLimit = specialStaffLimits[leader.id] ?? '';
+                          const leaderAllocations = allocationsList.filter(
+                            (a) => a.teacherId === leader.id
+                          );
 
-                            return (
-                              <div
-                                key={teacher.id}
-                                className="p-3 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-white dark:bg-[#0b172e] flex items-center justify-between text-xs"
-                              >
+                          return (
+                            <div
+                              key={leader.id}
+                              className="p-4 rounded-2xl border border-sky-100 dark:border-sky-900/50 bg-sky-50/30 dark:bg-[#0c182d] space-y-3"
+                            >
+                              <div className="flex items-start justify-between">
                                 <div>
-                                  <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                                    {teacher.firstName} {teacher.lastName}
+                                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block">
+                                    {leader.firstName} {leader.lastName}
                                   </span>
-                                  <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold">
-                                    {teacher.roleName?.replace('_', ' ')}
+                                  <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 dark:bg-sky-900/70 text-sky-800 dark:text-sky-300">
+                                    {leader.roleName?.replace('_', ' ') || 'School Leader'}
                                   </span>
                                 </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] text-slate-400 block">Allocated Subjects</span>
+                                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    {leaderAllocations.length} class subjects
+                                  </span>
+                                </div>
+                              </div>
 
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] text-slate-500">Max Lessons / Week:</span>
+                              {leaderAllocations.length > 0 && (
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-black/20 p-2 rounded-xl">
+                                  {leaderAllocations.map((a: any) => `${a.className}: ${a.subjectCode || a.subjectName}`).join(' • ')}
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-between pt-2 border-t border-sky-100/80 dark:border-sky-900/40">
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                  Weekly Lesson Limit:
+                                </span>
+                                <div className="flex items-center gap-1.5">
                                   <input
                                     type="number"
                                     min={0}
@@ -859,21 +972,73 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                                       const val = e.target.value;
                                       if (val === '') {
                                         const copy = { ...specialStaffLimits };
-                                        delete copy[teacher.id];
+                                        delete copy[leader.id];
                                         setSpecialStaffLimits(copy);
                                       } else {
                                         setSpecialStaffLimits({
                                           ...specialStaffLimits,
-                                          [teacher.id]: parseInt(val, 10),
+                                          [leader.id]: parseInt(val, 10),
                                         });
                                       }
                                     }}
-                                    className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold"
+                                    className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold text-xs"
                                   />
+                                  <span className="text-[10px] text-slate-400 font-medium">lessons</span>
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* General Teaching Staff Constraints */}
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
+                        Teaching Staff Workload & Rest Constraints
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                        Set fatigue-prevention limits on consecutive teaching hours and guaranteed preparation time.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e]">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Max Consecutive Lessons
+                          </label>
+                          <p className="text-[11px] text-slate-500 mb-2">
+                            Maximum lessons a teacher can teach without a break or free period.
+                          </p>
+                          <input
+                            type="number"
+                            min={1}
+                            max={6}
+                            value={maxConsecutiveLessons}
+                            onChange={(e) =>
+                              setMaxConsecutiveLessons(parseInt(e.target.value, 10) || 1)
+                            }
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-sm font-bold"
+                          />
+                        </div>
+
+                        <div className="p-4 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e]">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Min Free Periods per Week
+                          </label>
+                          <p className="text-[11px] text-slate-500 mb-2">
+                            Guaranteed preparation / free periods for each regular teacher.
+                          </p>
+                          <input
+                            type="number"
+                            min={1}
+                            max={15}
+                            value={minFreePeriodsPerWeek}
+                            onChange={(e) =>
+                              setMinFreePeriodsPerWeek(parseInt(e.target.value, 10) || 0)
+                            }
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-sm font-bold"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -907,27 +1072,30 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={() => handleSaveConfig(false)}
-                disabled={saving || isAuthorizing}
-                className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 transition-colors cursor-pointer shadow-xs"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Settings'}
-              </button>
+            {/* Save Settings and Save & Generate buttons appear ONLY on the last step (Step 4) */}
+            {currentStep === 4 && (
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleSaveConfig(false)}
+                  disabled={saving || isAuthorizing}
+                  className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 transition-colors cursor-pointer shadow-xs"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => handleSaveConfig(true)}
-                disabled={saving || isAuthorizing}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-              >
-                <Zap className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save & Generate Live Timetable'}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveConfig(true)}
+                  disabled={saving || isAuthorizing}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Zap className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save & Generate Live Timetable'}
+                </button>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
