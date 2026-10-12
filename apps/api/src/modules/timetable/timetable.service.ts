@@ -202,6 +202,40 @@ export class TimetableService {
     const year = data.academicYear || current.academicYear;
     const t = data.term || current.term;
 
+    // Validate subject lesson requirements do not surpass available weekly teaching slots
+    if (data.subjectRequirements && typeof data.subjectRequirements === 'object') {
+      const periodsGrid = TimetableEngine.computePeriodsGrid({
+        schoolDays: data.schoolDays || ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+        startTime: data.startTime || '08:00',
+        endTime: data.endTime || '15:40',
+        lessonDurationMinutes: data.lessonDurationMinutes || 40,
+        breaks: data.breaks || [],
+        fridaySchedule: data.fridaySchedule,
+      });
+
+      let totalWeeklySlots = 0;
+      for (const [, slots] of periodsGrid) {
+        totalWeeklySlots += slots.filter((s) => !s.isBreak).length;
+      }
+
+      if (totalWeeklySlots > 0) {
+        const targetClasses = await this.getTargetClasses();
+        for (const [classId, classReqs] of Object.entries(data.subjectRequirements as Record<string, Record<string, any>>)) {
+          let classLessonsTotal = 0;
+          for (const req of Object.values(classReqs)) {
+            const lessons = req?.lessonsPerWeek ?? req?.weeklyLessons ?? 0;
+            classLessonsTotal += Number(lessons) || 0;
+          }
+          if (classLessonsTotal > totalWeeklySlots) {
+            const className = targetClasses.find((c) => c.id === classId)?.name || classId;
+            throw new Error(
+              `Class ${className} has ${classLessonsTotal} lessons allocated, which exceeds the ${totalWeeklySlots} available teaching periods in the weekly schedule. Please adjust subject lessons or school hours.`
+            );
+          }
+        }
+      }
+    }
+
     const [existing] = await db
       .select()
       .from(timetableSettings)
@@ -392,6 +426,25 @@ export class TimetableService {
       breaks: config.breaks,
       fridaySchedule: (config.fridaySchedule as FridaySpecialSchedule | undefined) || undefined,
     });
+
+    let totalWeeklySlots = 0;
+    for (const [, slots] of periodsGrid) {
+      totalWeeklySlots += slots.filter((s) => !s.isBreak).length;
+    }
+
+    // Verify no class exceeds totalWeeklySlots
+    const lessonsByClass = new Map<string, number>();
+    for (const item of schedulingItems) {
+      lessonsByClass.set(item.classId, (lessonsByClass.get(item.classId) || 0) + item.lessonsPerWeek);
+    }
+    for (const [clsId, totalLessons] of lessonsByClass) {
+      if (totalLessons > totalWeeklySlots) {
+        const clsName = schedulingItems.find((s) => s.classId === clsId)?.className || clsId;
+        throw new Error(
+          `Cannot generate timetable: ${clsName} has ${totalLessons} lessons requested, but the weekly schedule only has ${totalWeeklySlots} available teaching periods.`
+        );
+      }
+    }
 
     // 7. Run generation algorithm
     const generatedSlots = TimetableEngine.generate({

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Clock, BookOpen, UserCheck, CheckCircle2, Plus, Trash2,
   HelpCircle, Save, Zap, ChevronRight, ChevronLeft,
-  X, Layers, Info, User, ShieldCheck, Sparkles
+  X, Layers, Info, User, ShieldCheck, Sparkles, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -230,6 +230,14 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     try {
       setSaving(true);
 
+      if (isOverCapacity) {
+        toast.error(
+          `${currentSelectedClass?.name} exceeds available weekly lessons (${totalClassLessons} > ${totalWeeklyAvailableSlots}).`
+        );
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         academicYear,
         term,
@@ -332,44 +340,97 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     );
   }, [subjectsList, classLevelCategory]);
 
+  // Accurate weekly teaching slots calculation matching TimetableEngine.computePeriodsGrid
+  const totalWeeklyAvailableSlots = useMemo(() => {
+    const lessonDuration = lessonDurationMinutes > 0 ? lessonDurationMinutes : 40;
+    let totalTeachingSlots = 0;
+
+    for (const day of schoolDays) {
+      const isFriday = day.toUpperCase() === 'FRIDAY';
+      const useSpecialFriday = isFriday && fridaySpecial.isSpecial;
+
+      let currentTimeMins = timeToMinutes(startTime);
+      const dayEndMins = useSpecialFriday && fridaySpecial.afternoonDismissalTime
+        ? timeToMinutes(fridaySpecial.afternoonDismissalTime)
+        : timeToMinutes(endTime);
+
+      // Applicable breaks for this day
+      const dayBreaks = breaks.filter((b) => {
+        if (!b.days || b.days.length === 0 || b.days.includes('ALL')) return true;
+        return b.days.map((d) => d.toUpperCase()).includes(day.toUpperCase());
+      });
+      dayBreaks.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+      while (currentTimeMins + lessonDuration <= dayEndMins) {
+        // Special Friday Jummah break handling
+        if (useSpecialFriday) {
+          const jummahStartMins = timeToMinutes(fridaySpecial.jummahBreakStart);
+          const jummahReturnMins = timeToMinutes(fridaySpecial.afternoonReturnTime);
+
+          if (currentTimeMins >= jummahStartMins && currentTimeMins < jummahReturnMins) {
+            currentTimeMins = jummahReturnMins;
+            continue;
+          }
+        }
+
+        // Check regular breaks
+        const upcomingBreak = dayBreaks.find((b) => {
+          const bStart = timeToMinutes(b.startTime);
+          return currentTimeMins <= bStart && currentTimeMins + lessonDuration > bStart;
+        });
+
+        if (upcomingBreak) {
+          const bStart = timeToMinutes(upcomingBreak.startTime);
+          const bEnd = timeToMinutes(upcomingBreak.endTime);
+          if (currentTimeMins < bStart) currentTimeMins = bStart;
+          currentTimeMins = bEnd;
+          continue;
+        }
+
+        // Standard teaching lesson slot found
+        totalTeachingSlots++;
+        currentTimeMins += lessonDuration;
+      }
+    }
+
+    return Math.max(1, totalTeachingSlots);
+  }, [schoolDays, startTime, endTime, lessonDurationMinutes, breaks, fridaySpecial]);
+
   // Helper to retrieve requirements for a specific subject in a specific class with CBC defaults
   const getSubjectReq = (classId: string, sub: any) => {
     const req = subjectRequirements[classId]?.[sub.id];
     const defaults = DEFAULT_LESSONS_BY_CODE[sub.code] || { lessons: 4, doubleLessons: 0 };
-    const lessons = req?.lessonsPerWeek ?? req?.weeklyLessons ?? defaults.lessons;
     const doubleCount = req?.doubleLessonsCount ?? req?.doubleLessonCount ?? defaults.doubleLessons;
-    const doubleAllowed = req?.doubleLessonsAllowed ?? (doubleCount > 0);
+    const lessons = req?.lessonsPerWeek ?? req?.weeklyLessons ?? defaults.lessons;
+    // Derive single lessons: singles = lessons - (doubles * 2)
+    const singleCount = Math.max(0, lessons - doubleCount * 2);
+
     return {
-      lessons: typeof lessons === 'number' ? lessons : 4,
-      doubleAllowed: Boolean(doubleAllowed),
-      doubleCount: typeof doubleCount === 'number' ? doubleCount : (doubleAllowed ? 1 : 0),
+      singleCount,
+      doubleCount,
+      lessons,
+      doubleAllowed: doubleCount > 0,
     };
   };
 
-  // Helper to update requirement and synchronize both legacy and engine keys
-  const updateSubjectReq = (
+  // Helper to update requirement: double lesson is counted as 2 and lessons per week updates appropriately
+  const updateSubjectLessons = (
     classId: string,
     subjectId: string,
     subCode: string,
-    field: 'lessons' | 'doubleAllowed' | 'doubleCount',
-    value: any
+    newSingle: number,
+    newDouble: number
   ) => {
-    const current = getSubjectReq(classId, { id: subjectId, code: subCode });
-    const newLessons = field === 'lessons' ? value : current.lessons;
-    const newDoubleAllowed = field === 'doubleAllowed' ? value : current.doubleAllowed;
-    let newDoubleCount = current.doubleCount;
-    if (field === 'doubleCount') {
-      newDoubleCount = value;
-    } else if (field === 'doubleAllowed') {
-      newDoubleCount = value ? (current.doubleCount > 0 ? current.doubleCount : 1) : 0;
-    }
+    const validSingle = Math.max(0, newSingle);
+    const validDouble = Math.max(0, newDouble);
+    const calculatedTotal = validSingle + validDouble * 2;
 
     const updated = {
-      lessonsPerWeek: newLessons,
-      weeklyLessons: newLessons,
-      doubleLessonsAllowed: newDoubleAllowed,
-      doubleLessonsCount: newDoubleCount,
-      doubleLessonCount: newDoubleCount,
+      lessonsPerWeek: calculatedTotal,
+      weeklyLessons: calculatedTotal,
+      doubleLessonsAllowed: validDouble > 0,
+      doubleLessonsCount: validDouble,
+      doubleLessonCount: validDouble,
     };
 
     setSubjectRequirements((prev) => ({
@@ -389,12 +450,15 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     for (const sub of filteredClassSubjects) {
       const req = getSubjectReq(currentSelectedClass.id, sub);
       lessons += req.lessons;
-      if (req.doubleAllowed && req.doubleCount > 0) {
-        doubles += req.doubleCount;
-      }
+      doubles += req.doubleCount;
     }
     return { totalClassLessons: lessons, totalClassDoubles: doubles };
   }, [currentSelectedClass, filteredClassSubjects, subjectRequirements]);
+
+  const isOverCapacity = totalClassLessons > totalWeeklyAvailableSlots;
+  const isBalanced = totalClassLessons === totalWeeklyAvailableSlots;
+  const remainingSlots = Math.max(0, totalWeeklyAvailableSlots - totalClassLessons);
+  const excessSlots = Math.max(0, totalClassLessons - totalWeeklyAvailableSlots);
 
   // Administrative leaders from teachersList (Head Teacher, Deputy Head Teacher, DOS)
   const adminLeaders = useMemo(() => {
@@ -776,96 +840,124 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                   </div>
                 )}
 
-                {/* STEP 3: Subject Lessons & Double Periods (Grades 4–9 Flat List) */}
+                {/* STEP 3: Subject Lessons & Double Periods (Minimalistic 2-Column Grid) */}
                 {currentStep === 3 && (
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                        Subject Lessons & Double Periods (Grades 4–9)
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Select a grade below to view its allocated curriculum subjects, assigned teachers, and configure weekly lesson quantities.
-                      </p>
-                    </div>
-
-                    {/* Class Selector Tabs (Grade 4 to Grade 9) */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                        Select Grade:
-                      </label>
-                      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/70 dark:bg-[#0c182d] rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="space-y-3.5">
+                    {/* Header Strip: Grade Selector Pills + Level Info */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-[#162b4d]">
+                      {/* Grade Selector Tabs */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
                         {classesList.map((cls) => {
-                          const isSelected = (currentSelectedClass?.id === cls.id);
+                          const isSelected = currentSelectedClass?.id === cls.id;
                           return (
                             <button
                               key={cls.id}
                               type="button"
                               onClick={() => setSelectedClassTab(cls.id)}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 ${
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                                 isSelected
-                                  ? 'bg-sky-600 text-white shadow-md ring-2 ring-sky-400 dark:ring-sky-500 scale-[1.02]'
-                                  : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#112038] border border-slate-200/80 dark:border-slate-800'
+                                  ? 'bg-sky-600 text-white shadow-xs ring-1 ring-sky-400'
+                                  : 'bg-slate-100 dark:bg-[#0d1c38] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                               }`}
                             >
                               <span>{cls.name}</span>
                               <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
+                                className={`text-[10px] px-1 py-0.2 rounded font-normal ${
                                   isSelected
                                     ? 'bg-sky-700/60 text-sky-100'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                                 }`}
                               >
-                                {cls.levelCategory === 'JUNIOR' ? 'Junior' : 'Upper'}
+                                {cls.levelCategory === 'JUNIOR' ? 'JSS' : 'Upper'}
                               </span>
                             </button>
                           );
                         })}
                       </div>
+
+                      {/* Grade Info Label */}
+                      <div className="text-right shrink-0 hidden sm:block">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          {currentSelectedClass?.name}
+                        </span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 ml-1.5">
+                          ({filteredClassSubjects.length} curriculum subjects)
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Active Grade Info & Summary Banner */}
-                    {currentSelectedClass && (
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-sky-50/70 dark:bg-[#0c1a33] border border-sky-100 dark:border-sky-900/50 rounded-2xl">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-extrabold text-sm shadow-xs">
-                            {currentSelectedClass.name.replace(/[^0-9]/g, '') || 'G'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                                {currentSelectedClass.name} Curriculum Subjects
-                              </h5>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300">
-                                {currentSelectedClass.levelCategory === 'JUNIOR' ? 'Junior Secondary' : 'Upper Primary'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {filteredClassSubjects.length} subjects allocated • Adjust weekly lessons & double periods below
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#091326] border border-slate-200 dark:border-slate-800 text-right">
-                            <span className="block text-[10px] text-slate-400 font-semibold uppercase">Total Lessons</span>
-                            <span className="text-sm font-extrabold text-sky-600 dark:text-sky-400">
-                              {totalClassLessons} / wk
+                    {/* Compact Real-Time Capacity Alert Banner */}
+                    <div
+                      className={`p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all text-xs ${
+                        isOverCapacity
+                          ? 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60'
+                          : isBalanced
+                          ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-900/60'
+                          : 'bg-sky-50/70 dark:bg-[#0b1c38] border-sky-200 dark:border-sky-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isOverCapacity ? (
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        ) : isBalanced ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <Info className="w-4 h-4 text-sky-600 shrink-0" />
+                        )}
+                        <div>
+                          <strong className="text-slate-900 dark:text-slate-100">
+                            {currentSelectedClass?.name} Weekly Capacity:{' '}
+                          </strong>
+                          {isOverCapacity ? (
+                            <span className="text-rose-700 dark:text-rose-300 font-semibold">
+                              Exceeds schedule! {totalClassLessons} allocated / {totalWeeklyAvailableSlots} available ({excessSlots} over limit). Please reduce lessons.
                             </span>
-                          </div>
-                          <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#091326] border border-slate-200 dark:border-slate-800 text-right">
-                            <span className="block text-[10px] text-slate-400 font-semibold uppercase">Double Periods</span>
-                            <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
-                              {totalClassDoubles} doubles
+                          ) : isBalanced ? (
+                            <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
+                              100% Balanced ({totalClassLessons} / {totalWeeklyAvailableSlots} slots scheduled).
                             </span>
-                          </div>
+                          ) : (
+                            <span className="text-slate-600 dark:text-slate-300">
+                              {totalClassLessons} of {totalWeeklyAvailableSlots} slots allocated ({remainingSlots} free / study slots remaining).
+                            </span>
+                          )}
                         </div>
                       </div>
-                    )}
 
-                    {/* Direct Flat List of Subjects for Selected Grade (NO GROUPING) */}
+                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                        <div className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#091326] border border-slate-200 dark:border-slate-800 text-right">
+                          <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">
+                            Total Lessons
+                          </span>
+                          <span
+                            className={`text-xs font-extrabold ${
+                              isOverCapacity
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : isBalanced
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-sky-600 dark:text-sky-400'
+                            }`}
+                          >
+                            {totalClassLessons} / {totalWeeklyAvailableSlots}
+                          </span>
+                        </div>
+
+                        <div className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#091326] border border-slate-200 dark:border-slate-800 text-right">
+                          <span className="text-[10px] text-slate-400 block font-medium uppercase tracking-wider">
+                            Double Lessons
+                          </span>
+                          <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {totalClassDoubles} ({totalClassDoubles * 2} les)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Minimalistic 2-Column Grid (Zero to minimal scrolling) */}
                     {currentSelectedClass && (
-                      <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[460px] overflow-y-auto pr-1">
                         {filteredClassSubjects.length === 0 ? (
-                          <div className="py-10 text-center text-slate-400 text-xs">
+                          <div className="col-span-2 py-8 text-center text-slate-400 text-xs">
                             No subjects allocated for {currentSelectedClass.name}.
                           </div>
                         ) : (
@@ -887,121 +979,130 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                             return (
                               <div
                                 key={sub.id}
-                                className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#091326] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs hover:border-sky-300 dark:hover:border-sky-800 transition-colors"
+                                className="px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0c182d] flex items-center justify-between gap-2 shadow-xs hover:border-sky-300 dark:hover:border-sky-800 transition-colors"
                               >
-                                <div className="w-full sm:w-2/5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                                {/* Left: Subject info */}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <span className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">
                                       {sub.name}
                                     </span>
-                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+                                    <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold shrink-0">
                                       {sub.code}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+                                  <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                                     <User className="w-3 h-3 text-slate-400 shrink-0" />
-                                    {teacherName ? (
-                                      <span className="text-slate-600 dark:text-slate-300 font-medium truncate">
-                                        Teacher: <strong className="text-slate-800 dark:text-slate-200">{teacherName}</strong>
-                                      </span>
-                                    ) : (
-                                      <span className="text-amber-600 dark:text-amber-400 italic">
-                                        Teacher unassigned
-                                      </span>
-                                    )}
+                                    <span className="truncate">
+                                      {teacherName ? (
+                                        <strong className="text-slate-700 dark:text-slate-300 font-medium">
+                                          {teacherName}
+                                        </strong>
+                                      ) : (
+                                        <span className="text-amber-500 italic">Unassigned</span>
+                                      )}
+                                    </span>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[11px] text-slate-500 font-medium">Lessons / Wk:</span>
-                                    <div className="flex items-center">
+                                {/* Right: Controls */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Single Stepper */}
+                                  <div className="text-center">
+                                    <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-semibold">
+                                      Single (1x)
+                                    </span>
+                                    <div className="flex items-center mt-0.5">
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          updateSubjectReq(
+                                          updateSubjectLessons(
                                             currentSelectedClass.id,
                                             sub.id,
                                             sub.code,
-                                            'lessons',
-                                            Math.max(1, req.lessons - 1)
+                                            Math.max(0, req.singleCount - 1),
+                                            req.doubleCount
                                           )
                                         }
-                                        className="w-7 h-7 flex items-center justify-center rounded-l-lg border border-r-0 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                                        className="w-5 h-5 flex items-center justify-center rounded-l border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-bold cursor-pointer"
                                       >
                                         -
                                       </button>
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        max={10}
-                                        value={req.lessons}
-                                        onChange={(e) =>
-                                          updateSubjectReq(
-                                            currentSelectedClass.id,
-                                            sub.id,
-                                            sub.code,
-                                            'lessons',
-                                            parseInt(e.target.value, 10) || 1
-                                          )
-                                        }
-                                        className="w-12 h-7 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold text-xs"
-                                      />
+                                      <span className="w-5 text-center font-bold text-xs text-slate-800 dark:text-slate-200">
+                                        {req.singleCount}
+                                      </span>
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          updateSubjectReq(
+                                          updateSubjectLessons(
                                             currentSelectedClass.id,
                                             sub.id,
                                             sub.code,
-                                            'lessons',
-                                            Math.min(10, req.lessons + 1)
+                                            req.singleCount + 1,
+                                            req.doubleCount
                                           )
                                         }
-                                        className="w-7 h-7 flex items-center justify-center rounded-r-lg border border-l-0 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                                        className="w-5 h-5 flex items-center justify-center rounded-r border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-bold cursor-pointer"
                                       >
                                         +
                                       </button>
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2">
-                                    <label className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={req.doubleAllowed}
-                                        onChange={(e) =>
-                                          updateSubjectReq(
+                                  {/* Double Stepper (2x) */}
+                                  <div className="text-center">
+                                    <span
+                                      className="block text-[9px] uppercase tracking-wider text-indigo-500 font-semibold"
+                                      title="Double lesson counts as 2 periods"
+                                    >
+                                      Double (2x)
+                                    </span>
+                                    <div className="flex items-center mt-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateSubjectLessons(
                                             currentSelectedClass.id,
                                             sub.id,
                                             sub.code,
-                                            'doubleAllowed',
-                                            e.target.checked
+                                            req.singleCount,
+                                            Math.max(0, req.doubleCount - 1)
                                           )
                                         }
-                                        className="rounded text-sky-600 cursor-pointer"
-                                      />
-                                      <span>Double Period</span>
-                                    </label>
-
-                                    {req.doubleAllowed && (
-                                      <select
-                                        value={req.doubleCount || 1}
-                                        onChange={(e) =>
-                                          updateSubjectReq(
-                                            currentSelectedClass.id,
-                                            sub.id,
-                                            sub.code,
-                                            'doubleCount',
-                                            parseInt(e.target.value, 10)
-                                          )
-                                        }
-                                        className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+                                        className="w-5 h-5 flex items-center justify-center rounded-l border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-bold cursor-pointer"
                                       >
-                                        <option value={1}>1 double / wk</option>
-                                        <option value={2}>2 doubles / wk</option>
-                                      </select>
-                                    )}
+                                        -
+                                      </button>
+                                      <span className="w-5 text-center font-bold text-xs text-indigo-600 dark:text-indigo-400">
+                                        {req.doubleCount}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateSubjectLessons(
+                                            currentSelectedClass.id,
+                                            sub.id,
+                                            sub.code,
+                                            req.singleCount,
+                                            Math.min(3, req.doubleCount + 1)
+                                          )
+                                        }
+                                        className="w-5 h-5 flex items-center justify-center rounded-r border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-[11px] font-bold cursor-pointer"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Total Badge */}
+                                  <div className="text-right pl-1 min-w-[42px]">
+                                    <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-semibold">
+                                      Total
+                                    </span>
+                                    <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">
+                                      {req.lessons}{' '}
+                                      <span className="text-[10px] font-normal text-slate-400">/wk</span>
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -1169,7 +1270,15 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
               {currentStep < 4 && (
                 <button
                   type="button"
-                  onClick={() => setCurrentStep(currentStep + 1)}
+                  onClick={() => {
+                    if (currentStep === 3 && isOverCapacity) {
+                      toast.warning(
+                        `${currentSelectedClass?.name} lessons (${totalClassLessons}) exceed available weekly slots (${totalWeeklyAvailableSlots}). Please reduce lessons before continuing.`
+                      );
+                      return;
+                    }
+                    setCurrentStep(currentStep + 1);
+                  }}
                   className="px-4 py-2 rounded-xl bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   Next Step
