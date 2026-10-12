@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Clock, BookOpen, UserCheck, CheckCircle2, Plus, Trash2,
   HelpCircle, Save, Zap, ChevronRight, ChevronLeft,
-  X, Layers, Info, Atom, Palette, ShieldCheck, Sparkles
+  X, Layers, Info, User, ShieldCheck, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -25,74 +25,33 @@ const ALL_DAYS = [
   { id: 'FRIDAY', label: 'Friday' },
 ];
 
-const SUBJECT_GROUPS = [
-  {
-    id: 'languages_humanities',
-    title: 'Languages & Humanities',
-    description: 'English, Kiswahili, Arabic Language, Social Studies, Islamic Religious Education',
-    icon: BookOpen,
-    badgeColor: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
-    matches: (code: string, name: string) => {
-      const c = (code || '').toUpperCase();
-      const n = (name || '').toUpperCase();
-      return (
-        c.includes('ENG') ||
-        c.includes('KISW') ||
-        c.includes('ARAB') ||
-        c.includes('SOC') ||
-        c.includes('IRE') ||
-        c.includes('CRE') ||
-        n.includes('ENGLISH') ||
-        n.includes('KISWAHILI') ||
-        n.includes('ARABIC') ||
-        n.includes('SOCIAL') ||
-        n.includes('RELIGIOUS')
-      );
-    },
-  },
-  {
-    id: 'sciences_mathematics',
-    title: 'Mathematics & Sciences',
-    description: 'Mathematics, Science & Technology, Integrated Science, Health Education, Computing',
-    icon: Atom,
-    badgeColor: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-    matches: (code: string, name: string) => {
-      const c = (code || '').toUpperCase();
-      const n = (name || '').toUpperCase();
-      return (
-        c.includes('MATH') ||
-        c.includes('SCI') ||
-        c.includes('HLTH') ||
-        c.includes('COMP') ||
-        n.includes('MATH') ||
-        n.includes('SCIENCE') ||
-        n.includes('HEALTH') ||
-        n.includes('COMPUTER')
-      );
-    },
-  },
-  {
-    id: 'technical_creative',
-    title: 'Technical, Creative & Applied Arts',
-    description: 'Agriculture & Nutrition, Pre-Technical Studies, Creative Arts & Sports, Physical & Health Education',
-    icon: Palette,
-    badgeColor: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-    matches: (code: string, name: string) => {
-      const c = (code || '').toUpperCase();
-      const n = (name || '').toUpperCase();
-      return (
-        c.includes('AGR') ||
-        c.includes('PRE') ||
-        c.includes('ART') ||
-        c.includes('PHE') ||
-        n.includes('AGRICULTURE') ||
-        n.includes('TECHNICAL') ||
-        n.includes('CREATIVE') ||
-        n.includes('PHYSICAL')
-      );
-    },
-  },
-];
+const DEFAULT_LESSONS_BY_CODE: Record<string, { lessons: number; doubleLessons: number }> = {
+  // Upper Primary (10 subjects = 35 weekly lessons)
+  'UP-ENG': { lessons: 5, doubleLessons: 0 },
+  'UP-KISW': { lessons: 4, doubleLessons: 0 },
+  'UP-MATH': { lessons: 5, doubleLessons: 0 },
+  'UP-SCITECH': { lessons: 4, doubleLessons: 1 },
+  'UP-AGRINUT': { lessons: 4, doubleLessons: 1 },
+  'UP-SOC': { lessons: 3, doubleLessons: 0 },
+  'UP-IRE': { lessons: 3, doubleLessons: 0 },
+  'UP-ARTS': { lessons: 3, doubleLessons: 1 },
+  'UP-PHE': { lessons: 2, doubleLessons: 0 },
+  'UP-ARAB': { lessons: 2, doubleLessons: 0 },
+
+  // Junior Secondary (12 subjects = 40 weekly lessons)
+  'JSS-ENG': { lessons: 5, doubleLessons: 0 },
+  'JSS-KISW': { lessons: 4, doubleLessons: 0 },
+  'JSS-MATH': { lessons: 5, doubleLessons: 0 },
+  'JSS-INTSCI': { lessons: 4, doubleLessons: 1 },
+  'JSS-HLTH': { lessons: 2, doubleLessons: 0 },
+  'JSS-SOC': { lessons: 3, doubleLessons: 0 },
+  'JSS-IRE': { lessons: 3, doubleLessons: 0 },
+  'JSS-AGRINUT': { lessons: 4, doubleLessons: 1 },
+  'JSS-PRETECH': { lessons: 3, doubleLessons: 1 },
+  'JSS-ARTSPORT': { lessons: 3, doubleLessons: 1 },
+  'JSS-COMP': { lessons: 3, doubleLessons: 1 },
+  'JSS-ARAB': { lessons: 2, doubleLessons: 0 },
+};
 
 export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   isOpen,
@@ -348,6 +307,15 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     setBreaks(breaks.filter((_, i) => i !== index));
   };
 
+  // Ensure selectedClassTab is always valid and defaults to first class
+  useEffect(() => {
+    if (classesList.length > 0) {
+      if (!selectedClassTab || !classesList.some((c) => c.id === selectedClassTab)) {
+        setSelectedClassTab(classesList[0].id);
+      }
+    }
+  }, [classesList, selectedClassTab]);
+
   // Filter subjects for the selected class: ONLY Upper Primary or Junior Secondary!
   // Exclude PPE and Lower Primary completely!
   const currentSelectedClass = useMemo(() => {
@@ -363,6 +331,70 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         s.levelCategory === classLevelCategory
     );
   }, [subjectsList, classLevelCategory]);
+
+  // Helper to retrieve requirements for a specific subject in a specific class with CBC defaults
+  const getSubjectReq = (classId: string, sub: any) => {
+    const req = subjectRequirements[classId]?.[sub.id];
+    const defaults = DEFAULT_LESSONS_BY_CODE[sub.code] || { lessons: 4, doubleLessons: 0 };
+    const lessons = req?.lessonsPerWeek ?? req?.weeklyLessons ?? defaults.lessons;
+    const doubleCount = req?.doubleLessonsCount ?? req?.doubleLessonCount ?? defaults.doubleLessons;
+    const doubleAllowed = req?.doubleLessonsAllowed ?? (doubleCount > 0);
+    return {
+      lessons: typeof lessons === 'number' ? lessons : 4,
+      doubleAllowed: Boolean(doubleAllowed),
+      doubleCount: typeof doubleCount === 'number' ? doubleCount : (doubleAllowed ? 1 : 0),
+    };
+  };
+
+  // Helper to update requirement and synchronize both legacy and engine keys
+  const updateSubjectReq = (
+    classId: string,
+    subjectId: string,
+    subCode: string,
+    field: 'lessons' | 'doubleAllowed' | 'doubleCount',
+    value: any
+  ) => {
+    const current = getSubjectReq(classId, { id: subjectId, code: subCode });
+    const newLessons = field === 'lessons' ? value : current.lessons;
+    const newDoubleAllowed = field === 'doubleAllowed' ? value : current.doubleAllowed;
+    let newDoubleCount = current.doubleCount;
+    if (field === 'doubleCount') {
+      newDoubleCount = value;
+    } else if (field === 'doubleAllowed') {
+      newDoubleCount = value ? (current.doubleCount > 0 ? current.doubleCount : 1) : 0;
+    }
+
+    const updated = {
+      lessonsPerWeek: newLessons,
+      weeklyLessons: newLessons,
+      doubleLessonsAllowed: newDoubleAllowed,
+      doubleLessonsCount: newDoubleCount,
+      doubleLessonCount: newDoubleCount,
+    };
+
+    setSubjectRequirements((prev) => ({
+      ...prev,
+      [classId]: {
+        ...(prev[classId] || {}),
+        [subjectId]: updated,
+      },
+    }));
+  };
+
+  // Live totals for currently selected class
+  const { totalClassLessons, totalClassDoubles } = useMemo(() => {
+    if (!currentSelectedClass) return { totalClassLessons: 0, totalClassDoubles: 0 };
+    let lessons = 0;
+    let doubles = 0;
+    for (const sub of filteredClassSubjects) {
+      const req = getSubjectReq(currentSelectedClass.id, sub);
+      lessons += req.lessons;
+      if (req.doubleAllowed && req.doubleCount > 0) {
+        doubles += req.doubleCount;
+      }
+    }
+    return { totalClassLessons: lessons, totalClassDoubles: doubles };
+  }, [currentSelectedClass, filteredClassSubjects, subjectRequirements]);
 
   // Administrative leaders from teachersList (Head Teacher, Deputy Head Teacher, DOS)
   const adminLeaders = useMemo(() => {
@@ -744,7 +776,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                   </div>
                 )}
 
-                {/* STEP 3: Subject Lessons & Double Periods (Grouped, PPE/Lower Primary Removed) */}
+                {/* STEP 3: Subject Lessons & Double Periods (Grades 4–9 Flat List) */}
                 {currentStep === 3 && (
                   <div className="space-y-4">
                     <div>
@@ -752,156 +784,230 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                         Subject Lessons & Double Periods (Grades 4–9)
                       </h4>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Configure weekly lesson allocations and double periods organized by learning area for each grade.
+                        Select a grade below to view its allocated curriculum subjects, assigned teachers, and configure weekly lesson quantities.
                       </p>
                     </div>
 
-                    {/* Class Selector Tabs */}
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 border-b border-slate-100 dark:border-[#162b4d]">
-                      {classesList.map((cls) => (
-                        <button
-                          key={cls.id}
-                          type="button"
-                          onClick={() => setSelectedClassTab(cls.id)}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
-                            selectedClassTab === cls.id
-                              ? 'bg-sky-600 text-white shadow-xs'
-                              : 'bg-slate-100 dark:bg-[#0d1c38] text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
-                          }`}
-                        >
-                          <span>{cls.name}</span>
-                          <span className="text-[10px] opacity-75 font-normal">
-                            ({cls.levelCategory === 'JUNIOR' ? 'Junior' : 'Upper'})
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Grouped Subjects for the Selected Grade */}
-                    {selectedClassTab && (
-                      <div className="space-y-5 max-h-[460px] overflow-y-auto pr-1">
-                        {SUBJECT_GROUPS.map((group) => {
-                          const groupSubjects = filteredClassSubjects.filter((s) =>
-                            group.matches(s.code, s.name)
-                          );
-
-                          if (groupSubjects.length === 0) return null;
-                          const GroupIcon = group.icon;
-
+                    {/* Class Selector Tabs (Grade 4 to Grade 9) */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Select Grade:
+                      </label>
+                      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-100/70 dark:bg-[#0c182d] rounded-2xl border border-slate-200 dark:border-slate-800">
+                        {classesList.map((cls) => {
+                          const isSelected = (currentSelectedClass?.id === cls.id);
                           return (
-                            <div
-                              key={group.id}
-                              className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#091326] p-4 space-y-3 shadow-xs"
+                            <button
+                              key={cls.id}
+                              type="button"
+                              onClick={() => setSelectedClassTab(cls.id)}
+                              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 ${
+                                isSelected
+                                  ? 'bg-sky-600 text-white shadow-md ring-2 ring-sky-400 dark:ring-sky-500 scale-[1.02]'
+                                  : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#112038] border border-slate-200/80 dark:border-slate-800'
+                              }`}
                             >
-                              {/* Group Header */}
-                              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
-                                <div className={`p-1.5 rounded-lg border ${group.badgeColor}`}>
-                                  <GroupIcon className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                                    {group.title}
-                                  </h5>
-                                  <p className="text-[10px] text-slate-400">
-                                    {group.description}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Group Subjects List */}
-                              <div className="space-y-2">
-                                {groupSubjects.map((sub) => {
-                                  const req =
-                                    subjectRequirements[selectedClassTab]?.[sub.id] || {
-                                      weeklyLessons: 3,
-                                      doubleLessonsAllowed: false,
-                                      doubleLessonCount: 0,
-                                    };
-
-                                  const updateReq = (field: string, value: any) => {
-                                    setSubjectRequirements({
-                                      ...subjectRequirements,
-                                      [selectedClassTab]: {
-                                        ...(subjectRequirements[selectedClassTab] || {}),
-                                        [sub.id]: {
-                                          ...req,
-                                          [field]: value,
-                                        },
-                                      },
-                                    });
-                                  };
-
-                                  return (
-                                    <div
-                                      key={sub.id}
-                                      className="p-3 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
-                                    >
-                                      <div className="w-full sm:w-1/3">
-                                        <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                                          {sub.name}
-                                        </span>
-                                        <span className="text-[10px] text-slate-400 font-mono">
-                                          {sub.code}
-                                        </span>
-                                      </div>
-
-                                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-[11px] text-slate-500 font-medium">
-                                            Lessons / Wk:
-                                          </span>
-                                          <input
-                                            type="number"
-                                            min={1}
-                                            max={10}
-                                            value={req.weeklyLessons ?? 3}
-                                            onChange={(e) =>
-                                              updateReq(
-                                                'weeklyLessons',
-                                                parseInt(e.target.value, 10) || 1
-                                              )
-                                            }
-                                            className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold"
-                                          />
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                          <label className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer">
-                                            <input
-                                              type="checkbox"
-                                              checked={req.doubleLessonsAllowed ?? false}
-                                              onChange={(e) =>
-                                                updateReq('doubleLessonsAllowed', e.target.checked)
-                                              }
-                                              className="rounded text-sky-600 cursor-pointer"
-                                            />
-                                            <span>Double</span>
-                                          </label>
-
-                                          {req.doubleLessonsAllowed && (
-                                            <select
-                                              value={req.doubleLessonCount ?? 1}
-                                              onChange={(e) =>
-                                                updateReq(
-                                                  'doubleLessonCount',
-                                                  parseInt(e.target.value, 10)
-                                                )
-                                              }
-                                              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-[11px] font-semibold"
-                                            >
-                                              <option value={1}>1 double / wk</option>
-                                              <option value={2}>2 doubles / wk</option>
-                                            </select>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
+                              <span>{cls.name}</span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
+                                  isSelected
+                                    ? 'bg-sky-700/60 text-sky-100'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                }`}
+                              >
+                                {cls.levelCategory === 'JUNIOR' ? 'Junior' : 'Upper'}
+                              </span>
+                            </button>
                           );
                         })}
+                      </div>
+                    </div>
+
+                    {/* Active Grade Info & Summary Banner */}
+                    {currentSelectedClass && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-sky-50/70 dark:bg-[#0c1a33] border border-sky-100 dark:border-sky-900/50 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-extrabold text-sm shadow-xs">
+                            {currentSelectedClass.name.replace(/[^0-9]/g, '') || 'G'}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                                {currentSelectedClass.name} Curriculum Subjects
+                              </h5>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-300">
+                                {currentSelectedClass.levelCategory === 'JUNIOR' ? 'Junior Secondary' : 'Upper Primary'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {filteredClassSubjects.length} subjects allocated • Adjust weekly lessons & double periods below
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#091326] border border-slate-200 dark:border-slate-800 text-right">
+                            <span className="block text-[10px] text-slate-400 font-semibold uppercase">Total Lessons</span>
+                            <span className="text-sm font-extrabold text-sky-600 dark:text-sky-400">
+                              {totalClassLessons} / wk
+                            </span>
+                          </div>
+                          <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#091326] border border-slate-200 dark:border-slate-800 text-right">
+                            <span className="block text-[10px] text-slate-400 font-semibold uppercase">Double Periods</span>
+                            <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">
+                              {totalClassDoubles} doubles
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Direct Flat List of Subjects for Selected Grade (NO GROUPING) */}
+                    {currentSelectedClass && (
+                      <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+                        {filteredClassSubjects.length === 0 ? (
+                          <div className="py-10 text-center text-slate-400 text-xs">
+                            No subjects allocated for {currentSelectedClass.name}.
+                          </div>
+                        ) : (
+                          filteredClassSubjects.map((sub) => {
+                            const req = getSubjectReq(currentSelectedClass.id, sub);
+
+                            // Find allocated teacher for this subject in this specific class
+                            const allocation = allocationsList.find(
+                              (a: any) =>
+                                (a.classId === currentSelectedClass.id || a.class?.id === currentSelectedClass.id) &&
+                                (a.subjectId === sub.id || a.subject?.id === sub.id)
+                            );
+                            const teacherName = allocation?.teacher
+                              ? `${allocation.teacher.firstName} ${allocation.teacher.lastName}`
+                              : allocation?.teacherFirstName
+                              ? `${allocation.teacherFirstName} ${allocation.teacherLastName}`
+                              : null;
+
+                            return (
+                              <div
+                                key={sub.id}
+                                className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#091326] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs hover:border-sky-300 dark:hover:border-sky-800 transition-colors"
+                              >
+                                <div className="w-full sm:w-2/5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                                      {sub.name}
+                                    </span>
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
+                                      {sub.code}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+                                    <User className="w-3 h-3 text-slate-400 shrink-0" />
+                                    {teacherName ? (
+                                      <span className="text-slate-600 dark:text-slate-300 font-medium truncate">
+                                        Teacher: <strong className="text-slate-800 dark:text-slate-200">{teacherName}</strong>
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-600 dark:text-amber-400 italic">
+                                        Teacher unassigned
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-slate-500 font-medium">Lessons / Wk:</span>
+                                    <div className="flex items-center">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateSubjectReq(
+                                            currentSelectedClass.id,
+                                            sub.id,
+                                            sub.code,
+                                            'lessons',
+                                            Math.max(1, req.lessons - 1)
+                                          )
+                                        }
+                                        className="w-7 h-7 flex items-center justify-center rounded-l-lg border border-r-0 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                                      >
+                                        -
+                                      </button>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        value={req.lessons}
+                                        onChange={(e) =>
+                                          updateSubjectReq(
+                                            currentSelectedClass.id,
+                                            sub.id,
+                                            sub.code,
+                                            'lessons',
+                                            parseInt(e.target.value, 10) || 1
+                                          )
+                                        }
+                                        className="w-12 h-7 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold text-xs"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateSubjectReq(
+                                            currentSelectedClass.id,
+                                            sub.id,
+                                            sub.code,
+                                            'lessons',
+                                            Math.min(10, req.lessons + 1)
+                                          )
+                                        }
+                                        className="w-7 h-7 flex items-center justify-center rounded-r-lg border border-l-0 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold cursor-pointer"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <label className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={req.doubleAllowed}
+                                        onChange={(e) =>
+                                          updateSubjectReq(
+                                            currentSelectedClass.id,
+                                            sub.id,
+                                            sub.code,
+                                            'doubleAllowed',
+                                            e.target.checked
+                                          )
+                                        }
+                                        className="rounded text-sky-600 cursor-pointer"
+                                      />
+                                      <span>Double Period</span>
+                                    </label>
+
+                                    {req.doubleAllowed && (
+                                      <select
+                                        value={req.doubleCount || 1}
+                                        onChange={(e) =>
+                                          updateSubjectReq(
+                                            currentSelectedClass.id,
+                                            sub.id,
+                                            sub.code,
+                                            'doubleCount',
+                                            parseInt(e.target.value, 10)
+                                          )
+                                        }
+                                        className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-[11px] font-semibold text-slate-800 dark:text-slate-200"
+                                      >
+                                        <option value={1}>1 double / wk</option>
+                                        <option value={2}>2 doubles / wk</option>
+                                      </select>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     )}
                   </div>
