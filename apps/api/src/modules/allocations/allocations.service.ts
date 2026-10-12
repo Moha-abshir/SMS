@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { classes, users, subjects, teacherSubjectAllocations, userSubjects, systemSettings, eq, and, isNull } from '@school/shared';
+import { classes, users, roles, subjects, teacherSubjectAllocations, userSubjects, systemSettings, eq, and, isNull } from '@school/shared';
 
 export class AllocationsService {
   static async getCurrentAcademicYear() {
@@ -27,7 +27,7 @@ export class AllocationsService {
       .where(isNull(classes.deletedAt))
       .orderBy(classes.numericOrder);
 
-    // 2. Fetch all teachers for dropdown selection
+    // 2. Fetch all teachers for dropdown selection (including their roleName)
     const teachersList = await db
       .select({
         id: users.id,
@@ -35,8 +35,10 @@ export class AllocationsService {
         lastName: users.lastName,
         email: users.email,
         phoneNumber: users.phoneNumber,
+        roleName: roles.name,
       })
       .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
       .where(and(eq(users.isActive, true), isNull(users.deletedAt)));
 
     // 3. Fetch all subjects

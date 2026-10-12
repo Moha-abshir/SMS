@@ -200,20 +200,34 @@ export class TimetableEngine {
     }
 
     const tasks: SchedulingTask[] = [];
+    const teacherAssignedLessons = new Map<string, number>();
 
     for (const alloc of allocations) {
       let remainingLessons = alloc.lessonsPerWeek;
       const doubleCount = alloc.doubleLessonsCount || 0;
 
+      // Administrative & Special Staff workload cap enforcement
+      const staffCap = teacherConstraints?.specialStaffLimits?.[alloc.teacherId];
+      if (staffCap !== undefined && staffCap >= 0) {
+        const alreadyScheduled = teacherAssignedLessons.get(alloc.teacherId) || 0;
+        if (alreadyScheduled >= staffCap) {
+          remainingLessons = 0;
+        } else if (alreadyScheduled + remainingLessons > staffCap) {
+          remainingLessons = Math.max(0, staffCap - alreadyScheduled);
+        }
+      }
+
       // Add double periods
       for (let i = 0; i < doubleCount && remainingLessons >= 2; i++) {
         tasks.push({ item: alloc, isDouble: true });
         remainingLessons -= 2;
+        teacherAssignedLessons.set(alloc.teacherId, (teacherAssignedLessons.get(alloc.teacherId) || 0) + 2);
       }
 
       // Add single periods
       for (let i = 0; i < remainingLessons; i++) {
         tasks.push({ item: alloc, isDouble: false });
+        teacherAssignedLessons.set(alloc.teacherId, (teacherAssignedLessons.get(alloc.teacherId) || 0) + 1);
       }
     }
 
