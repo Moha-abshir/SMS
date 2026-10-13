@@ -1,0 +1,87 @@
+name: "🐛 Bug Report"
+description: File a bug report to help us improve the School Management System
+title: "fix: [Brief description of the bug]"
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Thank you for reporting a bug!
+        Please fill out this form to help us diagnose and resolve the issue quickly.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the problem is.
+      placeholder: What broke or went wrong?
+    validations:
+      required: true
+  - type: dropdown
+    id: affected_area
+    attributes:
+      label: Affected Area / Layer
+      description: Which part of the system is experiencing the issue?
+      options:
+        - "Frontend Application (apps/web)"
+        - "Backend API Server (apps/api)"
+        - "Shared Schema & Types (packages/shared)"
+        - "Database Migrations / Drizzle"
+        - "Role: Head Teacher"
+        - "Role: Deputy Head Teacher"
+        - "Role: Director of Studies (DoS)"
+        - "Role: Bursar / Finance"
+        - "Role: Secretary"
+        - "Role: Teacher (Class or Subject)"
+        - "Other / Infrastructure"
+    validations:
+      required: true
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can someone reproduce this bug step-by-step?
+      placeholder: |
+        1. Log in with role '...'
+        2. Navigate to '...'
+        3. Click on '...'
+        4. See error '...'
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+      placeholder: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: logs_or_screenshots
+    attributes:
+      label: Screenshots or Terminal / API Logs
+      description: Drag and drop screenshots or paste error logs from the browser console or backend terminal (Pino logs).
+      placeholder: Paste stack traces or drag screenshots here...
+    validations:
+      required: false
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Database Setup
+      description: What database environment are you running locally?
+      options:
+        - "Local Docker PostgreSQL (docker compose)"
+        - "Neon Cloud PostgreSQL"
+        - "Native PostgreSQL installation"
+        - "Production / Staging"
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation & Guidelines
+      description: Please verify before submitting.
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate.
+          required: true
+        - label: I agree to follow the project's Code of Conduct.
+          required: true

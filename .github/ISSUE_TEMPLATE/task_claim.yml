@@ -1,0 +1,76 @@
+name: "🙋 Claim Roadmap Task"
+description: Claim an open task from ROADMAP.md to work on as a volunteer contributor
+title: "[Task]: [Task ID] - [Brief Description]"
+labels: ["volunteer-task", "in-progress"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Claiming a Roadmap Task
+        Thank you for volunteering! Please reference the Task ID from [ROADMAP.md](../blob/main/ROADMAP.md) below so a maintainer can assign you.
+  - type: input
+    id: task_id
+    attributes:
+      label: Roadmap Task ID
+      description: The ID from ROADMAP.md (e.g. M0-03, HT-04, BUR-02, SEC-01).
+      placeholder: "e.g. HT-04"
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target Milestone
+      description: Which milestone is this task part of?
+      options:
+        - "Milestone 0: Foundational Schemas & Routing"
+        - "Milestone 1: Head Teacher Module"
+        - "Milestone 2: Deputy Head Teacher Module"
+        - "Milestone 3: Director of Studies (DoS) Module"
+        - "Milestone 4: Bursar / Finance Module"
+        - "Milestone 5: Front-Desk Secretary Module"
+        - "Milestone 6: Teachers (Class & Subject) Module"
+        - "Cross-Cutting / Reporting & Testing"
+    validations:
+      required: true
+  - type: checkboxes
+    id: layers
+    attributes:
+      label: Relevant Stack Layer(s)
+      description: Select all components your changes will touch.
+      options:
+        - label: "Frontend Application (apps/web)"
+        - label: "Backend API (apps/api)"
+        - label: "Shared Schemas & Models (packages/shared)"
+        - label: "Documentation or Unit / E2E Tests"
+  - type: textarea
+    id: implementation_approach
+    attributes:
+      label: Proposed Implementation Approach
+      description: Briefly describe how you plan to implement this task.
+      placeholder: |
+        1. Create schema / migration...
+        2. Build API route with Zod validation...
+        3. Build frontend view with Tailwind & TanStack Query...
+    validations:
+      required: true
+  - type: dropdown
+    id: estimated_timeline
+    attributes:
+      label: Estimated Timeline
+      description: Roughly how much time do you expect before submitting a PR?
+      options:
+        - "1 - 3 days"
+        - "About 1 week"
+        - "1 - 2 weeks"
+        - "Flexible / Need guidance from maintainer"
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Contributor Acknowledgements
+      options:
+        - label: I have reviewed the CONTRIBUTING.md guide and local development setup.
+          required: true
+        - label: I agree to adhere to the project's Code of Conduct.
+          required: true

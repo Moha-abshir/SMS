@@ -1,0 +1,60 @@
+name: "🚀 Feature Request"
+description: Suggest an idea, enhancement, or new feature for the School Management System
+title: "feat: [Brief description of the feature]"
+labels: ["enhancement", "needs-discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Have an idea or feature request?
+        Please describe your proposal in detail below so we can discuss and plan the implementation.
+  - type: textarea
+    id: feature_summary
+    attributes:
+      label: Feature Summary
+      description: A clear and concise description of what the feature is and what problem it solves.
+      placeholder: Describe the goal and scope of the feature...
+    validations:
+      required: true
+  - type: dropdown
+    id: target_role
+    attributes:
+      label: Primary User Persona / Role
+      description: Which school role primarily benefits from this feature?
+      options:
+        - "Head Teacher (Administration & Policy)"
+        - "Deputy Head Teacher (Discipline, Attendance & Allocations)"
+        - "Director of Studies (Timetable & Exam Coordination)"
+        - "Bursar (School Fees & Financial Accounting)"
+        - "Secretary (Front-Desk, Admissions & Calendar)"
+        - "Teachers (Class Registers & Marks Entry)"
+        - "Parents & Students"
+        - "System-wide / Cross-Cutting"
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Implementation Details
+      description: How do you envision the feature working technically and visually?
+      placeholder: |
+        - Frontend UI/UX flow:
+        - Backend API endpoints / services needed:
+        - Any database schema changes in @school/shared:
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives_considered
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative designs or workflows?
+      placeholder: Describe any alternatives you've thought about...
+    validations:
+      required: false
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context & Mockups
+      description: Attach any curriculum guidelines, references, wireframes, or screenshots.
+    validations:
+      required: false
