@@ -34,9 +34,9 @@ export const AllocationView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeClassId = searchParams.get('classId');
 
-  const fetchAllocations = async () => {
+  const fetchAllocations = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await apiClient.get('/api/allocations');
       if (res.data.data) {
         setData(res.data.data);
@@ -44,37 +44,134 @@ export const AllocationView: React.FC = () => {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load allocations');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllocations();
+    // Only display full-page loading skeleton on initial mount
+    fetchAllocations(true);
   }, []);
 
   const handleAssignClassTeacher = async (classId: string, teacherId: string) => {
     try {
       setSavingClassId(classId);
+
+      // Optimistically update classTeacher in local state
+      const targetTeacher = data.teachers.find((t) => t.id === teacherId);
+      setData((prev) => ({
+        ...prev,
+        classes: prev.classes.map((c) =>
+          c.class.id === classId
+            ? {
+                ...c,
+                class: { ...c.class, classTeacherId: teacherId || null },
+                classTeacher: targetTeacher
+                  ? {
+                      id: targetTeacher.id,
+                      firstName: targetTeacher.firstName,
+                      lastName: targetTeacher.lastName,
+                    }
+                  : null,
+              }
+            : c
+        ),
+      }));
+
       const res = await apiClient.post('/api/allocations/class-teacher', { classId, teacherId });
-      toast.success(res.data.message || 'Class teacher assigned successfully');
-      fetchAllocations();
+      toast.success(res.data.message || 'Class teacher assigned successfully', { autoClose: 1500 });
+      // Silent background sync without showing full-page loading spinner
+      await fetchAllocations(false);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to assign class teacher');
+      await fetchAllocations(false);
     } finally {
       setSavingClassId(null);
     }
   };
 
   const handleAssignSubjectTeacherDirect = async (classId: string, subjectId: string, teacherId: string) => {
+    const prevAllocations = data.subjectAllocations;
+
+    const targetTeacher = data.teachers.find((t) => t.id === teacherId);
+    const targetSubject = data.subjects.find((s) => s.id === subjectId);
+    const targetClassRow = data.classes.find((c) => c.class.id === classId);
+    const targetClass = targetClassRow?.class;
+
+    if (!targetTeacher || !targetSubject || !targetClass) {
+      return;
+    }
+
+    const existingIndex = prevAllocations.findIndex(
+      (sa) => sa.class.id === classId && sa.subject.id === subjectId
+    );
+
+    const tempAllocationId = existingIndex >= 0
+      ? prevAllocations[existingIndex].allocation.id
+      : `temp-${Date.now()}`;
+
+    const optimisticRecord = {
+      allocation: {
+        id: tempAllocationId,
+        classId,
+        subjectId,
+        teacherId,
+        academicYear: data.academicYear,
+      },
+      teacher: {
+        id: targetTeacher.id,
+        firstName: targetTeacher.firstName,
+        lastName: targetTeacher.lastName,
+        email: targetTeacher.email || '',
+        phoneNumber: targetTeacher.phoneNumber || '',
+      },
+      subject: targetSubject,
+      class: targetClass,
+    };
+
+    let nextAllocations = [...prevAllocations];
+    if (existingIndex >= 0) {
+      nextAllocations[existingIndex] = optimisticRecord;
+    } else {
+      nextAllocations.push(optimisticRecord);
+    }
+
+    // 1. Instant optimistic update - zero delay, no page reload or unmounting!
+    setData((prev) => ({
+      ...prev,
+      subjectAllocations: nextAllocations,
+    }));
+
+    // 2. Background API call
     try {
       const res = await apiClient.post('/api/allocations/subject-teacher', {
         classId,
         subjectId,
         teacherId,
       });
-      toast.success(res.data.message || 'Subject teacher allocated successfully');
-      await fetchAllocations();
+
+      toast.success(`${targetSubject.name}: Assigned to ${targetTeacher.firstName} ${targetTeacher.lastName}`, {
+        autoClose: 1500,
+      });
+
+      // Update temporary ID with actual DB ID if newly created
+      if (res.data?.data?.id) {
+        const realId = res.data.data.id;
+        setData((prev) => ({
+          ...prev,
+          subjectAllocations: prev.subjectAllocations.map((sa) =>
+            sa.class.id === classId && sa.subject.id === subjectId
+              ? { ...sa, allocation: { ...sa.allocation, id: realId } }
+              : sa
+          ),
+        }));
+      }
     } catch (error: any) {
+      // Rollback on failure
+      setData((prev) => ({
+        ...prev,
+        subjectAllocations: prevAllocations,
+      }));
       toast.error(error.response?.data?.message || 'Failed to allocate subject teacher');
       throw error;
     }
@@ -93,11 +190,25 @@ export const AllocationView: React.FC = () => {
   };
 
   const handleRemoveSubjectAllocation = async (allocationId: string) => {
+    const prevAllocations = data.subjectAllocations;
+    const targetAlloc = prevAllocations.find((sa) => sa.allocation.id === allocationId);
+
+    // 1. Instant optimistic removal - zero delay, no page reload!
+    setData((prev) => ({
+      ...prev,
+      subjectAllocations: prev.subjectAllocations.filter((sa) => sa.allocation.id !== allocationId),
+    }));
+
+    // 2. Background API delete
     try {
       await apiClient.delete(`/api/allocations/subject-teacher/${allocationId}`);
-      toast.success('Subject allocation removed');
-      fetchAllocations();
+      toast.info(`${targetAlloc?.subject.name || 'Subject'}: Allocation removed`, { autoClose: 1500 });
     } catch (error: any) {
+      // Rollback on failure
+      setData((prev) => ({
+        ...prev,
+        subjectAllocations: prevAllocations,
+      }));
       toast.error(error.response?.data?.message || 'Failed to remove allocation');
     }
   };

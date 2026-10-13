@@ -70,8 +70,8 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'ALLOCATED' | 'UNALLOCATED'>('ALL');
-  const [savingSubjectId, setSavingSubjectId] = useState<string | null>(null);
-  const [removingAllocationId, setRemovingAllocationId] = useState<string | null>(null);
+  const [savingSubjectIds, setSavingSubjectIds] = useState<Record<string, boolean>>({});
+  const [removingAllocationIds, setRemovingAllocationIds] = useState<Record<string, boolean>>({});
 
   // Selected teacher per subject dropdown
   const [pendingTeacherMap, setPendingTeacherMap] = useState<Record<string, string>>({});
@@ -153,7 +153,7 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
   const handleSaveAllocation = async (subjectId: string, teacherId: string) => {
     if (!classId || !teacherId) return;
     try {
-      setSavingSubjectId(subjectId);
+      setSavingSubjectIds((prev) => ({ ...prev, [subjectId]: true }));
       await onAssignSubjectTeacher(classId, subjectId, teacherId);
       // Clear pending map selection for this subject
       setPendingTeacherMap((prev) => {
@@ -162,19 +162,27 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
         return next;
       });
     } finally {
-      setSavingSubjectId(null);
+      setSavingSubjectIds((prev) => {
+        const next = { ...prev };
+        delete next[subjectId];
+        return next;
+      });
     }
   };
 
   const handleRemove = async (allocationId: string) => {
-    if (removingAllocationId) return;
+    if (removingAllocationIds[allocationId]) return;
     try {
-      setRemovingAllocationId(allocationId);
+      setRemovingAllocationIds((prev) => ({ ...prev, [allocationId]: true }));
       await onRemoveSubjectAllocation(allocationId);
     } catch (err: any) {
       toast.error(err.message || 'Failed to remove allocation');
     } finally {
-      setRemovingAllocationId(null);
+      setRemovingAllocationIds((prev) => {
+        const next = { ...prev };
+        delete next[allocationId];
+        return next;
+      });
     }
   };
 
@@ -348,7 +356,8 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
 
                   const selectedTeacherId =
                     pendingTeacherMap[subj.id] ?? (currentAlloc?.teacher.id || '');
-                  const isSaving = savingSubjectId === subj.id;
+                  const isSaving = Boolean(savingSubjectIds[subj.id]);
+                  const isRemoving = Boolean(currentAlloc && removingAllocationIds[currentAlloc.allocation.id]);
 
                   return (
                     <div
@@ -417,7 +426,7 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                                         onClick={() => handleSaveAllocation(subj.id, t.id)}
                                         className="text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline font-extrabold cursor-pointer ml-0.5 inline-flex items-center gap-1 disabled:opacity-50"
                                       >
-                                        {isSaving && savingSubjectId === subj.id && (
+                                        {isSaving && (
                                           <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
                                         )}
                                         <span>Quick Assign</span>
@@ -434,13 +443,24 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                         <div className="flex items-center gap-1.5 shrink-0 sm:w-64">
                           <select
                             value={selectedTeacherId}
-                            onChange={(e) =>
-                              setPendingTeacherMap({
-                                ...pendingTeacherMap,
-                                [subj.id]: e.target.value,
-                              })
-                            }
-                            className="flex-1 min-w-0 bg-slate-50 dark:bg-[#081224] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
+                            onChange={(e) => {
+                              const newTeacherId = e.target.value;
+                              if (newTeacherId) {
+                                if (newTeacherId !== currentAlloc?.teacher.id) {
+                                  handleSaveAllocation(subj.id, newTeacherId);
+                                }
+                              } else if (currentAlloc) {
+                                handleRemove(currentAlloc.allocation.id);
+                              } else {
+                                setPendingTeacherMap((prev) => {
+                                  const next = { ...prev };
+                                  delete next[subj.id];
+                                  return next;
+                                });
+                              }
+                            }}
+                            disabled={isSaving || isRemoving}
+                            className="flex-1 min-w-0 bg-slate-50 dark:bg-[#081224] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer disabled:opacity-50"
                           >
                             <option value="">-- Choose Teacher --</option>
                             {bestSuitedTeachers.length > 0 && (
@@ -461,7 +481,7 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                             </optgroup>
                           </select>
 
-                          {/* Save allocation button */}
+                          {/* Save allocation button (fallback if pending differs) */}
                           {selectedTeacherId && selectedTeacherId !== currentAlloc?.teacher.id && (
                             <button
                               type="button"
@@ -483,12 +503,12 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                           {currentAlloc && (
                             <button
                               type="button"
-                              disabled={removingAllocationId === currentAlloc.allocation.id}
+                              disabled={isRemoving}
                               onClick={() => handleRemove(currentAlloc.allocation.id)}
                               className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Remove teacher from subject"
                             >
-                              {removingAllocationId === currentAlloc.allocation.id ? (
+                              {isRemoving ? (
                                 <div className="w-3.5 h-3.5 border-2 border-red-500 border-t-transparent rounded-full animate-spin shrink-0" />
                               ) : (
                                 <Trash2 className="w-3.5 h-3.5" />
