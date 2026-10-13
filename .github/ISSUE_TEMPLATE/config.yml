@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/Moha-abshir/School-Management-System/discussions
+    about: Ask questions, share ideas, and connect with the community.
+  - name: Security Vulnerability Reporting
+    url: mailto:moabshir06@gmail.com
+    about: Privately disclose sensitive security vulnerabilities.
