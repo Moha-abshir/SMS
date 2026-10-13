@@ -1,5 +1,29 @@
 {
   "name": "school-management-system",
+  "version": "1.0.0",
+  "description": "A modern, multi-role open-source School Management System built for modern educational workflows and the Kenyan Competency-Based Curriculum (CBC).",
+  "author": "Mohamed Abshir <moabshir06@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/Moha-abshir/School-Management-System#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Moha-abshir/School-Management-System.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Moha-abshir/School-Management-System/issues"
+  },
+  "keywords": [
+    "school-management-system",
+    "edtech",
+    "cbc",
+    "kenya",
+    "knec",
+    "react",
+    "vite",
+    "express",
+    "drizzle-orm",
+    "typescript"
+  ],
   "private": true,
   "workspaces": [
     "apps/*",
