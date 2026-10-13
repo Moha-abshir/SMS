@@ -541,8 +541,9 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         r.includes('HEAD') ||
         r.includes('DEPUTY') ||
         r.includes('DOS') ||
-        name.includes('MOHAMED') ||
-        name.includes('ABDI')
+        r.includes('PRINCIPAL') ||
+        name.includes('MOHAMED ABSHIR') ||
+        name.includes('ABDI MOHA')
       );
     });
   }, [teachersList]);
@@ -1231,9 +1232,10 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         {adminLeaders.map((leader) => {
                           const currentLimit = specialStaffLimits[leader.id] ?? '';
-                          const leaderAllocations = allocationsList.filter(
-                            (a) => a.teacherId === leader.id
-                          );
+                          const leaderAllocations = allocationsList.filter((a: any) => {
+                            const teacherId = a.teacher?.id || a.allocation?.teacherId || a.teacherId;
+                            return teacherId === leader.id;
+                          });
 
                           return (
                             <div
@@ -1257,9 +1259,25 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                                 </div>
                               </div>
 
-                              {leaderAllocations.length > 0 && (
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-black/20 p-2 rounded-xl">
-                                  {leaderAllocations.map((a: any) => `${a.className}: ${a.subjectCode || a.subjectName}`).join(' • ')}
+                              {leaderAllocations.length > 0 ? (
+                                <div className="text-[10px] text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-black/30 p-2.5 rounded-xl flex flex-wrap gap-1.5 border border-slate-200/60 dark:border-slate-800/60">
+                                  {leaderAllocations.map((a: any, idx: number) => {
+                                    const className = a.class?.name || a.className || 'Class';
+                                    const subjectName = a.subject?.name || a.subjectCode || a.subjectName || 'Subject';
+                                    const subjectCode = a.subject?.code ? ` (${a.subject.code})` : '';
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center px-1.5 py-0.5 rounded bg-sky-100/70 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 font-medium"
+                                      >
+                                        {className}: {subjectName}{subjectCode}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-slate-400 italic bg-white/40 dark:bg-black/10 p-2 rounded-xl">
+                                  No subjects currently allocated in Class & Subject Allocation
                                 </div>
                               )}
 
