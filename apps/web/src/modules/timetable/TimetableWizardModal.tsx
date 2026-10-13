@@ -627,7 +627,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                          Regular End Time (Mon-Thu)
+                          Regular End Time
                         </label>
                         <input
                           type="time"
