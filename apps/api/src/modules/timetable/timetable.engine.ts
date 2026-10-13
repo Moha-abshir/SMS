@@ -43,9 +43,10 @@ export class TimetableEngine {
   /**
    * Helper to convert "HH:mm" time string to total minutes from midnight
    */
-  static timeToMinutes(timeStr: string): number {
-    const [hours, mins] = timeStr.split(':').map((v) => parseInt(v, 10));
-    return hours * 60 + mins;
+  static timeToMinutes(timeStr?: string | null): number {
+    if (!timeStr) return 0;
+    const [hours, mins] = timeStr.split(':').map((v) => parseInt(v, 10) || 0);
+    return (hours || 0) * 60 + (mins || 0);
   }
 
   /**
@@ -70,22 +71,43 @@ export class TimetableEngine {
     fridaySchedule?: FridaySpecialSchedule;
   }): Map<string, DayPeriodSlot[]> {
     const gridByDay = new Map<string, DayPeriodSlot[]>();
-    const lessonDuration = config.lessonDurationMinutes || 40;
+    const lessonDuration = Math.max(15, Number(config.lessonDurationMinutes) || 40);
+
+    // Sanitize valid breaks (strictly positive duration)
+    const validBreaks = (config.breaks || []).filter((b) => {
+      if (!b || !b.startTime || !b.endTime) return false;
+      const bStart = this.timeToMinutes(b.startTime);
+      const bEnd = this.timeToMinutes(b.endTime);
+      return bStart > 0 && bEnd > bStart;
+    });
+
+    // Sanitize Friday Jummah schedule
+    const isFridaySpecial = Boolean(config.fridaySchedule?.isSpecial);
+    const jummahStartMins = this.timeToMinutes(config.fridaySchedule?.jummahBreakStart || '');
+    const jummahReturnMins = this.timeToMinutes(config.fridaySchedule?.afternoonReturnTime || '');
+    const validJummah = isFridaySpecial && jummahStartMins > 0 && jummahReturnMins > jummahStartMins;
+    const fridayDismissalMins = this.timeToMinutes(config.fridaySchedule?.afternoonDismissalTime || '');
 
     for (const day of config.schoolDays) {
       const slots: DayPeriodSlot[] = [];
       const isFriday = day.toUpperCase() === 'FRIDAY';
-      const useSpecialFriday = isFriday && config.fridaySchedule?.isSpecial;
+      const dayStartMins = this.timeToMinutes(config.startTime) || 480;
+      const defaultEndMins = this.timeToMinutes(config.endTime) || 940;
 
-      let currentTimeMins = this.timeToMinutes(config.startTime);
-      const dayEndMins = useSpecialFriday && config.fridaySchedule?.afternoonDismissalTime
-        ? this.timeToMinutes(config.fridaySchedule.afternoonDismissalTime)
-        : this.timeToMinutes(config.endTime);
+      const dayEndMins =
+        isFriday && validJummah && fridayDismissalMins > dayStartMins
+          ? fridayDismissalMins
+          : defaultEndMins;
+
+      if (dayEndMins <= dayStartMins + lessonDuration) {
+        gridByDay.set(day, []);
+        continue;
+      }
 
       let currentPeriodIndex = 1;
 
       // Filter applicable breaks for this day
-      const dayBreaks = config.breaks.filter((b) => {
+      const dayBreaks = validBreaks.filter((b) => {
         if (!b.days || b.days.length === 0 || b.days.includes('ALL')) return true;
         return b.days.map((d) => d.toUpperCase()).includes(day.toUpperCase());
       });
@@ -93,14 +115,15 @@ export class TimetableEngine {
       // Sort breaks chronologically
       dayBreaks.sort((a, b) => this.timeToMinutes(a.startTime) - this.timeToMinutes(b.startTime));
 
-      while (currentTimeMins + lessonDuration <= dayEndMins) {
-        // Special Friday Jummah break handling
-        if (useSpecialFriday && config.fridaySchedule) {
-          const jummahStartMins = this.timeToMinutes(config.fridaySchedule.jummahBreakStart);
-          const jummahReturnMins = this.timeToMinutes(config.fridaySchedule.afternoonReturnTime);
+      let currentTimeMins = dayStartMins;
+      let watchdog = 0;
 
-          // If current time hits or crosses Jummah break
-          if (currentTimeMins >= jummahStartMins && currentTimeMins < jummahReturnMins) {
+      while (currentTimeMins + lessonDuration <= dayEndMins) {
+        if (++watchdog > 100) break; // Hard safety watchdog to guarantee zero hangs
+
+        // Special Friday Jummah break handling
+        if (isFriday && validJummah) {
+          if (currentTimeMins < jummahReturnMins && currentTimeMins + lessonDuration > jummahStartMins) {
             slots.push({
               day,
               periodIndex: currentPeriodIndex,
@@ -109,7 +132,7 @@ export class TimetableEngine {
               isBreak: true,
               breakName: 'Jummah Prayer & Lunch Break',
             });
-            currentTimeMins = jummahReturnMins;
+            currentTimeMins = Math.max(currentTimeMins + 1, jummahReturnMins);
             continue;
           }
         }
@@ -117,17 +140,13 @@ export class TimetableEngine {
         // Check regular breaks
         const upcomingBreak = dayBreaks.find((b) => {
           const bStart = this.timeToMinutes(b.startTime);
-          return currentTimeMins <= bStart && currentTimeMins + lessonDuration > bStart;
+          const bEnd = this.timeToMinutes(b.endTime);
+          return currentTimeMins < bEnd && currentTimeMins + lessonDuration > bStart;
         });
 
         if (upcomingBreak) {
           const bStart = this.timeToMinutes(upcomingBreak.startTime);
           const bEnd = this.timeToMinutes(upcomingBreak.endTime);
-
-          // If there is a small gap before the break starts, align to break start
-          if (currentTimeMins < bStart) {
-            currentTimeMins = bStart;
-          }
 
           slots.push({
             day,
@@ -138,7 +157,7 @@ export class TimetableEngine {
             breakName: upcomingBreak.name,
           });
 
-          currentTimeMins = bEnd;
+          currentTimeMins = Math.max(currentTimeMins + 1, bEnd);
           continue;
         }
 

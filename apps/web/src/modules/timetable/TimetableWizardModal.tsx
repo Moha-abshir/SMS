@@ -238,6 +238,26 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         return;
       }
 
+      // Validate breaks time ranges
+      for (const b of breaks) {
+        if (b.startTime && b.endTime && timeToMinutes(b.endTime) <= timeToMinutes(b.startTime)) {
+          toast.error(`Break "${b.name || 'Break'}" has invalid times: End time must be after start time.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Validate Friday Jummah prayer routine if enabled
+      if (fridaySpecial.isSpecial) {
+        const jStart = timeToMinutes(fridaySpecial.jummahBreakStart);
+        const jReturn = timeToMinutes(fridaySpecial.afternoonReturnTime);
+        if (jReturn <= jStart) {
+          toast.error('Friday afternoon return time must be after Jummah break start time.');
+          setSaving(false);
+          return;
+        }
+      }
+
       const payload = {
         academicYear,
         term,
@@ -295,24 +315,51 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
 
   // Helper for Break Operations
   const addBreak = () => {
+    let defaultStart = '11:00';
+    let defaultEnd = '11:30';
+
+    if (breaks.length > 0) {
+      const validExisting = breaks
+        .filter((b) => b && b.endTime && timeToMinutes(b.endTime) > 0)
+        .sort((a, b) => timeToMinutes(a.endTime) - timeToMinutes(b.endTime));
+
+      if (validExisting.length > 0) {
+        const lastBreak = validExisting[validExisting.length - 1];
+        const lastEndMins = timeToMinutes(lastBreak.endTime);
+        const nextStartMins = lastEndMins + 40;
+        const nextEndMins = nextStartMins + 30;
+        const endLimitMins = timeToMinutes(endTime) || 940;
+
+        if (nextEndMins <= endLimitMins) {
+          const pad = (n: number) => String(n).padStart(2, '0');
+          defaultStart = `${pad(Math.floor(nextStartMins / 60))}:${pad(nextStartMins % 60)}`;
+          defaultEnd = `${pad(Math.floor(nextEndMins / 60))}:${pad(nextEndMins % 60)}`;
+        }
+      }
+    }
+
     const newBreak = {
-      id: `break-${Date.now()}`,
-      name: 'New Break',
-      startTime: '11:00',
-      endTime: '11:30',
+      id: `break-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: `Break ${breaks.length + 1}`,
+      startTime: defaultStart,
+      endTime: defaultEnd,
       days: ['ALL'],
     };
     setBreaks([...breaks, newBreak]);
   };
 
   const updateBreak = (index: number, field: string, value: any) => {
-    const copy = [...breaks];
-    copy[index] = { ...copy[index], [field]: value };
-    setBreaks(copy);
+    setBreaks((prev) => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = { ...copy[index], [field]: value };
+      }
+      return copy;
+    });
   };
 
   const removeBreak = (index: number) => {
-    setBreaks(breaks.filter((_, i) => i !== index));
+    setBreaks((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Ensure selectedClassTab is always valid and defaults to first class
@@ -341,34 +388,60 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   }, [subjectsList, classLevelCategory]);
 
   // Accurate weekly teaching slots calculation matching TimetableEngine.computePeriodsGrid
+  // Completely freeze-proof and guarded against empty, zero, inverted, or equal times
   const totalWeeklyAvailableSlots = useMemo(() => {
-    const lessonDuration = lessonDurationMinutes > 0 ? lessonDurationMinutes : 40;
+    const lessonDuration = Math.max(15, Number(lessonDurationMinutes) || 40);
+    const dayStartMins = timeToMinutes(startTime) || 480;
+    const defaultEndMins = timeToMinutes(endTime) || 940;
+
+    // Filter to strictly valid breaks (valid non-empty times where end > start)
+    const validBreaks = (breaks || []).filter((b) => {
+      if (!b || !b.startTime || !b.endTime) return false;
+      const bStart = timeToMinutes(b.startTime);
+      const bEnd = timeToMinutes(b.endTime);
+      return bStart > 0 && bEnd > bStart;
+    });
+
+    // Sanitize Friday Jummah
+    const isFridaySpecial = Boolean(fridaySpecial?.isSpecial);
+    const jummahStartMins = timeToMinutes(fridaySpecial?.jummahBreakStart);
+    const jummahReturnMins = timeToMinutes(fridaySpecial?.afternoonReturnTime);
+    const validJummah =
+      isFridaySpecial &&
+      jummahStartMins > 0 &&
+      jummahReturnMins > jummahStartMins;
+    const fridayDismissalMins = timeToMinutes(fridaySpecial?.afternoonDismissalTime);
+
     let totalTeachingSlots = 0;
 
     for (const day of schoolDays) {
       const isFriday = day.toUpperCase() === 'FRIDAY';
-      const useSpecialFriday = isFriday && fridaySpecial.isSpecial;
+      const dayEndMins =
+        isFriday && validJummah && fridayDismissalMins > dayStartMins
+          ? fridayDismissalMins
+          : defaultEndMins;
 
-      let currentTimeMins = timeToMinutes(startTime);
-      const dayEndMins = useSpecialFriday && fridaySpecial.afternoonDismissalTime
-        ? timeToMinutes(fridaySpecial.afternoonDismissalTime)
-        : timeToMinutes(endTime);
+      if (dayEndMins <= dayStartMins + lessonDuration) {
+        continue;
+      }
 
       // Applicable breaks for this day
-      const dayBreaks = breaks.filter((b) => {
+      const dayBreaks = validBreaks.filter((b) => {
         if (!b.days || b.days.length === 0 || b.days.includes('ALL')) return true;
         return b.days.map((d) => d.toUpperCase()).includes(day.toUpperCase());
       });
       dayBreaks.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
-      while (currentTimeMins + lessonDuration <= dayEndMins) {
-        // Special Friday Jummah break handling
-        if (useSpecialFriday) {
-          const jummahStartMins = timeToMinutes(fridaySpecial.jummahBreakStart);
-          const jummahReturnMins = timeToMinutes(fridaySpecial.afternoonReturnTime);
+      let currentTimeMins = dayStartMins;
+      let watchdog = 0;
 
-          if (currentTimeMins >= jummahStartMins && currentTimeMins < jummahReturnMins) {
-            currentTimeMins = jummahReturnMins;
+      while (currentTimeMins + lessonDuration <= dayEndMins) {
+        if (++watchdog > 100) break; // Hard safety watchdog to guarantee zero browser freezes
+
+        // Friday Jummah break handling
+        if (isFriday && validJummah) {
+          if (currentTimeMins < jummahReturnMins && currentTimeMins + lessonDuration > jummahStartMins) {
+            currentTimeMins = Math.max(currentTimeMins + 1, jummahReturnMins);
             continue;
           }
         }
@@ -376,14 +449,13 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         // Check regular breaks
         const upcomingBreak = dayBreaks.find((b) => {
           const bStart = timeToMinutes(b.startTime);
-          return currentTimeMins <= bStart && currentTimeMins + lessonDuration > bStart;
+          const bEnd = timeToMinutes(b.endTime);
+          return currentTimeMins < bEnd && currentTimeMins + lessonDuration > bStart;
         });
 
         if (upcomingBreak) {
-          const bStart = timeToMinutes(upcomingBreak.startTime);
           const bEnd = timeToMinutes(upcomingBreak.endTime);
-          if (currentTimeMins < bStart) currentTimeMins = bStart;
-          currentTimeMins = bEnd;
+          currentTimeMins = Math.max(currentTimeMins + 1, bEnd);
           continue;
         }
 
@@ -718,45 +790,72 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       </div>
 
                       <div className="space-y-3">
-                        {breaks.map((b, idx) => (
-                          <div
-                            key={b.id || idx}
-                            className="p-3.5 rounded-xl border border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center gap-3 text-xs"
-                          >
-                            <input
-                              type="text"
-                              value={b.name}
-                              onChange={(e) => updateBreak(idx, 'name', e.target.value)}
-                              placeholder="Break Name (e.g. Morning Tea Break)"
-                              className="w-full sm:w-1/3 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-semibold"
-                            />
-
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <span className="text-[11px] text-slate-400">From</span>
-                              <input
-                                type="time"
-                                value={b.startTime}
-                                onChange={(e) => updateBreak(idx, 'startTime', e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-mono text-xs"
-                              />
-                              <span className="text-[11px] text-slate-400">To</span>
-                              <input
-                                type="time"
-                                value={b.endTime}
-                                onChange={(e) => updateBreak(idx, 'endTime', e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-mono text-xs"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => removeBreak(idx)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors ml-auto cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                        {breaks.length === 0 ? (
+                          <div className="py-8 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 text-xs">
+                            No break intervals added yet. Click &quot;Add Break&quot; above to schedule morning tea or lunch breaks.
                           </div>
-                        ))}
+                        ) : (
+                          breaks.map((b, idx) => {
+                            const isInvalidRange =
+                              Boolean(b.startTime) &&
+                              Boolean(b.endTime) &&
+                              timeToMinutes(b.endTime) <= timeToMinutes(b.startTime);
+
+                            return (
+                              <div
+                                key={b.id || `break-row-${idx}`}
+                                className={`p-3.5 rounded-xl border ${
+                                  isInvalidRange
+                                    ? 'border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20'
+                                    : 'border-slate-100 dark:border-[#162b4d] bg-slate-50/50 dark:bg-[#0b172e]'
+                                } flex flex-col gap-2 text-xs`}
+                              >
+                                <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                                  <input
+                                    type="text"
+                                    value={b.name}
+                                    onChange={(e) => updateBreak(idx, 'name', e.target.value)}
+                                    placeholder="Break Name (e.g. Morning Tea Break)"
+                                    className="w-full sm:w-1/3 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-semibold"
+                                  />
+
+                                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <span className="text-[11px] text-slate-400">From</span>
+                                    <input
+                                      type="time"
+                                      value={b.startTime}
+                                      onChange={(e) => updateBreak(idx, 'startTime', e.target.value)}
+                                      className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-mono text-xs"
+                                    />
+                                    <span className="text-[11px] text-slate-400">To</span>
+                                    <input
+                                      type="time"
+                                      value={b.endTime}
+                                      onChange={(e) => updateBreak(idx, 'endTime', e.target.value)}
+                                      className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-slate-800 dark:text-slate-200 font-mono text-xs"
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => removeBreak(idx)}
+                                    className="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors ml-auto cursor-pointer"
+                                    title="Delete Break"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+
+                                {isInvalidRange && (
+                                  <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium pl-1">
+                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>End time should be after start time</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
 
