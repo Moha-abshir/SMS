@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ArrowLeft, CheckCircle2,
-  Sparkles, Trash2, Check, Search, Calendar
+  Trash2, Check, Search, Calendar
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -346,12 +346,12 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                   const currentAlloc = allocationBySubjectId.get(subj.id);
                   const isAllocated = Boolean(currentAlloc);
 
-                  // Teachers qualified for this subject
+                  // Teachers qualified to teach this subject (or currently allocated)
                   const qualifiedTeacherIds = qualifications
                     .filter((q) => q.subjectId === subj.id)
                     .map((q) => q.userId);
-                  const bestSuitedTeachers = teachers.filter((t) =>
-                    qualifiedTeacherIds.includes(t.id)
+                  const eligibleTeachers = teachers.filter(
+                    (t) => qualifiedTeacherIds.includes(t.id) || t.id === currentAlloc?.teacher.id
                   );
 
                   const selectedTeacherId =
@@ -397,46 +397,6 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                               </span>
                             )}
                           </div>
-
-                          {/* Specialist Recommendations (Only visible if specialists exist!) */}
-                          {bestSuitedTeachers.length > 0 && (
-                            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1 shrink-0">
-                                <Sparkles className="w-3 h-3" />
-                                Recommended:
-                              </span>
-                              {bestSuitedTeachers.map((t) => {
-                                const isAssigned = currentAlloc?.teacher.id === t.id;
-                                return (
-                                  <div
-                                    key={t.id}
-                                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                                      isAssigned
-                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
-                                        : 'bg-sky-500/5 dark:bg-sky-500/10 text-slate-700 dark:text-slate-300 border-sky-500/20 hover:border-sky-400'
-                                    }`}
-                                  >
-                                    <span>{t.firstName} {t.lastName}</span>
-                                    {isAssigned ? (
-                                      <span className="text-[9px] text-emerald-500 font-extrabold">(Active)</span>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        disabled={isSaving}
-                                        onClick={() => handleSaveAllocation(subj.id, t.id)}
-                                        className="text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline font-extrabold cursor-pointer ml-0.5 inline-flex items-center gap-1 disabled:opacity-50"
-                                      >
-                                        {isSaving && (
-                                          <div className="w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
-                                        )}
-                                        <span>Quick Assign</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
                         </div>
 
                         {/* Right: Compact dropdown & action buttons */}
@@ -463,22 +423,17 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                             className="flex-1 min-w-0 bg-slate-50 dark:bg-[#081224] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer disabled:opacity-50"
                           >
                             <option value="">-- Choose Teacher --</option>
-                            {bestSuitedTeachers.length > 0 && (
-                              <optgroup label="★ Qualified Specialists">
-                                {bestSuitedTeachers.map((t) => (
-                                  <option key={t.id} value={t.id}>
-                                    ★ {t.firstName} {t.lastName} (Specialist)
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                            <optgroup label="All Staff Teachers">
-                              {teachers.map((t) => (
+                            {eligibleTeachers.length > 0 ? (
+                              eligibleTeachers.map((t) => (
                                 <option key={t.id} value={t.id}>
                                   {t.firstName} {t.lastName}
                                 </option>
-                              ))}
-                            </optgroup>
+                              ))
+                            ) : (
+                              <option value="" disabled>
+                                No registered teachers for this subject
+                              </option>
+                            )}
                           </select>
 
                           {/* Save allocation button (fallback if pending differs) */}
