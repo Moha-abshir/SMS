@@ -137,6 +137,20 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   const [minFreePeriodsPerWeek, setMinFreePeriodsPerWeek] = useState<number>(5);
   const [specialStaffLimits, setSpecialStaffLimits] = useState<Record<string, number>>({});
 
+  // Under-allocated warning modal state (Pre-generation validation)
+  const [underAllocatedModalData, setUnderAllocatedModalData] = useState<{
+    isOpen: boolean;
+    classes: { id: string; name: string; count: number; missing: number }[];
+  }>({ isOpen: false, classes: [] });
+
+  // Post-generation conflict report modal state
+  const [generationReportData, setGenerationReportData] = useState<{
+    isOpen: boolean;
+    totalSlots: number;
+    totalRequired: number;
+    unplacedLessons: any[];
+  }>({ isOpen: false, totalSlots: 0, totalRequired: 0, unplacedLessons: [] });
+
   // Helper to calculate total minutes from HH:mm
   const timeToMinutes = (t: string) => {
     if (!t) return 0;
@@ -279,6 +293,50 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
       await apiClient.post('/api/timetable/config', payload);
 
       if (triggerGenerate) {
+        // Pre-generation validation across ALL classes
+        const underAllocated: { id: string; name: string; count: number; missing: number }[] = [];
+        const overAllocated: { name: string; count: number; excess: number }[] = [];
+
+        for (const cls of classesList) {
+          const clsSubjects = subjectsList.filter((s: any) => s.levelCategory === cls.levelCategory);
+          let clsLessons = 0;
+          for (const sub of clsSubjects) {
+            const req = getSubjectReq(cls.id, sub);
+            clsLessons += req.lessons;
+          }
+          if (clsLessons > totalWeeklyAvailableSlots) {
+            overAllocated.push({
+              name: cls.name,
+              count: clsLessons,
+              excess: clsLessons - totalWeeklyAvailableSlots,
+            });
+          } else if (clsLessons < totalWeeklyAvailableSlots) {
+            underAllocated.push({
+              id: cls.id,
+              name: cls.name,
+              count: clsLessons,
+              missing: totalWeeklyAvailableSlots - clsLessons,
+            });
+          }
+        }
+
+        if (overAllocated.length > 0) {
+          toast.error(
+            `Cannot generate: ${overAllocated.map((c) => `${c.name} (${c.count}/${totalWeeklyAvailableSlots})`).join(', ')} exceed weekly lesson capacity.`
+          );
+          setSaving(false);
+          return;
+        }
+
+        if (underAllocated.length > 0) {
+          setUnderAllocatedModalData({
+            isOpen: true,
+            classes: underAllocated,
+          });
+          setSaving(false);
+          return;
+        }
+
         setIsPasswordModalOpen(true);
       } else {
         // Short notification at most 6 words as requested by user
@@ -301,10 +359,21 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         term,
         password,
       });
-      toast.success(genRes.data?.message || 'Timetable generated successfully!');
+      const data = genRes.data?.data;
       setIsPasswordModalOpen(false);
-      onClose();
-      onGenerated();
+
+      if (data?.unplacedLessons && data.unplacedLessons.length > 0) {
+        setGenerationReportData({
+          isOpen: true,
+          totalSlots: data.count || data.totalSlots || 0,
+          totalRequired: data.totalRequiredLessons || 0,
+          unplacedLessons: data.unplacedLessons,
+        });
+      } else {
+        toast.success(genRes.data?.message || 'Timetable generated with 100% full coverage (0 free periods)!');
+        onClose();
+        onGenerated();
+      }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to generate timetable';
       throw new Error(msg);
@@ -949,6 +1018,15 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
                         {classesList.map((cls) => {
                           const isSelected = currentSelectedClass?.id === cls.id;
+                          const clsSubjects = subjectsList.filter((s: any) => s.levelCategory === cls.levelCategory);
+                          let clsLessons = 0;
+                          for (const sub of clsSubjects) {
+                            const req = getSubjectReq(cls.id, sub);
+                            clsLessons += req.lessons;
+                          }
+                          const isClsBalanced = clsLessons === totalWeeklyAvailableSlots;
+                          const isClsOver = clsLessons > totalWeeklyAvailableSlots;
+
                           return (
                             <button
                               key={cls.id}
@@ -962,13 +1040,21 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                             >
                               <span>{cls.name}</span>
                               <span
-                                className={`text-[10px] px-1 py-0.2 rounded font-normal ${
+                                className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                                   isSelected
-                                    ? 'bg-sky-700/60 text-sky-100'
-                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                                    ? isClsBalanced
+                                      ? 'bg-emerald-500/80 text-white'
+                                      : isClsOver
+                                      ? 'bg-rose-500/80 text-white'
+                                      : 'bg-amber-400 text-slate-900'
+                                    : isClsBalanced
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                    : isClsOver
+                                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
                                 }`}
                               >
-                                {cls.levelCategory === 'JUNIOR' ? 'JSS' : 'Upper'}
+                                {clsLessons}/{totalWeeklyAvailableSlots}
                               </span>
                             </button>
                           );
@@ -993,7 +1079,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                           ? 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900/60'
                           : isBalanced
                           ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-900/60'
-                          : 'bg-sky-50/70 dark:bg-[#0b1c38] border-sky-200 dark:border-sky-900/50'
+                          : 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900/60'
                       }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1002,7 +1088,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                         ) : isBalanced ? (
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         ) : (
-                          <Info className="w-4 h-4 text-sky-600 shrink-0" />
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                         )}
                         <div>
                           <strong className="text-slate-900 dark:text-slate-100">
@@ -1014,11 +1100,11 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                             </span>
                           ) : isBalanced ? (
                             <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                              100% Balanced ({totalClassLessons} / {totalWeeklyAvailableSlots} slots scheduled).
+                              100% Balanced ({totalClassLessons} / {totalWeeklyAvailableSlots} slots scheduled — 0 free periods).
                             </span>
                           ) : (
-                            <span className="text-slate-600 dark:text-slate-300">
-                              {totalClassLessons} of {totalWeeklyAvailableSlots} slots allocated ({remainingSlots} free / study slots remaining).
+                            <span className="text-amber-800 dark:text-amber-300 font-semibold">
+                              Incomplete ({totalClassLessons} of {totalWeeklyAvailableSlots} lessons). Students cannot have free time — please allocate {remainingSlots} more lessons.
                             </span>
                           )}
                         </div>
@@ -1440,6 +1526,148 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         title="Authorize School Timetable Generation"
         warningMessage="Generating or updating the live timetable will refresh scheduled periods across all Grades 4–9 and staff schedules. This action requires your Deputy Head Teacher password."
       />
+
+      {/* PRE-GENERATION FREE TIME WARNING MODAL */}
+      <AnimatePresence>
+        {underAllocatedModalData.isOpen && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setUnderAllocatedModalData({ isOpen: false, classes: [] })}
+              className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#0c182d] border border-amber-200 dark:border-amber-900/60 shadow-xl overflow-hidden p-5 space-y-4 z-10"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Free Time Warning: Incomplete Allocation
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Students are not supposed to have free periods. The following classes currently have unallocated slots:
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-black/20 border border-amber-200/60 dark:border-amber-900/40 divide-y divide-amber-100 dark:divide-amber-950 text-xs">
+                {underAllocatedModalData.classes.map((c) => (
+                  <div key={c.id} className="py-1.5 first:pt-0 last:pb-0 flex items-center justify-between">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{c.name}</span>
+                    <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                      {c.count} / {totalWeeklyAvailableSlots} lessons ({c.missing} free periods)
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Would you like to return to Step 3 to allocate the remaining lessons across subjects, or proceed to generate with free periods?
+              </p>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstClassId = underAllocatedModalData.classes[0]?.id;
+                    setUnderAllocatedModalData({ isOpen: false, classes: [] });
+                    setCurrentStep(3);
+                    if (firstClassId) setSelectedClassTab(firstClassId);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  Allocate Missing Lessons
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUnderAllocatedModalData({ isOpen: false, classes: [] });
+                    setIsPasswordModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Proceed Anyway
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* POST-GENERATION REPORT MODAL (When unplaced lessons exist) */}
+      <AnimatePresence>
+        {generationReportData.isOpen && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setGenerationReportData({ isOpen: false, totalSlots: 0, totalRequired: 0, unplacedLessons: [] });
+                onClose();
+                onGenerated();
+              }}
+              className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-[#0c182d] border border-amber-200 dark:border-amber-900/60 shadow-xl overflow-hidden p-5 space-y-4 z-10"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Timetable Generated With Scheduling Warnings
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Successfully placed <strong>{generationReportData.totalSlots}</strong> periods. However, {generationReportData.unplacedLessons.length} lessons could not be scheduled due to constraints:
+                  </p>
+                </div>
+              </div>
+
+              <div className="max-h-56 overflow-y-auto rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {generationReportData.unplacedLessons.map((item, i) => (
+                  <div key={i} className="p-2.5">
+                    <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
+                      <span>{item.className} • {item.subjectName}</span>
+                      <span className="text-[11px] font-medium text-slate-500">{item.teacherName}</span>
+                    </div>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                      {item.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGenerationReportData({ isOpen: false, totalSlots: 0, totalRequired: 0, unplacedLessons: [] });
+                    onClose();
+                    onGenerated();
+                  }}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  View Generated Timetable
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 };
