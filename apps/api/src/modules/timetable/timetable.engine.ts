@@ -39,6 +39,20 @@ export interface ClassSubjectTeacherItem {
   doubleLessonsCount: number;
 }
 
+export interface GenerationReportItem {
+  className: string;
+  subjectName: string;
+  teacherName: string;
+  reason: string;
+}
+
+export interface GenerationResult {
+  slots: GeneratedSlot[];
+  totalRequiredLessons: number;
+  totalPlacedLessons: number;
+  unplacedLessons: GenerationReportItem[];
+}
+
 export class TimetableEngine {
   /**
    * Helper to convert "HH:mm" time string to total minutes from midnight
@@ -185,16 +199,19 @@ export class TimetableEngine {
 
   /**
    * Generates a conflict-free, pedagogically balanced weekly timetable.
+   * Utilizes heuristic ordering (Double lessons first, then Highest Constrained Teachers)
+   * and a 1-step ejection/swap algorithm to eliminate unnecessary free periods for students.
    */
   static generate(params: {
     periodsGrid: Map<string, DayPeriodSlot[]>;
     allocations: ClassSubjectTeacherItem[];
     coCurriculars?: TimetableCoCurricular[];
     teacherConstraints?: TimetableTeacherConstraints;
-  }): GeneratedSlot[] {
+  }): GenerationResult {
     const { periodsGrid, allocations, coCurriculars, teacherConstraints } = params;
 
     const resultSlots: GeneratedSlot[] = [];
+    const unplacedLessons: GenerationReportItem[] = [];
 
     // Tracks: (day, periodIndex, teacherId) -> boolean
     const teacherOccupied = new Set<string>();
@@ -202,6 +219,8 @@ export class TimetableEngine {
     const classOccupied = new Set<string>();
     // Tracks: (classId, subjectId, day) -> count of lessons
     const classSubjectDayCount = new Map<string, number>();
+    // Maps: (day, periodIndex, classId) -> index in resultSlots
+    const classSlotMap = new Map<string, number>();
 
     // 1. Mark co-curricular fixed slots as occupied for designated classes
     if (coCurriculars) {
@@ -212,7 +231,6 @@ export class TimetableEngine {
       }
     }
 
-    // Separate lessons to schedule: Double lessons first, then Single lessons
     interface SchedulingTask {
       item: ClassSubjectTeacherItem;
       isDouble: boolean;
@@ -220,9 +238,20 @@ export class TimetableEngine {
 
     const tasks: SchedulingTask[] = [];
     const teacherAssignedLessons = new Map<string, number>();
+    let totalRequiredLessons = 0;
+
+    // Calculate teacher total workload across all allocated classes (to prioritize high-demand teachers)
+    const teacherTotalWorkload = new Map<string, number>();
+    for (const alloc of allocations) {
+      teacherTotalWorkload.set(
+        alloc.teacherId,
+        (teacherTotalWorkload.get(alloc.teacherId) || 0) + alloc.lessonsPerWeek
+      );
+    }
 
     for (const alloc of allocations) {
       let remainingLessons = alloc.lessonsPerWeek;
+      totalRequiredLessons += alloc.lessonsPerWeek;
       const doubleCount = alloc.doubleLessonsCount || 0;
 
       // Administrative & Special Staff workload cap enforcement
@@ -230,9 +259,28 @@ export class TimetableEngine {
       if (staffCap !== undefined && staffCap >= 0) {
         const alreadyScheduled = teacherAssignedLessons.get(alloc.teacherId) || 0;
         if (alreadyScheduled >= staffCap) {
+          const dropped = remainingLessons;
           remainingLessons = 0;
+          if (dropped > 0) {
+            unplacedLessons.push({
+              className: alloc.className,
+              subjectName: alloc.subjectName,
+              teacherName: alloc.teacherName,
+              reason: `Staff workload limit reached (${staffCap} weekly lessons maximum configured for ${alloc.teacherName})`,
+            });
+          }
         } else if (alreadyScheduled + remainingLessons > staffCap) {
-          remainingLessons = Math.max(0, staffCap - alreadyScheduled);
+          const allowed = Math.max(0, staffCap - alreadyScheduled);
+          const dropped = remainingLessons - allowed;
+          remainingLessons = allowed;
+          if (dropped > 0) {
+            unplacedLessons.push({
+              className: alloc.className,
+              subjectName: alloc.subjectName,
+              teacherName: alloc.teacherName,
+              reason: `Staff workload limit reached (${staffCap} weekly lessons maximum configured for ${alloc.teacherName})`,
+            });
+          }
         }
       }
 
@@ -240,20 +288,34 @@ export class TimetableEngine {
       for (let i = 0; i < doubleCount && remainingLessons >= 2; i++) {
         tasks.push({ item: alloc, isDouble: true });
         remainingLessons -= 2;
-        teacherAssignedLessons.set(alloc.teacherId, (teacherAssignedLessons.get(alloc.teacherId) || 0) + 2);
+        teacherAssignedLessons.set(
+          alloc.teacherId,
+          (teacherAssignedLessons.get(alloc.teacherId) || 0) + 2
+        );
       }
 
       // Add single periods
       for (let i = 0; i < remainingLessons; i++) {
         tasks.push({ item: alloc, isDouble: false });
-        teacherAssignedLessons.set(alloc.teacherId, (teacherAssignedLessons.get(alloc.teacherId) || 0) + 1);
+        teacherAssignedLessons.set(
+          alloc.teacherId,
+          (teacherAssignedLessons.get(alloc.teacherId) || 0) + 1
+        );
       }
     }
 
-    // Sort tasks: Double lessons first, then subjects with fewer candidate days
+    // Heuristic task ordering (Most Constrained First):
+    // 1. Double lessons first (hardest to fit)
+    // 2. Teachers with highest overall school-wide workload (multi-grade specialist teachers)
+    // 3. Highest lessons per week
     tasks.sort((a, b) => {
       if (a.isDouble && !b.isDouble) return -1;
       if (!a.isDouble && b.isDouble) return 1;
+
+      const workloadA = teacherTotalWorkload.get(a.item.teacherId) || 0;
+      const workloadB = teacherTotalWorkload.get(b.item.teacherId) || 0;
+      if (workloadB !== workloadA) return workloadB - workloadA;
+
       return b.item.lessonsPerWeek - a.item.lessonsPerWeek;
     });
 
@@ -283,8 +345,8 @@ export class TimetableEngine {
         return lessonsA - lessonsB;
       });
 
-      // Try Pass 1 (Strict day-spreading: 1 lesson per subject per day)
-      // If no slot is free in Pass 1, fall back to Pass 2 (Allow 2nd lesson on a day if needed)
+      // Pass 1: Strict day spreading (1 lesson per subject per day)
+      // Pass 2: Flexible day spreading (allow second lesson on same day if needed)
       for (const allowMultipleOnSameDay of [false, true]) {
         if (scheduled) break;
 
@@ -294,18 +356,17 @@ export class TimetableEngine {
           const daySlots = periodsGrid.get(day) || [];
           const teachingSlots = daySlots.filter((s) => !s.isBreak);
 
-          const existingOnDay = classSubjectDayCount.get(`${item.classId}_${item.subjectId}_${day}`) || 0;
+          const existingOnDay =
+            classSubjectDayCount.get(`${item.classId}_${item.subjectId}_${day}`) || 0;
           if (!allowMultipleOnSameDay && existingOnDay > 0) {
             continue; // Try strict day spreading first
           }
 
           if (isDouble) {
-            // Look for 2 consecutive teaching slots not separated by a break
             for (let i = 0; i < teachingSlots.length - 1; i++) {
               const slot1 = teachingSlots[i];
               const slot2 = teachingSlots[i + 1];
 
-              // Verify they are consecutive periods
               if (slot2.periodIndex !== slot1.periodIndex + 1) continue;
 
               const classBusy1 = classOccupied.has(`${day}_${slot1.periodIndex}_${item.classId}`);
@@ -314,12 +375,12 @@ export class TimetableEngine {
               const teacherBusy2 = teacherOccupied.has(`${day}_${slot2.periodIndex}_${item.teacherId}`);
 
               if (!classBusy1 && !classBusy2 && !teacherBusy1 && !teacherBusy2) {
-                // Reserve both slots
                 classOccupied.add(`${day}_${slot1.periodIndex}_${item.classId}`);
                 classOccupied.add(`${day}_${slot2.periodIndex}_${item.classId}`);
                 teacherOccupied.add(`${day}_${slot1.periodIndex}_${item.teacherId}`);
                 teacherOccupied.add(`${day}_${slot2.periodIndex}_${item.teacherId}`);
 
+                const idx1 = resultSlots.length;
                 resultSlots.push({
                   classId: item.classId,
                   subjectId: item.subjectId,
@@ -332,6 +393,7 @@ export class TimetableEngine {
                   doubleLessonPart: 1,
                 });
 
+                const idx2 = resultSlots.length;
                 resultSlots.push({
                   classId: item.classId,
                   subjectId: item.subjectId,
@@ -343,6 +405,9 @@ export class TimetableEngine {
                   isDoubleLesson: true,
                   doubleLessonPart: 2,
                 });
+
+                classSlotMap.set(`${day}_${slot1.periodIndex}_${item.classId}`, idx1);
+                classSlotMap.set(`${day}_${slot2.periodIndex}_${item.classId}`, idx2);
 
                 classSubjectDayCount.set(
                   `${item.classId}_${item.subjectId}_${day}`,
@@ -363,6 +428,7 @@ export class TimetableEngine {
                 classOccupied.add(`${day}_${slot.periodIndex}_${item.classId}`);
                 teacherOccupied.add(`${day}_${slot.periodIndex}_${item.teacherId}`);
 
+                const slotIdx = resultSlots.length;
                 resultSlots.push({
                   classId: item.classId,
                   subjectId: item.subjectId,
@@ -373,6 +439,8 @@ export class TimetableEngine {
                   endTime: slot.endTime,
                   isDoubleLesson: false,
                 });
+
+                classSlotMap.set(`${day}_${slot.periodIndex}_${item.classId}`, slotIdx);
 
                 classSubjectDayCount.set(
                   `${item.classId}_${item.subjectId}_${day}`,
@@ -387,13 +455,92 @@ export class TimetableEngine {
         }
       }
 
+      // Pass 3: 1-Step Ejection / Swap for Single Lessons
+      // If our teacher is free at (day, period) but the class has another lesson, see if that other lesson can be moved to an open slot
+      if (!scheduled && !isDouble) {
+        for (const day of schoolDays) {
+          if (scheduled) break;
+          const daySlots = periodsGrid.get(day) || [];
+          const teachingSlots = daySlots.filter((s) => !s.isBreak);
+
+          for (const s of teachingSlots) {
+            if (scheduled) break;
+            const teacherBusy = teacherOccupied.has(`${day}_${s.periodIndex}_${item.teacherId}`);
+            if (teacherBusy) continue; // Our teacher must be free in this slot
+
+            const occupantIdx = classSlotMap.get(`${day}_${s.periodIndex}_${item.classId}`);
+            if (occupantIdx === undefined) continue;
+            const occupant = resultSlots[occupantIdx];
+            if (!occupant || occupant.isDoubleLesson) continue; // Don't break double lessons
+
+            // Try to move occupant to another day/period where both class & occupant teacher are free
+            for (const altDay of schoolDays) {
+              if (scheduled) break;
+              const altDaySlots = (periodsGrid.get(altDay) || []).filter((sl) => !sl.isBreak);
+
+              for (const altS of altDaySlots) {
+                if (altDay === day && altS.periodIndex === s.periodIndex) continue;
+
+                const altClassBusy = classOccupied.has(`${altDay}_${altS.periodIndex}_${item.classId}`);
+                const altTeacherBusy = teacherOccupied.has(`${altDay}_${altS.periodIndex}_${occupant.teacherId}`);
+
+                if (!altClassBusy && !altTeacherBusy) {
+                  // Relocate occupant to alt slot
+                  classOccupied.delete(`${day}_${s.periodIndex}_${item.classId}`);
+                  teacherOccupied.delete(`${day}_${s.periodIndex}_${occupant.teacherId}`);
+
+                  classOccupied.add(`${altDay}_${altS.periodIndex}_${item.classId}`);
+                  teacherOccupied.add(`${altDay}_${altS.periodIndex}_${occupant.teacherId}`);
+
+                  occupant.dayOfWeek = altDay;
+                  occupant.periodIndex = altS.periodIndex;
+                  occupant.startTime = altS.startTime;
+                  occupant.endTime = altS.endTime;
+
+                  classSlotMap.delete(`${day}_${s.periodIndex}_${item.classId}`);
+                  classSlotMap.set(`${altDay}_${altS.periodIndex}_${item.classId}`, occupantIdx);
+
+                  // Place our task in the vacated slot
+                  classOccupied.add(`${day}_${s.periodIndex}_${item.classId}`);
+                  teacherOccupied.add(`${day}_${s.periodIndex}_${item.teacherId}`);
+
+                  const newSlotIdx = resultSlots.length;
+                  resultSlots.push({
+                    classId: item.classId,
+                    subjectId: item.subjectId,
+                    teacherId: item.teacherId,
+                    dayOfWeek: day,
+                    periodIndex: s.periodIndex,
+                    startTime: s.startTime,
+                    endTime: s.endTime,
+                    isDoubleLesson: false,
+                  });
+
+                  classSlotMap.set(`${day}_${s.periodIndex}_${item.classId}`, newSlotIdx);
+                  scheduled = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
       if (!scheduled) {
-        console.warn(
-          `Could not fit ${isDouble ? 'double' : 'single'} period for ${item.className} - ${item.subjectName} with teacher ${item.teacherName}.`
-        );
+        unplacedLessons.push({
+          className: item.className,
+          subjectName: item.subjectName,
+          teacherName: item.teacherName,
+          reason: `Schedule clash: all available teaching periods for ${item.className} overlap with ${item.teacherName}'s schedule in other grades`,
+        });
       }
     }
 
-    return resultSlots;
+    return {
+      slots: resultSlots,
+      totalRequiredLessons,
+      totalPlacedLessons: resultSlots.length,
+      unplacedLessons,
+    };
   }
 }

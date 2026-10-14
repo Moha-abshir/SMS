@@ -412,8 +412,8 @@ export class TimetableService {
         subjectName: a.subjectName,
         teacherId: a.teacherId,
         teacherName: `${a.teacherFirstName} ${a.teacherLastName}`,
-        lessonsPerWeek: customReq?.lessonsPerWeek ?? defaultReq.lessons,
-        doubleLessonsCount: customReq?.doubleLessonsCount ?? defaultReq.doubleLessons,
+        lessonsPerWeek: customReq?.lessonsPerWeek ?? (customReq as any)?.weeklyLessons ?? defaultReq.lessons,
+        doubleLessonsCount: customReq?.doubleLessonsCount ?? (customReq as any)?.doubleLessonCount ?? defaultReq.doubleLessons,
       };
     });
 
@@ -447,12 +447,13 @@ export class TimetableService {
     }
 
     // 7. Run generation algorithm
-    const generatedSlots = TimetableEngine.generate({
+    const genResult = TimetableEngine.generate({
       periodsGrid,
       allocations: schedulingItems,
       coCurriculars: (config.coCurriculars as TimetableCoCurricular[] | undefined) || undefined,
       teacherConstraints: (config.teacherConstraints as TimetableTeacherConstraints | undefined) || undefined,
     });
+    const generatedSlots = genResult.slots;
 
     // 8. Atomic commit: clear existing slots and insert generated ones
     await db.transaction(async (tx) => {
@@ -486,7 +487,13 @@ export class TimetableService {
       count: generatedSlots.length,
       academicYear: year,
       term: t,
-      message: `Successfully generated ${generatedSlots.length} timetable periods for Grades 4 to 9.`,
+      totalRequiredLessons: genResult.totalRequiredLessons,
+      totalPlacedLessons: genResult.totalPlacedLessons,
+      unplacedLessons: genResult.unplacedLessons,
+      message:
+        genResult.unplacedLessons.length === 0
+          ? `Successfully generated 100% full timetable schedule (${generatedSlots.length} periods) with zero free periods.`
+          : `Generated ${generatedSlots.length} periods. Note: ${genResult.unplacedLessons.length} lessons could not be scheduled due to constraints.`,
     };
   }
 
