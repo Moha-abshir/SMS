@@ -610,10 +610,29 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
                         {/* Period & Break Cells for this day */}
                         {timelineColumns.map((colDef, colIdx) => {
-                          const slotDef = daySlots[colIdx];
+                          const slotDef = colDef.isBreak
+                            ? daySlots.find(
+                                (s) =>
+                                  s.isBreak &&
+                                  (s.startTime === colDef.startTime ||
+                                    s.breakName === colDef.breakName)
+                              )
+                            : daySlots.find(
+                                (s) => !s.isBreak && s.periodIndex === colDef.periodIndex
+                              );
 
-                          // Case 1: Slot does not exist on this day (e.g. Friday early dismissal)
+                          // Case 1: Slot does not exist on this day (e.g. Friday early dismissal or break not on this day)
                           if (!slotDef) {
+                            if (colDef.isBreak) {
+                              return (
+                                <td
+                                  key={colIdx}
+                                  className="p-2 border-r border-slate-200 dark:border-slate-800 last:border-r-0 bg-slate-50/30 dark:bg-[#070e1c] text-center text-slate-300 dark:text-slate-700 text-xs align-middle"
+                                >
+                                  —
+                                </td>
+                              );
+                            }
                             return (
                               <td
                                 key={colIdx}
