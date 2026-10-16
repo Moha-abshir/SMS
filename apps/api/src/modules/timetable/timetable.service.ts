@@ -9,11 +9,14 @@ import {
   teacherSubjectAllocations,
   systemSettings,
   academicTerms,
+  roles,
   eq,
   and,
   ne,
   isNull,
   inArray,
+  not,
+  asc,
   SubjectLessonRequirement,
   FridaySpecialSchedule,
   TimetableCoCurricular,
@@ -57,6 +60,53 @@ export class TimetableService {
         )
       )
       .orderBy(classes.numericOrder);
+  }
+
+  /**
+   * Returns clean target teachers list for Grades 4 to 9.
+   * Excludes class teachers of classes we do NOT design timetable for (Playgroup, PP1, PP2, Grade 1 to 3).
+   */
+  static async getTargetTeachers() {
+    // 1. Find class teachers of non-target classes (Playgroup, Pre-Primary, Lower Primary)
+    const nonTargetClasses = await db
+      .select({ classTeacherId: classes.classTeacherId })
+      .from(classes)
+      .where(
+        and(
+          not(inArray(classes.levelCategory, ['UPPER_PRIMARY', 'JUNIOR'])),
+          isNull(classes.deletedAt)
+        )
+      );
+
+    const excludedTeacherIds = new Set(
+      nonTargetClasses
+        .map((c) => c.classTeacherId)
+        .filter((id): id is string => Boolean(id))
+    );
+
+    // 2. Fetch active teachers belonging to teaching roles
+    const allTeachers = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phoneNumber: users.phoneNumber,
+        roleName: roles.name,
+      })
+      .from(users)
+      .leftJoin(roles, eq(users.roleId, roles.id))
+      .where(
+        and(
+          eq(users.isActive, true),
+          isNull(users.deletedAt),
+          inArray(roles.name, ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'])
+        )
+      )
+      .orderBy(asc(users.firstName), asc(users.lastName));
+
+    // 3. Exclude teachers who are class teachers of non-target classes
+    return allTeachers.filter((t) => !excludedTeacherIds.has(t.id));
   }
 
   /**

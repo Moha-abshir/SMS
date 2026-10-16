@@ -39,6 +39,16 @@ export class TimetableController {
     }
   }
 
+  static async getTargetTeachers(req: Request, res: Response) {
+    try {
+      const data = await TimetableService.getTargetTeachers();
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      console.error('Error fetching target teachers:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch target teachers' });
+    }
+  }
+
   static async getAllocationsStatus(req: Request, res: Response) {
     try {
       const year = req.query.academicYear ? parseInt(req.query.academicYear as string, 10) : undefined;

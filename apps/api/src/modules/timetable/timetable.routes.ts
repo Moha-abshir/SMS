@@ -27,6 +27,7 @@ router.post('/generate', requireDeputyHead, TimetableController.generate);
 
 // Metadata & Status
 router.get('/classes', TimetableController.getTargetClasses);
+router.get('/teachers', TimetableController.getTargetTeachers);
 router.get('/status', TimetableController.getAllocationsStatus);
 
 // Timetable views

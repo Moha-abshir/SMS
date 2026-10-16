@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Clock, BookOpen, Users, Printer, Settings,
   Sparkles, AlertCircle, ArrowRightLeft, UserCheck, CheckCircle2,
-  ChevronDown, X, Info, Download, ShieldCheck, AlertTriangle, ArrowRight
+  ChevronDown, X, Info, Download, ShieldCheck, AlertTriangle, ArrowRight,
+  Search, Check, GraduationCap, User
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -44,6 +45,289 @@ const DAYS_OF_WEEK = [
   { id: 'THURSDAY', label: 'Thursday', short: 'Thu' },
   { id: 'FRIDAY', label: 'Friday', short: 'Fri' },
 ];
+
+/* Custom Designed Dropdown for Selecting Teachers */
+const TeacherSelectDropdown: React.FC<{
+  teachers: any[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}> = ({ teachers, selectedId, onSelect }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedTeacher = useMemo(
+    () => teachers.find((t) => t.id === selectedId) || teachers[0],
+    [teachers, selectedId]
+  );
+
+  const filteredTeachers = useMemo(() => {
+    if (!search.trim()) return teachers;
+    const q = search.toLowerCase();
+    return teachers.filter(
+      (t) =>
+        `${t.firstName} ${t.lastName}`.toLowerCase().includes(q) ||
+        (t.roleName && t.roleName.toLowerCase().includes(q))
+    );
+  }, [teachers, search]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const formatRole = (role?: string) => {
+    if (!role) return 'Teacher';
+    if (role === 'HEAD_TEACHER') return 'Head Teacher';
+    if (role === 'DEPUTY_HEAD' || role === 'DEPUTY_HEAD_TEACHER') return 'Deputy Head';
+    if (role === 'DOS') return 'DOS';
+    return role.replace(/_/g, ' ');
+  };
+
+  const getInitials = (firstName?: string, lastName?: string) => {
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'T';
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setSearch('');
+        }}
+        className={`flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs ${
+          isOpen
+            ? 'border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/60 dark:bg-[#0c1830]'
+            : 'border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] hover:border-sky-300 dark:hover:border-sky-500/50'
+        } text-slate-800 dark:text-slate-100 min-w-[210px] max-w-[280px]`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          <div className="w-5 h-5 rounded-md bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 flex items-center justify-center text-[10px] font-black shrink-0 border border-sky-200/60 dark:border-sky-800/60">
+            {getInitials(selectedTeacher?.firstName, selectedTeacher?.lastName)}
+          </div>
+          <span className="truncate">
+            {selectedTeacher ? `${selectedTeacher.firstName} ${selectedTeacher.lastName}` : 'Select Teacher'}
+          </span>
+          {selectedTeacher?.roleName && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#162b4d] shrink-0">
+              {formatRole(selectedTeacher.roleName)}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+            isOpen ? 'rotate-180 text-sky-500' : ''
+          }`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-1.5 w-72 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-xl z-50 overflow-hidden"
+          >
+            {teachers.length > 5 && (
+              <div className="p-2 border-b border-slate-100 dark:border-[#162b4d]">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search teacher..."
+                    autoFocus
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+              {filteredTeachers.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-slate-400">
+                  No matching teachers found
+                </div>
+              ) : (
+                filteredTeachers.map((t) => {
+                  const isSelected = t.id === selectedId;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        onSelect(t.id);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                        isSelected
+                          ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 font-bold'
+                          : 'hover:bg-slate-50 dark:hover:bg-[#0c1830] text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <div
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 border ${
+                            isSelected
+                              ? 'bg-sky-500 text-white border-sky-600'
+                              : 'bg-slate-100 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#162b4d]'
+                          }`}
+                        >
+                          {getInitials(t.firstName, t.lastName)}
+                        </div>
+                        <div className="truncate">
+                          <span className="block truncate">
+                            {t.firstName} {t.lastName}
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-400 block truncate">
+                            {formatRole(t.roleName)}
+                          </span>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-sky-500 shrink-0 ml-1" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/* Custom Designed Dropdown for Selecting Grades */
+const GradeSelectDropdown: React.FC<{
+  classes: any[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}> = ({ classes, selectedId, onSelect }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedClass = useMemo(
+    () => classes.find((c) => c.id === selectedId) || classes[0],
+    [classes, selectedId]
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const formatCategory = (cat?: string) => {
+    if (cat === 'JUNIOR') return 'Junior Secondary';
+    return 'Upper Primary';
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs ${
+          isOpen
+            ? 'border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/60 dark:bg-[#0c1830]'
+            : 'border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] hover:border-sky-300 dark:hover:border-sky-500/50'
+        } text-slate-800 dark:text-slate-100 min-w-[190px] max-w-[260px]`}
+      >
+        <div className="flex items-center gap-2 truncate">
+          <GraduationCap className="w-4 h-4 text-sky-500 shrink-0" />
+          <span className="truncate">{selectedClass ? selectedClass.name : 'Select Grade'}</span>
+          {selectedClass && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-[#162b4d] shrink-0">
+              {formatCategory(selectedClass.levelCategory)}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+            isOpen ? 'rotate-180 text-sky-500' : ''
+          }`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-1.5 w-64 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-xl z-50 overflow-hidden p-1.5 space-y-0.5"
+          >
+            {classes.map((cls) => {
+              const isSelected = cls.id === selectedId;
+              return (
+                <button
+                  key={cls.id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(cls.id);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
+                    isSelected
+                      ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 font-bold'
+                      : 'hover:bg-slate-50 dark:hover:bg-[#0c1830] text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <GraduationCap
+                      className={`w-4 h-4 shrink-0 ${isSelected ? 'text-sky-500' : 'text-slate-400'}`}
+                    />
+                    <div className="truncate">
+                      <span className="block truncate font-bold">{cls.name}</span>
+                      <span className="text-[10px] font-medium text-slate-400 block truncate">
+                        {formatCategory(cls.levelCategory)}
+                      </span>
+                    </div>
+                  </div>
+                  {isSelected && <Check className="w-4 h-4 text-sky-500 shrink-0 ml-1" />}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export const TimetableManagementView: React.FC<TimetableManagementViewProps> = ({ user }) => {
   const navigate = useNavigate();
@@ -107,9 +391,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
     const init = async () => {
       try {
         setInitialLoading(true);
-        const [settingsRes, classesRes, allocRes, statusRes] = await Promise.all([
+        const [settingsRes, classesRes, teachersRes, allocRes, statusRes] = await Promise.all([
           apiClient.get('/api/settings/public'),
           apiClient.get('/api/timetable/classes'),
+          apiClient.get('/api/timetable/teachers'),
           apiClient.get('/api/allocations'),
           apiClient.get('/api/timetable/status'),
         ]);
@@ -129,15 +414,16 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           setSelectedClassId(cleanClasses[0].id);
         }
 
-        if (allocRes.data?.data) {
-          const { academicYear: yr, teachers } = allocRes.data.data;
-          if (yr) setAcademicYear(yr);
-          setTeachersList(teachers || []);
+        if (allocRes.data?.data?.academicYear) {
+          setAcademicYear(allocRes.data.data.academicYear);
+        }
 
-          if (!selectedTeacherId && teachers?.length > 0) {
-            const currentTeacher = teachers.find((t: any) => t.id === user?.id);
-            setSelectedTeacherId(currentTeacher ? currentTeacher.id : teachers[0].id);
-          }
+        const cleanTeachers = teachersRes.data?.data || [];
+        setTeachersList(cleanTeachers);
+
+        if (cleanTeachers.length > 0) {
+          const currentTeacher = cleanTeachers.find((t: any) => t.id === user?.id);
+          setSelectedTeacherId(currentTeacher ? currentTeacher.id : cleanTeachers[0].id);
         }
       } catch (err: any) {
         console.error('Error fetching initial timetable metadata', err);
@@ -448,34 +734,22 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           {activeTab === 'class' && !isHeadTeacher && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Select Grade:</span>
-              <select
-                value={selectedClassId}
-                onChange={(e) => setSelectedClassId(e.target.value)}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs font-bold text-slate-800 dark:text-slate-100 shadow-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
-              >
-                {classesList.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name} ({cls.levelCategory === 'JUNIOR' ? 'Junior Secondary' : 'Upper Primary'})
-                  </option>
-                ))}
-              </select>
+              <GradeSelectDropdown
+                classes={classesList}
+                selectedId={selectedClassId}
+                onSelect={(id) => setSelectedClassId(id)}
+              />
             </div>
           )}
 
           {activeTab === 'teacher' && isDeputy && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Select Teacher:</span>
-              <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-xs font-bold text-slate-800 dark:text-slate-100 shadow-xs focus:ring-2 focus:ring-sky-500 cursor-pointer"
-              >
-                {teachersList.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.firstName} {t.lastName} {t.roleName ? `(${t.roleName})` : ''}
-                  </option>
-                ))}
-              </select>
+              <TeacherSelectDropdown
+                teachers={teachersList}
+                selectedId={selectedTeacherId}
+                onSelect={(id) => setSelectedTeacherId(id)}
+              />
             </div>
           )}
         </div>
