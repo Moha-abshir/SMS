@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users, Trash2 } from 'lucide-react';
+import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users, Trash2, Phone, Sparkles } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
@@ -415,6 +415,181 @@ export const StaffManagementView: React.FC = () => {
     }
   };
 
+  const getInitials = (firstName?: string, lastName?: string) => {
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'S';
+  };
+
+  const renderActionButtons = (s: any) => {
+    if (activeTab === 'DEACTIVATED') {
+      return (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => handleToggleStatus(s)}
+            disabled={togglingStaffId === s.id}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+            title="Restore account access and allow login"
+          >
+            {togglingStaffId === s.id ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                <span>Reactivating...</span>
+              </>
+            ) : (
+              <>
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Reactivate</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              setSelectedStaff(s);
+              setShowContractModal(true);
+            }}
+            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Employment Contract Preview & Print"
+          >
+            <FileText className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => openEditModal(s)}
+            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Edit Details"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+        </div>
+      );
+    }
+
+    if (!s.isInvitation) {
+      return (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => {
+              setSelectedStaff(s);
+              setShowContractModal(true);
+            }}
+            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Employment Contract Preview & Print"
+          >
+            <FileText className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => openEditModal(s)}
+            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Edit Details & Teaching Qualifications"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => openEmailRecoveryModal(s)}
+            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Recover / Change Staff Email"
+          >
+            <Mail className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedStaff(s);
+              setAdminPasswordConfirm('');
+              setShow2FaResetModal(true);
+            }}
+            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Reset 2FA Configuration"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleToggleStatus(s)}
+            disabled={togglingStaffId === s.id}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+              s.classTeacherFor && s.classTeacherFor.length > 0
+                ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+            }`}
+            title={
+              s.classTeacherFor && s.classTeacherFor.length > 0
+                ? `Active Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')} (Cannot be deactivated)`
+                : 'Deactivate Staff Account (Block Access)'
+            }
+          >
+            {togglingStaffId === s.id ? (
+              <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            ) : (
+              <ShieldAlert className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1.5 shrink-0">
+        {s.invitationStatus === 'PENDING' && (
+          <>
+            <button
+              onClick={() => handleResendInvitation(s.id)}
+              disabled={resendingInviteId === s.id}
+              className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Resend Invitation"
+            >
+              {resendingInviteId === s.id ? (
+                <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              onClick={() => handleCancelInvitation(s.id)}
+              disabled={cancellingInviteId === s.id}
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Cancel Invitation"
+            >
+              {cancellingInviteId === s.id ? (
+                <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin shrink-0" />
+              ) : (
+                <Ban className="w-4 h-4" />
+              )}
+            </button>
+          </>
+        )}
+        {s.invitationStatus === 'EXPIRED' && (
+          <>
+            <button
+              onClick={() => handleResendInvitation(s.id)}
+              disabled={resendingInviteId === s.id}
+              className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Resend Invitation (60 mins)"
+            >
+              {resendingInviteId === s.id ? (
+                <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              onClick={() => setInvitationToDelete(s)}
+              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              title="Delete Expired Staff Member"
+            >
+              <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
+            </button>
+          </>
+        )}
+        {s.invitationStatus === 'CANCELLED' && (
+          <button
+            onClick={() => setInvitationToDelete(s)}
+            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Delete Cancelled Staff Member"
+          >
+            <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -511,17 +686,95 @@ export const StaffManagementView: React.FC = () => {
         </div>
       )}
 
-      {/* Staff Table */}
+      {/* Staff Directory Container: Responsive Cards for Mobile/Tablet (< lg) + Pristine Wide Table for Desktop (>= lg) */}
       <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-glass border border-sky-100 dark:border-[#162b4d] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px]">
+        {/* 1. Mobile & Split-Screen Responsive Card List (< lg) */}
+        <div className="lg:hidden divide-y divide-sky-100/70 dark:divide-[#162b4d]/70">
+          {loading ? (
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">Loading staff directory...</div>
+          ) : displayedList.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+              {activeTab === 'ACTIVE' && 'No active staff members found.'}
+              {activeTab === 'DEACTIVATED' && 'No deactivated staff accounts. All registered staff are currently active.'}
+              {activeTab === 'INVITATIONS' && 'No pending invitations. Click "Invite Staff" above to invite new team members.'}
+            </div>
+          ) : (
+            displayedList.map((s) => (
+              <div key={s.id} className="p-4 space-y-3 hover:bg-sky-50/30 dark:hover:bg-[#0c1830]/40 transition-colors">
+                {/* Header row: Avatar + Name + TSC + Role & Status Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 flex items-center justify-center font-bold text-xs shrink-0 border border-sky-200/60 dark:border-sky-800/60 shadow-xs">
+                      {getInitials(s.firstName, s.lastName)}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
+                        {s.firstName} {s.lastName}
+                      </h3>
+                      {s.tscNumber ? (
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">
+                          TSC: {s.tscNumber}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block">
+                          Staff Member
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    <span className="px-2.5 py-0.5 bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold whitespace-nowrap">
+                      {s.roleName ? s.roleName.replace(/_/g, ' ') : 'STAFF'}
+                    </span>
+                    <div>{getStatusBadge(s)}</div>
+                  </div>
+                </div>
+
+                {/* Class Teacher Badge (if assigned) */}
+                {s.classTeacherFor && s.classTeacherFor.length > 0 && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>Class Teacher ({s.classTeacherFor.map((c: any) => c.name).join(', ')})</span>
+                  </div>
+                )}
+
+                {/* Contact Information */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300 pt-0.5">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{s.email}</span>
+                  </div>
+                  {s.phoneNumber && (
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{s.phoneNumber}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions row */}
+                <div className="pt-2 border-t border-sky-100/60 dark:border-[#162b4d]/60 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Quick Actions
+                  </span>
+                  {renderActionButtons(s)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 2. Desktop Wide Table View (>= lg) */}
+        <div className="hidden lg:block overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[880px]">
             <thead>
-              <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold">
-                <th className="p-3.5 sm:p-4">Name</th>
-                <th className="p-3.5 sm:p-4">Role</th>
-                <th className="p-3.5 sm:p-4">Contact</th>
-                <th className="p-3.5 sm:p-4">Status</th>
-                <th className="p-3.5 sm:p-4 text-right">Actions</th>
+              <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold sticky top-0 z-10 backdrop-blur-md">
+                <th className="p-3.5 sm:p-4 min-w-[280px]">Staff Member</th>
+                <th className="p-3.5 sm:p-4 min-w-[130px]">Role</th>
+                <th className="p-3.5 sm:p-4 min-w-[220px]">Contact Info</th>
+                <th className="p-3.5 sm:p-4 min-w-[150px]">Status</th>
+                <th className="p-3.5 sm:p-4 min-w-[160px] text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-50 dark:divide-[#162b4d] text-sm">
@@ -541,196 +794,53 @@ export const StaffManagementView: React.FC = () => {
                 displayedList.map((s) => (
                   <tr key={s.id} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/50 transition-colors">
                     <td className="p-4 font-semibold text-slate-900 dark:text-slate-100">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span>{s.firstName} {s.lastName}</span>
-                        {s.classTeacherFor && s.classTeacherFor.length > 0 && (
-                          <span
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
-                            title={`Assigned Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')}`}
-                          >
-                            Class Teacher ({s.classTeacherFor.map((c: any) => c.name).join(', ')})
-                          </span>
-                        )}
-                      </div>
-                      {s.tscNumber && (
-                        <div className="text-[11px] text-slate-400 dark:text-slate-500 font-normal">
-                          TSC: {s.tscNumber}
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 flex items-center justify-center font-bold text-xs shrink-0 border border-sky-200/60 dark:border-sky-800/60 shadow-xs">
+                          {getInitials(s.firstName, s.lastName)}
                         </div>
-                      )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                              {s.firstName} {s.lastName}
+                            </span>
+                            {s.classTeacherFor && s.classTeacherFor.length > 0 && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 whitespace-nowrap shrink-0"
+                                title={`Assigned Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')}`}
+                              >
+                                <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                                Class Teacher ({s.classTeacherFor.map((c: any) => c.name).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                          {s.tscNumber && (
+                            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap mt-0.5">
+                              TSC: {s.tscNumber}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-4">
-                      <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold inline-block">
+                      <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold whitespace-nowrap inline-block">
                         {s.roleName ? s.roleName.replace(/_/g, ' ') : 'STAFF'}
                       </span>
                     </td>
                     <td className="p-4">
-                      <div className="text-slate-900 dark:text-slate-200">{s.email}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">{s.phoneNumber}</div>
+                      <div className="text-xs font-medium text-slate-900 dark:text-slate-200 whitespace-nowrap truncate max-w-[220px]">
+                        {s.email}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap mt-0.5">
+                        {s.phoneNumber || '—'}
+                      </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 whitespace-nowrap">
                       {getStatusBadge(s)}
                     </td>
-                    <td className="p-4 text-right">
-                      {activeTab === 'DEACTIVATED' ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleToggleStatus(s)}
-                            disabled={togglingStaffId === s.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
-                            title="Restore account access and allow login"
-                          >
-                            {togglingStaffId === s.id ? (
-                              <>
-                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                                <span>Reactivating...</span>
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="w-3.5 h-3.5" />
-                                <span>Reactivate</span>
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedStaff(s);
-                              setShowContractModal(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Employment Contract Preview & Print"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => openEditModal(s)}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Details"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : !s.isInvitation ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => {
-                              setSelectedStaff(s);
-                              setShowContractModal(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Employment Contract Preview & Print"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => openEditModal(s)}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Details & Teaching Qualifications"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => openEmailRecoveryModal(s)}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Recover / Change Staff Email"
-                          >
-                            <Mail className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedStaff(s);
-                              setAdminPasswordConfirm('');
-                              setShow2FaResetModal(true);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="Reset 2FA Configuration"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(s)}
-                            disabled={togglingStaffId === s.id}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                              s.classTeacherFor && s.classTeacherFor.length > 0
-                                ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-                                : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                            }`}
-                            title={
-                              s.classTeacherFor && s.classTeacherFor.length > 0
-                                ? `Active Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')} (Cannot be deactivated)`
-                                : "Deactivate Staff Account (Block Access)"
-                            }
-                          >
-                            {togglingStaffId === s.id ? (
-                              <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                            ) : (
-                              <ShieldAlert className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-end gap-1.5">
-                          {s.invitationStatus === 'PENDING' && (
-                            <>
-                              <button
-                                onClick={() => handleResendInvitation(s.id)}
-                                disabled={resendingInviteId === s.id}
-                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Resend Invitation"
-                              >
-                                {resendingInviteId === s.id ? (
-                                  <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                                ) : (
-                                  <Send className="w-4 h-4" />
-                                )}
-                              </button>
-                              <button
-                                onClick={() => handleCancelInvitation(s.id)}
-                                disabled={cancellingInviteId === s.id}
-                                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Cancel Invitation"
-                              >
-                                {cancellingInviteId === s.id ? (
-                                  <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                                ) : (
-                                  <Ban className="w-4 h-4" />
-                                )}
-                              </button>
-                            </>
-                          )}
-                          {s.invitationStatus === 'EXPIRED' && (
-                            <>
-                              <button
-                                onClick={() => handleResendInvitation(s.id)}
-                                disabled={resendingInviteId === s.id}
-                                className="p-1.5 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Resend Invitation (60 mins)"
-                              >
-                                {resendingInviteId === s.id ? (
-                                  <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                                ) : (
-                                  <Send className="w-4 h-4" />
-                                )}
-                              </button>
-                              <button
-                                onClick={() => setInvitationToDelete(s)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                                title="Delete Expired Staff Member"
-                              >
-                                <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
-                              </button>
-                            </>
-                          )}
-                          {s.invitationStatus === 'CANCELLED' && (
-                            <button
-                              onClick={() => setInvitationToDelete(s)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Cancelled Staff Member"
-                            >
-                              <Trash2 className="w-4 h-4 text-rose-500 hover:text-rose-600" />
-                            </button>
-                          )}
-                        </div>
-                      )}
+                    <td className="p-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end">
+                        {renderActionButtons(s)}
+                      </div>
                     </td>
                   </tr>
                 ))
