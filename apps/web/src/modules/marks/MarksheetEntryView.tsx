@@ -14,6 +14,7 @@ import {
   calculateJuniorPoints,
   isJuniorSecondaryClass,
 } from '@school/shared/types';
+import { MarkSubmissionProgressTracker } from './MarkSubmissionProgressTracker';
 
 interface StudentScoreRow {
   studentId: string;
@@ -56,6 +57,7 @@ export const MarksheetEntryView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'entry' | 'progress'>('entry');
 
   // Allocations & Selection State
   const [workstation, setWorkstation] = useState<any>(null);
@@ -351,8 +353,39 @@ export const MarksheetEntryView: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Top Header Card */}
-      <div className="bg-white/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 shadow-glass">
+      {/* Top Navigation Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab('entry')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'entry'
+              ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Score Entry & Marksheet
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('progress')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'progress'
+              ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          School Mark Submission Tracker
+        </button>
+      </div>
+
+      {activeTab === 'progress' ? (
+        <MarkSubmissionProgressTracker exams={activeExams} defaultExamId={selectedExamId} />
+      ) : (
+        <>
+          {/* Top Header Card */}
+          <div className="bg-white/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 shadow-glass">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -933,6 +966,8 @@ export const MarksheetEntryView: React.FC = () => {
             </div>
           </div>
         </Modal>
+      )}
+        </>
       )}
     </div>
   );
