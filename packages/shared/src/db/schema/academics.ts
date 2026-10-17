@@ -119,9 +119,11 @@ export const examScores = pgTable('exam_scores', {
 export const examSessions = pgTable('exam_sessions', {
   id: uuid('id').defaultRandom().primaryKey(),
   examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
+  classId: uuid('class_id').references(() => classes.id, { onDelete: 'cascade' }),
   subjectId: uuid('subject_id').notNull().references(() => subjects.id),
   sessionDate: date('session_date').notNull(),
   sessionTime: varchar('session_time', { length: 50 }).notNull(), // e.g. 08:00 - 10:00
+  durationMinutes: integer('duration_minutes').default(60),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
