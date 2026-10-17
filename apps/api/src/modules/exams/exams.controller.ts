@@ -54,10 +54,37 @@ export class ExamsController {
   static async getExamSessions(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const sessions = await ExamsService.getExamSessions(id);
+      const classId = req.query.classId as string | undefined;
+      const sessions = await ExamsService.getExamSessions(id, classId);
       return res.status(200).json({ success: true, data: sessions });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message || 'Failed to fetch exam sessions' });
+    }
+  }
+
+  static async generateExamTimetable(req: Request, res: Response) {
+    try {
+      const result = await ExamsService.generateExamTimetable(req.body);
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: `Successfully generated ${result.sessionsCount} examination sessions across ${result.classesCount} classes`,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to generate exam timetable' });
+    }
+  }
+
+  static async swapExamSessions(req: Request, res: Response) {
+    try {
+      const { sessionAId, sessionBId } = req.body;
+      if (!sessionAId || !sessionBId) {
+        return res.status(400).json({ success: false, message: 'Both sessionAId and sessionBId are required' });
+      }
+      const result = await ExamsService.swapExamSessions(sessionAId, sessionBId);
+      return res.status(200).json({ success: true, data: result, message: result.message });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to swap exam sessions' });
     }
   }
 

@@ -136,34 +136,300 @@ export class ExamsService {
     return updated;
   }
 
-  static async getExamSessions(examId: string) {
+  static async getExamSessions(examId: string, classId?: string) {
+    const whereConditions = [
+      eq(examSessions.examId, examId),
+      isNull(examSessions.deletedAt),
+    ];
+    if (classId) {
+      whereConditions.push(eq(examSessions.classId, classId));
+    }
+
     const sessions = await db
+      .select({
+        session: examSessions,
+        subject: subjects,
+        class: classes,
+      })
+      .from(examSessions)
+      .innerJoin(subjects, eq(examSessions.subjectId, subjects.id))
+      .leftJoin(classes, eq(examSessions.classId, classes.id))
+      .where(and(...whereConditions))
+      .orderBy(examSessions.sessionDate, examSessions.sessionTime);
+
+    // Get assigned invigilators per session
+    const invigAllocs = await db
+      .select({
+        sessionId: invigilatorAllocations.examSessionId,
+        teacher: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        },
+      })
+      .from(invigilatorAllocations)
+      .innerJoin(users, eq(invigilatorAllocations.teacherId, users.id))
+      .where(isNull(invigilatorAllocations.deletedAt));
+
+    const invigMap = new Map<string, any>();
+    invigAllocs.forEach((a) => {
+      invigMap.set(a.sessionId, a.teacher);
+    });
+
+    return sessions.map((s) => ({
+      ...s,
+      invigilator: invigMap.get(s.session.id) || null,
+      invigilatorsCount: invigMap.has(s.session.id) ? 1 : 0,
+    }));
+  }
+
+  static async generateExamTimetable(data: {
+    examId: string;
+    startDate: string;
+    endDate: string;
+    dailyStartTime: string;
+    dailyEndTime: string;
+    breaks: Array<{ name: string; startTime: string; endTime: string }>;
+    gradeSubjectDurations?: Record<string, Record<string, number>>;
+    classInvigilators?: Record<string, string>;
+  }) {
+    const [exam] = await db
+      .select()
+      .from(examinations)
+      .where(and(eq(examinations.id, data.examId), isNull(examinations.deletedAt)));
+
+    if (!exam) {
+      throw new Error('Examination series not found');
+    }
+
+    // Parse weekday dates
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    if (start > end) {
+      throw new Error('Start date must be before or equal to end date.');
+    }
+
+    const examDates: string[] = [];
+    const curr = new Date(start);
+    while (curr <= end) {
+      const dayOfWeek = curr.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        examDates.push(curr.toISOString().split('T')[0]);
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    if (examDates.length === 0) {
+      throw new Error('The exam period must include at least one weekday.');
+    }
+
+    const toMinutes = (timeStr: string) => {
+      const [h, m] = (timeStr || '08:00').split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    const toTimeString = (minutes: number) => {
+      const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+      const m = (minutes % 60).toString().padStart(2, '0');
+      return `${h}:${m}`;
+    };
+
+    const dayStartMin = toMinutes(data.dailyStartTime || '08:00');
+    const dayEndMin = toMinutes(data.dailyEndTime || '15:30');
+
+    // Sort breaks by start time
+    const sortedBreaks = (data.breaks || [])
+      .map((b) => ({
+        name: b.name,
+        startMin: toMinutes(b.startTime),
+        endMin: toMinutes(b.endTime),
+      }))
+      .filter((b) => b.startMin >= dayStartMin && b.endMin <= dayEndMin && b.startMin < b.endMin)
+      .sort((a, b) => a.startMin - b.startMin);
+
+    // Compute non-break daily testing intervals
+    const testingIntervals: Array<{ startMin: number; endMin: number; duration: number }> = [];
+    let intervalStart = dayStartMin;
+
+    for (const brk of sortedBreaks) {
+      if (brk.startMin > intervalStart) {
+        testingIntervals.push({
+          startMin: intervalStart,
+          endMin: brk.startMin,
+          duration: brk.startMin - intervalStart,
+        });
+      }
+      intervalStart = Math.max(intervalStart, brk.endMin);
+    }
+    if (intervalStart < dayEndMin) {
+      testingIntervals.push({
+        startMin: intervalStart,
+        endMin: dayEndMin,
+        duration: dayEndMin - intervalStart,
+      });
+    }
+
+    if (testingIntervals.length === 0) {
+      throw new Error('Daily schedule does not have any available testing time between start/end and breaks.');
+    }
+
+    // Fetch all active school classes (PP1 to Grade 9)
+    const schoolClasses = await db
+      .select()
+      .from(classes)
+      .where(isNull(classes.deletedAt))
+      .orderBy(classes.numericOrder);
+
+    // Soft delete existing sessions for this exam
+    const existingSessions = await db
+      .select({ id: examSessions.id })
+      .from(examSessions)
+      .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
+
+    if (existingSessions.length > 0) {
+      await db
+        .update(invigilatorAllocations)
+        .set({ deletedAt: new Date() })
+        .where(isNull(invigilatorAllocations.deletedAt));
+      await db
+        .update(examSessions)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
+    }
+
+    let totalSessionsGenerated = 0;
+
+    // For each class, schedule subjects
+    for (const cls of schoolClasses) {
+      const classSubjects = await db
+        .select()
+        .from(subjects)
+        .where(and(eq(subjects.levelCategory, cls.levelCategory), isNull(subjects.deletedAt)))
+        .orderBy(subjects.name);
+
+      if (classSubjects.length === 0) continue;
+
+      let dateIdx = 0;
+      let intervalIdx = 0;
+
+      for (const subj of classSubjects) {
+        let duration =
+          data.gradeSubjectDurations?.[cls.name]?.[subj.id] ||
+          data.gradeSubjectDurations?.[cls.levelCategory]?.[subj.id];
+
+        if (!duration) {
+          if (cls.levelCategory === 'PPE') duration = 45;
+          else if (cls.levelCategory === 'LOWER_PRIMARY') duration = 60;
+          else if (cls.levelCategory === 'UPPER_PRIMARY') duration = 80;
+          else duration = 90;
+        }
+
+        if (intervalIdx >= testingIntervals.length) {
+          intervalIdx = 0;
+          dateIdx++;
+        }
+
+        const sessionDate = examDates[dateIdx % examDates.length];
+        const block = testingIntervals[intervalIdx % testingIntervals.length];
+
+        const slotStart = block.startMin;
+        const slotEnd = Math.min(block.startMin + duration, block.endMin);
+        const sessionTime = `${toTimeString(slotStart)} - ${toTimeString(slotEnd)}`;
+
+        const [newSession] = await db
+          .insert(examSessions)
+          .values({
+            examId: data.examId,
+            classId: cls.id,
+            subjectId: subj.id,
+            sessionDate: sessionDate,
+            sessionTime: sessionTime,
+            durationMinutes: duration,
+          })
+          .returning();
+
+        totalSessionsGenerated++;
+
+        const invigilatorId = data.classInvigilators?.[cls.id];
+        if (invigilatorId) {
+          await db.insert(invigilatorAllocations).values({
+            examSessionId: newSession.id,
+            classId: cls.id,
+            teacherId: invigilatorId,
+          });
+        }
+
+        intervalIdx++;
+      }
+    }
+
+    return {
+      success: true,
+      sessionsCount: totalSessionsGenerated,
+      classesCount: schoolClasses.length,
+      examDates,
+    };
+  }
+
+  static async swapExamSessions(sessionAId: string, sessionBId: string) {
+    const [sessA] = await db
       .select({
         session: examSessions,
         subject: subjects,
       })
       .from(examSessions)
       .innerJoin(subjects, eq(examSessions.subjectId, subjects.id))
-      .where(and(eq(examSessions.examId, examId), isNull(examSessions.deletedAt)))
-      .orderBy(examSessions.sessionDate, examSessions.sessionTime);
+      .where(and(eq(examSessions.id, sessionAId), isNull(examSessions.deletedAt)));
 
-    // Count assigned invigilators per session
-    const invigAllocs = await db
+    const [sessB] = await db
       .select({
-        sessionId: invigilatorAllocations.examSessionId,
+        session: examSessions,
+        subject: subjects,
       })
-      .from(invigilatorAllocations)
-      .where(isNull(invigilatorAllocations.deletedAt));
+      .from(examSessions)
+      .innerJoin(subjects, eq(examSessions.subjectId, subjects.id))
+      .where(and(eq(examSessions.id, sessionBId), isNull(examSessions.deletedAt)));
 
-    const invigCountMap = new Map<string, number>();
-    invigAllocs.forEach((a) => {
-      invigCountMap.set(a.sessionId, (invigCountMap.get(a.sessionId) || 0) + 1);
-    });
+    if (!sessA || !sessB) {
+      throw new Error('One or both examination sessions could not be found.');
+    }
 
-    return sessions.map((s) => ({
-      ...s,
-      invigilatorsCount: invigCountMap.get(s.session.id) || 0,
-    }));
+    if (sessA.session.classId !== sessB.session.classId) {
+      throw new Error('Cannot swap exams between different classes. Timetables are class-independent.');
+    }
+
+    const durA = sessA.session.durationMinutes || 60;
+    const durB = sessB.session.durationMinutes || 60;
+
+    if (durA !== durB) {
+      throw new Error(
+        `Duration Mismatch: Cannot swap ${sessA.subject.name} (${durA} mins) with ${sessB.subject.name} (${durB} mins). Exams can only be moved between slots with matching duration.`
+      );
+    }
+
+    await db
+      .update(examSessions)
+      .set({
+        sessionDate: sessB.session.sessionDate,
+        sessionTime: sessB.session.sessionTime,
+        updatedAt: new Date(),
+      })
+      .where(eq(examSessions.id, sessionAId));
+
+    await db
+      .update(examSessions)
+      .set({
+        sessionDate: sessA.session.sessionDate,
+        sessionTime: sessA.session.sessionTime,
+        updatedAt: new Date(),
+      })
+      .where(eq(examSessions.id, sessionBId));
+
+    return {
+      success: true,
+      message: `Successfully swapped ${sessA.subject.name} and ${sessB.subject.name}`,
+    };
   }
 
   static async createExamSession(data: {
