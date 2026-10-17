@@ -44,7 +44,7 @@ const CustomDropdown: React.FC<{
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = useMemo(
-    () => options.find((opt) => opt.id === selectedId),
+    () => options.find((opt) => opt.id === selectedId) || (options.length === 1 ? options[0] : undefined),
     [options, selectedId]
   );
 
@@ -254,24 +254,36 @@ export const ExamTimetableView: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [exRes, tmRes, sbRes, setRes] = await Promise.all([
+      const setRes = await apiClient.get('/api/settings').catch(() => ({ data: { data: null } }));
+      const settings = setRes.data?.data || null;
+      const currentYear = settings?.currentAcademicYear || 2026;
+
+      const [exRes, tmRes, sbRes] = await Promise.all([
         apiClient.get('/api/exams'),
-        apiClient.get('/api/academic-terms'),
+        apiClient.get(`/api/academic-terms?year=${currentYear}`),
         apiClient.get('/api/subjects'),
-        apiClient.get('/api/settings').catch(() => ({ data: { data: null } })),
       ]);
 
       const examData = exRes.data.data || [];
+      const termsData = tmRes.data.data || [];
       setExams(examData);
-      setTerms(tmRes.data.data || []);
+      setTerms(termsData);
       setSubjectsList(sbRes.data.data || []);
-      setSchoolSettings(setRes.data?.data || null);
+      setSchoolSettings(settings);
+
+      const activeTerm = termsData.find((t: any) => t.isCurrent) || termsData[0];
 
       if (examData.length > 0) {
         setSelectedExam((prev: any) => {
-          if (!prev) return examData[0];
-          const found = examData.find((e: any) => e.exam.id === prev.exam.id);
-          return found || examData[0];
+          if (prev) {
+            const found = examData.find((e: any) => e.exam.id === prev.exam.id);
+            if (found) return found;
+          }
+          if (activeTerm) {
+            const activeExam = examData.find((e: any) => e.exam.termId === activeTerm.id);
+            if (activeExam) return activeExam;
+          }
+          return examData[0];
         });
       }
     } catch (error: any) {
@@ -319,9 +331,10 @@ export const ExamTimetableView: React.FC = () => {
   // Exam Series Form Handlers
   const openCreateExamModal = () => {
     setIsEditingExam(false);
+    const activeTerm = terms.find((t) => t.isCurrent) || terms[0];
     setExamForm({
-      termId: terms[0]?.id || '',
-      title: '',
+      termId: activeTerm?.id || '',
+      title: activeTerm ? `End of Term ${activeTerm.termNumber} Examination` : '',
     });
     setShowExamModal(true);
   };
@@ -560,15 +573,29 @@ export const ExamTimetableView: React.FC = () => {
     [exams]
   );
 
-  const termDropdownOptions = useMemo(
-    () =>
-      terms.map((t) => ({
+  const activeTerm = useMemo(() => terms.find((t) => t.isCurrent) || terms[0], [terms]);
+
+  const termDropdownOptions = useMemo(() => {
+    if (!isEditingExam) {
+      // When creating a new examination series, only show the active term actively set by the Headteacher
+      const activeTerms = terms.filter((t) => t.isCurrent);
+      const listToUse = activeTerms.length > 0 ? activeTerms : (terms.length > 0 ? [terms[0]] : []);
+      return listToUse.map((t) => ({
         id: t.id,
         label: `Year ${t.year} — Term ${t.termNumber}`,
         sublabel: `${formatDate(t.startDate)} to ${formatDate(t.endDate)}`,
-      })),
-    [terms]
-  );
+        badge: 'Active Term (Headteacher)',
+      }));
+    }
+
+    // When editing an existing exam series, list all terms but clearly distinguish the active term
+    return terms.map((t) => ({
+      id: t.id,
+      label: `Year ${t.year} — Term ${t.termNumber}`,
+      sublabel: `${formatDate(t.startDate)} to ${formatDate(t.endDate)}`,
+      badge: t.isCurrent ? 'Active Term' : undefined,
+    }));
+  }, [terms, isEditingExam]);
 
   const subjectDropdownOptions = useMemo(
     () =>
@@ -1385,13 +1412,24 @@ export const ExamTimetableView: React.FC = () => {
         title={isEditingExam ? 'Edit Examination Series Details' : 'Create New Examination Series'}
       >
         <form onSubmit={handleSaveExam} className="space-y-4">
-          <CustomDropdown
-            label="Select Academic Term"
-            required
-            options={termDropdownOptions}
-            selectedId={examForm.termId}
-            onSelect={(id) => setExamForm({ ...examForm, termId: id })}
-          />
+          <div className="space-y-1.5">
+            <CustomDropdown
+              label="Select Academic Term"
+              required
+              options={termDropdownOptions}
+              selectedId={examForm.termId || activeTerm?.id || ''}
+              onSelect={(id) => setExamForm({ ...examForm, termId: id })}
+              placeholder={activeTerm ? `Year ${activeTerm.year} — Term ${activeTerm.termNumber}` : '-- Select Term --'}
+            />
+            {activeTerm && (
+              <div className="flex items-center gap-2 text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 mt-1">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  Active term configured by Headteacher: <strong>Year {activeTerm.year} — Term {activeTerm.termNumber}</strong> ({formatDate(activeTerm.startDate)} – {formatDate(activeTerm.endDate)}).
+                </span>
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1400,7 +1438,7 @@ export const ExamTimetableView: React.FC = () => {
             <input
               type="text"
               required
-              placeholder="e.g. End of Term 1 National Standards Examination"
+              placeholder={activeTerm ? `e.g. End of Term ${activeTerm.termNumber} Examination` : 'e.g. End of Term 1 National Standards Examination'}
               value={examForm.title}
               onChange={(e) => setExamForm({ ...examForm, title: e.target.value })}
               className="w-full bg-white dark:bg-[#0c1932] border border-sky-200 dark:border-[#162b4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors font-medium shadow-xs"
