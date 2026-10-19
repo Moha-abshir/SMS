@@ -203,9 +203,20 @@ export class ExamsService {
       throw new Error('Examination series not found');
     }
 
-    // Parse weekday dates
-    const start = new Date(data.startDate);
-    const end = new Date(data.endDate);
+    // Parse weekday dates using local date components to prevent UTC shift
+    const parseLocalDate = (dateStr: string) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    const formatLocalDate = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const start = parseLocalDate(data.startDate);
+    const end = parseLocalDate(data.endDate);
     if (start > end) {
       throw new Error('Start date must be before or equal to end date.');
     }
@@ -215,7 +226,7 @@ export class ExamsService {
     while (curr <= end) {
       const dayOfWeek = curr.getDay();
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        examDates.push(curr.toISOString().split('T')[0]);
+        examDates.push(formatLocalDate(curr));
       }
       curr.setDate(curr.getDate() + 1);
     }

@@ -131,6 +131,36 @@ const CustomDropdown: React.FC<{
   );
 };
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const parseLocalDate = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return null;
+  const [y, m, d] = parts.map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+};
+
+const formatLocalDate = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const formatDisplayDate = (dateStr: string): string => {
+  const d = parseLocalDate(dateStr);
+  if (!d) return '';
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
 export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> = ({
   isOpen,
   onClose,
@@ -150,6 +180,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
   // Step 1: Series & Daily Timetable Window
   const [examTitle, setExamTitle] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
+  const [examDurationDays, setExamDurationDays] = useState<number>(5);
   const [endDate, setEndDate] = useState<string>('');
   const [dailyStartTime, setDailyStartTime] = useState<string>('08:00');
   const [dailyEndTime, setDailyEndTime] = useState<string>('15:30');
@@ -203,12 +234,12 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
           setExamTitle(`End of Term ${currentTerm.termNumber} Examination ${currentTerm.year}`);
           const today = new Date();
           const nextMon = new Date();
-          nextMon.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
-          const nextFri = new Date(nextMon);
-          nextFri.setDate(nextMon.getDate() + 4);
-
-          setStartDate(nextMon.toISOString().split('T')[0]);
-          setEndDate(nextFri.toISOString().split('T')[0]);
+          const day = today.getDay();
+          const daysUntilMon = day === 0 ? 1 : (day === 1 ? 7 : (8 - day));
+          nextMon.setDate(today.getDate() + daysUntilMon);
+          const startStr = formatLocalDate(nextMon);
+          setStartDate(startStr);
+          setExamDurationDays(5);
         }
 
         // Initialize durations with standard CBC defaults
@@ -247,22 +278,89 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
     loadData();
   }, [isOpen]);
 
-  // Weekdays calculation
-  const calculatedDays = useMemo(() => {
-    if (!startDate || !endDate) return 0;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (start > end) return 0;
+  // Start Date Analysis & Weekend Detection
+  const { startDayInfo, isStartOnWeekend, nextMondayDate } = useMemo(() => {
+    if (!startDate) {
+      return { startDayInfo: null, isStartOnWeekend: false, nextMondayDate: '' };
+    }
+    const d = parseLocalDate(startDate);
+    if (!d) {
+      return { startDayInfo: null, isStartOnWeekend: false, nextMondayDate: '' };
+    }
+    const dayOfWeek = d.getDay(); // 0 = Sunday, 6 = Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const dayName = DAY_NAMES[dayOfWeek];
 
-    let count = 0;
+    let nextMonStr = '';
+    if (isWeekend) {
+      const nextMon = new Date(d);
+      const addDays = dayOfWeek === 0 ? 1 : 2;
+      nextMon.setDate(nextMon.getDate() + addDays);
+      nextMonStr = formatLocalDate(nextMon);
+    }
+
+    return {
+      startDayInfo: { dayName, dayOfWeek, formatted: formatDisplayDate(startDate) },
+      isStartOnWeekend: isWeekend,
+      nextMondayDate: nextMonStr,
+    };
+  }, [startDate]);
+
+  // Smart Weekdays calculation & Concluding Date omitting weekends
+  const { scheduledWeekdays, calculatedEndDate, weekendDaysEncountered } = useMemo(() => {
+    if (!startDate || isStartOnWeekend || examDurationDays < 1) {
+      return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
+    }
+    const start = parseLocalDate(startDate);
+    if (!start) return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
+
+    const scheduled: Array<{
+      date: string;
+      dayIndex: number;
+      dayName: string;
+      shortDay: string;
+      formatted: string;
+    }> = [];
+
     const curr = new Date(start);
-    while (curr <= end) {
+    let weekendsCount = 0;
+    let guard = 0;
+
+    while (scheduled.length < examDurationDays && guard < 100) {
+      guard++;
       const day = curr.getDay();
-      if (day !== 0 && day !== 6) count++;
+      if (day === 0 || day === 6) {
+        weekendsCount++;
+      } else {
+        const curDateStr = formatLocalDate(curr);
+        scheduled.push({
+          date: curDateStr,
+          dayIndex: scheduled.length + 1,
+          dayName: DAY_NAMES[day],
+          shortDay: SHORT_DAY_NAMES[day],
+          formatted: formatDisplayDate(curDateStr),
+        });
+      }
       curr.setDate(curr.getDate() + 1);
     }
-    return count;
-  }, [startDate, endDate]);
+
+    const last = scheduled[scheduled.length - 1];
+    return {
+      scheduledWeekdays: scheduled,
+      calculatedEndDate: last ? last.date : '',
+      weekendDaysEncountered: weekendsCount,
+    };
+  }, [startDate, isStartOnWeekend, examDurationDays]);
+
+  // Keep endDate state in sync
+  useEffect(() => {
+    if (calculatedEndDate && calculatedEndDate !== endDate) {
+      setEndDate(calculatedEndDate);
+    }
+  }, [calculatedEndDate]);
+
+  const calculatedDays = scheduledWeekdays.length;
+  const isStep1Invalid = currentStep === 1 && (!startDate || isStartOnWeekend || examDurationDays < 1 || !calculatedEndDate);
 
   const handleAddBreak = () => {
     const id = `b_${Date.now()}`;
@@ -278,8 +376,13 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
   };
 
   const handleGenerate = async () => {
-    if (!startDate || !endDate) {
-      toast.error('Please specify start and end dates');
+    const finalEndDate = calculatedEndDate || endDate;
+    if (!startDate || !finalEndDate) {
+      toast.error('Please specify start date and exam duration');
+      return;
+    }
+    if (isStartOnWeekend) {
+      toast.error('Examinations cannot start on a weekend (Saturday or Sunday)');
       return;
     }
     if (calculatedDays === 0) {
@@ -298,7 +401,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
           title: examTitle || `Examination ${activeTerm?.year || 2026}`,
           termId: activeTerm.id,
           startDate,
-          endDate,
+          endDate: finalEndDate,
           status: 'DRAFT',
         });
         examId = createRes.data.data.id;
@@ -308,7 +411,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
       const genRes = await apiClient.post('/api/exams/generate-timetable', {
         examId,
         startDate,
-        endDate,
+        endDate: finalEndDate,
         dailyStartTime,
         dailyEndTime,
         breaks,
@@ -413,36 +516,193 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
                     />
                   </div>
 
-                  {/* Dates */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Exam Period Start Date *
-                      </label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500"
-                      />
+                  {/* Smart Dates & Weekdays Selection */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Start Date */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Exam Period Start Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className={`w-full px-3.5 py-2 rounded-xl border text-xs font-semibold text-slate-800 dark:text-slate-100 bg-white dark:bg-[#091326] transition-all focus:outline-none ${
+                            isStartOnWeekend
+                              ? 'border-rose-400 focus:border-rose-500 ring-2 ring-rose-500/20'
+                              : startDate
+                              ? 'border-emerald-300 dark:border-emerald-700/50 focus:border-sky-500'
+                              : 'border-slate-200 dark:border-[#162b4d] focus:border-sky-500'
+                          }`}
+                        />
+
+                        {/* Visual Day-of-Week Feedback directly beneath start date */}
+                        <div className="mt-1.5 flex items-center justify-between">
+                          {startDate && startDayInfo ? (
+                            isStartOnWeekend ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                                <AlertTriangle className="w-3 h-3" />
+                                {startDayInfo.dayName} (Weekend — Not Allowed)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                <CheckCircle2 className="w-3 h-3" />
+                                {startDayInfo.dayName} (School Weekday)
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Select a school weekday (Monday – Friday)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Exam Duration in Days */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Exam Duration (Weekdays) *
+                          </label>
+                          <span className="text-[11px] font-mono font-bold text-sky-600 dark:text-sky-400">
+                            {examDurationDays} {examDurationDays === 1 ? 'Day' : 'Days'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={examDurationDays}
+                              onChange={(e) => setExamDurationDays(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500"
+                            />
+                            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 pointer-events-none">
+                              days
+                            </span>
+                          </div>
+
+                          {/* Quick Preset Buttons */}
+                          <div className="flex items-center gap-1">
+                            {[3, 4, 5, 6, 8].map((days) => (
+                              <button
+                                key={days}
+                                type="button"
+                                onClick={() => setExamDurationDays(days)}
+                                className={`px-2 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                                  examDurationDays === days
+                                    ? 'border-sky-500 bg-sky-500 text-white shadow-xs'
+                                    : 'border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:border-sky-300 dark:hover:border-sky-500/40'
+                                }`}
+                              >
+                                {days}d
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <p className="mt-1.5 text-[11px] text-slate-400">
+                          Total exam weekdays needed (weekends automatically omitted)
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Exam Period End Date *
-                      </label>
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-sky-500"
-                      />
-                    </div>
-                  </div>
+                    {/* Weekend Selected Warning Callout with 1-Click Monday Shift */}
+                    {isStartOnWeekend && (
+                      <div className="p-3.5 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
+                            <AlertTriangle className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-rose-900 dark:text-rose-100">
+                              Weekend Selected: {startDayInfo?.formatted} ({startDayInfo?.dayName})
+                            </div>
+                            <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">
+                              School examinations cannot start or be conducted on weekends. Please select a weekday (Monday – Friday), or click below to automatically shift to the upcoming Monday.
+                            </p>
+                          </div>
+                        </div>
+                        {nextMondayDate && (
+                          <button
+                            type="button"
+                            onClick={() => setStartDate(nextMondayDate)}
+                            className="shrink-0 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer self-start sm:self-center"
+                          >
+                            <span>Shift to Monday ({formatDisplayDate(nextMondayDate)})</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
 
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Calculated Weekdays: <strong>{calculatedDays} days</strong> (weekends excluded automatically)</span>
+                    {/* Smart Calculation Card with Concluding Date and Weekdays Timeline */}
+                    {!isStartOnWeekend && startDate && calculatedEndDate && (
+                      <div className="p-3.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-slate-50/60 dark:bg-[#091326]/60 space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+                              <Calendar className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                <span>Concluding Date:</span>
+                                <span className="text-sky-600 dark:text-sky-400 font-extrabold">
+                                  {formatDisplayDate(calculatedEndDate)}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {calculatedDays} active school examination weekdays scheduled
+                              </div>
+                            </div>
+                          </div>
+
+                          {weekendDaysEncountered > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300">
+                              <Clock className="w-3 h-3" />
+                              {weekendDaysEncountered} weekend {weekendDaysEncountered === 1 ? 'day' : 'days'} (Sat & Sun) omitted automatically
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Weekday Sequence Pills */}
+                        <div className="pt-2 border-t border-slate-200 dark:border-[#162b4d]/80">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                            Scheduled Exam Days Timeline:
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {scheduledWeekdays.map((item, idx) => {
+                              const prevItem = idx > 0 ? scheduledWeekdays[idx - 1] : null;
+                              const showWeekendDivider = prevItem && (() => {
+                                const prevDate = parseLocalDate(prevItem.date);
+                                const thisDate = parseLocalDate(item.date);
+                                if (!prevDate || !thisDate) return false;
+                                const diffDays = Math.round((thisDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+                                return diffDays > 1;
+                              })();
+
+                              return (
+                                <React.Fragment key={item.date}>
+                                  {showWeekendDivider && (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100/60 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-dashed border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                                      <span>☕ Weekend Skipped</span>
+                                    </span>
+                                  )}
+                                  <div className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] text-slate-700 dark:text-slate-200 shadow-2xs flex items-center gap-1.5">
+                                    <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">Day {item.dayIndex}:</span>
+                                    <span>{item.shortDay}, {parseLocalDate(item.date)?.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                                  </div>
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Daily Windows & Breaks */}
@@ -767,20 +1027,48 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
           )}
 
           {currentStep < 4 ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (currentStep === 1 && (!startDate || !endDate || calculatedDays === 0)) {
-                  toast.error('Please specify valid start and end dates with at least one weekday');
-                  return;
-                }
-                setCurrentStep(currentStep + 1);
-              }}
-              className="px-4 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-            >
-              Next Step
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              {currentStep === 1 && isStartOnWeekend && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  Cannot proceed with a weekend start
+                </span>
+              )}
+              {currentStep === 1 && !startDate && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-400">
+                  Select a start date to continue
+                </span>
+              )}
+              <button
+                type="button"
+                disabled={isStep1Invalid}
+                onClick={() => {
+                  if (currentStep === 1) {
+                    if (!startDate) {
+                      toast.error('Please select an examination start date');
+                      return;
+                    }
+                    if (isStartOnWeekend) {
+                      toast.error('Examinations cannot start on a weekend (Saturday or Sunday)');
+                      return;
+                    }
+                    if (examDurationDays < 1 || !calculatedEndDate) {
+                      toast.error('Please specify valid exam duration in weekdays');
+                      return;
+                    }
+                  }
+                  setCurrentStep(currentStep + 1);
+                }}
+                className={`px-4 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
+                  isStep1Invalid
+                    ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500'
+                    : 'border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-800 dark:text-sky-200 cursor-pointer'
+                }`}
+              >
+                Next Step
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           ) : (
             <button
               type="button"
