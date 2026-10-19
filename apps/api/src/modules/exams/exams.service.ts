@@ -205,8 +205,14 @@ export class ExamsService {
 
     // Parse weekday dates using local date components to prevent UTC shift
     const parseLocalDate = (dateStr: string) => {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      return new Date(y, m - 1, d);
+      if (!dateStr || typeof dateStr !== 'string') return null;
+      const parts = dateStr.trim().split('-');
+      if (parts.length !== 3) return null;
+      const [y, m, d] = parts.map(Number);
+      if (!y || !m || !d || isNaN(y) || isNaN(m) || isNaN(d)) return null;
+      const dt = new Date(y, m - 1, d);
+      if (isNaN(dt.getTime())) return null;
+      return dt;
     };
     const formatLocalDate = (d: Date) => {
       const y = d.getFullYear();
@@ -217,13 +223,19 @@ export class ExamsService {
 
     const start = parseLocalDate(data.startDate);
     const end = parseLocalDate(data.endDate);
+    if (!start || !end) {
+      throw new Error('Valid start date and end date are required.');
+    }
     if (start > end) {
       throw new Error('Start date must be before or equal to end date.');
     }
 
     const examDates: string[] = [];
     const curr = new Date(start);
-    while (curr <= end) {
+    let dayGuard = 0;
+    const MAX_DAYS = 60; // Hard watchdog limit: max 60 calendar days
+    while (curr <= end && dayGuard < MAX_DAYS) {
+      dayGuard++;
       const dayOfWeek = curr.getDay();
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
         examDates.push(formatLocalDate(curr));

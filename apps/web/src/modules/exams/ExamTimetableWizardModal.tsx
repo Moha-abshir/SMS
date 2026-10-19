@@ -135,12 +135,14 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const parseLocalDate = (dateStr: string): Date | null => {
-  if (!dateStr) return null;
-  const parts = dateStr.split('-');
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const parts = dateStr.trim().split('-');
   if (parts.length !== 3) return null;
   const [y, m, d] = parts.map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
+  if (!y || !m || !d || isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  const dt = new Date(y, m - 1, d);
+  if (isNaN(dt.getTime())) return null;
+  return dt;
 };
 
 const formatLocalDate = (d: Date): string => {
@@ -181,7 +183,6 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
   const [examTitle, setExamTitle] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [examDurationDays, setExamDurationDays] = useState<number>(5);
-  const [endDate, setEndDate] = useState<string>('');
   const [dailyStartTime, setDailyStartTime] = useState<string>('08:00');
   const [dailyEndTime, setDailyEndTime] = useState<string>('15:30');
   const [breaks, setBreaks] = useState<Array<{ id: string; name: string; startTime: string; endTime: string }>>([
@@ -312,7 +313,9 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
       return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
     }
     const start = parseLocalDate(startDate);
-    if (!start) return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
+    if (!start || isNaN(start.getTime())) {
+      return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
+    }
 
     const scheduled: Array<{
       date: string;
@@ -325,8 +328,10 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
     const curr = new Date(start);
     let weekendsCount = 0;
     let guard = 0;
+    const safeDuration = Math.min(Math.max(1, Math.floor(Number(examDurationDays) || 1)), 30);
 
-    while (scheduled.length < examDurationDays && guard < 100) {
+    // Guaranteed upper-bounded while loop (max 100 iterations)
+    while (scheduled.length < safeDuration && guard < 100) {
       guard++;
       const day = curr.getDay();
       if (day === 0 || day === 6) {
@@ -352,13 +357,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
     };
   }, [startDate, isStartOnWeekend, examDurationDays]);
 
-  // Keep endDate state in sync
-  useEffect(() => {
-    if (calculatedEndDate && calculatedEndDate !== endDate) {
-      setEndDate(calculatedEndDate);
-    }
-  }, [calculatedEndDate]);
-
+  const endDate = calculatedEndDate;
   const calculatedDays = scheduledWeekdays.length;
   const isStep1Invalid = currentStep === 1 && (!startDate || isStartOnWeekend || examDurationDays < 1 || !calculatedEndDate);
 
