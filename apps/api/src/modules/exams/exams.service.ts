@@ -1,3 +1,4 @@
+import { parseISO, format, isWeekend, eachDayOfInterval } from 'date-fns';
 import { db } from '../../config/db.js';
 import {
   examinations,
@@ -203,45 +204,21 @@ export class ExamsService {
       throw new Error('Examination series not found');
     }
 
-    // Parse weekday dates using local date components to prevent UTC shift
-    const parseLocalDate = (dateStr: string) => {
-      if (!dateStr || typeof dateStr !== 'string') return null;
-      const parts = dateStr.trim().split('-');
-      if (parts.length !== 3) return null;
-      const [y, m, d] = parts.map(Number);
-      if (!y || !m || !d || isNaN(y) || isNaN(m) || isNaN(d)) return null;
-      const dt = new Date(y, m - 1, d);
-      if (isNaN(dt.getTime())) return null;
-      return dt;
-    };
-    const formatLocalDate = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
-
-    const start = parseLocalDate(data.startDate);
-    const end = parseLocalDate(data.endDate);
-    if (!start || !end) {
+    // Parse and validate start/end dates using date-fns
+    const start = parseISO(data.startDate);
+    const end = parseISO(data.endDate);
+    if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
       throw new Error('Valid start date and end date are required.');
     }
     if (start > end) {
       throw new Error('Start date must be before or equal to end date.');
     }
 
-    const examDates: string[] = [];
-    const curr = new Date(start);
-    let dayGuard = 0;
-    const MAX_DAYS = 60; // Hard watchdog limit: max 60 calendar days
-    while (curr <= end && dayGuard < MAX_DAYS) {
-      dayGuard++;
-      const dayOfWeek = curr.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        examDates.push(formatLocalDate(curr));
-      }
-      curr.setDate(curr.getDate() + 1);
-    }
+    // Extract all weekdays across the exam date interval using date-fns
+    const allDays = eachDayOfInterval({ start, end });
+    const examDates = allDays
+      .filter((d) => !isWeekend(d))
+      .map((d) => format(d, 'yyyy-MM-dd'));
 
     if (examDates.length === 0) {
       throw new Error('The exam period must include at least one weekday.');

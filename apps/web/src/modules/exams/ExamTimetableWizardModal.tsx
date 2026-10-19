@@ -4,6 +4,16 @@ import {
   Calendar, Clock, BookOpen, UserCheck, CheckCircle2, Plus, Trash2,
   ChevronRight, ChevronLeft, X, Sparkles, AlertTriangle, Search, ChevronDown, Check
 } from 'lucide-react';
+import {
+  parseISO,
+  format,
+  isWeekend,
+  addBusinessDays,
+  nextMonday,
+  eachDayOfInterval,
+  isMonday,
+  differenceInCalendarDays,
+} from 'date-fns';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 
@@ -131,36 +141,13 @@ const CustomDropdown: React.FC<{
   );
 };
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const SHORT_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const parseLocalDate = (dateStr: string): Date | null => {
-  if (!dateStr || typeof dateStr !== 'string') return null;
-  const parts = dateStr.trim().split('-');
-  if (parts.length !== 3) return null;
-  const [y, m, d] = parts.map(Number);
-  if (!y || !m || !d || isNaN(y) || isNaN(m) || isNaN(d)) return null;
-  const dt = new Date(y, m - 1, d);
-  if (isNaN(dt.getTime())) return null;
-  return dt;
-};
-
-const formatLocalDate = (d: Date): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
 const formatDisplayDate = (dateStr: string): string => {
-  const d = parseLocalDate(dateStr);
-  if (!d) return '';
-  return d.toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  if (!dateStr) return '';
+  try {
+    return format(parseISO(dateStr), 'EEE, d MMM yyyy');
+  } catch {
+    return dateStr;
+  }
 };
 
 export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> = ({
@@ -230,16 +217,12 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
           : (stfRes.data?.data?.staff || []);
         setTeachersList(staff);
 
-        // Pre-fill defaults
+        // Pre-fill defaults using date-fns
         if (currentTerm) {
           setExamTitle(`End of Term ${currentTerm.termNumber} Examination ${currentTerm.year}`);
           const today = new Date();
-          const nextMon = new Date();
-          const day = today.getDay();
-          const daysUntilMon = day === 0 ? 1 : (day === 1 ? 7 : (8 - day));
-          nextMon.setDate(today.getDate() + daysUntilMon);
-          const startStr = formatLocalDate(nextMon);
-          setStartDate(startStr);
+          const nextMon = isWeekend(today) ? nextMonday(today) : (isMonday(today) ? today : nextMonday(today));
+          setStartDate(format(nextMon, 'yyyy-MM-dd'));
           setExamDurationDays(5);
         }
 
@@ -279,83 +262,72 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
     loadData();
   }, [isOpen]);
 
-  // Start Date Analysis & Weekend Detection
-  const { startDayInfo, isStartOnWeekend, nextMondayDate } = useMemo(() => {
-    if (!startDate) {
-      return { startDayInfo: null, isStartOnWeekend: false, nextMondayDate: '' };
+  // Start Date Analysis using date-fns
+  const startDateObj = useMemo(() => {
+    if (!startDate) return null;
+    try {
+      const d = parseISO(startDate);
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      return null;
     }
-    const d = parseLocalDate(startDate);
-    if (!d) {
-      return { startDayInfo: null, isStartOnWeekend: false, nextMondayDate: '' };
-    }
-    const dayOfWeek = d.getDay(); // 0 = Sunday, 6 = Saturday
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const dayName = DAY_NAMES[dayOfWeek];
-
-    let nextMonStr = '';
-    if (isWeekend) {
-      const nextMon = new Date(d);
-      const addDays = dayOfWeek === 0 ? 1 : 2;
-      nextMon.setDate(nextMon.getDate() + addDays);
-      nextMonStr = formatLocalDate(nextMon);
-    }
-
-    return {
-      startDayInfo: { dayName, dayOfWeek, formatted: formatDisplayDate(startDate) },
-      isStartOnWeekend: isWeekend,
-      nextMondayDate: nextMonStr,
-    };
   }, [startDate]);
 
-  // Smart Weekdays calculation & Concluding Date omitting weekends
+  const isStartOnWeekend = useMemo(() => {
+    return startDateObj ? isWeekend(startDateObj) : false;
+  }, [startDateObj]);
+
+  const nextMondayDate = useMemo(() => {
+    if (!startDateObj || !isStartOnWeekend) return '';
+    try {
+      return format(nextMonday(startDateObj), 'yyyy-MM-dd');
+    } catch {
+      return '';
+    }
+  }, [startDateObj, isStartOnWeekend]);
+
+  const startDayInfo = useMemo(() => {
+    if (!startDateObj) return null;
+    try {
+      return {
+        dayName: format(startDateObj, 'EEEE'),
+        formatted: format(startDateObj, 'EEE, d MMM yyyy'),
+      };
+    } catch {
+      return null;
+    }
+  }, [startDateObj]);
+
+  // Smart Weekdays calculation & Concluding Date using date-fns
   const { scheduledWeekdays, calculatedEndDate, weekendDaysEncountered } = useMemo(() => {
-    if (!startDate || isStartOnWeekend || examDurationDays < 1) {
-      return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
-    }
-    const start = parseLocalDate(startDate);
-    if (!start || isNaN(start.getTime())) {
+    if (!startDateObj || isStartOnWeekend || examDurationDays < 1) {
       return { scheduledWeekdays: [], calculatedEndDate: '', weekendDaysEncountered: 0 };
     }
 
-    const scheduled: Array<{
-      date: string;
-      dayIndex: number;
-      dayName: string;
-      shortDay: string;
-      formatted: string;
-    }> = [];
+    const safeDays = Math.min(Math.max(1, Math.floor(Number(examDurationDays) || 1)), 30);
+    // In date-fns: addBusinessDays(startDate, N - 1) skips weekends and lands on the exact concluding exam weekday!
+    const endObj = addBusinessDays(startDateObj, safeDays - 1);
+    const calculatedEndDateStr = format(endObj, 'yyyy-MM-dd');
 
-    const curr = new Date(start);
-    let weekendsCount = 0;
-    let guard = 0;
-    const safeDuration = Math.min(Math.max(1, Math.floor(Number(examDurationDays) || 1)), 30);
+    // Retrieve all calendar dates in interval to detect skipped weekend days
+    const allDaysInSpan = eachDayOfInterval({ start: startDateObj, end: endObj });
+    const examWeekdays = allDaysInSpan.filter((d) => !isWeekend(d));
+    const weekendsCount = allDaysInSpan.length - examWeekdays.length;
 
-    // Guaranteed upper-bounded while loop (max 100 iterations)
-    while (scheduled.length < safeDuration && guard < 100) {
-      guard++;
-      const day = curr.getDay();
-      if (day === 0 || day === 6) {
-        weekendsCount++;
-      } else {
-        const curDateStr = formatLocalDate(curr);
-        scheduled.push({
-          date: curDateStr,
-          dayIndex: scheduled.length + 1,
-          dayName: DAY_NAMES[day],
-          shortDay: SHORT_DAY_NAMES[day],
-          formatted: formatDisplayDate(curDateStr),
-        });
-      }
-      curr.setDate(curr.getDate() + 1);
-    }
+    const scheduled = examWeekdays.map((d, index) => ({
+      date: format(d, 'yyyy-MM-dd'),
+      dayIndex: index + 1,
+      dayName: format(d, 'EEEE'),
+      shortDay: format(d, 'EEE'),
+      formatted: format(d, 'EEE, d MMM yyyy'),
+    }));
 
-    const last = scheduled[scheduled.length - 1];
     return {
       scheduledWeekdays: scheduled,
-      calculatedEndDate: last ? last.date : '',
+      calculatedEndDate: calculatedEndDateStr,
       weekendDaysEncountered: weekendsCount,
     };
-  }, [startDate, isStartOnWeekend, examDurationDays]);
+  }, [startDateObj, isStartOnWeekend, examDurationDays]);
 
   const endDate = calculatedEndDate;
   const calculatedDays = scheduledWeekdays.length;
@@ -676,13 +648,9 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
                           <div className="flex flex-wrap items-center gap-1.5">
                             {scheduledWeekdays.map((item, idx) => {
                               const prevItem = idx > 0 ? scheduledWeekdays[idx - 1] : null;
-                              const showWeekendDivider = prevItem && (() => {
-                                const prevDate = parseLocalDate(prevItem.date);
-                                const thisDate = parseLocalDate(item.date);
-                                if (!prevDate || !thisDate) return false;
-                                const diffDays = Math.round((thisDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-                                return diffDays > 1;
-                              })();
+                              const showWeekendDivider =
+                                prevItem &&
+                                differenceInCalendarDays(parseISO(item.date), parseISO(prevItem.date)) > 1;
 
                               return (
                                 <React.Fragment key={item.date}>
@@ -693,7 +661,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
                                   )}
                                   <div className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] text-slate-700 dark:text-slate-200 shadow-2xs flex items-center gap-1.5">
                                     <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">Day {item.dayIndex}:</span>
-                                    <span>{item.shortDay}, {parseLocalDate(item.date)?.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                                    <span>{format(parseISO(item.date), 'EEE, d MMM')}</span>
                                   </div>
                                 </React.Fragment>
                               );
