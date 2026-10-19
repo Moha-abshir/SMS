@@ -173,29 +173,34 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
       try {
         setLoading(true);
         const [termsRes, clsRes, subRes, stfRes] = await Promise.all([
-          apiClient.get('/api/academic-terms'),
-          apiClient.get('/api/admissions/classes'),
-          apiClient.get('/api/admissions/subjects'),
-          apiClient.get('/api/staff'),
+          apiClient.get('/api/academic-terms').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/api/admissions/classes').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/api/subjects').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/api/staff').catch(() => ({ data: { data: [] } })),
         ]);
 
-        const terms = termsRes.data.data || [];
+        const terms = termsRes.data?.data || [];
         const currentTerm = terms.find((t: any) => t.isCurrent) || terms[0];
         setActiveTerm(currentTerm);
 
-        const classes = clsRes.data.data || [];
+        const rawClasses = clsRes.data?.data || [];
+        // Filter out Playgroup (examinations are for PP1 to Grade 9)
+        const classes = rawClasses.filter((c: any) => c.name.toLowerCase() !== 'playgroup');
         setClassesList(classes);
 
-        const subjects = subRes.data.data || [];
+        const subjects = Array.isArray(subRes.data?.data)
+          ? subRes.data.data
+          : (subRes.data?.data?.subjects || []);
         setSubjectsList(subjects);
 
-        const staff = stfRes.data.data?.staff || [];
+        const staff = Array.isArray(stfRes.data?.data)
+          ? stfRes.data.data
+          : (stfRes.data?.data?.staff || []);
         setTeachersList(staff);
 
         // Pre-fill defaults
         if (currentTerm) {
           setExamTitle(`End of Term ${currentTerm.termNumber} Examination ${currentTerm.year}`);
-          // Default exam dates: next Monday to Friday
           const today = new Date();
           const nextMon = new Date();
           nextMon.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
@@ -209,17 +214,15 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
         // Initialize durations with standard CBC defaults
         const initialDurations: Record<string, Record<string, number>> = {};
         classes.forEach((c: any) => {
-          if (!initialDurations[c.name]) {
-            initialDurations[c.name] = {};
-            const matchingSubs = subjects.filter((s: any) => s.levelCategory === c.levelCategory);
-            matchingSubs.forEach((s: any) => {
-              let def = 90;
-              if (c.levelCategory === 'PPE') def = 45;
-              else if (c.levelCategory === 'LOWER_PRIMARY') def = 60;
-              else if (c.levelCategory === 'UPPER_PRIMARY') def = 80;
-              initialDurations[c.name][s.id] = def;
-            });
-          }
+          initialDurations[c.name] = {};
+          const matchingSubs = subjects.filter((s: any) => s.levelCategory === c.levelCategory);
+          matchingSubs.forEach((s: any) => {
+            let def = 90;
+            if (c.levelCategory === 'PPE') def = 45;
+            else if (c.levelCategory === 'LOWER_PRIMARY') def = 60;
+            else if (c.levelCategory === 'UPPER_PRIMARY') def = 80;
+            initialDurations[c.name][s.id] = def;
+          });
         });
         setSubjectDurations(initialDurations);
         if (classes.length > 0) {
@@ -539,102 +542,120 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
                   </div>
 
                   {/* Grade Selector Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
-                    {classesList.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setSelectedGradeTab(c.name)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-colors cursor-pointer ${
-                          selectedGradeTab === c.name
-                            ? 'bg-sky-600 text-white shadow-xs'
-                            : 'border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#142647]'
-                        }`}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Subjects for the selected grade */}
-                  {selectedGradeTab && (
-                    <div className="rounded-xl border border-slate-200 dark:border-[#162b4d] overflow-hidden">
-                      <div className="p-3 bg-slate-50 dark:bg-[#091326] border-b border-slate-200 dark:border-[#162b4d] flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
-                        <span>{selectedGradeTab} Examination Papers</span>
-                        <span className="text-[11px] font-normal text-slate-400">
-                          {classesList.find((c) => c.name === selectedGradeTab)?.levelCategory} Tier
-                        </span>
-                      </div>
-
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-72 overflow-y-auto">
-                        {(() => {
-                          const cls = classesList.find((c) => c.name === selectedGradeTab);
-                          if (!cls) return null;
-                          const subs = subjectsList.filter((s) => s.levelCategory === cls.levelCategory);
-
-                          return subs.map((s) => {
-                            const curDur = subjectDurations[cls.name]?.[s.id] || 60;
-                            return (
-                              <div key={s.id} className="p-3 flex items-center justify-between gap-3 text-xs">
-                                <div>
-                                  <div className="font-bold text-slate-800 dark:text-slate-200">{s.name}</div>
-                                  <div className="text-[10px] text-slate-400 font-mono">{s.code}</div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  {/* Quick presets */}
-                                  <div className="hidden sm:flex items-center gap-1">
-                                    {[45, 60, 80, 90, 120].map((preset) => (
-                                      <button
-                                        key={preset}
-                                        type="button"
-                                        onClick={() =>
-                                          setSubjectDurations({
-                                            ...subjectDurations,
-                                            [cls.name]: {
-                                              ...(subjectDurations[cls.name] || {}),
-                                              [s.id]: preset,
-                                            },
-                                          })
-                                        }
-                                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                                          curDur === preset
-                                            ? 'border-sky-500 bg-sky-500 text-white'
-                                            : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-                                        }`}
-                                      >
-                                        {preset}m
-                                      </button>
-                                    ))}
-                                  </div>
-
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      min={15}
-                                      max={240}
-                                      step={5}
-                                      value={curDur}
-                                      onChange={(e) =>
-                                        setSubjectDurations({
-                                          ...subjectDurations,
-                                          [cls.name]: {
-                                            ...(subjectDurations[cls.name] || {}),
-                                            [s.id]: Number(e.target.value) || 60,
-                                          },
-                                        })
-                                      }
-                                      className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] text-center font-bold text-slate-800 dark:text-slate-100"
-                                    />
-                                    <span className="text-[11px] text-slate-400">mins</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          });
-                        })()}
-                      </div>
+                  {classesList.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-400 italic rounded-xl border border-slate-200 dark:border-[#162b4d]">
+                      No classes found. Please ensure classes are registered in the school.
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+                        {classesList.map((c) => {
+                          const activeName = selectedGradeTab || classesList[0]?.name;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setSelectedGradeTab(c.name)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-colors cursor-pointer ${
+                                activeName === c.name
+                                  ? 'bg-sky-600 text-white shadow-xs'
+                                  : 'border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#142647]'
+                              }`}
+                            >
+                              {c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Subjects for the selected grade */}
+                      {(() => {
+                        const activeName = selectedGradeTab || classesList[0]?.name;
+                        const cls = classesList.find((c) => c.name === activeName) || classesList[0];
+                        if (!cls) return null;
+                        const subs = subjectsList.filter((s) => s.levelCategory === cls.levelCategory);
+
+                        return (
+                          <div className="rounded-xl border border-slate-200 dark:border-[#162b4d] overflow-hidden">
+                            <div className="p-3 bg-slate-50 dark:bg-[#091326] border-b border-slate-200 dark:border-[#162b4d] flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                              <span>{cls.name} Examination Papers</span>
+                              <span className="text-[11px] font-normal text-slate-400">
+                                {cls.levelCategory} Tier
+                              </span>
+                            </div>
+
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-72 overflow-y-auto">
+                              {subs.length === 0 ? (
+                                <div className="p-6 text-center text-xs text-slate-400 italic">
+                                  No subjects registered under {cls.levelCategory} category.
+                                </div>
+                              ) : (
+                                subs.map((s) => {
+                                  const curDur = subjectDurations[cls.name]?.[s.id] || 60;
+                                  return (
+                                    <div key={s.id} className="p-3 flex items-center justify-between gap-3 text-xs">
+                                      <div>
+                                        <div className="font-bold text-slate-800 dark:text-slate-200">{s.name}</div>
+                                        <div className="text-[10px] text-slate-400 font-mono">{s.code}</div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        {/* Quick presets */}
+                                        <div className="hidden sm:flex items-center gap-1">
+                                          {[45, 60, 80, 90, 120].map((preset) => (
+                                            <button
+                                              key={preset}
+                                              type="button"
+                                              onClick={() =>
+                                                setSubjectDurations({
+                                                  ...subjectDurations,
+                                                  [cls.name]: {
+                                                    ...(subjectDurations[cls.name] || {}),
+                                                    [s.id]: preset,
+                                                  },
+                                                })
+                                              }
+                                              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                                                curDur === preset
+                                                  ? 'border-sky-500 bg-sky-500 text-white'
+                                                  : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                              }`}
+                                            >
+                                              {preset}m
+                                            </button>
+                                          ))}
+                                        </div>
+
+                                        <div className="flex items-center gap-1">
+                                          <input
+                                            type="number"
+                                            min={15}
+                                            max={240}
+                                            step={5}
+                                            value={curDur}
+                                            onChange={(e) =>
+                                              setSubjectDurations({
+                                                ...subjectDurations,
+                                                [cls.name]: {
+                                                  ...(subjectDurations[cls.name] || {}),
+                                                  [s.id]: Number(e.target.value) || 60,
+                                                },
+                                              })
+                                            }
+                                            className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] text-center font-bold text-slate-800 dark:text-slate-100"
+                                          />
+                                          <span className="text-[11px] text-slate-400">mins</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
               )}

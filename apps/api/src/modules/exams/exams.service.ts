@@ -299,9 +299,10 @@ export class ExamsService {
     }
 
     let totalSessionsGenerated = 0;
+    const targetClasses = schoolClasses.filter((c) => c.name.toLowerCase() !== 'playgroup');
 
     // For each class, schedule subjects
-    for (const cls of schoolClasses) {
+    for (const cls of targetClasses) {
       const classSubjects = await db
         .select()
         .from(subjects)
@@ -367,7 +368,7 @@ export class ExamsService {
     return {
       success: true,
       sessionsCount: totalSessionsGenerated,
-      classesCount: schoolClasses.length,
+      classesCount: targetClasses.length,
       examDates,
     };
   }

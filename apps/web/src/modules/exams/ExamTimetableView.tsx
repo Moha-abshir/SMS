@@ -158,8 +158,9 @@ export const ExamTimetableView: React.FC = () => {
         apiClient.get('/api/settings').catch(() => ({ data: { data: null } })),
       ]);
 
-      const exList = examsRes.data.data || [];
-      const clsList = classesRes.data.data || [];
+      const exList = examsRes.data?.data || [];
+      const rawClsList = classesRes.data?.data || [];
+      const clsList = rawClsList.filter((c: any) => c.name.toLowerCase() !== 'playgroup');
 
       setExams(exList);
       setClassesList(clsList);
@@ -168,7 +169,7 @@ export const ExamTimetableView: React.FC = () => {
       if (exList.length > 0 && !selectedExamId) {
         setSelectedExamId(exList[0].exam.id);
       }
-      if (clsList.length > 0 && !selectedClassId) {
+      if (clsList.length > 0 && (!selectedClassId || !clsList.some((c: any) => c.id === selectedClassId))) {
         setSelectedClassId(clsList[0].id);
       }
     } catch (err: any) {
