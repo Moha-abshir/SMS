@@ -54,6 +54,146 @@ export class MarkSubmissionsService {
     return list;
   }
 
+  /**
+   * Generates a hierarchical class-by-class review summary for the Deputy Head.
+   * Lists each class stream, assigned Class Teacher, and submission status of all subject papers.
+   */
+  static async getClassesReviewOverview(examId?: string) {
+    // 1. Fetch all classes ordered by numericOrder
+    const allClasses = await db
+      .select({
+        class: classes,
+        classTeacher: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        },
+      })
+      .from(classes)
+      .leftJoin(users, eq(classes.classTeacherId, users.id))
+      .where(isNull(classes.deletedAt))
+      .orderBy(classes.numericOrder);
+
+    // 2. Fetch all subjects
+    const allSubjects = await db
+      .select()
+      .from(subjects)
+      .where(isNull(subjects.deletedAt))
+      .orderBy(subjects.name);
+
+    // 3. Fetch submissions matching examId (or all if not specified)
+    const baseConditions = [isNull(markSubmissions.deletedAt)];
+    if (examId) {
+      baseConditions.push(eq(markSubmissions.examId, examId));
+    }
+
+    const submissions = await db
+      .select({
+        submission: markSubmissions,
+        class: classes,
+        subject: subjects,
+        submittedBy: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        },
+      })
+      .from(markSubmissions)
+      .innerJoin(classes, eq(markSubmissions.classId, classes.id))
+      .innerJoin(subjects, eq(markSubmissions.subjectId, subjects.id))
+      .innerJoin(users, eq(markSubmissions.teacherId, users.id))
+      .where(and(...baseConditions));
+
+    // Group submissions by classId
+    const subMapByClass = new Map<string, any[]>();
+    for (const s of submissions) {
+      const arr = subMapByClass.get(s.class.id) || [];
+      arr.push(s);
+      subMapByClass.set(s.class.id, arr);
+    }
+
+    // Combine into class overview
+    return allClasses.map(({ class: cls, classTeacher }) => {
+      // Subjects for this class's levelCategory
+      const classSubjects = allSubjects.filter(
+        (sub) =>
+          sub.levelCategory === cls.levelCategory ||
+          (cls.levelCategory === 'PRIMARY' &&
+            (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
+      );
+
+      const classSubs = subMapByClass.get(cls.id) || [];
+      const subMap = new Map<string, any>();
+      classSubs.forEach((s) => subMap.set(s.subject.id, s));
+
+      const papers = classSubjects.map((sub) => {
+        const subData = subMap.get(sub.id);
+        return {
+          subjectId: sub.id,
+          subjectName: sub.name,
+          subjectCode: sub.code,
+          submissionId: subData?.submission?.id || null,
+          status: subData?.submission?.status || 'NOT_STARTED',
+          submittedBy: subData?.submittedBy || null,
+          submittedAt: subData?.submission?.submittedAt || null,
+          reviewedAt: subData?.submission?.reviewedAt || null,
+          correctionReason: subData?.submission?.correctionReason || null,
+        };
+      });
+
+      const totalExpected = classSubjects.length;
+      const approvedCount = papers.filter((p) => p.status === 'APPROVED' || p.status === 'LOCKED').length;
+      const submittedCount = papers.filter((p) => p.status === 'SUBMITTED').length;
+      const correctionCount = papers.filter((p) => p.status === 'CORRECTION_REQUESTED').length;
+
+      let overallStatus: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'CORRECTION_REQUESTED' = 'PENDING';
+      if (correctionCount > 0) {
+        overallStatus = 'CORRECTION_REQUESTED';
+      } else if (totalExpected > 0 && approvedCount === totalExpected) {
+        overallStatus = 'APPROVED';
+      } else if (totalExpected > 0 && (approvedCount + submittedCount) === totalExpected) {
+        overallStatus = 'SUBMITTED';
+      } else {
+        overallStatus = 'PENDING';
+      }
+
+      return {
+        class: cls,
+        classTeacher: classTeacher?.id ? classTeacher : null,
+        totalExpected,
+        submittedCount,
+        approvedCount,
+        correctionCount,
+        overallStatus,
+        papers,
+      };
+    });
+  }
+
+  static async approveClassSubmissions(classId: string, examId: string, reviewedById: string) {
+    const updated = await db
+      .update(markSubmissions)
+      .set({
+        status: 'APPROVED',
+        reviewedById,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.examId, examId),
+          eq(markSubmissions.status, 'SUBMITTED'),
+          isNull(markSubmissions.deletedAt)
+        )
+      )
+      .returning();
+
+    return updated;
+  }
+
   static async getSubmissionScores(id: string) {
     const [subData] = await db
       .select({

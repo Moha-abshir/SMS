@@ -12,6 +12,31 @@ export class MarkSubmissionsController {
     }
   }
 
+  static async getClassesReviewOverview(req: Request, res: Response) {
+    try {
+      const examId = req.query.examId as string;
+      const data = await MarkSubmissionsService.getClassesReviewOverview(examId);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch classes review overview' });
+    }
+  }
+
+  static async approveClassSubmissions(req: Request, res: Response) {
+    try {
+      const { classId } = req.params;
+      const { examId } = req.body;
+      const reviewedById = req.user!.id;
+      if (!examId) {
+        return res.status(400).json({ success: false, message: 'examId is required in request body' });
+      }
+      const data = await MarkSubmissionsService.approveClassSubmissions(classId, examId, reviewedById);
+      return res.status(200).json({ success: true, data, message: `Approved ${data.length} submitted paper(s) for this class` });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to approve class submissions' });
+    }
+  }
+
   static async getSubmissionScores(req: Request, res: Response) {
     try {
       const { id } = req.params;
