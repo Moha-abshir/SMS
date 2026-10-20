@@ -39,18 +39,51 @@ export function calculateJuniorPoints(marks: number, totalMarks = 100): number {
 
 export function isJuniorSecondaryClass(classInfo?: { levelCategory?: string | null; numericOrder?: number | null; name?: string | null } | null): boolean {
   if (!classInfo) return false;
-  if (classInfo.numericOrder !== undefined && classInfo.numericOrder !== null) {
-    return classInfo.numericOrder >= 7;
-  }
   if (classInfo.levelCategory) {
     return classInfo.levelCategory === 'JUNIOR';
   }
   if (classInfo.name) {
+    if (/JSS|Junior/i.test(classInfo.name)) return true;
     const match = classInfo.name.match(/\b(Grade|Class)\s*([0-9]+)/i);
     if (match) {
       const num = parseInt(match[2], 10);
       return num >= 7;
     }
   }
+  if (classInfo.numericOrder !== undefined && classInfo.numericOrder !== null) {
+    return classInfo.numericOrder >= 10;
+  }
   return false;
+}
+
+/**
+ * Pre-Primary (PP1, PP2, Playgroup) and Lower Primary (Grades 1-3)
+ * where the Class Teacher teaches and marks ALL subjects.
+ */
+export function isSelfContainedClass(classInfo?: { levelCategory?: string | null; numericOrder?: number | null; name?: string | null } | null): boolean {
+  if (!classInfo) return false;
+  if (classInfo.levelCategory === 'PPE' || classInfo.levelCategory === 'LOWER_PRIMARY') {
+    return true;
+  }
+  if (classInfo.name) {
+    if (/^(PP1|PP2|Playgroup|Baby|Nursery|Pre-Primary)/i.test(classInfo.name.trim())) return true;
+    const match = classInfo.name.match(/\b(Grade|Class)\s*([0-9]+)/i);
+    if (match) {
+      const num = parseInt(match[2], 10);
+      return num <= 3;
+    }
+  }
+  if (classInfo.numericOrder !== undefined && classInfo.numericOrder !== null) {
+    return classInfo.numericOrder <= 6;
+  }
+  return false;
+}
+
+/**
+ * Upper Primary (Grades 4-6) and Junior Secondary (Grades 7-9)
+ * where distinct Subject Teachers are allocated by the DoS.
+ */
+export function isSubjectTeacherClass(classInfo?: { levelCategory?: string | null; numericOrder?: number | null; name?: string | null } | null): boolean {
+  if (!classInfo) return false;
+  return !isSelfContainedClass(classInfo);
 }

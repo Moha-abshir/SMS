@@ -13,6 +13,8 @@ import {
   isNull,
   and,
   desc,
+  inArray,
+  isSelfContainedClass,
 } from '@school/shared';
 
 export class AcademicAllocationsService {
@@ -233,12 +235,69 @@ export class AcademicAllocationsService {
     return Array.from(teacherMap.values());
   }
 
+  // --- Pre-Primary & Lower Primary (PP1 - Grade 3) Self-Contained Marking Roster ---
+  static async getSelfContainedRoster() {
+    // 1. Fetch PP1, PP2, Grade 1, Grade 2, Grade 3 classes
+    const classesList = await db
+      .select({
+        class: classes,
+        classTeacher: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        },
+      })
+      .from(classes)
+      .leftJoin(users, eq(classes.classTeacherId, users.id))
+      .where(
+        and(
+          inArray(classes.levelCategory, ['PPE', 'LOWER_PRIMARY']),
+          isNull(classes.deletedAt)
+        )
+      )
+      .orderBy(classes.numericOrder);
+
+    // 2. Fetch all subjects for PPE and LOWER_PRIMARY
+    const subjectsList = await db
+      .select()
+      .from(subjects)
+      .where(
+        and(
+          inArray(subjects.levelCategory, ['PPE', 'LOWER_PRIMARY']),
+          isNull(subjects.deletedAt)
+        )
+      )
+      .orderBy(subjects.name);
+
+    return classesList.map((item) => ({
+      ...item,
+      subjects: subjectsList.filter((s) => s.levelCategory === item.class.levelCategory),
+    }));
+  }
+
   static async assignMarking(data: {
     examId: string;
     subjectId: string;
     classId: string;
     teacherId: string;
   }) {
+    // Verify target class is not a self-contained class (PP1 - Grade 3)
+    const [targetClass] = await db
+      .select()
+      .from(classes)
+      .where(eq(classes.id, data.classId));
+
+    if (!targetClass) {
+      throw new Error('Class not found');
+    }
+
+    if (isSelfContainedClass(targetClass)) {
+      throw new Error(
+        `Automated Marking Notice: ${targetClass.name} is a Pre-Primary/Lower Primary class. All subjects are marked exclusively by the assigned Class Teacher.`
+      );
+    }
+
     // Check if class + subject + exam is already allocated
     const existingMarking = await db
       .select({

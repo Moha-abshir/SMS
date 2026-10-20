@@ -4,6 +4,7 @@ import {
   students,
   guardians,
   teacherSubjectAllocations,
+  markingAllocations,
   subjects,
   examinations,
   examScores,
@@ -158,7 +159,21 @@ export class TeacherService {
 
     // If teacher is Class Teacher for PPE or Lower Primary (Grades 1-3),
     // they also teach all subjects for their assigned class
-    let allTeachingAreas = [...allocations];
+    interface TeachingAreaItem {
+      allocationId: string;
+      academicYear: number;
+      classId: string;
+      className: string;
+      levelCategory: any;
+      numericOrder: number;
+      subjectId: string;
+      subjectName: string;
+      subjectCode: string;
+      isDoSMarkingAllocation?: boolean;
+      examId?: string;
+    }
+
+    let allTeachingAreas: TeachingAreaItem[] = allocations.map((a) => ({ ...a }));
 
     if (
       assignedClass &&
@@ -197,6 +212,51 @@ export class TeacherService {
       }
     }
 
+    // 3b. Fetch DoS Paper Marking Allocations for this examiner (Grades 4-9)
+    const markingAllocs = await db
+      .select({
+        allocationId: markingAllocations.id,
+        examId: markingAllocations.examId,
+        classId: classes.id,
+        className: classes.name,
+        levelCategory: classes.levelCategory,
+        numericOrder: classes.numericOrder,
+        subjectId: subjects.id,
+        subjectName: subjects.name,
+        subjectCode: subjects.code,
+      })
+      .from(markingAllocations)
+      .innerJoin(classes, eq(markingAllocations.classId, classes.id))
+      .innerJoin(subjects, eq(markingAllocations.subjectId, subjects.id))
+      .where(
+        and(
+          eq(markingAllocations.teacherId, userId),
+          isNull(markingAllocations.deletedAt),
+          isNull(classes.deletedAt)
+        )
+      );
+
+    for (const ma of markingAllocs) {
+      const alreadyIncluded = allTeachingAreas.some(
+        (a) => a.classId === ma.classId && a.subjectId === ma.subjectId && a.examId === ma.examId
+      );
+      if (!alreadyIncluded) {
+        allTeachingAreas.push({
+          allocationId: ma.allocationId,
+          academicYear: new Date().getFullYear(),
+          classId: ma.classId,
+          className: ma.className,
+          levelCategory: ma.levelCategory,
+          numericOrder: ma.numericOrder,
+          subjectId: ma.subjectId,
+          subjectName: ma.subjectName,
+          subjectCode: ma.subjectCode,
+          isDoSMarkingAllocation: true,
+          examId: ma.examId,
+        });
+      }
+    }
+
     // 4. Fetch Active Examinations and construct Mark Entry Queue
     const activeExams = await db
       .select()
@@ -209,6 +269,11 @@ export class TeacherService {
 
     for (const exam of activeExams) {
       for (const area of allTeachingAreas) {
+        // If this area was allocated by DoS specifically for an exam, only generate task for that exam
+        if ((area as any).examId && (area as any).examId !== exam.id) {
+          continue;
+        }
+
         // Check submission record
         const [submission] = await db
           .select()

@@ -14,6 +14,7 @@ router.delete('/invigilators/:id', authorizePermission('exams:manage'), Academic
 
 // Marking routes
 router.get('/marking', AcademicAllocationsController.getMarkingAllocations);
+router.get('/marking/self-contained-roster', AcademicAllocationsController.getSelfContainedRoster);
 router.get('/marking/eligible-teachers', AcademicAllocationsController.getEligibleMarkingTeachers);
 router.post('/marking', authorizePermission('exams:manage'), AcademicAllocationsController.assignMarking);
 router.delete('/marking/:id', authorizePermission('exams:manage'), AcademicAllocationsController.removeMarking);
