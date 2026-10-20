@@ -191,10 +191,10 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             <BookOpen className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             Examination & Academic Operations Workspace Modules
           </h3>
-          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">5 Direct Workstations</span>
+          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">4 Direct Workstations</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3.5 sm:gap-4">
           {/* 1. Exam Timetabling & Progress */}
           <button
             onClick={() => handleNav('exams', '/exams')}
@@ -212,24 +212,7 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             </p>
           </button>
 
-          {/* 2. Invigilator Allocation */}
-          <button
-            onClick={() => handleNav('invigilation', '/invigilation')}
-            className="p-4 sm:p-5 bg-sky-50/40 dark:bg-[#0c1932]/60 hover:bg-sky-50/90 dark:hover:bg-[#142647] border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer shadow-xs"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <UserCheck className="w-4 h-4" />
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors" />
-            </div>
-            <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">Invigilator Allocation & Conflicts</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Assign supervisors to classrooms, automatically prevent double-booking conflicts, and generate printable duty rosters.
-            </p>
-          </button>
-
-          {/* 3. Marking Allocation */}
+          {/* 2. Marking Allocation */}
           <button
             onClick={() => handleNav('marking_allocations', '/marking-allocations')}
             className="p-4 sm:p-5 bg-sky-50/40 dark:bg-[#0c1932]/60 hover:bg-sky-50/90 dark:hover:bg-[#142647] border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer shadow-xs"

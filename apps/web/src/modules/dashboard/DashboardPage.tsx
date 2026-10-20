@@ -16,7 +16,6 @@ import { InventoryView } from '../inventory/InventoryView';
 import { AttendanceOversightView } from '../attendance/AttendanceOversightView';
 import { MarkReviewView } from '../marks/MarkReviewView';
 import { ExamTimetableView } from '../exams/ExamTimetableView';
-import { InvigilatorAllocationView } from '../exams/InvigilatorAllocationView';
 import { MarkingAllocationView } from '../exams/MarkingAllocationView';
 import { ReportCardLockView } from '../exams/ReportCardLockView';
 import { SubjectPerformanceView } from '../dos/SubjectPerformanceView';
@@ -191,18 +190,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
                 transition={{ duration: 0.2 }}
               >
                 <ExamTimetableView />
-              </motion.div>
-            )}
-
-            {activeView === 'invigilation' && (
-              <motion.div
-                key="invigilation"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <InvigilatorAllocationView />
               </motion.div>
             )}
 

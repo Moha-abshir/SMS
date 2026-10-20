@@ -29,7 +29,6 @@ import { MarkReviewView } from './modules/marks/MarkReviewView';
 import { MarksheetEntryView } from './modules/marks/MarksheetEntryView';
 import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
 import { ExamTimetableView } from './modules/exams/ExamTimetableView';
-import { InvigilatorAllocationView } from './modules/exams/InvigilatorAllocationView';
 import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
 import { ReportCardLockView } from './modules/exams/ReportCardLockView';
 import { TimetableManagementView } from './modules/timetable/TimetableManagementView';
@@ -268,14 +267,6 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['DOS']} user={currentUser}>
                 <ExamTimetableView />
-              </RoleGuard>
-            }
-          />
-          <Route
-            path="/invigilation"
-            element={
-              <RoleGuard allowedRoles={['DOS']} user={currentUser}>
-                <InvigilatorAllocationView />
               </RoleGuard>
             }
           />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
-  ShieldCheck, Settings, FileText, Package, Clock, LogOut,
+  Settings, FileText, Package, Clock, LogOut,
   Menu, X, School, ClipboardCheck, Calendar
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
@@ -73,7 +73,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/my-learners', label: 'Class Learners', icon: Users, isClassTeacherFeature: true, roles: ['TEACHER'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DEPUTY_HEAD'] },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
-    { path: '/invigilation', label: 'Invigilator Allocations', icon: ShieldCheck, roles: ['DOS'] },
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
     { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/report-locks', label: 'Report Card Locks', icon: Settings, roles: ['HEAD_TEACHER', 'DOS'] },
