@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { reportCardLocks, classes, academicTerms, eq, and, isNull } from '@school/shared';
+import { reportCardLocks, classes, academicTerms, users, markSubmissions, eq, and, isNull } from '@school/shared';
 
 export class ReportLocksService {
   static async getReportLocks(termId?: string) {
@@ -13,8 +13,17 @@ export class ReportLocksService {
     }
 
     const classList = await db
-      .select()
+      .select({
+        class: classes,
+        classTeacher: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        },
+      })
       .from(classes)
+      .leftJoin(users, eq(classes.classTeacherId, users.id))
       .where(isNull(classes.deletedAt))
       .orderBy(classes.numericOrder);
 
@@ -25,13 +34,31 @@ export class ReportLocksService {
           .where(eq(reportCardLocks.termId, targetTermId))
       : [];
 
+    const submissions = await db
+      .select({
+        id: markSubmissions.id,
+        classId: markSubmissions.classId,
+        status: markSubmissions.status,
+      })
+      .from(markSubmissions)
+      .where(isNull(markSubmissions.deletedAt));
+
     return classList.map((c) => {
-      const lockRecord = locks.find((l) => l.classId === c.id);
+      const lockRecord = locks.find((l) => l.classId === c.class.id);
+      const classSubs = submissions.filter((s) => s.classId === c.class.id);
+      const totalSubs = classSubs.length;
+      const approvedSubs = classSubs.filter((s) => s.status === 'APPROVED' || s.status === 'LOCKED').length;
+      const marksApproved = totalSubs > 0 && approvedSubs === totalSubs;
+
       return {
-        class: c,
+        class: c.class,
+        classTeacher: c.classTeacher?.id ? c.classTeacher : null,
         isLocked: lockRecord ? lockRecord.isLocked : true, // Default locked until explicitly released
         lockId: lockRecord ? lockRecord.id : null,
         lockedAt: lockRecord ? lockRecord.lockedAt : null,
+        totalMarkSubmissions: totalSubs,
+        approvedMarkSubmissions: approvedSubs,
+        marksApproved,
       };
     });
   }
