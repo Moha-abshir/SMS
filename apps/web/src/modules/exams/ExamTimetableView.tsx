@@ -992,6 +992,7 @@ export const ExamTimetableView: React.FC = () => {
           isOpen={isPrintOpen}
           onClose={() => setIsPrintOpen(false)}
           exam={selectedExamObj?.exam}
+          term={selectedExamObj?.term}
           className={selectedClassObj?.name || 'Class'}
           sessions={sessions}
           breaks={[]}

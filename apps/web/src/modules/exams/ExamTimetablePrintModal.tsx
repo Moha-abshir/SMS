@@ -1,16 +1,17 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Printer, X } from 'lucide-react';
+import { parseISO, format } from 'date-fns';
 import { printElement } from '../../lib/printElement';
-import { formatDate } from '../../lib/formatters';
 
 interface ExamTimetablePrintModalProps {
   isOpen: boolean;
   onClose: () => void;
   exam: any;
+  term?: any;
   className: string;
   sessions: any[];
-  breaks: Array<{ name: string; startTime: string; endTime: string }>;
+  breaks?: Array<{ name: string; startTime: string; endTime: string }>;
   schoolSettings: any;
 }
 
@@ -18,6 +19,7 @@ export const ExamTimetablePrintModal: React.FC<ExamTimetablePrintModalProps> = (
   isOpen,
   onClose,
   exam,
+  term,
   className,
   sessions,
   breaks,
@@ -36,6 +38,32 @@ export const ExamTimetablePrintModal: React.FC<ExamTimetablePrintModalProps> = (
   });
 
   const sortedDates = Object.keys(groupedByDate).sort();
+
+  // Extract class invigilator (uniform across sessions for this class)
+  const classInvigilator = sessions.find((s) => s.invigilator)?.invigilator;
+  const invigilatorName = classInvigilator
+    ? `${classInvigilator.firstName} ${classInvigilator.lastName}`.trim()
+    : 'Allocated Staff';
+
+  const academicYear = term?.year || exam?.term?.year || schoolSettings?.currentAcademicYear || 2026;
+  const termNumber = term?.termNumber || exam?.term?.termNumber || schoolSettings?.currentTermNumber || 1;
+  const examTitle = exam?.title || 'EXAMINATION TIMETABLE';
+
+  const formatDateAndDay = (dStr: string) => {
+    try {
+      const d = parseISO(dStr);
+      if (!isNaN(d.getTime())) {
+        return {
+          day: format(d, 'EEEE'),
+          formattedDate: format(d, 'dd/MM/yyyy'),
+        };
+      }
+    } catch (e) {}
+    return {
+      day: 'Exam Day',
+      formattedDate: dStr,
+    };
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
@@ -79,112 +107,222 @@ export const ExamTimetablePrintModal: React.FC<ExamTimetablePrintModalProps> = (
         <div className="p-6 overflow-y-auto flex-1 bg-slate-100 dark:bg-slate-900/50">
           <div
             id={printDocumentId}
-            className="p-8 bg-white border border-slate-300 rounded-xl text-slate-900 shadow-sm space-y-6 max-w-3xl mx-auto"
+            className="p-8 bg-white border border-slate-300 rounded-xl text-black shadow-sm space-y-4 max-w-3xl mx-auto"
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#000000',
+              fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif",
+            }}
           >
+            {/* Embedded styles to guarantee solid black grid cells and crisp print styling */}
+            <style>{`
+              #${printDocumentId} table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                border: 1.5px solid #000000 !important;
+              }
+              #${printDocumentId} th,
+              #${printDocumentId} td {
+                border: 1px solid #000000 !important;
+                padding: 8px 12px !important;
+                color: #000000 !important;
+              }
+              #${printDocumentId} th {
+                background-color: #f1f5f9 !important;
+                font-weight: 800 !important;
+                text-transform: uppercase !important;
+                font-size: 10pt !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            `}</style>
+
             {/* School Header */}
-            <div className="text-center border-b-2 border-slate-800 pb-4">
-              <h1 className="text-xl font-black uppercase tracking-wide text-slate-900">
+            <div className="text-center border-b-2 border-black pb-3">
+              <h1 className="text-xl font-black uppercase tracking-wider text-black">
                 {schoolSettings?.schoolName || 'ELDORET MUSLIM ACADEMY'}
               </h1>
-              <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mt-0.5">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-700 mt-0.5">
                 Office of the Director of Studies · Examination Board
               </p>
-              <div className="mt-2 inline-block px-3 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-black uppercase tracking-wider text-slate-800">
-                {exam?.title || 'EXAMINATION TIMETABLE'}
+              <div className="mt-2 inline-block px-3 py-1 bg-slate-100 border border-black rounded text-xs font-black uppercase tracking-wider text-black">
+                {examTitle}
               </div>
-              <div className="mt-2 text-xs text-slate-600 flex justify-center items-center gap-6 font-semibold">
+            </div>
+
+            {/* Metadata Bar: Grade, Academic Year, Term on Left; Invigilator at Top Right */}
+            <div className="flex flex-row items-end justify-between border-b border-black pb-2 text-xs">
+              <div className="flex items-center gap-3 text-black">
                 <span>
-                  <strong>Class:</strong> {className}
+                  <strong>Grade:</strong> <span className="font-bold">{className}</span>
                 </span>
+                <span>•</span>
                 <span>
-                  <strong>Academic Year:</strong> {schoolSettings?.currentAcademicYear || 2026}
+                  <strong>Academic Year:</strong> <span className="font-bold">{academicYear}</span>
                 </span>
+                <span>•</span>
                 <span>
-                  <strong>Term:</strong> Term {schoolSettings?.currentTermNumber || 1}
+                  <strong>Term:</strong> <span className="font-bold">Term {termNumber}</span>
+                </span>
+              </div>
+              <div className="text-right text-black">
+                <span className="text-slate-600 font-semibold">Class Invigilator: </span>
+                <span className="font-black text-black underline decoration-black decoration-1 underline-offset-2">
+                  {invigilatorName}
                 </span>
               </div>
             </div>
 
-            {/* Timetable Table */}
+            {/* Timetable Table Guided within Grid Cells */}
             <div>
-              <table className="w-full text-left text-xs border-collapse border border-slate-300">
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  border: '1.5px solid #000000',
+                  fontSize: '10.5pt',
+                }}
+              >
                 <thead>
-                  <tr className="bg-slate-100 text-slate-800 font-bold uppercase border-b border-slate-300 text-[11px]">
-                    <th className="p-2.5 border border-slate-300 w-28">Exam Date</th>
-                    <th className="p-2.5 border border-slate-300 w-32">Time Slot</th>
-                    <th className="p-2.5 border border-slate-300">Subject Paper</th>
-                    <th className="p-2.5 border border-slate-300 w-20 text-center">Duration</th>
-                    <th className="p-2.5 border border-slate-300">Supervisor / Invigilator</th>
+                  <tr
+                    style={{
+                      backgroundColor: '#f1f5f9',
+                      borderBottom: '1.5px solid #000000',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <th
+                      style={{
+                        border: '1px solid #000000',
+                        padding: '8px 12px',
+                        width: '24%',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        fontSize: '10pt',
+                        color: '#000000',
+                      }}
+                    >
+                      Date & Day
+                    </th>
+                    <th
+                      style={{
+                        border: '1px solid #000000',
+                        padding: '8px 12px',
+                        width: '24%',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        fontSize: '10pt',
+                        color: '#000000',
+                      }}
+                    >
+                      Time Slot
+                    </th>
+                    <th
+                      style={{
+                        border: '1px solid #000000',
+                        padding: '8px 12px',
+                        width: '40%',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        fontSize: '10pt',
+                        color: '#000000',
+                      }}
+                    >
+                      Subject Paper
+                    </th>
+                    <th
+                      style={{
+                        border: '1px solid #000000',
+                        padding: '8px 12px',
+                        width: '12%',
+                        textAlign: 'center',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        fontSize: '10pt',
+                        color: '#000000',
+                      }}
+                    >
+                      Duration
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedDates.map((dateStr) => {
                     const dateSessions = groupedByDate[dateStr];
+                    const { day, formattedDate } = formatDateAndDay(dateStr);
+
                     return dateSessions.map((row, idx) => (
-                      <tr key={row.session.id} className="border-b border-slate-200">
+                      <tr key={row.session.id}>
                         {idx === 0 && (
                           <td
                             rowSpan={dateSessions.length}
-                            className="p-2.5 border border-slate-300 font-bold text-slate-800 align-top bg-slate-50/50"
+                            style={{
+                              border: '1px solid #000000',
+                              padding: '8px 12px',
+                              verticalAlign: 'top',
+                              backgroundColor: '#fafafa',
+                            }}
                           >
-                            <div>{formatDate(dateStr)}</div>
+                            <div style={{ fontWeight: 800, color: '#000000', fontSize: '10.5pt' }}>
+                              {day}
+                            </div>
+                            <div style={{ fontSize: '9.5pt', color: '#333333', marginTop: '2px', fontWeight: 600 }}>
+                              {formattedDate}
+                            </div>
                           </td>
                         )}
-                        <td className="p-2.5 border border-slate-300 font-mono font-bold text-slate-700">
+                        <td
+                          style={{
+                            border: '1px solid #000000',
+                            padding: '8px 12px',
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
+                            color: '#000000',
+                            verticalAlign: 'middle',
+                            fontSize: '10pt',
+                          }}
+                        >
                           {row.session.sessionTime}
                         </td>
-                        <td className="p-2.5 border border-slate-300">
-                          <span className="font-bold text-slate-900">{row.subject?.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono ml-1.5">({row.subject?.code})</span>
+                        <td
+                          style={{
+                            border: '1px solid #000000',
+                            padding: '8px 12px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <span style={{ fontWeight: 800, color: '#000000' }}>{row.subject?.name}</span>
+                          {row.subject?.code && (
+                            <span
+                              style={{
+                                fontSize: '9pt',
+                                color: '#444444',
+                                fontFamily: 'monospace',
+                                marginLeft: '6px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              ({row.subject.code})
+                            </span>
+                          )}
                         </td>
-                        <td className="p-2.5 border border-slate-300 text-center font-bold text-slate-600">
+                        <td
+                          style={{
+                            border: '1px solid #000000',
+                            padding: '8px 12px',
+                            textAlign: 'center',
+                            fontWeight: 700,
+                            color: '#000000',
+                            verticalAlign: 'middle',
+                          }}
+                        >
                           {row.session.durationMinutes || 60}m
-                        </td>
-                        <td className="p-2.5 border border-slate-300 font-medium text-slate-700">
-                          {row.invigilator
-                            ? `${row.invigilator.firstName} ${row.invigilator.lastName}`
-                            : 'Allocated Staff'}
                         </td>
                       </tr>
                     ));
                   })}
                 </tbody>
               </table>
-            </div>
-
-            {/* Directives to Candidates */}
-            <div className="border border-slate-200 bg-slate-50/50 p-3 rounded text-[11px] space-y-1 text-slate-700">
-              <p className="font-bold uppercase tracking-wider text-slate-900">Important Instructions to Learners:</p>
-              <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                <li>Arrive in the examination room at least <strong>10 minutes</strong> before paper commencement.</li>
-                <li>Write your assessment number, full name, and class clearly on every question-and-answer booklet.</li>
-                <li>Strictly no unauthorized materials (mobile phones, textbooks, unapproved notes) permitted.</li>
-                <li>Stop writing immediately when the final invigilator bell sounds.</li>
-              </ul>
-            </div>
-
-            {/* Signatures */}
-            <div className="grid grid-cols-3 gap-6 pt-4 border-t border-slate-300 text-xs">
-              <div>
-                <div className="border-b border-slate-400 h-10 mb-1" />
-                <p className="font-bold text-slate-800">Director of Studies (DoS)</p>
-                <p className="text-[10px] text-slate-500">Signature & Date</p>
-              </div>
-
-              <div>
-                <div className="border-b border-slate-400 h-10 mb-1" />
-                <p className="font-bold text-slate-800">Class Teacher</p>
-                <p className="text-[10px] text-slate-500">Signature & Date</p>
-              </div>
-
-              <div className="flex flex-col items-center justify-center">
-                <div className="w-20 h-20 rounded-full border-2 border-dashed border-sky-800 flex flex-col items-center justify-center text-center p-1 text-[7px] font-bold text-sky-900 tracking-tighter uppercase leading-tight select-none">
-                  <span>ELDORET MUSLIM</span>
-                  <span>ACADEMY</span>
-                  <span className="my-0.5 text-[6px] text-sky-600">★ EXAM OFFICE ★</span>
-                  <span>OFFICIAL SEAL</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
