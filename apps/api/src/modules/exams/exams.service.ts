@@ -35,12 +35,14 @@ export class ExamsService {
     return list;
   }
 
-  static async createExam(data: { termId: string; title: string }) {
+  static async createExam(data: { termId: string; title: string; startDate?: string; endDate?: string }) {
     const [created] = await db
       .insert(examinations)
       .values({
         termId: data.termId,
         title: data.title,
+        startDate: data.startDate || null,
+        endDate: data.endDate || null,
         status: 'DRAFT',
       })
       .returning();
@@ -48,7 +50,7 @@ export class ExamsService {
     return created;
   }
 
-  static async updateExam(id: string, data: { title?: string; termId?: string }) {
+  static async updateExam(id: string, data: { title?: string; termId?: string; startDate?: string; endDate?: string }) {
     const [existing] = await db
       .select()
       .from(examinations)
@@ -68,6 +70,12 @@ export class ExamsService {
     }
     if (data.termId) {
       updateFields.termId = data.termId;
+    }
+    if (data.startDate !== undefined) {
+      updateFields.startDate = data.startDate || null;
+    }
+    if (data.endDate !== undefined) {
+      updateFields.endDate = data.endDate || null;
     }
 
     const [updated] = await db
@@ -203,6 +211,16 @@ export class ExamsService {
     if (!exam) {
       throw new Error('Examination series not found');
     }
+
+    // Persist series startDate and endDate to exam series record
+    await db
+      .update(examinations)
+      .set({
+        startDate: data.startDate,
+        endDate: data.endDate,
+        updatedAt: new Date(),
+      })
+      .where(eq(examinations.id, data.examId));
 
     // Parse and validate start/end dates using date-fns
     const start = parseISO(data.startDate);
@@ -492,21 +510,24 @@ export class ExamsService {
 
     // Check conflict if subject or date changed
     if (subjectId !== existing.subjectId || sessionDate !== existing.sessionDate) {
+      const conflictWhere = [
+        eq(examSessions.examId, existing.examId),
+        eq(examSessions.subjectId, subjectId),
+        eq(examSessions.sessionDate, sessionDate),
+        ne(examSessions.id, id),
+        isNull(examSessions.deletedAt),
+      ];
+      if (existing.classId) {
+        conflictWhere.push(eq(examSessions.classId, existing.classId));
+      }
+
       const conflict = await db
         .select()
         .from(examSessions)
-        .where(
-          and(
-            eq(examSessions.examId, existing.examId),
-            eq(examSessions.subjectId, subjectId),
-            eq(examSessions.sessionDate, sessionDate),
-            ne(examSessions.id, id),
-            isNull(examSessions.deletedAt)
-          )
-        );
+        .where(and(...conflictWhere));
 
       if (conflict.length > 0) {
-        throw new Error('This subject has already been scheduled for this date in the exam timetable.');
+        throw new Error('This subject has already been scheduled for this date in this class examination timetable.');
       }
     }
 

@@ -67,6 +67,8 @@ export const examinations = pgTable('examinations', {
   id: uuid('id').defaultRandom().primaryKey(),
   termId: uuid('term_id').notNull().references(() => academicTerms.id),
   title: varchar('title', { length: 100 }).notNull(),
+  startDate: date('start_date'),
+  endDate: date('end_date'),
   status: examStatusEnum('status').default('DRAFT').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
