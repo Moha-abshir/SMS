@@ -7,10 +7,10 @@
   "homepage": "https://github.com/Moha-abshir/School-Management-System#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Moha-abshir/School-Management-System.git"
+    "url": "git+https://github.com/Moha-abshir/SMS.git"
   },
   "bugs": {
-    "url": "https://github.com/Moha-abshir/School-Management-System/issues"
+    "url": "https://github.com/Moha-abshir/SMS/issues"
   },
   "keywords": [
     "school-management-system",

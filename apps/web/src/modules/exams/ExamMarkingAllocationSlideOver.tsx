@@ -71,7 +71,12 @@ interface ExamMarkingAllocationSlideOverProps {
   teachers?: any[];
   markingAllocations: MarkingAllocationItem[];
   activeExam: any | null;
-  onAssignExaminer: (classId: string, subjectId: string, teacherId: string) => Promise<void>;
+  onAssignExaminer: (
+    classId: string,
+    subjectId: string,
+    teacherId: string,
+    previousAllocationId?: string
+  ) => Promise<void>;
   onRemoveExaminer: (allocationId: string) => Promise<void>;
 }
 
@@ -258,11 +263,15 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
     });
   }, [classSubjects, allocationBySubjectId, searchQuery, filterMode]);
 
-  const handleSave = async (subjectId: string, teacherId: string) => {
+  const handleSave = async (
+    subjectId: string,
+    teacherId: string,
+    previousAllocationId?: string
+  ) => {
     if (!classId || !teacherId) return;
     try {
       setSavingSubjectIds((prev) => ({ ...prev, [subjectId]: true }));
-      await onAssignExaminer(classId, subjectId, teacherId);
+      await onAssignExaminer(classId, subjectId, teacherId, previousAllocationId);
     } finally {
       setSavingSubjectIds((prev) => ({ ...prev, [subjectId]: false }));
     }
@@ -522,7 +531,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                               onChange={(newTeacherId) => {
                                 if (newTeacherId) {
                                   if (newTeacherId !== currentAlloc?.teacher.id) {
-                                    handleSave(subj.id, newTeacherId);
+                                    handleSave(subj.id, newTeacherId, currentAlloc?.allocation?.id);
                                   }
                                 } else if (currentAlloc) {
                                   handleRemove(currentAlloc.allocation.id);

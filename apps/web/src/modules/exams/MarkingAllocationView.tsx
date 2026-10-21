@@ -85,7 +85,13 @@ export const MarkingAllocationView: React.FC = () => {
   };
 
   // Assign examiner handler (with optimistic update)
-  const handleAssignExaminer = async (classId: string, subjectId: string, teacherId: string) => {
+  // Assign examiner handler (with optimistic update and seamless reassignment)
+  const handleAssignExaminer = async (
+    classId: string,
+    subjectId: string,
+    teacherId: string,
+    previousAllocationId?: string
+  ) => {
     if (!activeExamId) {
       toast.error('No active examination found');
       return;
@@ -97,7 +103,7 @@ export const MarkingAllocationView: React.FC = () => {
     const targetClassRow = classesList.find((c) => (c.class?.id || c.id) === classId);
     const targetClass = targetClassRow?.class || targetClassRow;
 
-    // Optimistic entry
+    // Check for existing allocation
     const existingIndex = prevMarkingList.findIndex(
       (m) =>
         (m.class?.id || m.classId) === classId &&
@@ -105,7 +111,19 @@ export const MarkingAllocationView: React.FC = () => {
         (m.exam?.id || m.examId) === activeExamId
     );
 
-    const tempId = existingIndex >= 0 ? prevMarkingList[existingIndex].allocation?.id || prevMarkingList[existingIndex].id : `temp-${Date.now()}`;
+    const existingAlloc = existingIndex >= 0 ? prevMarkingList[existingIndex] : null;
+    const existingAllocId =
+      previousAllocationId ||
+      existingAlloc?.allocation?.id ||
+      existingAlloc?.id;
+
+    const isReassigning = Boolean(
+      existingAllocId &&
+      !existingAllocId.startsWith('temp-') &&
+      (existingAlloc?.teacher?.id || (existingAlloc as any)?.teacherId) !== teacherId
+    );
+
+    const tempId = existingAllocId || `temp-${Date.now()}`;
 
     const optimisticRecord = {
       allocation: {
@@ -136,6 +154,16 @@ export const MarkingAllocationView: React.FC = () => {
     setMarkingList(nextMarking);
 
     try {
+      // If reassigning to a different examiner, remove the previous allocation first
+      // to guarantee zero conflict errors across all backend versions
+      if (isReassigning && existingAllocId) {
+        try {
+          await apiClient.delete(`/api/academic-allocations/marking/${existingAllocId}`);
+        } catch (delErr) {
+          console.warn('Could not remove previous marking allocation before reassignment:', delErr);
+        }
+      }
+
       await apiClient.post('/api/academic-allocations/marking', {
         examId: activeExamId,
         subjectId,
@@ -153,6 +181,42 @@ export const MarkingAllocationView: React.FC = () => {
       // Background refresh to sync DB ids
       await fetchData(false);
     } catch (err: any) {
+      // Auto conflict recovery: if backend threw conflict error because an allocation was still registered
+      if (
+        err.response?.data?.message?.includes('already assigned') ||
+        err.response?.data?.message?.includes('Conflict')
+      ) {
+        try {
+          const freshRes = await apiClient.get('/api/academic-allocations/marking');
+          const freshList = freshRes.data?.data || [];
+          const conflictAlloc = freshList.find(
+            (m: any) =>
+              (m.class?.id || m.classId) === classId &&
+              (m.subject?.id || m.subjectId) === subjectId &&
+              (m.exam?.id || m.examId) === activeExamId
+          );
+          const conflictId = conflictAlloc?.allocation?.id || conflictAlloc?.id;
+          if (conflictId) {
+            await apiClient.delete(`/api/academic-allocations/marking/${conflictId}`);
+            await apiClient.post('/api/academic-allocations/marking', {
+              examId: activeExamId,
+              subjectId,
+              classId,
+              teacherId,
+            });
+            const teacherLabel = targetTeacher
+              ? `${targetTeacher.firstName} ${targetTeacher.lastName}`
+              : 'Examiner';
+            const subjectLabel = targetSubject?.name || 'Subject';
+            toast.success(`${subjectLabel}: Assigned to ${teacherLabel}`, { autoClose: 1500 });
+            await fetchData(false);
+            return;
+          }
+        } catch (retryErr) {
+          console.error('Conflict recovery retry failed:', retryErr);
+        }
+      }
+
       setMarkingList(prevMarkingList);
       toast.error(err.response?.data?.message || 'Failed to assign examiner');
       throw err;
