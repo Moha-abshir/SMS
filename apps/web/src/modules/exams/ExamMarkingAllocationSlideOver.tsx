@@ -68,6 +68,7 @@ interface ExamMarkingAllocationSlideOverProps {
   classId: string | null;
   classes: any[];
   subjects: SubjectItem[];
+  teachers?: any[];
   markingAllocations: MarkingAllocationItem[];
   activeExam: any | null;
   onAssignExaminer: (classId: string, subjectId: string, teacherId: string) => Promise<void>;
@@ -80,6 +81,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
   classId,
   classes,
   subjects,
+  teachers = [],
   markingAllocations,
   activeExam,
   onAssignExaminer,
@@ -92,7 +94,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
 
   // Cache eligible teachers by subject ID
   const [eligibleTeachersCache, setEligibleTeachersCache] = useState<Record<string, TeacherMeta[]>>({});
-  const [loadingSubjects, setLoadingSubjects] = useState<Record<string, boolean>>({});
+  const [isLoadingBatch, setIsLoadingBatch] = useState(false);
 
   // Prevent background scroll when open
   useEffect(() => {
@@ -157,24 +159,36 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
 
   // Fetch eligible teachers for subjects when slide-over opens
   useEffect(() => {
-    if (!isOpen || !classId || classSubjects.length === 0) return;
+    if (!isOpen || !classId) return;
 
-    classSubjects.forEach(async (subj) => {
-      if (eligibleTeachersCache[subj.id]) return;
+    let isMounted = true;
+    setIsLoadingBatch(true);
 
-      try {
-        setLoadingSubjects((prev) => ({ ...prev, [subj.id]: true }));
-        const res = await apiClient.get(
-          `/api/academic-allocations/marking/eligible-teachers?subjectId=${subj.id}&classId=${classId}`
-        );
-        const list: TeacherMeta[] = res.data.data || [];
-        setEligibleTeachersCache((prev) => ({ ...prev, [subj.id]: list }));
-      } catch (err) {
-        console.error(`Failed to load eligible teachers for subject ${subj.name}`, err);
-      } finally {
-        setLoadingSubjects((prev) => ({ ...prev, [subj.id]: false }));
-      }
-    });
+    apiClient
+      .get(`/api/academic-allocations/marking/eligible-teachers?classId=${classId}`)
+      .then((res) => {
+        if (!isMounted) return;
+        const resData = res.data?.data;
+        if (resData?.bySubject) {
+          setEligibleTeachersCache(resData.bySubject);
+        } else if (Array.isArray(resData)) {
+          const map: Record<string, TeacherMeta[]> = {};
+          classSubjects.forEach((s) => {
+            map[s.id] = resData;
+          });
+          setEligibleTeachersCache(map);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load eligible teachers batch, falling back to staff list:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingBatch(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen, classId, classSubjects]);
 
   // Filtered subjects list
@@ -374,8 +388,21 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                 filteredSubjects.map((subj, idx) => {
                   const currentAlloc = allocationBySubjectId.get(subj.id);
                   const isAllocated = Boolean(currentAlloc);
-                  const eligibleList = eligibleTeachersCache[subj.id] || [];
-                  const isLoadingTeachers = Boolean(loadingSubjects[subj.id]);
+                  const cachedList = eligibleTeachersCache[subj.id];
+                  const eligibleList: TeacherMeta[] =
+                    cachedList && cachedList.length > 0
+                      ? cachedList
+                      : teachers.map((t) => ({
+                          id: t.id,
+                          firstName: t.firstName,
+                          lastName: t.lastName,
+                          email: t.email || '',
+                          priority: 3,
+                          qualificationReason: 'Faculty Teacher',
+                          isBestMatch: false,
+                          isQualified: false,
+                        }));
+                  const isLoadingTeachers = isLoadingBatch && eligibleList.length === 0;
                   const isSaving = Boolean(savingSubjectIds[subj.id]);
                   const isRemoving = Boolean(
                     currentAlloc && removingAllocationIds[currentAlloc.allocation.id]
@@ -385,9 +412,24 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                   const recommendedTeachers = eligibleList.filter((t) => t.isQualified);
                   const otherTeachers = eligibleList.filter((t) => !t.isQualified);
 
+                  const currentAllocTeacher = currentAlloc?.teacher;
+                  const isCurrentInList =
+                    currentAllocTeacher &&
+                    eligibleList.some((t) => t.id === currentAllocTeacher.id);
+
                   // Format options for SearchableSelect
                   const examinerOptions: SearchableSelectOption[] = [
                     ...(currentAlloc ? [{ value: '', label: '-- Unassign / Remove Examiner --' }] : []),
+                    ...(currentAllocTeacher && !isCurrentInList
+                      ? [
+                          {
+                            value: currentAllocTeacher.id,
+                            label: `${currentAllocTeacher.firstName} ${currentAllocTeacher.lastName}`,
+                            sublabel: 'Currently Assigned Examiner',
+                            badge: 'Assigned',
+                          },
+                        ]
+                      : []),
                     ...recommendedTeachers.map((t) => ({
                       value: t.id,
                       label: `${t.firstName} ${t.lastName}`,

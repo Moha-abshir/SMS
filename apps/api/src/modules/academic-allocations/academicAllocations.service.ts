@@ -174,52 +174,8 @@ export class AcademicAllocationsService {
       .orderBy(desc(markingAllocations.createdAt));
   }
 
-  static async getEligibleMarkingTeachers(subjectId: string, classId?: string) {
-    // 1. Current teacher teaching this subject to this specific class stream
-    let classSubjectTeacherId: string | null = null;
-    if (classId) {
-      const [cur] = await db
-        .select({ teacherId: teacherSubjectAllocations.teacherId })
-        .from(teacherSubjectAllocations)
-        .where(
-          and(
-            eq(teacherSubjectAllocations.subjectId, subjectId),
-            eq(teacherSubjectAllocations.classId, classId),
-            isNull(teacherSubjectAllocations.deletedAt)
-          )
-        );
-      if (cur) {
-        classSubjectTeacherId = cur.teacherId;
-      }
-    }
-
-    // 2. Qualified subject specialists from user_subjects
-    const qualifiedUsers = await db
-      .select({
-        id: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-      })
-      .from(userSubjects)
-      .innerJoin(users, eq(userSubjects.userId, users.id))
-      .where(and(eq(userSubjects.subjectId, subjectId), isNull(users.deletedAt)))
-      .orderBy(users.firstName);
-
-    // 3. Active teachers allocated to this subject across the school
-    const teachingAllocations = await db
-      .select({
-        id: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-      })
-      .from(teacherSubjectAllocations)
-      .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
-      .where(and(eq(teacherSubjectAllocations.subjectId, subjectId), isNull(users.deletedAt)))
-      .orderBy(users.firstName);
-
-    // 4. All active staff
+  static async getEligibleMarkingTeachers(subjectId?: string, classId?: string) {
+    // 1. All active staff
     const allTeachers = await db
       .select({
         id: users.id,
@@ -231,40 +187,192 @@ export class AcademicAllocationsService {
       .where(and(eq(users.isActive, true), isNull(users.deletedAt)))
       .orderBy(users.firstName);
 
-    const qualifiedIds = new Set(qualifiedUsers.map((u) => u.id));
-    const teachingIds = new Set(teachingAllocations.map((u) => u.id));
-
-    const result = allTeachers.map((t) => {
-      let priority = 3;
-      let qualificationReason = 'Faculty Teacher';
-      let isBestMatch = false;
-      let isQualified = false;
-
-      if (classSubjectTeacherId && t.id === classSubjectTeacherId) {
-        priority = 1;
-        qualificationReason = 'Class Subject Teacher (Best Match)';
-        isBestMatch = true;
-        isQualified = true;
-      } else if (qualifiedIds.has(t.id)) {
-        priority = 2;
-        qualificationReason = 'Subject Specialist';
-        isQualified = true;
-      } else if (teachingIds.has(t.id)) {
-        priority = 2;
-        qualificationReason = 'Subject Teacher (Other Classes)';
-        isQualified = true;
+    // If single subject requested
+    if (subjectId) {
+      let classSubjectTeacherId: string | null = null;
+      if (classId) {
+        const [cur] = await db
+          .select({ teacherId: teacherSubjectAllocations.teacherId })
+          .from(teacherSubjectAllocations)
+          .where(
+            and(
+              eq(teacherSubjectAllocations.subjectId, subjectId),
+              eq(teacherSubjectAllocations.classId, classId),
+              isNull(teacherSubjectAllocations.deletedAt)
+            )
+          );
+        if (cur) {
+          classSubjectTeacherId = cur.teacherId;
+        }
       }
 
-      return {
-        ...t,
-        priority,
-        qualificationReason,
-        isBestMatch,
-        isQualified,
-      };
+      // 2. Qualified subject specialists from user_subjects
+      const qualifiedUsers = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(userSubjects)
+        .innerJoin(users, eq(userSubjects.userId, users.id))
+        .where(and(eq(userSubjects.subjectId, subjectId), isNull(users.deletedAt)))
+        .orderBy(users.firstName);
+
+      // 3. Active teachers allocated to this subject across the school
+      const teachingAllocations = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        })
+        .from(teacherSubjectAllocations)
+        .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
+        .where(and(eq(teacherSubjectAllocations.subjectId, subjectId), isNull(users.deletedAt)))
+        .orderBy(users.firstName);
+
+      const qualifiedIds = new Set(qualifiedUsers.map((u) => u.id));
+      const teachingIds = new Set(teachingAllocations.map((u) => u.id));
+
+      const result = allTeachers.map((t) => {
+        let priority = 3;
+        let qualificationReason = 'Faculty Teacher';
+        let isBestMatch = false;
+        let isQualified = false;
+
+        if (classSubjectTeacherId && t.id === classSubjectTeacherId) {
+          priority = 1;
+          qualificationReason = 'Class Subject Teacher (Best Match)';
+          isBestMatch = true;
+          isQualified = true;
+        } else if (qualifiedIds.has(t.id)) {
+          priority = 2;
+          qualificationReason = 'Subject Specialist';
+          isQualified = true;
+        } else if (teachingIds.has(t.id)) {
+          priority = 2;
+          qualificationReason = 'Subject Teacher (Other Classes)';
+          isQualified = true;
+        }
+
+        return {
+          ...t,
+          priority,
+          qualificationReason,
+          isBestMatch,
+          isQualified,
+        };
+      });
+
+      return result.sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
+    }
+
+    // BATCH MODE for an entire class:
+    // 1. Class subject allocations for this class
+    const classTeacherAllocs = classId
+      ? await db
+          .select({
+            subjectId: teacherSubjectAllocations.subjectId,
+            teacherId: teacherSubjectAllocations.teacherId,
+          })
+          .from(teacherSubjectAllocations)
+          .where(
+            and(
+              eq(teacherSubjectAllocations.classId, classId),
+              isNull(teacherSubjectAllocations.deletedAt)
+            )
+          )
+      : [];
+
+    const classSubjTeacherMap = new Map<string, string>();
+    classTeacherAllocs.forEach((a) => classSubjTeacherMap.set(a.subjectId, a.teacherId));
+
+    // 2. Qualified subject specialists from user_subjects
+    const allQualified = await db
+      .select({
+        subjectId: userSubjects.subjectId,
+        teacherId: userSubjects.userId,
+      })
+      .from(userSubjects)
+      .innerJoin(users, eq(userSubjects.userId, users.id))
+      .where(isNull(users.deletedAt));
+
+    const qualifiedBySubject = new Map<string, Set<string>>();
+    allQualified.forEach((q) => {
+      if (!qualifiedBySubject.has(q.subjectId)) qualifiedBySubject.set(q.subjectId, new Set());
+      qualifiedBySubject.get(q.subjectId)!.add(q.teacherId);
     });
 
-    return result.sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
+    // 3. Teachers allocated across school
+    const allAllocated = await db
+      .select({
+        subjectId: teacherSubjectAllocations.subjectId,
+        teacherId: teacherSubjectAllocations.teacherId,
+      })
+      .from(teacherSubjectAllocations)
+      .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
+      .where(isNull(users.deletedAt));
+
+    const allocatedBySubject = new Map<string, Set<string>>();
+    allAllocated.forEach((a) => {
+      if (!allocatedBySubject.has(a.subjectId)) allocatedBySubject.set(a.subjectId, new Set());
+      allocatedBySubject.get(a.subjectId)!.add(a.teacherId);
+    });
+
+    const allDbSubjects = await db.select({ id: subjects.id }).from(subjects).where(isNull(subjects.deletedAt));
+    const bySubject: Record<string, any[]> = {};
+
+    allDbSubjects.forEach((s) => {
+      const classTeacherId = classSubjTeacherMap.get(s.id);
+      const qSet = qualifiedBySubject.get(s.id) || new Set<string>();
+      const aSet = allocatedBySubject.get(s.id) || new Set<string>();
+
+      const subjectTeachers = allTeachers
+        .map((t) => {
+          let priority = 3;
+          let qualificationReason = 'Faculty Teacher';
+          let isBestMatch = false;
+          let isQualified = false;
+
+          if (classTeacherId && t.id === classTeacherId) {
+            priority = 1;
+            qualificationReason = 'Class Subject Teacher (Best Match)';
+            isBestMatch = true;
+            isQualified = true;
+          } else if (qSet.has(t.id)) {
+            priority = 2;
+            qualificationReason = 'Subject Specialist';
+            isQualified = true;
+          } else if (aSet.has(t.id)) {
+            priority = 2;
+            qualificationReason = 'Subject Teacher (Other Classes)';
+            isQualified = true;
+          }
+
+          return {
+            ...t,
+            priority,
+            qualificationReason,
+            isBestMatch,
+            isQualified,
+          };
+        })
+        .sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
+
+      bySubject[s.id] = subjectTeachers;
+    });
+
+    return {
+      bySubject,
+      allTeachers: allTeachers.map((t) => ({
+        ...t,
+        priority: 3,
+        qualificationReason: 'Faculty Teacher',
+        isBestMatch: false,
+        isQualified: false,
+      })),
+    };
   }
 
   // --- Pre-Primary & Lower Primary (PP1 - Grade 3) Self-Contained Marking Roster ---
@@ -331,13 +439,12 @@ export class AcademicAllocationsService {
     }
 
     // Check if class + subject + exam is already allocated
-    const existingMarking = await db
+    const [existing] = await db
       .select({
         id: markingAllocations.id,
-        teacher: users,
+        teacherId: markingAllocations.teacherId,
       })
       .from(markingAllocations)
-      .innerJoin(users, eq(markingAllocations.teacherId, users.id))
       .where(
         and(
           eq(markingAllocations.examId, data.examId),
@@ -347,9 +454,9 @@ export class AcademicAllocationsService {
         )
       );
 
-    if (existingMarking.length > 0) {
-      if (existingMarking[0].teacher.id === data.teacherId) {
-        return existingMarking[0];
+    if (existing) {
+      if (existing.teacherId === data.teacherId) {
+        return existing;
       }
       const [updated] = await db
         .update(markingAllocations)
@@ -357,7 +464,7 @@ export class AcademicAllocationsService {
           teacherId: data.teacherId,
           updatedAt: new Date(),
         })
-        .where(eq(markingAllocations.id, existingMarking[0].id))
+        .where(eq(markingAllocations.id, existing.id))
         .returning();
 
       return updated;

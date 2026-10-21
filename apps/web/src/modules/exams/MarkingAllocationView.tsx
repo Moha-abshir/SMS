@@ -42,11 +42,12 @@ export const MarkingAllocationView: React.FC = () => {
         apiClient.get('/api/staff'),
       ]);
 
+      const staffData = stfRes.data.data;
       setMarkingList(mrkRes.data.data || []);
       setExams(exRes.data.data || []);
       setSubjectsList(sbRes.data.data || []);
       setClassesList(clsRes.data.data || []);
-      setTeachersList(stfRes.data.data?.staff || []);
+      setTeachersList(Array.isArray(staffData) ? staffData : (staffData?.staff || []));
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load marking allocations');
     } finally {
@@ -96,8 +97,6 @@ export const MarkingAllocationView: React.FC = () => {
     const targetClassRow = classesList.find((c) => (c.class?.id || c.id) === classId);
     const targetClass = targetClassRow?.class || targetClassRow;
 
-    if (!targetTeacher || !targetSubject || !targetClass) return;
-
     // Optimistic entry
     const existingIndex = prevMarkingList.findIndex(
       (m) =>
@@ -117,13 +116,13 @@ export const MarkingAllocationView: React.FC = () => {
         teacherId,
       },
       exam: activeExam?.exam || activeExam,
-      subject: targetSubject,
-      class: targetClass,
+      subject: targetSubject || { id: subjectId, name: 'Subject', code: '', levelCategory: '' },
+      class: targetClass || { id: classId, name: 'Class', levelCategory: '' },
       teacher: {
-        id: targetTeacher.id,
-        firstName: targetTeacher.firstName,
-        lastName: targetTeacher.lastName,
-        email: targetTeacher.email,
+        id: teacherId,
+        firstName: targetTeacher?.firstName || 'Assigned',
+        lastName: targetTeacher?.lastName || 'Teacher',
+        email: targetTeacher?.email || '',
       },
     };
 
@@ -144,10 +143,12 @@ export const MarkingAllocationView: React.FC = () => {
         teacherId,
       });
 
-      toast.success(
-        `${targetSubject.name}: Assigned to ${targetTeacher.firstName} ${targetTeacher.lastName}`,
-        { autoClose: 1500 }
-      );
+      const teacherLabel = targetTeacher
+        ? `${targetTeacher.firstName} ${targetTeacher.lastName}`
+        : 'Examiner';
+      const subjectLabel = targetSubject?.name || 'Subject';
+
+      toast.success(`${subjectLabel}: Assigned to ${teacherLabel}`, { autoClose: 1500 });
 
       // Background refresh to sync DB ids
       await fetchData(false);
@@ -418,6 +419,7 @@ export const MarkingAllocationView: React.FC = () => {
         classId={activeClassId}
         classes={classesList}
         subjects={subjectsList}
+        teachers={teachersList}
         markingAllocations={markingList}
         activeExam={activeExam}
         onAssignExaminer={handleAssignExaminer}
