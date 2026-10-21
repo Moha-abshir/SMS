@@ -7,23 +7,19 @@ import {
   CheckCircle2,
   AlertCircle,
   Search,
-  GraduationCap,
   Users,
-  ShieldCheck,
-  Sparkles,
   Layers,
   ArrowRight,
   User,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
-import { isSelfContainedClass, isSubjectTeacherClass } from '@school/shared/types';
+import { isSubjectTeacherClass } from '@school/shared/types';
 import { ExamMarkingAllocationSlideOver } from './ExamMarkingAllocationSlideOver';
 
 export const MarkingAllocationView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [markingList, setMarkingList] = useState<any[]>([]);
-  const [selfContainedRoster, setSelfContainedRoster] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [subjectsList, setSubjectsList] = useState<any[]>([]);
   const [classesList, setClassesList] = useState<any[]>([]);
@@ -39,9 +35,8 @@ export const MarkingAllocationView: React.FC = () => {
   const fetchData = async (showLoading = false) => {
     try {
       if (showLoading) setLoading(true);
-      const [mrkRes, rosterRes, exRes, sbRes, clsRes, stfRes] = await Promise.all([
+      const [mrkRes, exRes, sbRes, clsRes, stfRes] = await Promise.all([
         apiClient.get('/api/academic-allocations/marking'),
-        apiClient.get('/api/academic-allocations/marking/self-contained-roster').catch(() => ({ data: { data: [] } })),
         apiClient.get('/api/exams'),
         apiClient.get('/api/subjects'),
         apiClient.get('/api/admissions/classes'),
@@ -49,7 +44,6 @@ export const MarkingAllocationView: React.FC = () => {
       ]);
 
       setMarkingList(mrkRes.data.data || []);
-      setSelfContainedRoster(rosterRes.data.data || []);
       setExams(exRes.data.data || []);
       setSubjectsList(sbRes.data.data || []);
       setClassesList(clsRes.data.data || []);
@@ -144,7 +138,7 @@ export const MarkingAllocationView: React.FC = () => {
     setMarkingList(nextMarking);
 
     try {
-      const res = await apiClient.post('/api/academic-allocations/marking', {
+      await apiClient.post('/api/academic-allocations/marking', {
         examId: activeExamId,
         subjectId,
         classId,
@@ -190,11 +184,7 @@ export const MarkingAllocationView: React.FC = () => {
     }
   };
 
-  // Separate classes into self-contained (PP1-Grade 3) and subject-teacher (Grades 4-9)
-  const selfContainedClasses = useMemo(() => {
-    return classesList.filter((c) => isSelfContainedClass(c.class || c));
-  }, [classesList]);
-
+  // Filter upper primary and junior secondary classes (Grades 4-9)
   const upperClasses = useMemo(() => {
     const list = classesList.filter((c) => isSubjectTeacherClass(c.class || c));
     if (!searchGrade.trim()) return list;
@@ -209,7 +199,7 @@ export const MarkingAllocationView: React.FC = () => {
     });
   }, [classesList, searchGrade]);
 
-  // Overall metrics
+  // Overall metrics for Upper Primary & Junior Secondary
   const totalUpperSubjects = useMemo(() => {
     let count = 0;
     classesList
@@ -257,7 +247,7 @@ export const MarkingAllocationView: React.FC = () => {
             Exam Paper Marking Allocation
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl leading-relaxed">
-            Assign qualified subject examiners for the active examination period. PP1–Grade 3 marking is automated via Class Teachers, while Grades 4–9 are allocated to specialist teachers.
+            Assign and manage specialist subject examiners for Upper Primary & Junior Secondary grades (Grades 4–9) for the active examination period.
           </p>
         </div>
 
@@ -288,70 +278,13 @@ export const MarkingAllocationView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Pre-Primary & Lower Primary Notice Banner (PP1 – Grade 3) */}
-      <div className="p-4 sm:p-5 bg-gradient-to-r from-sky-50/90 to-blue-50/60 dark:from-[#0c1830] dark:to-[#0f2042] border border-sky-200/80 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-3 shadow-glass">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-sky-500 text-white shadow-xs shrink-0 mt-0.5">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
-                Pre-Primary & Lower Primary Marking Roster (PP1–Grade 3)
-              </h3>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
-                Auto-Assigned to Class Teacher
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-              Under CBC educational guidelines, all learning areas for Pre-Primary (Playgroup, PP1, PP2) and Lower Primary (Grades 1–3) are marked and recorded exclusively by their assigned <strong>Class Teacher</strong> using the 4-level descriptive rubric (EE, ME, AE, BE). These are automatically linked and do not require manual allocation.
-            </p>
-
-            {/* Quick overview of lower primary streams */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mt-3 pt-2.5 border-t border-sky-200/50 dark:border-[#1a335a]">
-              {selfContainedClasses.map((cRow) => {
-                const cls = cRow.class || cRow;
-                const ct = cRow.classTeacher;
-                return (
-                  <div
-                    key={cls.id}
-                    className="p-2.5 rounded-xl bg-white/90 dark:bg-[#091326] border border-sky-100 dark:border-[#162b4d] flex flex-col justify-between text-xs shadow-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-slate-800 dark:text-slate-100 block truncate">
-                        {cls.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {cls.levelCategory.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-[#162b4d]">
-                      {ct ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 truncate">
-                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{ct.firstName} {ct.lastName}</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 italic">
-                          Unassigned
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Upper Primary & Junior Secondary Grade-by-Grade List (Grades 4 – 9) */}
+      {/* 2. Upper Primary & Junior Secondary Grade-by-Grade List (Grades 4 – 9) */}
       <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 dark:border-[#162b4d] pb-3">
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
               <Layers className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              Upper Primary & Junior Secondary Grades (Grades 4 – 9)
+              Classes & Subject Examiner Allocations (Grades 4 – 9)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Click on any grade to slide open examiner assignments and allocate qualified subject specialists.
@@ -494,7 +427,7 @@ export const MarkingAllocationView: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Slide-Over Panel for Selected Grade Marking Allocations */}
+      {/* 3. Slide-Over Panel for Selected Grade Marking Allocations */}
       <ExamMarkingAllocationSlideOver
         isOpen={Boolean(activeClassId)}
         onClose={handleCloseSlideOver}
