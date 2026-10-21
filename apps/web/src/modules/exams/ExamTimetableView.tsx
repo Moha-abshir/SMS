@@ -74,7 +74,7 @@ const CustomSelect: React.FC<{
       </button>
 
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && ( 
           <motion.div
             initial={{ opacity: 0, y: -4, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
