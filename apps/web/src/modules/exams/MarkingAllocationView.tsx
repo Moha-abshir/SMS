@@ -10,7 +10,6 @@ import {
   Users,
   Layers,
   ArrowRight,
-  User,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -191,11 +190,7 @@ export const MarkingAllocationView: React.FC = () => {
     const q = searchGrade.toLowerCase();
     return list.filter((c) => {
       const cls = c.class || c;
-      const ct = c.classTeacher;
-      return (
-        cls.name.toLowerCase().includes(q) ||
-        (ct && `${ct.firstName} ${ct.lastName}`.toLowerCase().includes(q))
-      );
+      return cls.name.toLowerCase().includes(q);
     });
   }, [classesList, searchGrade]);
 
@@ -296,7 +291,7 @@ export const MarkingAllocationView: React.FC = () => {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search grade or teacher..."
+              placeholder="Search grade..."
               value={searchGrade}
               onChange={(e) => setSearchGrade(e.target.value)}
               className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none focus:border-sky-500 transition-colors"
@@ -313,7 +308,6 @@ export const MarkingAllocationView: React.FC = () => {
           ) : (
             upperClasses.map((cRow) => {
               const cls = cRow.class || cRow;
-              const ct = cRow.classTeacher;
 
               // Subject count for this grade's levelCategory
               const classSubjects = subjectsList.filter((s) => s.levelCategory === cls.levelCategory);
@@ -354,18 +348,8 @@ export const MarkingAllocationView: React.FC = () => {
                             {cls.levelCategory.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate flex items-center gap-1">
-                          <User className="w-3 h-3 text-slate-400" />
-                          <span>Class Teacher:</span>
-                          {ct ? (
-                            <span className="font-bold text-slate-700 dark:text-slate-200">
-                              {ct.firstName} {ct.lastName}
-                            </span>
-                          ) : (
-                            <span className="italic text-amber-600 dark:text-amber-400 font-medium">
-                              Unassigned
-                            </span>
-                          )}
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          <span>{totalCount} Examination Papers</span>
                         </div>
                       </div>
                     </div>

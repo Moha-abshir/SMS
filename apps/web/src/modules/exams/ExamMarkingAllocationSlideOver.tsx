@@ -122,7 +122,6 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
   }, [classes, classId]);
 
   const targetClass = targetClassRow?.class || targetClassRow || null;
-  const classTeacher = targetClassRow?.classTeacher || null;
 
   // Subjects taught in this class's level tier
   const classSubjects = useMemo(() => {
@@ -272,14 +271,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                         {examName} ({examYear})
                       </span>
                       <span>•</span>
-                      <span>Class Teacher:</span>
-                      {classTeacher ? (
-                        <span className="font-semibold text-slate-700 dark:text-slate-200">
-                          {classTeacher.firstName} {classTeacher.lastName}
-                        </span>
-                      ) : (
-                        <span className="italic text-amber-500 font-medium">Unassigned</span>
-                      )}
+                      <span>{classSubjects.length} Examination Papers</span>
                     </div>
                   </div>
                 </div>
