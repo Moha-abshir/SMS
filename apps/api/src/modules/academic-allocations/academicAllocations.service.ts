@@ -174,8 +174,26 @@ export class AcademicAllocationsService {
       .orderBy(desc(markingAllocations.createdAt));
   }
 
-  static async getEligibleMarkingTeachers(subjectId: string) {
-    // 1. Qualified subject specialists from user_subjects
+  static async getEligibleMarkingTeachers(subjectId: string, classId?: string) {
+    // 1. Current teacher teaching this subject to this specific class stream
+    let classSubjectTeacherId: string | null = null;
+    if (classId) {
+      const [cur] = await db
+        .select({ teacherId: teacherSubjectAllocations.teacherId })
+        .from(teacherSubjectAllocations)
+        .where(
+          and(
+            eq(teacherSubjectAllocations.subjectId, subjectId),
+            eq(teacherSubjectAllocations.classId, classId),
+            isNull(teacherSubjectAllocations.deletedAt)
+          )
+        );
+      if (cur) {
+        classSubjectTeacherId = cur.teacherId;
+      }
+    }
+
+    // 2. Qualified subject specialists from user_subjects
     const qualifiedUsers = await db
       .select({
         id: users.id,
@@ -188,7 +206,7 @@ export class AcademicAllocationsService {
       .where(and(eq(userSubjects.subjectId, subjectId), isNull(users.deletedAt)))
       .orderBy(users.firstName);
 
-    // 2. Active class teachers allocated to this subject
+    // 3. Active teachers allocated to this subject across the school
     const teachingAllocations = await db
       .select({
         id: users.id,
@@ -201,38 +219,52 @@ export class AcademicAllocationsService {
       .where(and(eq(teacherSubjectAllocations.subjectId, subjectId), isNull(users.deletedAt)))
       .orderBy(users.firstName);
 
-    const teacherMap = new Map<string, any>();
-    qualifiedUsers.forEach((u) =>
-      teacherMap.set(u.id, { ...u, qualificationReason: 'Subject Specialist' })
-    );
-    teachingAllocations.forEach((u) => {
-      if (teacherMap.has(u.id)) {
-        teacherMap.set(u.id, {
-          ...u,
-          qualificationReason: 'Subject Specialist & Class Teacher',
-        });
-      } else {
-        teacherMap.set(u.id, { ...u, qualificationReason: 'Active Subject Teacher' });
+    // 4. All active staff
+    const allTeachers = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      })
+      .from(users)
+      .where(and(eq(users.isActive, true), isNull(users.deletedAt)))
+      .orderBy(users.firstName);
+
+    const qualifiedIds = new Set(qualifiedUsers.map((u) => u.id));
+    const teachingIds = new Set(teachingAllocations.map((u) => u.id));
+
+    const result = allTeachers.map((t) => {
+      let priority = 3;
+      let qualificationReason = 'Faculty Teacher';
+      let isBestMatch = false;
+      let isQualified = false;
+
+      if (classSubjectTeacherId && t.id === classSubjectTeacherId) {
+        priority = 1;
+        qualificationReason = 'Class Subject Teacher (Best Match)';
+        isBestMatch = true;
+        isQualified = true;
+      } else if (qualifiedIds.has(t.id)) {
+        priority = 2;
+        qualificationReason = 'Subject Specialist';
+        isQualified = true;
+      } else if (teachingIds.has(t.id)) {
+        priority = 2;
+        qualificationReason = 'Subject Teacher (Other Classes)';
+        isQualified = true;
       }
+
+      return {
+        ...t,
+        priority,
+        qualificationReason,
+        isBestMatch,
+        isQualified,
+      };
     });
 
-    // If no subject-specific mappings exist yet, fallback to all active teachers with a note
-    if (teacherMap.size === 0) {
-      const allTeachers = await db
-        .select({
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-        })
-        .from(users)
-        .where(and(eq(users.isActive, true), isNull(users.deletedAt)))
-        .orderBy(users.firstName);
-
-      return allTeachers.map((t) => ({ ...t, qualificationReason: 'General Faculty Teacher' }));
-    }
-
-    return Array.from(teacherMap.values());
+    return result.sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
   }
 
   // --- Pre-Primary & Lower Primary (PP1 - Grade 3) Self-Contained Marking Roster ---
@@ -316,9 +348,19 @@ export class AcademicAllocationsService {
       );
 
     if (existingMarking.length > 0) {
-      throw new Error(
-        `Marking Allocation Conflict: ${existingMarking[0].teacher.firstName} ${existingMarking[0].teacher.lastName} is already assigned to mark this class and subject!`
-      );
+      if (existingMarking[0].teacher.id === data.teacherId) {
+        return existingMarking[0];
+      }
+      const [updated] = await db
+        .update(markingAllocations)
+        .set({
+          teacherId: data.teacherId,
+          updatedAt: new Date(),
+        })
+        .where(eq(markingAllocations.id, existingMarking[0].id))
+        .returning();
+
+      return updated;
     }
 
     const [created] = await db

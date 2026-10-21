@@ -65,10 +65,11 @@ export class AcademicAllocationsController {
   static async getEligibleMarkingTeachers(req: Request, res: Response) {
     try {
       const subjectId = req.query.subjectId as string;
+      const classId = req.query.classId as string | undefined;
       if (!subjectId) {
         return res.status(400).json({ success: false, message: 'subjectId query parameter is required' });
       }
-      const data = await AcademicAllocationsService.getEligibleMarkingTeachers(subjectId);
+      const data = await AcademicAllocationsService.getEligibleMarkingTeachers(subjectId, classId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message || 'Failed to fetch eligible marking teachers' });
