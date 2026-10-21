@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 interface MarkSubmissionProgressTrackerProps {
   exams: any[];
@@ -115,28 +116,30 @@ export const MarkSubmissionProgressTracker: React.FC<MarkSubmissionProgressTrack
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedExamId}
-            onChange={(e) => setSelectedExamId(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] text-xs font-bold text-slate-800 dark:text-slate-200"
-          >
-            {exams.map((ex) => {
-              const id = ex.exam?.id || ex.id;
-              const title = ex.exam?.title || ex.title;
-              return (
-                <option key={id} value={id}>
-                  {title}
-                </option>
-              );
-            })}
-          </select>
+        <div className="flex items-center gap-2 min-w-[260px]">
+          <div className="flex-1">
+            <SearchableSelect
+              value={selectedExamId}
+              onChange={(val) => setSelectedExamId(val)}
+              options={exams.map((ex) => {
+                const id = ex.exam?.id || ex.id;
+                const title = ex.exam?.title || ex.title;
+                return {
+                  value: id,
+                  label: title,
+                };
+              })}
+              placeholder="Select Exam..."
+              searchPlaceholder="Search exams..."
+            />
+          </div>
 
           <button
             onClick={() => fetchProgress(selectedExamId)}
-            className="p-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-slate-50 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-slate-50 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#162b4d]/60 cursor-pointer"
+            title="Refresh"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>

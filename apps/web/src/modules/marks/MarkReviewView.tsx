@@ -24,6 +24,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { SearchableSelect, SearchableSelectOption } from '../../components/SearchableSelect';
 import { isJuniorSecondaryClass, isSelfContainedClass } from '@school/shared/types';
 
 interface ClassOverviewItem {
@@ -383,29 +384,25 @@ export const MarkReviewView: React.FC = () => {
 
         {/* Examination Selection Dropdown */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="bg-sky-50/60 dark:bg-[#0c1f3d] border border-sky-200/80 dark:border-[#163660] rounded-xl sm:rounded-2xl p-2 sm:px-3 sm:py-2">
+          <div className="bg-sky-50/60 dark:bg-[#0c1f3d] border border-sky-200/80 dark:border-[#163660] rounded-xl sm:rounded-2xl p-2 sm:px-3 sm:py-2 min-w-[280px]">
             <label className="block text-[10px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider mb-1">
               Examination Period
             </label>
-            <select
+            <SearchableSelect
               value={selectedExamId}
-              onChange={(e) => setSelectedExamId(e.target.value)}
-              className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500"
-            >
-              {exams.length === 0 ? (
-                <option value="">No Active Examinations</option>
-              ) : (
-                exams.map((row: any) => {
-                  const item = row.exam || row;
-                  const term = row.term || {};
-                  return (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.academicYear || 2026} - {term.name || 'Term Exam'})
-                    </option>
-                  );
-                })
-              )}
-            </select>
+              onChange={(val) => setSelectedExamId(val)}
+              options={exams.map((row: any) => {
+                const item = row.exam || row;
+                const term = row.term || {};
+                return {
+                  value: item.id,
+                  label: `${item.name} (${item.academicYear || 2026} - ${term.name || 'Term Exam'})`,
+                  badge: item.status || undefined,
+                };
+              })}
+              placeholder={exams.length === 0 ? 'No Active Examinations' : '-- Select Examination --'}
+              searchPlaceholder="Search examination..."
+            />
           </div>
         </div>
       </div>
@@ -508,17 +505,20 @@ export const MarkReviewView: React.FC = () => {
 
         {/* Status Filter & Search Input */}
         <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={statusFilter}
-            onChange={(e: any) => setStatusFilter(e.target.value)}
-            className="bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:border-sky-500"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="SUBMITTED">Submitted / Ready</option>
-            <option value="APPROVED">Approved</option>
-            <option value="PENDING">In Progress / Pending</option>
-            <option value="CORRECTION_REQUESTED">Correction Requested</option>
-          </select>
+          <div className="w-52">
+            <SearchableSelect
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val as any)}
+              options={[
+                { value: 'ALL', label: 'All Statuses' },
+                { value: 'SUBMITTED', label: 'Submitted / Ready' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'PENDING', label: 'In Progress / Pending' },
+                { value: 'CORRECTION_REQUESTED', label: 'Correction Requested' },
+              ]}
+              searchPlaceholder="Filter status..."
+            />
+          </div>
 
           <div className="relative min-w-[200px] flex-1 sm:flex-initial">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />

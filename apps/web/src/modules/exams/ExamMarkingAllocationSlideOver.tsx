@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { SearchableSelect, SearchableSelectOption } from '../../components/SearchableSelect';
 
 interface SubjectItem {
   id: string;
@@ -384,6 +385,22 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                   const recommendedTeachers = eligibleList.filter((t) => t.isQualified);
                   const otherTeachers = eligibleList.filter((t) => !t.isQualified);
 
+                  // Format options for SearchableSelect
+                  const examinerOptions: SearchableSelectOption[] = [
+                    ...(currentAlloc ? [{ value: '', label: '-- Unassign / Remove Examiner --' }] : []),
+                    ...recommendedTeachers.map((t) => ({
+                      value: t.id,
+                      label: `${t.firstName} ${t.lastName}`,
+                      sublabel: t.qualificationReason,
+                      badge: t.isBestMatch ? '⭐ Best Match' : '⭐ Specialist',
+                    })),
+                    ...otherTeachers.map((t) => ({
+                      value: t.id,
+                      label: `${t.firstName} ${t.lastName}`,
+                      sublabel: t.email || 'Faculty Teacher',
+                    })),
+                  ];
+
                   return (
                     <div
                       key={subj.id}
@@ -425,12 +442,11 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                         </div>
 
                         {/* Dropdown & Actions */}
-                        <div className="flex items-center gap-1.5 shrink-0 sm:w-72">
+                        <div className="flex items-center gap-1.5 shrink-0 sm:w-80">
                           <div className="relative flex-1 min-w-0">
-                            <select
+                            <SearchableSelect
                               value={currentAlloc?.teacher.id || ''}
-                              onChange={(e) => {
-                                const newTeacherId = e.target.value;
+                              onChange={(newTeacherId) => {
                                 if (newTeacherId) {
                                   if (newTeacherId !== currentAlloc?.teacher.id) {
                                     handleSave(subj.id, newTeacherId);
@@ -440,33 +456,10 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                                 }
                               }}
                               disabled={isSaving || isRemoving || isLoadingTeachers}
-                              className="w-full bg-slate-50 dark:bg-[#081224] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer disabled:opacity-50"
-                            >
-                              <option value="">
-                                {isLoadingTeachers ? 'Loading teachers...' : '-- Assign Examiner --'}
-                              </option>
-
-                              {recommendedTeachers.length > 0 && (
-                                <optgroup label="⭐ Recommended Specialists & Best Matches">
-                                  {recommendedTeachers.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.isBestMatch ? '⭐ ' : '✓ '}
-                                      {t.firstName} {t.lastName} ({t.qualificationReason})
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              )}
-
-                              {otherTeachers.length > 0 && (
-                                <optgroup label="Other Faculty Teachers">
-                                  {otherTeachers.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.firstName} {t.lastName}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              )}
-                            </select>
+                              placeholder={isLoadingTeachers ? 'Loading teachers...' : '-- Assign Examiner --'}
+                              searchPlaceholder="Search teacher..."
+                              options={examinerOptions}
+                            />
                           </div>
 
                           {/* Loading indicator */}

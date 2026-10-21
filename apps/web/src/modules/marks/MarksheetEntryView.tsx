@@ -15,6 +15,7 @@ import {
   isJuniorSecondaryClass,
 } from '@school/shared/types';
 import { MarkSubmissionProgressTracker } from './MarkSubmissionProgressTracker';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 interface StudentScoreRow {
   studentId: string;
@@ -508,65 +509,63 @@ export const MarksheetEntryView: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Examination
                   </label>
-                  <select
+                  <SearchableSelect
                     value={selectedExamId}
-                    onChange={(e) => setSelectedExamId(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-slate-200 font-medium focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-hidden cursor-pointer"
-                  >
-                    {activeExams.map((ex) => {
+                    onChange={(val) => setSelectedExamId(val)}
+                    options={activeExams.map((ex) => {
                       const id = ex.exam?.id || ex.id;
                       const title = ex.exam?.title || ex.title;
-                      return (
-                        <option key={id} value={id}>
-                          {title} ({ex.status || 'Active'})
-                        </option>
-                      );
+                      return {
+                        value: id,
+                        label: title,
+                        badge: ex.status || 'Active',
+                      };
                     })}
-                  </select>
+                    placeholder="Select Examination..."
+                    searchPlaceholder="Search examination..."
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Teaching Class
                   </label>
-                  <select
+                  <SearchableSelect
                     value={selectedClassId}
-                    onChange={(e) => {
-                      const newClassId = e.target.value;
+                    onChange={(newClassId) => {
                       setSelectedClassId(newClassId);
                       const firstSubj = teachingAreas.find((a) => a.classId === newClassId);
                       if (firstSubj) setSelectedSubjectId(firstSubj.subjectId);
                     }}
-                    className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-slate-200 font-medium focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-hidden cursor-pointer"
-                  >
-                    {Array.from(new Set(teachingAreas.map((a) => a.classId))).map((clsId) => {
+                    options={Array.from(new Set(teachingAreas.map((a) => a.classId))).map((clsId) => {
                       const area = teachingAreas.find((a) => a.classId === clsId);
-                      return (
-                        <option key={clsId} value={clsId}>
-                          {area?.className}
-                        </option>
-                      );
+                      return {
+                        value: clsId,
+                        label: area?.className || clsId,
+                      };
                     })}
-                  </select>
+                    placeholder="Select Class..."
+                    searchPlaceholder="Search class..."
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
                     Subject / Learning Area
                   </label>
-                  <select
+                  <SearchableSelect
                     value={selectedSubjectId}
-                    onChange={(e) => setSelectedSubjectId(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-slate-200 font-medium focus:ring-2 focus:ring-sky-400 focus:border-transparent outline-hidden cursor-pointer"
-                  >
-                    {teachingAreas
+                    onChange={(val) => setSelectedSubjectId(val)}
+                    options={teachingAreas
                       .filter((a) => a.classId === selectedClassId)
-                      .map((a) => (
-                        <option key={a.subjectId} value={a.subjectId}>
-                          {a.subjectName} ({a.subjectCode})
-                        </option>
-                      ))}
-                  </select>
+                      .map((a) => ({
+                        value: a.subjectId,
+                        label: a.subjectName,
+                        sublabel: a.subjectCode ? `Code: ${a.subjectCode}` : undefined,
+                      }))}
+                    placeholder="Select Subject..."
+                    searchPlaceholder="Search subject..."
+                  />
                 </div>
               </div>
             )}

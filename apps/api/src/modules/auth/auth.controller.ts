@@ -103,7 +103,7 @@ export class AuthController {
         permissions: ROLE_DEFAULT_PERMISSIONS[roleName] || [],
       };
 
-      const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as any });
 
       return res.status(200).json({
         success: true,
