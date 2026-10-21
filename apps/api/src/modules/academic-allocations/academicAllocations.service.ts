@@ -265,7 +265,9 @@ export class AcademicAllocationsService {
         };
       });
 
-      return result.sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
+      return result
+        .filter((t) => t.isQualified)
+        .sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
     }
 
     // BATCH MODE for an entire class:
@@ -358,6 +360,7 @@ export class AcademicAllocationsService {
             isQualified,
           };
         })
+        .filter((t) => t.isQualified)
         .sort((a, b) => a.priority - b.priority || a.firstName.localeCompare(b.firstName));
 
       bySubject[s.id] = subjectTeachers;
@@ -365,13 +368,6 @@ export class AcademicAllocationsService {
 
     return {
       bySubject,
-      allTeachers: allTeachers.map((t) => ({
-        ...t,
-        priority: 3,
-        qualificationReason: 'Faculty Teacher',
-        isBestMatch: false,
-        isQualified: false,
-      })),
     };
   }
 

@@ -159,10 +159,14 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
 
   // Fetch eligible teachers for subjects when slide-over opens
   useEffect(() => {
-    if (!isOpen || !classId) return;
+    if (!isOpen || !classId) {
+      setEligibleTeachersCache({});
+      return;
+    }
 
     let isMounted = true;
     setIsLoadingBatch(true);
+    setEligibleTeachersCache({});
 
     apiClient
       .get(`/api/academic-allocations/marking/eligible-teachers?classId=${classId}`)
@@ -180,7 +184,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
         }
       })
       .catch((err) => {
-        console.error('Failed to load eligible teachers batch, falling back to staff list:', err);
+        console.error('Failed to load eligible teachers batch:', err);
       })
       .finally(() => {
         if (isMounted) setIsLoadingBatch(false);
@@ -388,36 +392,20 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                 filteredSubjects.map((subj, idx) => {
                   const currentAlloc = allocationBySubjectId.get(subj.id);
                   const isAllocated = Boolean(currentAlloc);
-                  const cachedList = eligibleTeachersCache[subj.id];
-                  const eligibleList: TeacherMeta[] =
-                    cachedList && cachedList.length > 0
-                      ? cachedList
-                      : teachers.map((t) => ({
-                          id: t.id,
-                          firstName: t.firstName,
-                          lastName: t.lastName,
-                          email: t.email || '',
-                          priority: 3,
-                          qualificationReason: 'Faculty Teacher',
-                          isBestMatch: false,
-                          isQualified: false,
-                        }));
-                  const isLoadingTeachers = isLoadingBatch && eligibleList.length === 0;
+                  // ONLY teachers who teach or specialize in this specific subject
+                  const eligibleList = eligibleTeachersCache[subj.id] || [];
+                  const isLoadingTeachers = isLoadingBatch && !eligibleTeachersCache[subj.id];
                   const isSaving = Boolean(savingSubjectIds[subj.id]);
                   const isRemoving = Boolean(
                     currentAlloc && removingAllocationIds[currentAlloc.allocation.id]
                   );
-
-                  // Separate into Best Matches / Qualified vs General
-                  const recommendedTeachers = eligibleList.filter((t) => t.isQualified);
-                  const otherTeachers = eligibleList.filter((t) => !t.isQualified);
 
                   const currentAllocTeacher = currentAlloc?.teacher;
                   const isCurrentInList =
                     currentAllocTeacher &&
                     eligibleList.some((t) => t.id === currentAllocTeacher.id);
 
-                  // Format options for SearchableSelect
+                  // Format options for SearchableSelect strictly for this specific subject
                   const examinerOptions: SearchableSelectOption[] = [
                     ...(currentAlloc ? [{ value: '', label: '-- Unassign / Remove Examiner --' }] : []),
                     ...(currentAllocTeacher && !isCurrentInList
@@ -430,16 +418,11 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                           },
                         ]
                       : []),
-                    ...recommendedTeachers.map((t) => ({
+                    ...eligibleList.map((t) => ({
                       value: t.id,
                       label: `${t.firstName} ${t.lastName}`,
                       sublabel: t.qualificationReason,
                       badge: t.isBestMatch ? '⭐ Best Match' : '⭐ Specialist',
-                    })),
-                    ...otherTeachers.map((t) => ({
-                      value: t.id,
-                      label: `${t.firstName} ${t.lastName}`,
-                      sublabel: t.email || 'Faculty Teacher',
                     })),
                   ];
 
@@ -497,8 +480,14 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                                   handleRemove(currentAlloc.allocation.id);
                                 }
                               }}
-                              disabled={isSaving || isRemoving || isLoadingTeachers}
-                              placeholder={isLoadingTeachers ? 'Loading teachers...' : '-- Assign Examiner --'}
+                              disabled={isSaving || isRemoving || isLoadingTeachers || (!currentAlloc && examinerOptions.length === 0)}
+                              placeholder={
+                                isLoadingTeachers
+                                  ? 'Loading subject teachers...'
+                                  : examinerOptions.length === 0
+                                  ? 'No teachers teach this subject'
+                                  : '-- Assign Examiner --'
+                              }
                               searchPlaceholder="Search teacher..."
                               options={examinerOptions}
                             />
