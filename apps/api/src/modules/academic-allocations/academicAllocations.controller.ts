@@ -64,12 +64,12 @@ export class AcademicAllocationsController {
 
   static async getEligibleMarkingTeachers(req: Request, res: Response) {
     try {
-      const subjectId = req.query.subjectId as string | undefined;
-      const classId = req.query.classId as string | undefined;
+      const rawSubjectId = typeof req.query.subjectId === 'string' ? req.query.subjectId.trim() : undefined;
+      const rawClassId = typeof req.query.classId === 'string' ? req.query.classId.trim() : undefined;
 
       const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const validSubjectId = subjectId && UUID_REGEX.test(subjectId) ? subjectId : undefined;
-      const validClassId = classId && UUID_REGEX.test(classId) ? classId : undefined;
+      const validSubjectId = rawSubjectId && UUID_REGEX.test(rawSubjectId) ? rawSubjectId : undefined;
+      const validClassId = rawClassId && UUID_REGEX.test(rawClassId) ? rawClassId : undefined;
 
       if (!validSubjectId && !validClassId) {
         return res.status(400).json({ success: false, message: 'Valid subjectId or classId query parameter is required' });

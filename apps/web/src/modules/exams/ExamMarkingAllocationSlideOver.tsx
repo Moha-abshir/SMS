@@ -161,34 +161,80 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
   useEffect(() => {
     if (!isOpen || !classId) {
       setEligibleTeachersCache({});
+      setIsLoadingBatch(false);
       return;
     }
 
     let isMounted = true;
     setIsLoadingBatch(true);
-    setEligibleTeachersCache({});
 
-    apiClient
-      .get(`/api/academic-allocations/marking/eligible-teachers?classId=${classId}`)
-      .then((res) => {
+    const loadTeachers = async () => {
+      // Strategy 1: Attempt fast batch class load
+      try {
+        const res = await apiClient.get(
+          `/api/academic-allocations/marking/eligible-teachers?classId=${classId}`
+        );
         if (!isMounted) return;
         const resData = res.data?.data;
         if (resData?.bySubject) {
-          setEligibleTeachersCache(resData.bySubject);
-        } else if (Array.isArray(resData)) {
           const map: Record<string, TeacherMeta[]> = {};
-          classSubjects.forEach((s) => {
-            map[s.id] = resData;
+          Object.entries(resData.bySubject).forEach(([sId, teachers]: [string, any]) => {
+            map[sId] = (Array.isArray(teachers) ? teachers : []).filter(
+              (t: any) => t.isQualified !== false && t.priority !== 3
+            );
           });
           setEligibleTeachersCache(map);
+          setIsLoadingBatch(false);
+          return;
         }
-      })
-      .catch((err) => {
-        console.error('Failed to load eligible teachers batch:', err);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoadingBatch(false);
-      });
+      } catch (batchErr) {
+        // Fallback gracefully if batch endpoint is not supported by deployed backend version or returned 400
+        console.warn(
+          'Batch eligible-teachers endpoint returned 400 or is unsupported. Falling back to per-subject fetch:',
+          batchErr
+        );
+      }
+
+      // Strategy 2: Resilient per-subject fetch using subjectId & classId
+      // Guaranteed 200 OK across both older and newer backend versions
+      try {
+        if (!classSubjects.length) {
+          if (isMounted) setIsLoadingBatch(false);
+          return;
+        }
+
+        const results = await Promise.all(
+          classSubjects.map(async (subj) => {
+            try {
+              const res = await apiClient.get(
+                `/api/academic-allocations/marking/eligible-teachers?subjectId=${subj.id}&classId=${classId}`
+              );
+              const list = Array.isArray(res.data?.data) ? res.data.data : [];
+              return {
+                subjectId: subj.id,
+                teachers: list.filter((t: any) => t.isQualified !== false && t.priority !== 3),
+              };
+            } catch (err) {
+              console.error(`Failed to load teachers for subject ${subj.name}:`, err);
+              return { subjectId: subj.id, teachers: [] };
+            }
+          })
+        );
+
+        if (!isMounted) return;
+        const fallbackMap: Record<string, TeacherMeta[]> = {};
+        results.forEach((r) => {
+          fallbackMap[r.subjectId] = r.teachers;
+        });
+        setEligibleTeachersCache(fallbackMap);
+      } finally {
+        if (isMounted) {
+          setIsLoadingBatch(false);
+        }
+      }
+    };
+
+    loadTeachers();
 
     return () => {
       isMounted = false;
@@ -393,7 +439,9 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                   const currentAlloc = allocationBySubjectId.get(subj.id);
                   const isAllocated = Boolean(currentAlloc);
                   // ONLY teachers who teach or specialize in this specific subject
-                  const eligibleList = eligibleTeachersCache[subj.id] || [];
+                  const eligibleList = (eligibleTeachersCache[subj.id] || []).filter(
+                    (t) => t.isQualified !== false && t.priority !== 3
+                  );
                   const isLoadingTeachers = isLoadingBatch && !eligibleTeachersCache[subj.id];
                   const isSaving = Boolean(savingSubjectIds[subj.id]);
                   const isRemoving = Boolean(
