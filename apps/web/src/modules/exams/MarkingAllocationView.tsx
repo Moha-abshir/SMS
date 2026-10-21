@@ -1,15 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
-  Award, Plus, Trash2, BookOpen, Printer, CheckCircle2,
-  AlertCircle, Filter, Search, GraduationCap, Users, ShieldCheck,
-  Sparkles, Layers, Info, CheckCheck
+  Award,
+  BookOpen,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  GraduationCap,
+  Users,
+  ShieldCheck,
+  Sparkles,
+  Layers,
+  ArrowRight,
+  User,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
-import { Modal } from '../../components/Modal';
-import { printElement } from '../../lib/printElement';
 import { isSelfContainedClass, isSubjectTeacherClass } from '@school/shared/types';
+import { ExamMarkingAllocationSlideOver } from './ExamMarkingAllocationSlideOver';
 
 export const MarkingAllocationView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -19,155 +28,208 @@ export const MarkingAllocationView: React.FC = () => {
   const [subjectsList, setSubjectsList] = useState<any[]>([]);
   const [classesList, setClassesList] = useState<any[]>([]);
   const [teachersList, setTeachersList] = useState<any[]>([]);
-  const [schoolSettings, setSchoolSettings] = useState<any>(null);
 
-  // Active Educational Tier Tab
-  const [activeTab, setActiveTab] = useState<'specialist' | 'self_contained'>('specialist');
+  // Search filter for grade cards
+  const [searchGrade, setSearchGrade] = useState('');
 
-  const [selectedExamId, setSelectedExamId] = useState('');
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('');
-  const [searchFilter, setSearchFilter] = useState('');
+  // Deep-linkable Slide-Over URL search params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeClassId = searchParams.get('classId');
 
-  const [showModal, setShowModal] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
-
-  // Subject-qualified teachers state for the selected subject
-  const [eligibleTeachers, setEligibleTeachers] = useState<Array<{
-    teacherId: string;
-    id?: string;
-    name?: string;
-    firstName?: string;
-    lastName?: string;
-    email: string;
-    isQualified?: boolean;
-    qualificationReason?: string;
-  }>>([]);
-  const [loadingEligible, setLoadingEligible] = useState(false);
-
-  const [form, setForm] = useState({
-    examId: '',
-    subjectId: '',
-    classId: '',
-    teacherId: '',
-  });
-
-  const [submitting, setSubmitting] = useState(false);
-  const [removingAllocationId, setRemovingAllocationId] = useState<string | null>(null);
-
-  const fetchData = async () => {
+  const fetchData = async (showLoading = false) => {
     try {
-      setLoading(true);
-      const [mrkRes, rosterRes, exRes, sbRes, clsRes, stfRes, setRes] = await Promise.all([
+      if (showLoading) setLoading(true);
+      const [mrkRes, rosterRes, exRes, sbRes, clsRes, stfRes] = await Promise.all([
         apiClient.get('/api/academic-allocations/marking'),
         apiClient.get('/api/academic-allocations/marking/self-contained-roster').catch(() => ({ data: { data: [] } })),
         apiClient.get('/api/exams'),
         apiClient.get('/api/subjects'),
         apiClient.get('/api/admissions/classes'),
         apiClient.get('/api/staff'),
-        apiClient.get('/api/settings').catch(() => ({ data: { data: null } })),
       ]);
 
-      const exList = exRes.data.data || [];
       setMarkingList(mrkRes.data.data || []);
       setSelfContainedRoster(rosterRes.data.data || []);
-      setExams(exList);
+      setExams(exRes.data.data || []);
       setSubjectsList(sbRes.data.data || []);
       setClassesList(clsRes.data.data || []);
       setTeachersList(stfRes.data.data?.staff || []);
-      setSchoolSettings(setRes.data?.data || null);
-
-      if (exList.length > 0 && !selectedExamId) {
-        setSelectedExamId(exList[0].exam?.id || exList[0].id);
-      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to load marking allocations');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, []);
 
-  // When subject changes in modal, dynamically fetch teachers qualified in that subject
-  const handleSubjectChange = async (subjectId: string) => {
-    setForm((prev) => ({ ...prev, subjectId, teacherId: '' }));
-    if (!subjectId) {
-      setEligibleTeachers([]);
+  // Determine active exam (find APPROVED/Active exam, or fallback to first)
+  const activeExam = useMemo(() => {
+    if (exams.length === 0) return null;
+    const approved = exams.find((e: any) => e.exam?.status === 'APPROVED' || e.status === 'APPROVED');
+    return approved || exams[0];
+  }, [exams]);
+
+  const activeExamId = activeExam?.exam?.id || activeExam?.id || '';
+  const activeExamName = activeExam?.exam?.name || activeExam?.name || 'Active Examination';
+  const activeExamYear = activeExam?.exam?.academicYear || activeExam?.academicYear || 2026;
+
+  // Open slide-over for a grade
+  const handleOpenSlideOver = (classId: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('classId', classId);
+    setSearchParams(newParams);
+  };
+
+  // Close slide-over
+  const handleCloseSlideOver = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('classId');
+    setSearchParams(newParams);
+  };
+
+  // Assign examiner handler (with optimistic update)
+  const handleAssignExaminer = async (classId: string, subjectId: string, teacherId: string) => {
+    if (!activeExamId) {
+      toast.error('No active examination found');
       return;
     }
 
+    const prevMarkingList = markingList;
+    const targetTeacher = teachersList.find((t) => t.id === teacherId);
+    const targetSubject = subjectsList.find((s) => s.id === subjectId);
+    const targetClassRow = classesList.find((c) => (c.class?.id || c.id) === classId);
+    const targetClass = targetClassRow?.class || targetClassRow;
+
+    if (!targetTeacher || !targetSubject || !targetClass) return;
+
+    // Optimistic entry
+    const existingIndex = prevMarkingList.findIndex(
+      (m) =>
+        (m.class?.id || m.classId) === classId &&
+        (m.subject?.id || m.subjectId) === subjectId &&
+        (m.exam?.id || m.examId) === activeExamId
+    );
+
+    const tempId = existingIndex >= 0 ? prevMarkingList[existingIndex].allocation?.id || prevMarkingList[existingIndex].id : `temp-${Date.now()}`;
+
+    const optimisticRecord = {
+      allocation: {
+        id: tempId,
+        examId: activeExamId,
+        subjectId,
+        classId,
+        teacherId,
+      },
+      exam: activeExam?.exam || activeExam,
+      subject: targetSubject,
+      class: targetClass,
+      teacher: {
+        id: targetTeacher.id,
+        firstName: targetTeacher.firstName,
+        lastName: targetTeacher.lastName,
+        email: targetTeacher.email,
+      },
+    };
+
+    let nextMarking = [...prevMarkingList];
+    if (existingIndex >= 0) {
+      nextMarking[existingIndex] = optimisticRecord;
+    } else {
+      nextMarking.push(optimisticRecord);
+    }
+
+    setMarkingList(nextMarking);
+
     try {
-      setLoadingEligible(true);
-      const res = await apiClient.get(`/api/academic-allocations/marking/eligible-teachers?subjectId=${subjectId}`);
-      setEligibleTeachers(res.data.data || []);
-    } catch (error: any) {
-      console.error('Failed to query eligible examiners', error);
-      toast.warning('Could not load subject specialization info');
-    } finally {
-      setLoadingEligible(false);
+      const res = await apiClient.post('/api/academic-allocations/marking', {
+        examId: activeExamId,
+        subjectId,
+        classId,
+        teacherId,
+      });
+
+      toast.success(
+        `${targetSubject.name}: Assigned to ${targetTeacher.firstName} ${targetTeacher.lastName}`,
+        { autoClose: 1500 }
+      );
+
+      // Background refresh to sync DB ids
+      await fetchData(false);
+    } catch (err: any) {
+      setMarkingList(prevMarkingList);
+      toast.error(err.response?.data?.message || 'Failed to assign examiner');
+      throw err;
     }
   };
 
-  const selectedTeacherMeta = eligibleTeachers.find((t) => (t.teacherId || t.id) === form.teacherId);
+  // Remove examiner handler (with optimistic update)
+  const handleRemoveExaminer = async (allocationId: string) => {
+    const prevMarkingList = markingList;
+    const targetAlloc = prevMarkingList.find(
+      (m) => (m.allocation?.id || m.id) === allocationId
+    );
 
-  const handleAssignMarking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting) return;
-    if (!form.examId || !form.subjectId || !form.classId || !form.teacherId) {
-      toast.error('Please complete all selection fields');
-      return;
-    }
+    setMarkingList((prev) =>
+      prev.filter((m) => (m.allocation?.id || m.id) !== allocationId)
+    );
 
     try {
-      setSubmitting(true);
-      await apiClient.post('/api/academic-allocations/marking', form);
-      toast.success('Paper examiner successfully assigned to mark scripts');
-      setShowModal(false);
-      setForm({ examId: '', subjectId: '', classId: '', teacherId: '' });
-      setEligibleTeachers([]);
-      await fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to assign examiner');
-    } finally {
-      setSubmitting(false);
+      await apiClient.delete(`/api/academic-allocations/marking/${allocationId}`);
+      toast.info(
+        `${targetAlloc?.subject?.name || 'Subject'}: Examiner allocation removed`,
+        { autoClose: 1500 }
+      );
+      await fetchData(false);
+    } catch (err: any) {
+      setMarkingList(prevMarkingList);
+      toast.error(err.response?.data?.message || 'Failed to remove allocation');
+      throw err;
     }
   };
 
-  const handleRemoveMarking = async (id: string) => {
-    if (removingAllocationId) return;
-    if (!confirm('Are you sure you want to remove this marking allocation?')) return;
-    try {
-      setRemovingAllocationId(id);
-      await apiClient.delete(`/api/academic-allocations/marking/${id}`);
-      toast.success('Marking allocation removed');
-      await fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to remove marking allocation');
-    } finally {
-      setRemovingAllocationId(null);
-    }
-  };
+  // Separate classes into self-contained (PP1-Grade 3) and subject-teacher (Grades 4-9)
+  const selfContainedClasses = useMemo(() => {
+    return classesList.filter((c) => isSelfContainedClass(c.class || c));
+  }, [classesList]);
 
-  // Only Upper Primary (Grades 4-6) and Junior Secondary (Grades 7-9) classes are eligible for manual DoS subject examiner allocation
-  const subjectTeacherClasses = classesList.filter(isSubjectTeacherClass);
+  const upperClasses = useMemo(() => {
+    const list = classesList.filter((c) => isSubjectTeacherClass(c.class || c));
+    if (!searchGrade.trim()) return list;
+    const q = searchGrade.toLowerCase();
+    return list.filter((c) => {
+      const cls = c.class || c;
+      const ct = c.classTeacher;
+      return (
+        cls.name.toLowerCase().includes(q) ||
+        (ct && `${ct.firstName} ${ct.lastName}`.toLowerCase().includes(q))
+      );
+    });
+  }, [classesList, searchGrade]);
 
-  // Filter marking allocations for Grades 4-9
-  const filteredMarkingList = markingList.filter((row) => {
-    const matchesExam = !selectedExamId || row.exam?.id === selectedExamId;
-    const matchesSubject = !selectedSubjectFilter || row.subject?.id === selectedSubjectFilter;
-    const searchLower = searchFilter.toLowerCase();
-    const matchesSearch =
-      !searchFilter ||
-      row.teacher?.firstName?.toLowerCase().includes(searchLower) ||
-      row.teacher?.lastName?.toLowerCase().includes(searchLower) ||
-      row.subject?.name?.toLowerCase().includes(searchLower) ||
-      row.class?.name?.toLowerCase().includes(searchLower);
-    return matchesExam && matchesSubject && matchesSearch;
-  });
+  // Overall metrics
+  const totalUpperSubjects = useMemo(() => {
+    let count = 0;
+    classesList
+      .filter((c) => isSubjectTeacherClass(c.class || c))
+      .forEach((c) => {
+        const cls = c.class || c;
+        const subs = subjectsList.filter((s) => s.levelCategory === cls.levelCategory);
+        count += subs.length;
+      });
+    return count;
+  }, [classesList, subjectsList]);
 
-  const selectedExamObj = exams.find((e) => (e.exam?.id || e.id) === selectedExamId);
+  const allocatedUpperSubjects = useMemo(() => {
+    if (!activeExamId) return 0;
+    return markingList.filter((m) => {
+      const cls = m.class;
+      const exId = m.exam?.id || m.examId;
+      return isSubjectTeacherClass(cls) && exId === activeExamId;
+    }).length;
+  }, [markingList, activeExamId]);
 
   if (loading) {
     return (
@@ -182,592 +244,268 @@ export const MarkingAllocationView: React.FC = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6 max-w-7xl mx-auto"
+      className="space-y-5 max-w-6xl mx-auto pb-12"
     >
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 sm:p-6 bg-white dark:bg-[#091326] rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-[#162b4d] shadow-xs">
+      {/* 1. Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1.5">
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
             <Award className="w-4 h-4 text-sky-500" />
-            Director of Studies · Academic Examination Management
+            Director of Studies • Academic Examination Management
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-            Exam Paper Marking Allocation Schedule
+          <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+            Exam Paper Marking Allocation
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-2xl leading-relaxed">
-            Manage subject examiner duty allocations across educational tiers: automated Class Teacher marking for PP1–Grade 3, and specialized Subject Teacher allocations for Grades 4–9.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl leading-relaxed">
+            Assign qualified subject examiners for the active examination period. PP1–Grade 3 marking is automated via Class Teachers, while Grades 4–9 are allocated to specialist teachers.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => setShowPrintModal(true)}
-            disabled={filteredMarkingList.length === 0 && selfContainedRoster.length === 0}
-            className="flex-1 sm:flex-none justify-center min-h-[42px] px-4 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-[#0c1830] dark:hover:bg-[#122244] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[#162b4d] rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            Print Schedule
-          </button>
+        {/* Minimalist Summary Status Pill */}
+        <div className="flex items-center justify-around sm:justify-start gap-3 sm:gap-5 p-3 sm:px-5 sm:py-3 bg-sky-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl sm:rounded-2xl backdrop-blur-md w-full sm:w-auto shrink-0 shadow-xs">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-sm sm:text-base font-black text-slate-800 dark:text-slate-100 leading-none">
+                {activeExamName}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold tracking-wider text-sky-700 dark:text-sky-400 uppercase mt-1 block">
+              Active Exam ({activeExamYear})
+            </span>
+          </div>
 
-          <button
-            onClick={() => {
-              setForm({ examId: selectedExamId || '', subjectId: '', classId: '', teacherId: '' });
-              setEligibleTeachers([]);
-              setShowModal(true);
-            }}
-            className="flex-1 sm:flex-none justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-all shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Assign Examiner (Grades 4–9)
-          </button>
+          <div className="w-[1px] h-8 bg-sky-200 dark:bg-[#162b4d]" />
+
+          <div className="text-center">
+            <span className="block text-lg sm:text-xl font-black text-sky-600 dark:text-sky-400 leading-none">
+              {allocatedUpperSubjects} / {totalUpperSubjects}
+            </span>
+            <span className="text-[10px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mt-1 block">
+              Allocated
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Educational Tier Segmented Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-1.5 bg-slate-100 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-2xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('specialist')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'specialist'
-                ? 'bg-white dark:bg-[#091326] text-sky-600 dark:text-sky-400 shadow-xs border border-slate-200 dark:border-[#162b4d]'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <GraduationCap className="w-4 h-4" />
-            <span>Upper Primary & Junior Secondary (Grades 4–9)</span>
-            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 font-extrabold">
-              {markingList.length} Allocated
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('self_contained')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'self_contained'
-                ? 'bg-white dark:bg-[#091326] text-sky-600 dark:text-sky-400 shadow-xs border border-slate-200 dark:border-[#162b4d]'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Pre-Primary & Lower Primary (PP1–Grade 3)</span>
-            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-extrabold">
-              {selfContainedRoster.length} Self-Contained
-            </span>
-          </button>
-        </div>
-
-        <div className="text-[11px] text-slate-500 dark:text-slate-400 px-3 hidden md:block">
-          {activeTab === 'specialist'
-            ? 'Subject teachers assigned by DoS per paper qualification'
-            : 'Automated Class Teacher marking for all learning areas'}
-        </div>
-      </div>
-
-      {activeTab === 'specialist' && (
-        <>
-          {/* Filter and Search Controls for Grades 4-9 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 p-4 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl shadow-xs">
-            <div className="sm:col-span-1 md:col-span-4 flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0">Exam:</span>
-              <select
-                value={selectedExamId}
-                onChange={(e) => setSelectedExamId(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 font-semibold focus:border-sky-500 outline-none transition-colors"
-              >
-                <option value="">-- All Examinations --</option>
-                {exams.map((ex) => {
-                  const id = ex.exam?.id || ex.id;
-                  const title = ex.exam?.title || ex.title;
-                  return (
-                    <option key={id} value={id}>
-                      {title}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div className="sm:col-span-1 md:col-span-4 flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0">Subject:</span>
-              <select
-                value={selectedSubjectFilter}
-                onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 font-semibold focus:border-sky-500 outline-none transition-colors"
-              >
-                <option value="">-- All Learning Areas --</option>
-                {subjectsList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="sm:col-span-2 md:col-span-4 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search examiner, subject, or class..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:border-sky-500 outline-none transition-colors"
-              />
-            </div>
+      {/* 2. Pre-Primary & Lower Primary Notice Banner (PP1 – Grade 3) */}
+      <div className="p-4 sm:p-5 bg-gradient-to-r from-sky-50/90 to-blue-50/60 dark:from-[#0c1830] dark:to-[#0f2042] border border-sky-200/80 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-3 shadow-glass">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-sky-500 text-white shadow-xs shrink-0 mt-0.5">
+            <CheckCircle2 className="w-5 h-5" />
           </div>
-
-          {/* Marking Roster Table for Grades 4 to 9 */}
-          <div className="p-4 sm:p-6 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-[#162b4d] pb-3">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                  <Award className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  Subject Examiners Allocation Roster ({filteredMarkingList.length} Allocated Papers)
-                </h3>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Grades 4–9 subject papers allocated to qualified specialist examiners by the DoS.
-                </span>
-              </div>
-              <span className="text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/80 px-2.5 py-1 rounded-lg font-semibold border border-sky-200 dark:border-sky-800 shrink-0">
-                {selectedExamObj ? (selectedExamObj.exam?.title || selectedExamObj.title) : 'All Active Exams'}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
+                Pre-Primary & Lower Primary Marking Roster (PP1–Grade 3)
+              </h3>
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                Auto-Assigned to Class Teacher
               </span>
             </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+              Under CBC educational guidelines, all learning areas for Pre-Primary (Playgroup, PP1, PP2) and Lower Primary (Grades 1–3) are marked and recorded exclusively by their assigned <strong>Class Teacher</strong> using the 4-level descriptive rubric (EE, ME, AE, BE). These are automatically linked and do not require manual allocation.
+            </p>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[720px] border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-[#0c1830] text-slate-800 dark:text-slate-200 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-[#162b4d]">
-                    <th className="py-3 px-4">Examination</th>
-                    <th className="py-3 px-4">Subject Paper</th>
-                    <th className="py-3 px-4">Class Stream</th>
-                    <th className="py-3 px-4">Designated Examiner</th>
-                    <th className="py-3 px-4 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]">
-                  {filteredMarkingList.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 italic">
-                        No marking allocations found for Grades 4–9 matching your filters.
-                        <div className="mt-2">
-                          <button
-                            onClick={() => {
-                              setForm({ examId: selectedExamId || '', subjectId: '', classId: '', teacherId: '' });
-                              setEligibleTeachers([]);
-                              setShowModal(true);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 text-white font-bold text-xs hover:bg-sky-600 transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            Assign Examiner Now
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredMarkingList.map((row) => (
-                      <tr key={row.allocation.id} className="hover:bg-slate-50/70 dark:hover:bg-[#0c1830]/60 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
-                          {row.exam.title}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
-                            <GraduationCap className="w-3.5 h-3.5 text-sky-500" />
-                            {row.subject.name}
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-mono">
-                            Code: {row.subject.code}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-700 dark:text-slate-300">
-                          <span className="bg-sky-50 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
-                            {row.class.name}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-slate-400" />
-                            {row.teacher.firstName} {row.teacher.lastName}
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-mono">
-                            {row.teacher.email}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            title="Remove allocation"
-                            disabled={removingAllocationId === row.allocation.id}
-                            onClick={() => handleRemoveMarking(row.allocation.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                          >
-                            {removingAllocationId === row.allocation.id ? (
-                              <div className="w-4 h-4 border-2 border-rose-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {activeTab === 'self_contained' && (
-        <div className="space-y-4">
-          {/* Policy Banner */}
-          <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-start gap-3 shadow-xs">
-            <CheckCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1">
-              <span className="font-bold text-slate-900 dark:text-slate-100 block">
-                Pre-Primary & Lower Primary CBC Self-Contained Marking Standard:
-              </span>
-              <p className="leading-relaxed">
-                In accordance with the national CBC pedagogical framework, <strong>PP1, PP2, and Grades 1 through 3</strong> utilize the self-contained class teaching model. The assigned <strong>Class Teacher</strong> is the sole examiner responsible for marking and recording scores for <strong>all examination learning areas</strong> using the 4-level descriptive rubric (<span className="font-bold text-emerald-700 dark:text-emerald-300">EE, ME, AE, BE</span>). Manual subject examiner assignment by the DoS is not required for these grades.
-              </p>
-            </div>
-          </div>
-
-          {/* Self-Contained Class Roster Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {selfContainedRoster.map((item) => (
-              <div
-                key={item.class.id}
-                className="p-5 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl shadow-xs space-y-3.5 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-[#162b4d] pb-2.5">
-                    <div className="font-black text-slate-900 dark:text-slate-100 text-base">
-                      {item.class.name}
+            {/* Quick overview of lower primary streams */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mt-3 pt-2.5 border-t border-sky-200/50 dark:border-[#1a335a]">
+              {selfContainedClasses.map((cRow) => {
+                const cls = cRow.class || cRow;
+                const ct = cRow.classTeacher;
+                return (
+                  <div
+                    key={cls.id}
+                    className="p-2.5 rounded-xl bg-white/90 dark:bg-[#091326] border border-sky-100 dark:border-[#162b4d] flex flex-col justify-between text-xs shadow-xs"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-100 block truncate">
+                        {cls.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {cls.levelCategory.replace(/_/g, ' ')}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      {item.class.levelCategory === 'PPE' ? 'Pre-Primary' : 'Lower Primary'}
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-100 dark:border-[#162b4d]">
+                      {ct ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{ct.firstName} {ct.lastName}</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 italic">
+                          Unassigned
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Upper Primary & Junior Secondary Grade-by-Grade List (Grades 4 – 9) */}
+      <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 dark:border-[#162b4d] pb-3">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+              Upper Primary & Junior Secondary Grades (Grades 4 – 9)
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Click on any grade to slide open examiner assignments and allocate qualified subject specialists.
+            </p>
+          </div>
+
+          {/* Search grade input */}
+          <div className="relative min-w-[200px]">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search grade or teacher..."
+              value={searchGrade}
+              onChange={(e) => setSearchGrade(e.target.value)}
+              className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 outline-none focus:border-sky-500 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Grade Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+          {upperClasses.length === 0 ? (
+            <div className="col-span-2 py-8 text-center text-slate-400 text-xs italic">
+              No upper primary or junior secondary grades found.
+            </div>
+          ) : (
+            upperClasses.map((cRow) => {
+              const cls = cRow.class || cRow;
+              const ct = cRow.classTeacher;
+
+              // Subject count for this grade's levelCategory
+              const classSubjects = subjectsList.filter((s) => s.levelCategory === cls.levelCategory);
+              const totalCount = classSubjects.length;
+
+              // Marking allocations for this class in the active exam
+              const classAllocations = markingList.filter((m) => {
+                const cId = m.class?.id || m.classId;
+                const exId = m.exam?.id || m.examId;
+                return cId === cls.id && exId === activeExamId;
+              });
+              const allocatedCount = classAllocations.length;
+              const isComplete = totalCount > 0 && allocatedCount >= totalCount;
+              const percent = totalCount > 0 ? Math.round((allocatedCount / totalCount) * 100) : 0;
+              const isCurrentActive = activeClassId === cls.id;
+
+              return (
+                <div
+                  key={cls.id}
+                  onClick={() => handleOpenSlideOver(cls.id)}
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer group ${
+                    isCurrentActive
+                      ? 'bg-sky-500/5 dark:bg-sky-500/10 border-sky-400 dark:border-sky-500 ring-2 ring-sky-400/30'
+                      : 'bg-white dark:bg-[#091326] border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 hover:shadow-md'
+                  } shadow-xs space-y-3`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                        {cls.name[0] || 'G'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-sm text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                            {cls.name}
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shrink-0">
+                            {cls.levelCategory.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate flex items-center gap-1">
+                          <User className="w-3 h-3 text-slate-400" />
+                          <span>Class Teacher:</span>
+                          {ct ? (
+                            <span className="font-bold text-slate-700 dark:text-slate-200">
+                              {ct.firstName} {ct.lastName}
+                            </span>
+                          ) : (
+                            <span className="italic text-amber-600 dark:text-amber-400 font-medium">
+                              Unassigned
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 ${
+                        isComplete
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          : 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                      }`}
+                    >
+                      {isComplete ? 'Fully Allocated' : `${allocatedCount}/${totalCount} Subjects`}
                     </span>
                   </div>
 
-                  <div className="mt-3 space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                      <span>Assigned Class Teacher:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {item.classTeacher
-                          ? `${item.classTeacher.firstName} ${item.classTeacher.lastName}`
-                          : '⚠️ Unassigned'}
+                  {/* Coverage Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      <span>Examiner Coverage</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        {allocatedCount}/{totalCount} ({percent}%)
                       </span>
                     </div>
-
-                    {item.classTeacher && (
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {item.classTeacher.email}
-                      </div>
-                    )}
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-[#162b4d]">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">
-                        Subjects Marked ({item.subjects?.length || 0} Learning Areas):
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {item.subjects?.map((sub: any) => (
-                          <span
-                            key={sub.id}
-                            className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#0c1830] text-slate-700 dark:text-slate-300 font-medium border border-slate-200 dark:border-slate-800"
-                          >
-                            {sub.name}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 rounded-full ${
+                          isComplete ? 'bg-emerald-500' : 'bg-sky-500'
+                        }`}
+                        style={{ width: `${percent}%` }}
+                      />
                     </div>
                   </div>
+
+                  {/* Action Link Footer */}
+                  <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-[#162b4d]">
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                      {totalCount} Examination Papers
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenSlideOver(cls.id);
+                      }}
+                      className={`px-3 py-1 rounded-xl font-bold text-xs shadow-glass flex items-center gap-1.5 transition-all cursor-pointer group ${
+                        isCurrentActive
+                          ? 'bg-sky-600 text-white'
+                          : 'bg-sky-500 hover:bg-sky-600 text-white'
+                      }`}
+                    >
+                      <span>Allocate Examiners</span>
+                      <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </button>
+                  </div>
                 </div>
-
-                <div className="pt-3 border-t border-slate-100 dark:border-[#162b4d] flex items-center justify-between text-[11px] text-slate-500">
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Auto-allocated to Class Teacher
-                  </span>
-                  <span className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">
-                    Rubric: EE/ME/AE/BE
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Assign Marking Examiner Modal for Grades 4-9 */}
-      <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title="Assign Paper Marking Examiner (Grades 4–9)"
-      >
-        <form onSubmit={handleAssignMarking} className="space-y-4">
-          <div className="p-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-800 rounded-xl text-xs text-sky-800 dark:text-sky-300 flex items-center gap-2">
-            <Info className="w-4 h-4 shrink-0 text-sky-600 dark:text-sky-400" />
-            <span>
-              Manual examiner assignment applies strictly to <strong>Upper Primary (Grades 4–6)</strong> and <strong>Junior Secondary (Grades 7–9)</strong>.
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Select Examination *
-              </label>
-              <select
-                required
-                value={form.examId}
-                onChange={(e) => setForm({ ...form, examId: e.target.value })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:border-sky-500 outline-none transition-colors font-medium"
-              >
-                <option value="">-- Select Exam --</option>
-                {exams.map((ex) => {
-                  const id = ex.exam?.id || ex.id;
-                  const title = ex.exam?.title || ex.title;
-                  return (
-                    <option key={id} value={id}>
-                      {title}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Select Subject Paper *
-              </label>
-              <select
-                required
-                value={form.subjectId}
-                onChange={(e) => handleSubjectChange(e.target.value)}
-                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:border-sky-500 outline-none transition-colors font-medium"
-              >
-                <option value="">-- Select Subject --</option>
-                {subjectsList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Select Class Stream (Grades 4–9) *
-              </label>
-              <select
-                required
-                value={form.classId}
-                onChange={(e) => setForm({ ...form, classId: e.target.value })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:border-sky-500 outline-none transition-colors font-medium"
-              >
-                <option value="">-- Select Class (Grades 4–9) --</option>
-                {subjectTeacherClasses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.levelCategory === 'UPPER_PRIMARY' ? 'Upper Primary' : 'Junior Secondary'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                <span>Select Examiner Teacher *</span>
-                {loadingEligible && (
-                  <span className="text-[10px] text-sky-600 dark:text-sky-400 animate-pulse font-normal">
-                    Filtering qualified staff...
-                  </span>
-                )}
-              </label>
-              <select
-                required
-                value={form.teacherId}
-                onChange={(e) => setForm({ ...form, teacherId: e.target.value })}
-                disabled={!form.subjectId || loadingEligible}
-                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:border-sky-500 outline-none transition-colors font-medium disabled:opacity-60"
-              >
-                <option value="">
-                  {form.subjectId ? '-- Select Teacher --' : '-- Select subject paper first --'}
-                </option>
-                {eligibleTeachers.length > 0
-                  ? eligibleTeachers.map((t) => {
-                      const id = t.teacherId || t.id;
-                      const name = t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim();
-                      return (
-                        <option key={id} value={id}>
-                          {t.qualificationReason ? `⭐ ${name} (${t.qualificationReason})` : `👤 ${name} (Staff)`}
-                        </option>
-                      );
-                    })
-                  : teachersList.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.firstName} {t.lastName}
-                      </option>
-                    ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Qualification Indicator Banner */}
-          {selectedTeacherMeta && (
-            <div className="p-3 bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl flex items-center gap-2 text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="text-slate-700 dark:text-slate-300">
-                Examiner Designation: <strong>{selectedTeacherMeta.name || `${selectedTeacherMeta.firstName || ''} ${selectedTeacherMeta.lastName || ''}`.trim()}</strong> ({selectedTeacherMeta.qualificationReason || 'General Academic Faculty'}).
-              </span>
-            </div>
+              );
+            })
           )}
+        </div>
+      </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-[#162b4d]">
-            <button
-              type="button"
-              onClick={() => setShowModal(false)}
-              className="px-4 py-2 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] hover:bg-slate-50 dark:hover:bg-[#0c1830] text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
-              {submitting ? 'Assigning...' : 'Assign Examiner'}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Printable Marking Schedule Modal */}
-      {showPrintModal && (
-        <Modal
-          isOpen={showPrintModal}
-          onClose={() => setShowPrintModal(false)}
-          title="Printable Paper Marking Allocation Schedule"
-        >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-[#162b4d]">
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Official departmental script evaluation duty sheet for teacher examiners and academic record archives.
-              </p>
-              <button
-                onClick={() => printElement('marking-schedule-printable', `${schoolSettings?.schoolName || 'Eldoret Muslim Academy'} - Marking Allocation Schedule`)}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs shrink-0 transition-all cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                Print Schedule
-              </button>
-            </div>
-
-            {/* Printable Paper View */}
-            <div id="marking-schedule-printable" className="p-6 sm:p-8 bg-white border border-slate-300 rounded-xl text-slate-900 shadow-xs space-y-6">
-              {/* Official School Header */}
-              <div className="text-center border-b-2 border-slate-800 pb-4">
-                <h1 className="text-lg sm:text-xl font-black uppercase tracking-wide text-slate-900">
-                  {schoolSettings?.schoolName || 'ELDORET MUSLIM ACADEMY'}
-                </h1>
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest mt-0.5">
-                  Office of the Director of Studies · Academic Assessment Committee
-                </p>
-                <div className="mt-2 inline-block px-3 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Official Examination Script Marking & Evaluation Schedule
-                </div>
-                <div className="mt-2 text-xs text-slate-600 flex justify-center items-center gap-6 font-medium">
-                  <span><strong>Exam:</strong> {selectedExamObj ? (selectedExamObj.exam?.title || selectedExamObj.title) : 'All Current Examinations'}</span>
-                  <span><strong>Academic Year:</strong> {schoolSettings?.currentAcademicYear || new Date().getFullYear()}</span>
-                  <span><strong>Term:</strong> Term {schoolSettings?.currentTermNumber || 1}</span>
-                </div>
-              </div>
-
-              {/* Schedule Table */}
-              <div>
-                <table className="w-full text-left text-xs border-collapse border border-slate-300">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-800 font-bold uppercase border-b border-slate-300 text-[11px]">
-                      <th className="p-2.5 border border-slate-300">#</th>
-                      <th className="p-2.5 border border-slate-300">Subject / Learning Area</th>
-                      <th className="p-2.5 border border-slate-300">Class Stream</th>
-                      <th className="p-2.5 border border-slate-300">Allocated Examiner</th>
-                      <th className="p-2.5 border border-slate-300 text-center">Examiner Signature</th>
-                      <th className="p-2.5 border border-slate-300 text-center">DoS Moderation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMarkingList.map((row, idx) => (
-                      <tr key={row.allocation.id} className="border-b border-slate-200">
-                        <td className="p-2 border border-slate-300 text-center font-bold text-slate-500">
-                          {idx + 1}
-                        </td>
-                        <td className="p-2 border border-slate-300 font-bold">
-                          {row.subject.name}
-                          <span className="text-[10px] text-slate-500 font-mono block">Code: {row.subject.code}</span>
-                        </td>
-                        <td className="p-2 border border-slate-300 font-semibold">
-                          {row.class.name}
-                        </td>
-                        <td className="p-2 border border-slate-300 font-medium">
-                          {row.teacher.firstName} {row.teacher.lastName}
-                        </td>
-                        <td className="p-2 border border-slate-300 w-28">
-                          <div className="border-b border-dotted border-slate-400 h-5" />
-                        </td>
-                        <td className="p-2 border border-slate-300 text-center w-24">
-                          <span className="border border-slate-400 px-2 py-0.5 text-[9px] uppercase font-bold text-slate-600 rounded">
-                            Verified [ &nbsp; ]
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Directives to Examiners */}
-              <div className="border border-slate-200 bg-slate-50/50 p-3 rounded text-[11px] space-y-1 text-slate-700">
-                <p className="font-bold uppercase tracking-wider text-slate-900">Directives to Paper Examiners:</p>
-                <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                  <li>Mark strictly against the approved national curriculum marking scheme and standard rubrics (EE, ME, AE, BE).</li>
-                  <li>Complete marking and electronic score entry within <strong>5 working days</strong> of paper administration.</li>
-                  <li>Deliver marked physical scripts to the DoS office for cross-sample departmental moderation before mark locking.</li>
-                  <li>Under no circumstances should unmarked scripts leave the institutional premises.</li>
-                </ul>
-              </div>
-
-              {/* Signatures & School Stamp */}
-              <div className="grid grid-cols-3 gap-6 pt-4 border-t border-slate-300 text-xs">
-                <div>
-                  <div className="border-b border-slate-400 h-10 mb-1" />
-                  <p className="font-bold text-slate-800">Director of Studies (DoS)</p>
-                  <p className="text-[10px] text-slate-500">Signature & Date</p>
-                </div>
-
-                <div>
-                  <div className="border-b border-slate-400 h-10 mb-1" />
-                  <p className="font-bold text-slate-800">Head of Department (HoD)</p>
-                  <p className="text-[10px] text-slate-500">Signature & Date</p>
-                </div>
-
-                <div className="flex flex-col items-center justify-center">
-                  <div className="w-20 h-20 rounded-full border-2 border-dashed border-sky-800 flex flex-col items-center justify-center text-center p-1 text-[7px] font-bold text-sky-900 tracking-tighter uppercase leading-tight select-none">
-                    <span>ELDORET MUSLIM</span>
-                    <span>ACADEMY</span>
-                    <span className="my-0.5 text-[6px] text-sky-600">★ ACADEMIC DEPT ★</span>
-                    <span>OFFICIAL STAMP</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* 4. Slide-Over Panel for Selected Grade Marking Allocations */}
+      <ExamMarkingAllocationSlideOver
+        isOpen={Boolean(activeClassId)}
+        onClose={handleCloseSlideOver}
+        classId={activeClassId}
+        classes={classesList}
+        subjects={subjectsList}
+        markingAllocations={markingList}
+        activeExam={activeExam}
+        onAssignExaminer={handleAssignExaminer}
+        onRemoveExaminer={handleRemoveExaminer}
+      />
     </motion.div>
   );
 };
