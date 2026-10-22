@@ -37,6 +37,13 @@ export class AuthController {
         .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
         .where(eq(users.id, user.id));
 
+      console.log('\n' + '═'.repeat(64));
+      console.log('🔐 [2FA AUTHENTICATION CODE GENERATED]');
+      console.log(`📧 User:      ${user.firstName} ${user.lastName} (${user.email})`);
+      console.log(`🔑 OTP CODE:  >>> ${otp} <<<`);
+      console.log(`⏳ Expires:   5 minutes`);
+      console.log('═'.repeat(64) + '\n');
+
       // Send Brevo OTP Email
       const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);
 
@@ -46,6 +53,7 @@ export class AuthController {
         requires2FA: true,
         email: user.email,
         emailSent,
+        devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
       });
     } catch (error: any) {
       if (error.name === 'ZodError') {
@@ -151,6 +159,13 @@ export class AuthController {
         .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
         .where(eq(users.id, user.id));
 
+      console.log('\n' + '═'.repeat(64));
+      console.log('🔐 [2FA CODE RESENT]');
+      console.log(`📧 User:      ${user.firstName} ${user.lastName} (${user.email})`);
+      console.log(`🔑 OTP CODE:  >>> ${otp} <<<`);
+      console.log(`⏳ Expires:   5 minutes`);
+      console.log('═'.repeat(64) + '\n');
+
       // Send Brevo OTP Email
       const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);
 
@@ -158,6 +173,7 @@ export class AuthController {
         success: true,
         message: 'A new 2FA OTP code has been sent to your email.',
         emailSent,
+        devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
       });
     } catch (error: any) {
       console.error('Resend OTP error:', error);

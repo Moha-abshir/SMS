@@ -72,7 +72,12 @@ export class EmailService {
   }
 
   static async sendOtpEmail(toEmail: string, recipientName: string, otp: string): Promise<boolean> {
-    console.log(`[Email Notification] 2FA OTP for ${toEmail}: ${otp}`);
+    console.log('\n' + '═'.repeat(64));
+    console.log('🔐 [2FA LOGIN VERIFICATION CODE]');
+    console.log(`📧 Recipient: ${recipientName} <${toEmail}>`);
+    console.log(`🔑 OTP CODE:  >>> ${otp} <<<`);
+    console.log(`⏳ Valid For: 5 minutes`);
+    console.log('═'.repeat(64) + '\n');
     return this.sendMail({
       to: toEmail,
       toName: recipientName,
@@ -94,7 +99,13 @@ export class EmailService {
   }
 
   static async sendInvitationEmail(toEmail: string, recipientName: string, roleName: string, inviteUrl: string, expiryDate: string): Promise<boolean> {
-    console.log(`[Email Notification] Invitation Link for ${toEmail}: ${inviteUrl}`);
+    console.log('\n' + '═'.repeat(64));
+    console.log('✉️ [STAFF INVITATION DISPATCHED]');
+    console.log(`📧 Recipient: ${recipientName} <${toEmail}>`);
+    console.log(`💼 Role:      ${roleName.replace(/_/g, ' ')}`);
+    console.log(`🔗 Link:      ${inviteUrl}`);
+    console.log(`⏳ Expires:   ${expiryDate}`);
+    console.log('═'.repeat(64) + '\n');
     return this.sendMail({
       to: toEmail,
       toName: recipientName,
@@ -118,7 +129,12 @@ export class EmailService {
   }
 
   static async sendPasswordResetEmail(toEmail: string, recipientName: string, resetUrl: string, expiryMinutes: number): Promise<boolean> {
-    console.log(`[Email Notification] Password Reset Link for ${toEmail}: ${resetUrl}`);
+    console.log('\n' + '═'.repeat(64));
+    console.log('🔑 [PASSWORD RESET LINK DISPATCHED]');
+    console.log(`📧 Recipient: ${recipientName} <${toEmail}>`);
+    console.log(`🔗 Link:      ${resetUrl}`);
+    console.log(`⏳ Valid For: ${expiryMinutes} minutes`);
+    console.log('═'.repeat(64) + '\n');
     return this.sendMail({
       to: toEmail,
       toName: recipientName,

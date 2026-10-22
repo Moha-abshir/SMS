@@ -76,7 +76,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const data = response.data;
 
       if (data.requires2FA) {
-        toast.info('2FA verification code sent to your email address!');
+        if (data.devOtp) {
+          console.log('%c🔐 [2FA DEV OTP CODE]: ' + data.devOtp, 'background: #2563eb; color: #fff; font-size: 14px; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+        }
+        toast.info(data.devOtp ? '2FA code sent! Check your server or browser console.' : '2FA verification code sent to your email address!');
         setView('otp');
       }
     } catch (error: any) {
@@ -116,7 +119,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     try {
       const response = await apiClient.post('/api/auth/resend-otp', { email });
       if (response.data.success) {
-        toast.success('A new verification code has been sent to your email.');
+        if (response.data.devOtp) {
+          console.log('%c🔐 [2FA DEV OTP CODE RESENT]: ' + response.data.devOtp, 'background: #2563eb; color: #fff; font-size: 14px; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+        }
+        toast.success(response.data.devOtp ? 'A new verification code has been generated! Check your console.' : 'A new verification code has been sent to your email.');
         setOtpCountdown(300);
       }
     } catch (error: any) {
