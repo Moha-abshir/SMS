@@ -14,6 +14,7 @@ export interface NavItem {
   icon: any;
   roles?: string[]; // Allowed roles (if omitted, visible to all)
   isClassTeacherFeature?: boolean; // Visible if user is an active Class Teacher (any role) OR has TEACHER role
+  requiresMarkingWork?: boolean; // Only visible if staff member has papers, subject allocations, or class teacher marking duties
 }
 
 interface SidebarProps {
@@ -30,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [assignedClassName, setAssignedClassName] = useState<string | null>(null);
+  const [hasMarkingWork, setHasMarkingWork] = useState<boolean>(false);
 
   const location = useLocation();
   const userRole = user?.roleName || user?.role || 'HEAD_TEACHER';
@@ -42,16 +44,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       }
     }).catch(() => {});
 
-    // Check if the current logged-in staff member (regardless of title) is an assigned Class Teacher
+    // Check if the current logged-in staff member has papers or classes to mark
     apiClient.get('/api/teacher/workstation')
       .then((res) => {
-        if (res.data?.data?.classTeacher) {
+        const ws = res.data?.data;
+        if (ws?.classTeacher) {
           setIsClassTeacher(true);
-          setAssignedClassName(res.data.data.classTeacher.className);
+          setAssignedClassName(ws.classTeacher.className);
         } else {
           setIsClassTeacher(false);
           setAssignedClassName(null);
         }
+
+        const hasAllocations =
+          Boolean(ws?.classTeacher) ||
+          (Array.isArray(ws?.subjectAllocations) && ws.subjectAllocations.length > 0) ||
+          (Array.isArray(ws?.markEntryTasks) && ws.markEntryTasks.length > 0);
+
+        setHasMarkingWork(Boolean(hasAllocations));
       })
       .catch(() => {});
   }, [user?.id]);
@@ -74,14 +84,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DEPUTY_HEAD'] },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
-    { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, requiresMarkingWork: true, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/report-locks', label: 'Report Card Locks', icon: Settings, roles: ['HEAD_TEACHER', 'DOS'] },
     { path: '/subject-performance', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 
-  // Filter items based on logged in user role OR active Class Teacher assignment
+  // Filter items based on logged in user role, active Class Teacher assignment, and active marking duty
   const navItems = allNavItems.filter((item) => {
+    // If it requires active marking work, hide if the staff member has no papers or classes to mark
+    if (item.requiresMarkingWork && !hasMarkingWork) {
+      return false;
+    }
+
     // If it's a class-teacher feature, show if user is an active allocated Class Teacher OR has TEACHER role
     if (item.isClassTeacherFeature && (isClassTeacher || userRole === 'TEACHER')) {
       return true;

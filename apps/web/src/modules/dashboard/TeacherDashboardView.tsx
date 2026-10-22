@@ -229,17 +229,23 @@ export const TeacherDashboardView: React.FC = () => {
               Track active examination mark entry progress for your teaching allocations.
             </p>
           </div>
-          <button
-            onClick={() => navigate('/marks-entry')}
-            className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-700 cursor-pointer"
-          >
-            Go to Marksheet Entry <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          {markTasks.length > 0 && (
+            <button
+              onClick={() => navigate('/marks-entry')}
+              className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-700 cursor-pointer"
+            >
+              Go to Marksheet Entry <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {markTasks.length === 0 ? (
-          <div className="p-10 text-center text-slate-400 text-xs border border-dashed border-sky-100 rounded-2xl">
-            No active examination mark entry tasks scheduled currently.
+          <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-sky-100 dark:border-[#162b4d] rounded-2xl flex flex-col items-center justify-center gap-1.5">
+            <BookOpen className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+            <span className="font-semibold text-slate-600 dark:text-slate-300">No active examination mark entry tasks scheduled currently.</span>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500">
+              For Grades 4–9, papers are allocated by the Director of Studies (DoS). For PP1–Grade 3, Class Teachers record all class subjects.
+            </span>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

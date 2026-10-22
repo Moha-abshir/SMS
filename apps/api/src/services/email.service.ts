@@ -75,7 +75,7 @@ export class EmailService {
     console.log('\n' + '═'.repeat(64));
     console.log('[2FA LOGIN VERIFICATION CODE]');
     console.log(`Recipient: ${recipientName} <${toEmail}>`);
-    console.log(`OTP CODE:  >>> ${otp} <<<`);
+    console.log(`OTP CODE:  ${otp}`);
     console.log(`Valid For: 5 minutes`);
     console.log('═'.repeat(64) + '\n');
     return this.sendMail({
