@@ -45,6 +45,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     }).catch(() => {});
 
     // Check if the current logged-in staff member has papers or classes to mark
+    const canHaveMarkingDuties = ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole);
+    if (!canHaveMarkingDuties) {
+      return;
+    }
+
     apiClient.get('/api/teacher/workstation')
       .then((res) => {
         const ws = res.data?.data;

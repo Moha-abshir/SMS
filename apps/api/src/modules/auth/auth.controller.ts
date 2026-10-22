@@ -5,7 +5,7 @@ import { db } from '../../config/db.js';
 import { env } from '../../config/env.js';
 import { users, roles, loginSchema, verifyOtpSchema, eq } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
-import { ROLE_DEFAULT_PERMISSIONS } from '../../middleware/auth.js';
+import { ROLE_DEFAULT_PERMISSIONS, setUserSessionCache } from '../../middleware/auth.js';
 
 export class AuthController {
   static async login(req: Request, res: Response) {
@@ -103,16 +103,23 @@ export class AuthController {
         .set({ twoFactorOtp: null, twoFactorExpiresAt: null, twoFactorResetRequired: false, lastLoginAt: new Date() })
         .where(eq(users.id, user.id));
 
+      const tokenVersion = user.tokenVersion ?? 1;
       const payload = {
         id: user.id,
         email: user.email,
         roleId: user.roleId,
         roleName: roleName,
-        tokenVersion: user.tokenVersion,
+        tokenVersion,
         permissions: ROLE_DEFAULT_PERMISSIONS[roleName] || [],
       };
 
       const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as any });
+
+      // Pre-seed session cache so initial requests immediately pass authentication without DB latency
+      setUserSessionCache(user.id, {
+        tokenVersion,
+        isActive: true,
+      });
 
       return res.status(200).json({
         success: true,

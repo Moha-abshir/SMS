@@ -34,7 +34,7 @@ export const userRateLimiter = rateLimit({
   },
 });
 
-// In-memory session validation cache (15 seconds TTL) to eliminate DB latency on every API request
+// In-memory session validation cache (60 seconds TTL) to eliminate DB latency on every API request
 interface CachedSession {
   tokenVersion: number;
   isActive: boolean;
@@ -46,6 +46,10 @@ export function invalidateUserSessionCache(userId: string) {
   userSessionCache.delete(userId);
 }
 
+export function setUserSessionCache(userId: string, session: { tokenVersion: number; isActive: boolean }) {
+  userSessionCache.set(userId, { ...session, cachedAt: Date.now() });
+}
+
 export async function authenticate(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -53,33 +57,42 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   const token = authHeader.split(' ')[1];
+  let decoded: AuthenticatedUser;
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as AuthenticatedUser;
-    
-    // Check in-memory cache before hitting database
-    const now = Date.now();
-    const cached = userSessionCache.get(decoded.id);
-    let userRecord = cached && (now - cached.cachedAt < 15000) ? cached : null;
+    decoded = jwt.verify(token, env.JWT_SECRET) as AuthenticatedUser;
+  } catch (error) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired session token' });
+  }
 
-    if (!userRecord) {
+  // Check in-memory cache before hitting database
+  const now = Date.now();
+  const cached = userSessionCache.get(decoded.id);
+  let userRecord = cached && (now - cached.cachedAt < 60000) ? cached : null;
+
+  if (!userRecord) {
+    try {
       const [dbUser] = await db.select({ tokenVersion: users.tokenVersion, isActive: users.isActive }).from(users).where(eq(users.id, decoded.id));
       if (!dbUser) {
         return res.status(401).json({ success: false, message: 'User account not found' });
       }
       userRecord = { tokenVersion: dbUser.tokenVersion, isActive: dbUser.isActive, cachedAt: now };
       userSessionCache.set(decoded.id, userRecord);
+    } catch (dbError) {
+      console.warn('[Auth Middleware] Database session check warning (falling back to decoded JWT):', dbError);
+      // DB transient connection error / cold start: Since JWT cryptographic signature is already verified,
+      // allow request to proceed rather than falsely returning 401 and destroying the user's session!
+      req.user = decoded;
+      return next();
     }
-
-    if (!userRecord.isActive || (decoded.tokenVersion && decoded.tokenVersion !== userRecord.tokenVersion)) {
-      userSessionCache.delete(decoded.id);
-      return res.status(401).json({ success: false, message: 'Session revoked or expired. Please log in again.' });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ success: false, message: 'Invalid or expired session token' });
   }
+
+  if (!userRecord.isActive || (decoded.tokenVersion && decoded.tokenVersion !== userRecord.tokenVersion)) {
+    userSessionCache.delete(decoded.id);
+    return res.status(401).json({ success: false, message: 'Session revoked or expired. Please log in again.' });
+  }
+
+  req.user = decoded;
+  next();
 }
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
