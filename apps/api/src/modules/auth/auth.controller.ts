@@ -37,11 +37,12 @@ export class AuthController {
         .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
         .where(eq(users.id, user.id));
 
+      //Placed here for local testing only.
       console.log('\n' + '═'.repeat(64));
-      console.log('🔐 [2FA AUTHENTICATION CODE GENERATED]');
-      console.log(`📧 User:      ${user.firstName} ${user.lastName} (${user.email})`);
-      console.log(`🔑 OTP CODE:  >>> ${otp} <<<`);
-      console.log(`⏳ Expires:   5 minutes`);
+      console.log('[2FA AUTHENTICATION CODE GENERATED]');
+      console.log(`User:      ${user.firstName} ${user.lastName} (${user.email})`);
+      console.log(`OTP CODE:  ${otp}`);
+      console.log(`Expires:   5 minutes`);
       console.log('═'.repeat(64) + '\n');
 
       // Send Brevo OTP Email
