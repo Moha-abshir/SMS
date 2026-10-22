@@ -138,7 +138,8 @@ export class AuthController {
       if (error.name === 'ZodError') {
         return res.status(400).json({ success: false, message: 'Validation failed', errors: error.errors });
       }
-      return res.status(500).json({ success: false, message: 'Internal server error' });
+      console.error('Verify 2FA error:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
     }
   }
 
