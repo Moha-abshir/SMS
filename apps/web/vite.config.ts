@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       manifest: {
         name: 'School Management System',
-        short_name: 'SchoolApp',
+        short_name: 'E-M-A App',
         description: 'Primary & Junior Secondary School Management System',
         theme_color: '#2563EB',
         background_color: '#0F172A',
