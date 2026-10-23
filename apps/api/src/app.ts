@@ -92,3 +92,5 @@ app.use('/api/teacher', teacherRoutes);
 app.use('/api/timetable', timetableRoutes);
 
 export default app;
+
+
