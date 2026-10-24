@@ -21,6 +21,7 @@ import {
   isNull,
   desc,
   inArray,
+  sql,
 } from '@school/shared';
 import { SmsService } from '../../services/sms.service.js';
 import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
@@ -267,75 +268,110 @@ export class TeacherService {
     const markEntryTasks: any[] = [];
     let pendingCorrectionsCount = 0;
 
-    for (const exam of activeExams) {
-      for (const area of allTeachingAreas) {
-        // If this area was allocated by DoS specifically for an exam, only generate task for that exam
-        if ((area as any).examId && (area as any).examId !== exam.id) {
-          continue;
-        }
+    if (activeExams.length > 0 && allTeachingAreas.length > 0) {
+      const examIds = activeExams.map((e) => e.id);
+      const classIds = Array.from(new Set(allTeachingAreas.map((a) => a.classId)));
+      const subjectIds = Array.from(new Set(allTeachingAreas.map((a) => a.subjectId)));
 
-        // Check submission record
-        const [submission] = await db
+      // Fetch batch data in parallel instead of N*M individual queries
+      const [classCounts, submissions, scoredCounts] = await Promise.all([
+        db
+          .select({
+            classId: students.classId,
+            total: sql<number>`count(*)::int`,
+          })
+          .from(students)
+          .where(
+            and(
+              inArray(students.classId, classIds),
+              eq(students.status, 'ACTIVE'),
+              isNull(students.deletedAt)
+            )
+          )
+          .groupBy(students.classId),
+
+        db
           .select()
           .from(markSubmissions)
           .where(
             and(
-              eq(markSubmissions.examId, exam.id),
-              eq(markSubmissions.classId, area.classId),
-              eq(markSubmissions.subjectId, area.subjectId)
+              inArray(markSubmissions.examId, examIds),
+              inArray(markSubmissions.classId, classIds),
+              inArray(markSubmissions.subjectId, subjectIds)
             )
-          );
+          ),
 
-        // Count scores entered
-        const scores = await db
-          .select({ studentId: examScores.studentId })
+        db
+          .select({
+            examId: examScores.examId,
+            subjectId: examScores.subjectId,
+            classId: students.classId,
+            scored: sql<number>`count(*)::int`,
+          })
           .from(examScores)
           .innerJoin(students, eq(examScores.studentId, students.id))
           .where(
             and(
-              eq(examScores.examId, exam.id),
-              eq(examScores.subjectId, area.subjectId),
-              eq(students.classId, area.classId),
+              inArray(examScores.examId, examIds),
+              inArray(examScores.subjectId, subjectIds),
+              inArray(students.classId, classIds),
               eq(students.status, 'ACTIVE'),
               isNull(students.deletedAt)
             )
-          );
+          )
+          .groupBy(examScores.examId, examScores.subjectId, students.classId),
+      ]);
 
-        // Active students count in that class
-        const classStudentsList = await db
-          .select({ id: students.id })
-          .from(students)
-          .where(
-            and(
-              eq(students.classId, area.classId),
-              eq(students.status, 'ACTIVE'),
-              isNull(students.deletedAt)
-            )
-          );
+      const studentCountMap = new Map<string, number>();
+      for (const c of classCounts) {
+        if (c.classId) studentCountMap.set(c.classId, c.total);
+      }
 
-        const totalStudents = classStudentsList.length;
-        const scoredCount = scores.length;
+      const submissionMap = new Map<string, any>();
+      for (const s of submissions) {
+        submissionMap.set(`${s.examId}-${s.classId}-${s.subjectId}`, s);
+      }
 
-        let status = submission?.status || (scoredCount > 0 ? 'DRAFT' : 'NOT_STARTED');
-        if (status === 'CORRECTION_REQUESTED') {
-          pendingCorrectionsCount++;
+      const scoredCountMap = new Map<string, number>();
+      for (const sc of scoredCounts) {
+        if (sc.classId) {
+          scoredCountMap.set(`${sc.examId}-${sc.classId}-${sc.subjectId}`, sc.scored);
         }
+      }
 
-        markEntryTasks.push({
-          examId: exam.id,
-          examTitle: exam.title,
-          classId: area.classId,
-          className: area.className,
-          subjectId: area.subjectId,
-          subjectName: area.subjectName,
-          subjectCode: area.subjectCode,
-          submissionId: submission?.id || null,
-          status,
-          correctionReason: submission?.correctionReason || null,
-          scoredStudents: scoredCount,
-          totalStudents,
-          isComplete: scoredCount >= totalStudents && totalStudents > 0,
-        });
+      for (const exam of activeExams) {
+        for (const area of allTeachingAreas) {
+          // If this area was allocated by DoS specifically for an exam, only generate task for that exam
+          if ((area as any).examId && (area as any).examId !== exam.id) {
+            continue;
+          }
+
+          const key = `${exam.id}-${area.classId}-${area.subjectId}`;
+          const submission = submissionMap.get(key);
+          const scoredCount = scoredCountMap.get(key) || 0;
+          const totalStudents = studentCountMap.get(area.classId) || 0;
+
+          let status = submission?.status || (scoredCount > 0 ? 'DRAFT' : 'NOT_STARTED');
+          if (status === 'CORRECTION_REQUESTED') {
+            pendingCorrectionsCount++;
+          }
+
+          markEntryTasks.push({
+            examId: exam.id,
+            examTitle: exam.title,
+            classId: area.classId,
+            className: area.className,
+            subjectId: area.subjectId,
+            subjectName: area.subjectName,
+            subjectCode: area.subjectCode,
+            submissionId: submission?.id || null,
+            status,
+            correctionReason: submission?.correctionReason || null,
+            scoredStudents: scoredCount,
+            totalStudents,
+            isComplete: scoredCount >= totalStudents && totalStudents > 0,
+          });
+        }
       }
     }
 

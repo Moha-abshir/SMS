@@ -218,143 +218,176 @@ export const TeacherDashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* Marksheet Entry & Assessment Tasks Queue */}
-      <div className="bg-white/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 shadow-glass space-y-4">
-        <div className="flex items-center justify-between border-b border-sky-100 pb-3">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">
-              Assessment Marksheet Entry Tasks
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Track active examination mark entry progress for your teaching allocations.
-            </p>
-          </div>
-          {markTasks.length > 0 && (
-            <button
-              onClick={() => navigate('/marks-entry')}
-              className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-700 cursor-pointer"
-            >
-              Go to Marksheet Entry <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
+      {/* Workstation Actions & Call to Action (CTA) Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Workstation Quick Actions
+          </h2>
+          <span className="text-xs text-slate-400">
+            {allocations.length} Active Allocation(s)
+          </span>
         </div>
 
-        {markTasks.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-sky-100 dark:border-[#162b4d] rounded-2xl flex flex-col items-center justify-center gap-1.5">
-            <BookOpen className="w-5 h-5 text-slate-300 dark:text-slate-600" />
-            <span className="font-semibold text-slate-600 dark:text-slate-300">No active examination mark entry tasks scheduled currently.</span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
-              For Grades 4–9, papers are allocated by the Director of Studies (DoS). For PP1–Grade 3, Class Teachers record all class subjects.
-            </span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {markTasks.map((task: any) => (
-              <div
-                key={`${task.examId}-${task.classId}-${task.subjectId}`}
-                className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-3 ${
-                  task.status === 'CORRECTION_REQUESTED'
-                    ? 'bg-amber-50/70 border-amber-300 shadow-xs'
-                    : task.status === 'SUBMITTED' || task.status === 'APPROVED'
-                    ? 'bg-emerald-50/20 border-emerald-200'
-                    : 'bg-white border-sky-100 hover:border-sky-300 shadow-xs'
-                }`}
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                        {task.examTitle}
-                      </span>
-                      <h4 className="text-sm font-bold text-slate-900 mt-0.5">
-                        {task.subjectName} ({task.subjectCode})
-                      </h4>
-                      <span className="text-xs font-semibold text-sky-700 block mt-0.5">
-                        {task.className}
-                      </span>
-                    </div>
-
-                    {/* Task Status Pill */}
-                    {task.status === 'APPROVED' || task.status === 'LOCKED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        Approved
-                      </span>
-                    ) : task.status === 'SUBMITTED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200 shrink-0">
-                        <Clock className="w-3 h-3 text-sky-600" />
-                        Submitted
-                      </span>
-                    ) : task.status === 'CORRECTION_REQUESTED' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shrink-0 animate-pulse">
-                        <AlertCircle className="w-3 h-3 text-amber-700" />
-                        Fix Required
-                      </span>
-                    ) : task.status === 'DRAFT' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                        <FileText className="w-3 h-3 text-slate-500" />
-                        In Progress
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-500 border border-slate-200 shrink-0">
-                        Not Started
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Correction Reason */}
-                  {task.correctionReason && (
-                    <div className="mt-2 p-2 bg-white/90 border border-amber-200 rounded-lg text-[11px] text-amber-800">
-                      <span className="font-bold">Deputy Feedback:</span> {task.correctionReason}
-                    </div>
-                  )}
-
-                  {/* Progress Bar */}
-                  <div className="mt-3">
-                    <div className="flex justify-between text-[11px] text-slate-500 font-medium mb-1">
-                      <span>Mark Entry Progress</span>
-                      <span>
-                        {task.scoredStudents} / {task.totalStudents} learners
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          task.scoredStudents >= task.totalStudents && task.totalStudents > 0
-                            ? 'bg-emerald-500'
-                            : 'bg-sky-500'
-                        }`}
-                        style={{
-                          width: `${
-                            task.totalStudents > 0
-                              ? Math.min(100, Math.round((task.scoredStudents / task.totalStudents) * 100))
-                              : 0
-                          }%`,
-                        }}
-                      ></div>
-                    </div>
-                  </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* 1. Marksheet Entry CTA */}
+          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                  <BookOpen className="w-5 h-5" />
                 </div>
-
-                <div className="pt-2 border-t border-slate-100/80 flex justify-end">
-                  <button
-                    onClick={() => navigate('/marks-entry')}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Enter Marks <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {alerts.pendingCorrections > 0 ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                    {alerts.pendingCorrections} Fix Required
+                  </span>
+                ) : markTasks.length > 0 ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
+                    {markTasks.length} Papers
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                    No Pending
+                  </span>
+                )}
               </div>
-            ))}
+
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Marksheet Entry
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                {markTasks.length > 0
+                  ? `${markTasks.filter((t: any) => t.isComplete).length} of ${markTasks.length} marksheets completed`
+                  : 'Electronic score recording with automated CBC rubrics'}
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <button
+                onClick={() => navigate('/marks-entry')}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                Go to Marksheet Entry <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-        )}
+
+          {/* 2. Daily Class Register CTA */}
+          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                  <CalendarCheck className="w-5 h-5" />
+                </div>
+                {classTeacher ? (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      classTeacher.todayAttendance?.isSubmitted
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                    }`}
+                  >
+                    {classTeacher.todayAttendance?.isSubmitted ? 'Roll Call Taken' : 'Pending Today'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                    Attendance
+                  </span>
+                )}
+              </div>
+
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Daily Class Register
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                {classTeacher
+                  ? `Roll call oversight for ${classTeacher.className}`
+                  : 'Class-level daily student attendance and rolls'}
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <button
+                onClick={() => navigate('/class-register')}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                Take Class Register <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Class Learners CTA */}
+          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                  <Users className="w-5 h-5" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
+                  {classTeacher ? `${classTeacher.studentCount} Learners` : 'Directory'}
+                </span>
+              </div>
+
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Class Learners
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                Learner directory, guardian phone numbers & emergency profiles
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <button
+                onClick={() => navigate('/my-learners')}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                View Class Learners <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 4. Subject Performance CTA */}
+          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
+                  Analytics
+                </span>
+              </div>
+
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Subject Performance
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                CBC rubric distributions, subject averages & academic briefings
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <button
+                onClick={() => navigate('/subject-performance')}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                View Performance <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Teaching Subject Allocations Grid */}
-      <div className="bg-white/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 shadow-glass space-y-4">
-        <h3 className="text-base font-bold text-slate-900 border-b border-sky-100 pb-3">
-          My Teaching Allocations
-        </h3>
+      <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none space-y-4">
+        <div className="flex items-center justify-between border-b border-sky-100 dark:border-[#162b4d] pb-3">
+          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+            My Teaching Allocations
+          </h3>
+          <span className="text-xs text-sky-600 dark:text-sky-400 font-bold">
+            {allocations.length} Active Subject(s)
+          </span>
+        </div>
 
         {allocations.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-xs">
@@ -365,72 +398,23 @@ export const TeacherDashboardView: React.FC = () => {
             {allocations.map((alloc: any) => (
               <div
                 key={`${alloc.classId}-${alloc.subjectId}`}
-                className="p-3.5 bg-sky-50/40 border border-sky-100 rounded-xl hover:bg-sky-50/70 transition-colors flex items-center justify-between"
+                className="p-3.5 bg-sky-50/40 dark:bg-[#0b172c] border border-sky-100 dark:border-[#162b4d] rounded-xl hover:bg-sky-50/70 dark:hover:bg-[#0f1f3d] transition-colors flex items-center justify-between"
               >
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
                     {alloc.subjectName}
                   </h4>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    Class: <span className="font-semibold text-sky-700">{alloc.className}</span>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Class: <span className="font-semibold text-sky-700 dark:text-sky-300">{alloc.className}</span>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-sky-100">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#081020] text-slate-700 dark:text-slate-300 border border-sky-100 dark:border-slate-800">
                   {alloc.subjectCode}
                 </span>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* Workstation Shortcuts Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          {
-            title: 'Daily Class Register',
-            desc: 'Mobile-first attendance roll call for your assigned class',
-            icon: CalendarCheck,
-            path: '/class-register',
-          },
-          {
-            title: 'Marksheet Entry',
-            desc: 'Electronic score entry with real-time CBC rubric calculation',
-            icon: BookOpen,
-            path: '/marks-entry',
-          },
-          {
-            title: 'Class Learners Directory',
-            desc: 'Full learner roster, guardian contacts & controlled SMS',
-            icon: Users,
-            path: '/my-learners',
-          },
-          {
-            title: 'Subject Performance',
-            desc: 'Academic intelligence, rubrics & meeting briefings',
-            icon: TrendingUp,
-            path: '/subject-performance',
-          },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className="p-4 bg-white/85 backdrop-blur-md rounded-2xl border border-sky-100 hover:border-sky-300 shadow-xs hover:shadow-md transition-all cursor-pointer group"
-            >
-              <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 w-fit mb-2.5 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                <Icon className="w-5 h-5" />
-              </div>
-              <h4 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 transition-colors">
-                {item.title}
-              </h4>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                {item.desc}
-              </p>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
