@@ -12,6 +12,11 @@ if (!apiUrl && typeof window !== 'undefined' && window.location.hostname !== 'lo
 
 export const apiClient = axios.create({
   baseURL: apiUrl,
+  headers: {
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+  },
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -19,6 +24,33 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.set('Authorization', `Bearer ${token}`);
   }
+
+  // Ensure request headers prevent 304 conditional cache validation
+  if (config.headers) {
+    if (typeof config.headers.set === 'function') {
+      config.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      config.headers.set('Pragma', 'no-cache');
+      config.headers.set('Expires', '0');
+    } else {
+      config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      config.headers['Pragma'] = 'no-cache';
+      config.headers['Expires'] = '0';
+    }
+    delete config.headers['If-None-Match'];
+    delete config.headers['if-none-match'];
+    delete config.headers['If-Modified-Since'];
+    delete config.headers['if-modified-since'];
+  }
+
+  // For GET requests, append a cache-busting timestamp to guarantee fresh 200 OK responses
+  const method = (config.method || 'get').toLowerCase();
+  if (method === 'get') {
+    config.params = {
+      ...config.params,
+      _t: Date.now(),
+    };
+  }
+
   return config;
 });
 

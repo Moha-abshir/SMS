@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
 import { MarkSubmissionProgressTracker } from './MarkSubmissionProgressTracker';
-import { isJuniorSecondaryClass } from '@school/shared/types';
+import { isJuniorSecondaryClass, isSubjectTeacherClass } from '@school/shared/types';
 
 interface SubjectMarkTask {
   examId: string;
@@ -56,13 +56,24 @@ export const MarksheetEntryView: React.FC = () => {
     try {
       if (showLoading) setLoading(true);
       const [wsRes, examsRes, settingsRes] = await Promise.all([
-        apiClient.get('/api/teacher/workstation'),
-        apiClient.get('/api/exams'),
+        apiClient.get('/api/teacher/workstation').catch((err) => {
+          console.warn('[Marksheet] Failed to load workstation:', err);
+          return { data: { data: null } };
+        }),
+        apiClient.get('/api/exams').catch((err) => {
+          console.warn('[Marksheet] Failed to load exams:', err);
+          return { data: { data: [] } };
+        }),
         apiClient.get('/api/settings/public').catch(() => ({ data: { data: null } })),
       ]);
 
-      const ws = wsRes.data?.data;
-      const rawExams = examsRes.data?.data || [];
+      const ws = wsRes?.data?.data || wsRes?.data || null;
+      const rawExams = Array.isArray(examsRes?.data?.data)
+        ? examsRes.data.data
+        : Array.isArray(examsRes?.data)
+        ? examsRes.data
+        : [];
+
       const normalizedExams = rawExams.map((e: any) => ({
         id: e.exam?.id || e.id,
         title: e.exam?.title || e.title || e.name || 'Examination',
@@ -73,12 +84,16 @@ export const MarksheetEntryView: React.FC = () => {
 
       setWorkstation(ws);
       setExams(normalizedExams);
-      setSchoolSettings(settingsRes.data?.data || null);
+      setSchoolSettings(settingsRes?.data?.data || settingsRes?.data || null);
 
       // Select default exam
-      if (normalizedExams.length > 0 && !selectedExamId) {
-        const approved = normalizedExams.find((ex: any) => ex.status === 'APPROVED' || ex.status === 'ACTIVE');
-        setSelectedExamId(approved ? approved.id : normalizedExams[0].id);
+      if (!selectedExamId) {
+        if (normalizedExams.length > 0) {
+          const approved = normalizedExams.find((ex: any) => ex.status === 'APPROVED' || ex.status === 'ACTIVE');
+          setSelectedExamId(approved ? approved.id : normalizedExams[0].id);
+        } else if (ws?.markEntryTasks?.length > 0 && ws.markEntryTasks[0].examId) {
+          setSelectedExamId(ws.markEntryTasks[0].examId);
+        }
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load marksheet data');
@@ -94,21 +109,11 @@ export const MarksheetEntryView: React.FC = () => {
   // Filter subject papers for Grades 4 through 9 (Subject Specialists)
   const isSubjectTeacherPaper = (task: any) => {
     if (!task) return false;
-    if (
-      task.levelCategory === 'UPPER_PRIMARY' ||
-      task.levelCategory === 'JUNIOR' ||
-      task.levelCategory === 'JUNIOR_SECONDARY'
-    ) {
-      return true;
-    }
-    if (typeof task.numericOrder === 'number' && task.numericOrder >= 7) {
-      return true;
-    }
-    if (typeof task.className === 'string') {
-      const match = task.className.match(/Grade\s*([4-9])/i);
-      if (match) return true;
-    }
-    return false;
+    return isSubjectTeacherClass({
+      levelCategory: task.levelCategory,
+      numericOrder: task.numericOrder,
+      name: task.className,
+    });
   };
 
   // Filter and sort tasks from Grade 4 to Grade 9
@@ -123,12 +128,15 @@ export const MarksheetEntryView: React.FC = () => {
     // Filter for Subject Teacher papers (Grades 4 - 9)
     const upperPapers = forExam.filter(isSubjectTeacherPaper);
 
+    // If forExam filtered everything out (e.g. slight mismatch between exam ids), fallback to all upperPapers
+    const candidatePapers = upperPapers.length > 0 ? upperPapers : rawTasks.filter(isSubjectTeacherPaper);
+
     // Sort from Grade 4 to Grade 9, then alphabetically by subject
-    return upperPapers.sort((a, b) => {
+    return candidatePapers.sort((a, b) => {
       const orderA = typeof a.numericOrder === 'number' ? a.numericOrder : 99;
       const orderB = typeof b.numericOrder === 'number' ? b.numericOrder : 99;
       if (orderA !== orderB) return orderA - orderB;
-      return a.subjectName.localeCompare(b.subjectName);
+      return (a.subjectName || '').localeCompare(b.subjectName || '');
     });
   }, [workstation, selectedExamId]);
 

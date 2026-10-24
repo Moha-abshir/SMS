@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { ThemeToggle } from './ThemeToggle';
+import { isSubjectTeacherClass } from '@school/shared/types';
 
 export interface NavItem {
   path: string;
@@ -55,7 +56,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
     apiClient.get('/api/teacher/workstation')
       .then((res) => {
-        const ws = res.data?.data;
+        const ws = res.data?.data || res.data;
+        if (!ws) return;
+
         if (ws?.classTeacher) {
           setIsClassTeacher(true);
           setAssignedClassName(ws.classTeacher.className);
@@ -74,20 +77,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         // Timetable engine is exclusively designed for Grades 4 through 9 (UPPER_PRIMARY & JUNIOR)
         const isTargetTimetableClass = (item: any) => {
           if (!item) return false;
-          if (
-            item.levelCategory === 'UPPER_PRIMARY' ||
-            item.levelCategory === 'JUNIOR' ||
-            item.levelCategory === 'JUNIOR_SECONDARY'
-          ) {
-            return true;
-          }
-          if (typeof item.numericOrder === 'number' && item.numericOrder >= 7) {
-            return true;
-          }
-          if (typeof item.className === 'string' && /Grade\s*[4-9]/i.test(item.className)) {
-            return true;
-          }
-          return false;
+          return isSubjectTeacherClass({
+            levelCategory: item.levelCategory,
+            numericOrder: item.numericOrder,
+            name: item.className,
+          });
         };
 
         const hasGrades4To9Duty =
