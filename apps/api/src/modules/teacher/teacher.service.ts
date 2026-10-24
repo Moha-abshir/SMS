@@ -361,6 +361,8 @@ export class TeacherService {
             examTitle: exam.title,
             classId: area.classId,
             className: area.className,
+            levelCategory: area.levelCategory,
+            numericOrder: area.numericOrder,
             subjectId: area.subjectId,
             subjectName: area.subjectName,
             subjectCode: area.subjectCode,
