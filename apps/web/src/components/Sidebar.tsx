@@ -35,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
   const location = useLocation();
   const userRole = user?.roleName || user?.role || 'HEAD_TEACHER';
+  const isDeputy = userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER';
 
   useEffect(() => {
     apiClient.get('/api/settings/public').then((res) => {
@@ -80,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/letters', label: 'Official Letters', icon: FileText, roles: ['HEAD_TEACHER'] },
     { path: '/fee-structures', label: 'Fee Structures', icon: Calculator, roles: ['HEAD_TEACHER'] },
     { path: '/allocations', label: 'Class & Teacher Allocations', icon: BookOpen, roles: ['DEPUTY_HEAD'] },
-    { path: '/timetable', label: 'School Timetable', icon: Calendar, roles: ['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER'] },
+    { path: '/timetable', label: isDeputy ? 'School Timetable' : 'My Timetable', icon: Calendar, roles: ['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER'] },
     { path: '/inventory', label: 'School Inventory', icon: Package, roles: ['DEPUTY_HEAD'] },
     { path: '/leave-requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['DEPUTY_HEAD'] },
     { path: '/attendance', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },

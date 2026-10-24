@@ -659,12 +659,12 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                {isHeadTeacher ? 'My Teaching Timetable' : 'School Timetable (Grades 4–9)'}
+                {isDeputy ? 'School Timetable (Grades 4–9)' : 'My Timetable'}
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {isHeadTeacher
-                  ? `Personal Teaching Schedule • ${user?.firstName || 'Head Teacher'} ${user?.lastName || ''}`
-                  : `Academic Year ${academicYear} • Term ${term} • Eldoret Muslim Academy`}
+                {isDeputy
+                  ? `Academic Year ${academicYear} • Term ${term} • Eldoret Muslim Academy`
+                  : `Personal Teaching Schedule • ${user?.firstName || 'Teacher'} ${user?.lastName || ''}`}
               </p>
             </div>
           </div>
@@ -696,7 +696,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
       {/* Navigation Tabs Bar: Only Class Timetables & Teachers Timetables (Master removed) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-        {isHeadTeacher ? (
+        {!isDeputy ? (
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 font-bold text-xs">
             <UserCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             <span>Personal Teaching Schedule</span>
@@ -731,7 +731,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
         {/* Dynamic Filters depending on active tab */}
         <div className="flex items-center gap-3">
-          {activeTab === 'class' && !isHeadTeacher && (
+          {activeTab === 'class' && isDeputy && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Select Grade:</span>
               <GradeSelectDropdown
