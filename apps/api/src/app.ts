@@ -27,6 +27,9 @@ import timetableRoutes from './modules/timetable/timetable.routes.js';
 
 const app = express();
 
+// Disable ETags completely for dynamic REST API to avoid 304 Not Modified empty body issues in SPAs
+app.set('etag', false);
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -51,9 +54,19 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cache-Control', 'Pragma', 'Expires'],
   maxAge: 86400, // Cache preflight OPTIONS request for 24 hours
 }));
+
+// Set strict anti-caching headers for API responses to ensure fresh JSON bodies
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
+
 app.use(compression());
 app.use(express.json());
 app.use(pinoHttp({
