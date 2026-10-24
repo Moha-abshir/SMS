@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   CalendarCheck, BookOpen, Users, Award, AlertCircle, CheckCircle2,
   Clock, ArrowRight, ChevronRight, TrendingUp, Sparkles, UserCheck,
-  AlertTriangle, ShieldCheck, FileText, CheckCheck
+  AlertTriangle, ShieldCheck, FileText, CheckCheck, Calendar
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -46,6 +46,28 @@ export const TeacherDashboardView: React.FC = () => {
   const allocations = data?.subjectAllocations || [];
   const markTasks = data?.markEntryTasks || [];
   const alerts = data?.alerts || { pendingCorrections: 0, hasUnmarkedAttendanceToday: false };
+
+  // Timetable engine is exclusively designed for Grades 4 through 9 (UPPER_PRIMARY & JUNIOR)
+  const isTargetTimetableClass = (item: any) => {
+    if (!item) return false;
+    if (
+      item.levelCategory === 'UPPER_PRIMARY' ||
+      item.levelCategory === 'JUNIOR' ||
+      item.levelCategory === 'JUNIOR_SECONDARY'
+    ) {
+      return true;
+    }
+    if (typeof item.numericOrder === 'number' && item.numericOrder >= 7) {
+      return true;
+    }
+    if (typeof item.className === 'string' && /Grade\s*[4-9]/i.test(item.className)) {
+      return true;
+    }
+    return false;
+  };
+
+  const hasTimetableAllocations =
+    allocations.some(isTargetTimetableClass) || isTargetTimetableClass(classTeacher);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -229,7 +251,7 @@ export const TeacherDashboardView: React.FC = () => {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
           {/* 1. Marksheet Entry CTA */}
           <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
             <div>
@@ -272,14 +294,14 @@ export const TeacherDashboardView: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. Daily Class Register CTA */}
-          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                  <CalendarCheck className="w-5 h-5" />
-                </div>
-                {classTeacher ? (
+          {/* 2. Daily Class Register CTA (Class Teachers only) */}
+          {classTeacher && (
+            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                    <CalendarCheck className="w-5 h-5" />
+                  </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                       classTeacher.todayAttendance?.isSubmitted
@@ -289,92 +311,90 @@ export const TeacherDashboardView: React.FC = () => {
                   >
                     {classTeacher.todayAttendance?.isSubmitted ? 'Roll Call Taken' : 'Pending Today'}
                   </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                    Attendance
+                </div>
+
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Daily Class Register
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Roll call oversight for {classTeacher.className}
+                </p>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                <button
+                  onClick={() => navigate('/class-register')}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  Take Class Register <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Class Learners CTA (Class Teachers only) */}
+          {classTeacher && (
+            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
+                    {classTeacher.studentCount} Learners
                   </span>
-                )}
-              </div>
-
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Daily Class Register
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                {classTeacher
-                  ? `Roll call oversight for ${classTeacher.className}`
-                  : 'Class-level daily student attendance and rolls'}
-              </p>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-              <button
-                onClick={() => navigate('/class-register')}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                Take Class Register <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* 3. Class Learners CTA */}
-          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                  <Users className="w-5 h-5" />
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
-                  {classTeacher ? `${classTeacher.studentCount} Learners` : 'Directory'}
-                </span>
+
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Class Learners
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Learner directory, guardian phone numbers & emergency profiles
+                </p>
               </div>
 
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Class Learners
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Learner directory, guardian phone numbers & emergency profiles
-              </p>
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                <button
+                  onClick={() => navigate('/my-learners')}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  View Class Learners <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
+          )}
 
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-              <button
-                onClick={() => navigate('/my-learners')}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                View Class Learners <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* 4. Subject Performance CTA */}
-          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                  <TrendingUp className="w-5 h-5" />
+          {/* 4. My Timetable CTA (Grades 4-9 teaching allocations only) */}
+          {hasTimetableAllocations && (
+            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
+                    Schedule
+                  </span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
-                  Analytics
-                </span>
+
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  My Timetable
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Weekly teaching schedule, allocated lessons & classroom venues
+                </p>
               </div>
 
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Subject Performance
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                CBC rubric distributions, subject averages & academic briefings
-              </p>
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                <button
+                  onClick={() => navigate('/timetable')}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  View My Timetable <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-              <button
-                onClick={() => navigate('/subject-performance')}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                View Performance <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

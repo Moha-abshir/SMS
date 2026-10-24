@@ -13,8 +13,9 @@ export interface NavItem {
   label: string;
   icon: any;
   roles?: string[]; // Allowed roles (if omitted, visible to all)
-  isClassTeacherFeature?: boolean; // Visible if user is an active Class Teacher (any role) OR has TEACHER role
+  isClassTeacherFeature?: boolean; // Visible if user is an active Class Teacher
   requiresMarkingWork?: boolean; // Only visible if staff member has papers, subject allocations, or class teacher marking duties
+  requiresTimetable?: boolean; // Only visible if staff member has teaching allocations in Grades 4–9 (or is Deputy Head managing the timetable)
 }
 
 interface SidebarProps {
@@ -32,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
   const [assignedClassName, setAssignedClassName] = useState<string | null>(null);
   const [hasMarkingWork, setHasMarkingWork] = useState<boolean>(false);
+  const [hasTimetable, setHasTimetable] = useState<boolean>(false);
 
   const location = useLocation();
   const userRole = user?.roleName || user?.role || 'HEAD_TEACHER';
@@ -68,6 +70,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
           (Array.isArray(ws?.markEntryTasks) && ws.markEntryTasks.length > 0);
 
         setHasMarkingWork(Boolean(hasAllocations));
+
+        // Timetable engine is exclusively designed for Grades 4 through 9 (UPPER_PRIMARY & JUNIOR)
+        const isTargetTimetableClass = (item: any) => {
+          if (!item) return false;
+          if (
+            item.levelCategory === 'UPPER_PRIMARY' ||
+            item.levelCategory === 'JUNIOR' ||
+            item.levelCategory === 'JUNIOR_SECONDARY'
+          ) {
+            return true;
+          }
+          if (typeof item.numericOrder === 'number' && item.numericOrder >= 7) {
+            return true;
+          }
+          if (typeof item.className === 'string' && /Grade\s*[4-9]/i.test(item.className)) {
+            return true;
+          }
+          return false;
+        };
+
+        const hasGrades4To9Duty =
+          (Array.isArray(ws?.subjectAllocations) && ws.subjectAllocations.some(isTargetTimetableClass)) ||
+          isTargetTimetableClass(ws?.classTeacher);
+
+        setHasTimetable(Boolean(hasGrades4To9Duty));
       })
       .catch(() => {});
   }, [user?.id]);
@@ -81,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/letters', label: 'Official Letters', icon: FileText, roles: ['HEAD_TEACHER'] },
     { path: '/fee-structures', label: 'Fee Structures', icon: Calculator, roles: ['HEAD_TEACHER'] },
     { path: '/allocations', label: 'Class & Teacher Allocations', icon: BookOpen, roles: ['DEPUTY_HEAD'] },
-    { path: '/timetable', label: isDeputy ? 'School Timetable' : 'My Timetable', icon: Calendar, roles: ['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER'] },
+    { path: '/timetable', label: isDeputy ? 'School Timetable' : 'My Timetable', icon: Calendar, requiresTimetable: true, roles: ['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER'] },
     { path: '/inventory', label: 'School Inventory', icon: Package, roles: ['DEPUTY_HEAD'] },
     { path: '/leave-requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['DEPUTY_HEAD'] },
     { path: '/attendance', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },
@@ -103,9 +130,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       return false;
     }
 
-    // If it's a class-teacher feature, show if user is an active allocated Class Teacher OR has TEACHER role
-    if (item.isClassTeacherFeature && (isClassTeacher || userRole === 'TEACHER')) {
-      return true;
+    // Timetable is only for Grades 4-9. Non-deputy teachers without Grades 4-9 duties cannot use it.
+    if (item.requiresTimetable && !isDeputy && !hasTimetable) {
+      return false;
+    }
+
+    // If it's a class-teacher feature, only show if user is an active allocated Class Teacher
+    if (item.isClassTeacherFeature) {
+      return isClassTeacher;
     }
 
     if (!item.roles) return true;
