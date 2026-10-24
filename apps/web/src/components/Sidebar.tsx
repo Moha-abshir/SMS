@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const [hasTimetable, setHasTimetable] = useState<boolean>(false);
 
   const location = useLocation();
-  const userRole = user?.roleName || user?.role || 'HEAD_TEACHER';
+  const userRole = String(user?.roleName || user?.role || 'TEACHER');
   const isDeputy = userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER';
 
   useEffect(() => {

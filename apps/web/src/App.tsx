@@ -51,8 +51,17 @@ const OverviewDispatcher: React.FC<{ user: any }> = ({ user }) => {
 
 const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(() => {
-    const saved = localStorage.getItem('auth_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('auth_user');
+      if (!saved || saved === 'undefined' || saved === 'null') return null;
+      return JSON.parse(saved);
+    } catch (e) {
+      console.warn('[Auth] Corrupted auth_user in localStorage, resetting:', e);
+      try {
+        localStorage.removeItem('auth_user');
+      } catch {}
+      return null;
+    }
   });
 
   const navigate = useNavigate();

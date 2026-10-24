@@ -15,7 +15,8 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, user, childr
   const currentUser = user || (() => {
     try {
       const saved = localStorage.getItem('auth_user');
-      return saved ? JSON.parse(saved) : null;
+      if (!saved || saved === 'undefined' || saved === 'null') return null;
+      return JSON.parse(saved);
     } catch {
       return null;
     }
