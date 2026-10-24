@@ -239,7 +239,7 @@ export class TeacherService {
 
     for (const ma of markingAllocs) {
       const alreadyIncluded = allTeachingAreas.some(
-        (a) => a.classId === ma.classId && a.subjectId === ma.subjectId && a.examId === ma.examId
+        (a) => a.classId === ma.classId && a.subjectId === ma.subjectId
       );
       if (!alreadyIncluded) {
         allTeachingAreas.push({
@@ -339,6 +339,7 @@ export class TeacherService {
         }
       }
 
+      const seenTasks = new Set<string>();
       for (const exam of activeExams) {
         for (const area of allTeachingAreas) {
           // If this area was allocated by DoS specifically for an exam, only generate task for that exam
@@ -347,6 +348,11 @@ export class TeacherService {
           }
 
           const key = `${exam.id}-${area.classId}-${area.subjectId}`;
+          if (seenTasks.has(key)) {
+            continue;
+          }
+          seenTasks.add(key);
+
           const submission = submissionMap.get(key);
           const scoredCount = scoredCountMap.get(key) || 0;
           const totalStudents = studentCountMap.get(area.classId) || 0;
