@@ -114,6 +114,53 @@ export class MarkSubmissionsService {
       subMapByClass.set(s.class.id, arr);
     }
 
+    // 2b. Fetch teacher allocations (teacherSubjectAllocations & markingAllocations)
+    const [regularAllocs, examMarkingAllocs] = await Promise.all([
+      db
+        .select({
+          classId: teacherSubjectAllocations.classId,
+          subjectId: teacherSubjectAllocations.subjectId,
+          teacher: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          },
+        })
+        .from(teacherSubjectAllocations)
+        .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
+        .where(isNull(teacherSubjectAllocations.deletedAt)),
+      examId
+        ? db
+            .select({
+              classId: markingAllocations.classId,
+              subjectId: markingAllocations.subjectId,
+              teacher: {
+                id: users.id,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                email: users.email,
+              },
+            })
+            .from(markingAllocations)
+            .innerJoin(users, eq(markingAllocations.teacherId, users.id))
+            .where(
+              and(
+                eq(markingAllocations.examId, examId),
+                isNull(markingAllocations.deletedAt)
+              )
+            )
+        : Promise.resolve([]),
+    ]);
+
+    const allocMap = new Map<string, any>();
+    for (const a of regularAllocs) {
+      allocMap.set(`${a.classId}-${a.subjectId}`, a.teacher);
+    }
+    for (const ma of examMarkingAllocs) {
+      allocMap.set(`${ma.classId}-${ma.subjectId}`, ma.teacher);
+    }
+
     // Combine into class overview
     return allClasses.map(({ class: cls, classTeacher }) => {
       // Subjects for this class's levelCategory
@@ -130,13 +177,15 @@ export class MarkSubmissionsService {
 
       const papers = classSubjects.map((sub) => {
         const subData = subMap.get(sub.id);
+        const allocatedTeacher = allocMap.get(`${cls.id}-${sub.id}`) || null;
         return {
           subjectId: sub.id,
           subjectName: sub.name,
           subjectCode: sub.code,
           submissionId: subData?.submission?.id || null,
           status: subData?.submission?.status || 'NOT_STARTED',
-          submittedBy: subData?.submittedBy || null,
+          submittedBy: subData?.submittedBy || allocatedTeacher || null,
+          allocatedTeacher: subData?.submittedBy || allocatedTeacher || null,
           submittedAt: subData?.submission?.submittedAt || null,
           reviewedAt: subData?.submission?.reviewedAt || null,
           correctionReason: subData?.submission?.correctionReason || null,
@@ -355,7 +404,7 @@ export class MarkSubmissionsService {
     const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
     if (
       cls &&
-      (cls.levelCategory === 'PPE' || cls.levelCategory === 'LOWER_PRIMARY' || cls.numericOrder <= 3)
+      (cls.levelCategory === 'PPE' || cls.levelCategory === 'LOWER_PRIMARY' || cls.numericOrder <= 6)
     ) {
       const isEffective = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
       if (isEffective) return true;

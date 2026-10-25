@@ -291,8 +291,8 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
 
   if (!isOpen || !targetClass) return null;
 
-  const examName = activeExam?.exam?.name || activeExam?.name || 'Active Examination';
-  const examYear = activeExam?.exam?.academicYear || activeExam?.academicYear || 2026;
+  const examName = activeExam?.exam?.title || activeExam?.exam?.name || activeExam?.title || activeExam?.name || 'Active Examination';
+  const examYear = activeExam?.term?.year || activeExam?.exam?.academicYear || activeExam?.academicYear || 2026;
 
   return (
     <AnimatePresence>

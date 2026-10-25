@@ -74,13 +74,19 @@ export const MarksheetEntryView: React.FC = () => {
         ? examsRes.data
         : [];
 
-      const normalizedExams = rawExams.map((e: any) => ({
-        id: e.exam?.id || e.id,
-        title: e.exam?.title || e.title || e.name || 'Examination',
-        academicYear: e.exam?.academicYear || e.academicYear || 2026,
-        term: e.exam?.term || e.term || 1,
-        status: e.exam?.status || e.status || 'ACTIVE',
-      }));
+      const normalizedExams = rawExams.map((e: any) => {
+        const examObj = e.exam || e;
+        const termObj = typeof e.term === 'object' && e.term !== null ? e.term : null;
+        const termNum = termObj?.termNumber ?? (typeof e.term === 'number' ? e.term : (examObj?.termNumber ?? examObj?.term ?? 1));
+        const acadYear = termObj?.year ?? examObj?.academicYear ?? e.academicYear ?? 2026;
+        return {
+          id: examObj?.id || e.id,
+          title: examObj?.title || e.title || examObj?.name || 'Examination',
+          academicYear: typeof acadYear === 'object' ? 2026 : Number(acadYear) || 2026,
+          term: typeof termNum === 'object' ? 1 : Number(termNum) || 1,
+          status: examObj?.status || e.status || 'ACTIVE',
+        };
+      });
 
       setWorkstation(ws);
       setExams(normalizedExams);
@@ -206,7 +212,7 @@ export const MarksheetEntryView: React.FC = () => {
                 {activeExam?.title || 'Academic Examination'}
               </span>
               <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider block mt-0.5">
-                Year {activeExam?.academicYear || 2026} • Term {activeExam?.term || 1}
+                Year {typeof activeExam?.academicYear === 'object' ? 2026 : activeExam?.academicYear || 2026} • Term {typeof activeExam?.term === 'object' ? (activeExam.term?.termNumber || 1) : activeExam?.term || 1}
               </span>
             </div>
           </div>

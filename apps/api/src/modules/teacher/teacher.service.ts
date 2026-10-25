@@ -180,7 +180,7 @@ export class TeacherService {
       assignedClass &&
       (assignedClass.levelCategory === 'PPE' ||
         assignedClass.levelCategory === 'LOWER_PRIMARY' ||
-        assignedClass.numericOrder <= 3)
+        assignedClass.numericOrder <= 6)
     ) {
       // Fetch all subjects for this level category
       const classSubjects = await db

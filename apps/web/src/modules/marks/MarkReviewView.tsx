@@ -394,9 +394,12 @@ export const MarkReviewView: React.FC = () => {
               options={exams.map((row: any) => {
                 const item = row.exam || row;
                 const term = row.term || {};
+                const title = item.title || item.name || 'Examination';
+                const yr = term.year || item.academicYear || 2026;
+                const termLabel = term.termNumber ? `Term ${term.termNumber}` : (term.name || 'Term Exam');
                 return {
                   value: item.id,
-                  label: `${item.name} (${item.academicYear || 2026} - ${term.name || 'Term Exam'})`,
+                  label: `${title} (${yr} - ${termLabel})`,
                   badge: item.status || undefined,
                 };
               })}
@@ -909,7 +912,7 @@ export const MarkReviewView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2 text-xs text-sky-700 dark:text-sky-300 font-bold uppercase tracking-wider mb-1">
                     <BookOpen className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                    {inspectData.examination?.name || 'Term Exam'} (Year {inspectData.examination?.academicYear || 2026})
+                    {inspectData.examination?.title || inspectData.examination?.name || 'Term Exam'} (Year {inspectData.examination?.academicYear || 2026})
                   </div>
                   <h4 className="text-base font-black text-slate-800 dark:text-slate-100">
                     {inspectData.class?.name} — {inspectData.subject?.name}

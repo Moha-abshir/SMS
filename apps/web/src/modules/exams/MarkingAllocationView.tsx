@@ -67,8 +67,8 @@ export const MarkingAllocationView: React.FC = () => {
   }, [exams]);
 
   const activeExamId = activeExam?.exam?.id || activeExam?.id || '';
-  const activeExamName = activeExam?.exam?.name || activeExam?.name || 'Active Examination';
-  const activeExamYear = activeExam?.exam?.academicYear || activeExam?.academicYear || 2026;
+  const activeExamName = activeExam?.exam?.title || activeExam?.exam?.name || activeExam?.title || activeExam?.name || 'Active Examination';
+  const activeExamYear = activeExam?.term?.year || activeExam?.exam?.academicYear || activeExam?.academicYear || 2026;
 
   // Open slide-over for a grade
   const handleOpenSlideOver = (classId: string) => {
