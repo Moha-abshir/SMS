@@ -27,6 +27,7 @@ import { AttendanceOversightView } from './modules/attendance/AttendanceOversigh
 import { ClassRegisterView } from './modules/attendance/ClassRegisterView';
 import { MarkReviewView } from './modules/marks/MarkReviewView';
 import { MarksheetEntryView } from './modules/marks/MarksheetEntryView';
+import { ClassExamProgressView } from './modules/marks/ClassExamProgressView';
 import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
 import { ExamTimetableView } from './modules/exams/ExamTimetableView';
 import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
@@ -97,6 +98,7 @@ const AppContent: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('teacher_workstation');
     setCurrentUser(null);
     navigate('/login');
   };
@@ -266,6 +268,14 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
                 <MarksheetEntryView />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/class-exam-progress"
+            element={
+              <RoleGuard allowedRoles={['TEACHER', 'DEPUTY_HEAD', 'HEAD_TEACHER', 'DOS']} user={currentUser}>
+                <ClassExamProgressView />
               </RoleGuard>
             }
           />

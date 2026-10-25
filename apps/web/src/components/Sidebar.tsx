@@ -3,11 +3,11 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   Settings, FileText, Package, Clock, LogOut,
-  Menu, X, School, ClipboardCheck, Calendar
+  Menu, X, School, ClipboardCheck, Calendar, Layers
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { ThemeToggle } from './ThemeToggle';
-import { isSubjectTeacherClass } from '@school/shared/types';
+import { isSelfContainedClass } from '@school/shared/types';
 
 export interface NavItem {
   path: string;
@@ -15,8 +15,7 @@ export interface NavItem {
   icon: any;
   roles?: string[]; // Allowed roles (if omitted, visible to all)
   isClassTeacherFeature?: boolean; // Visible if user is an active Class Teacher
-  requiresMarkingWork?: boolean; // Only visible if staff member has papers, subject allocations, or class teacher marking duties
-  requiresTimetable?: boolean; // Only visible if staff member has teaching allocations in Grades 4–9 (or is Deputy Head managing the timetable)
+  isClassTeacherUpperFeature?: boolean; // Visible if Class Teacher of Upper Primary or Junior Secondary (Grades 4-9)
 }
 
 interface SidebarProps {
@@ -31,10 +30,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
-  const [isClassTeacher, setIsClassTeacher] = useState<boolean>(false);
-  const [assignedClassName, setAssignedClassName] = useState<string | null>(null);
-  const [hasMarkingWork, setHasMarkingWork] = useState<boolean>(false);
-  const [hasTimetable, setHasTimetable] = useState<boolean>(false);
+
+  // Initialize state with cache if available to prevent flicker during async fetch
+  const getCachedWs = () => {
+    try {
+      const saved = localStorage.getItem('teacher_workstation');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  };
+
+  const initialWs = getCachedWs();
+  const initialClassTeacher = initialWs?.classTeacher || null;
+  const initialIsClassTeacher = Boolean(initialClassTeacher);
+  const initialIsLower = initialClassTeacher
+    ? isSelfContainedClass({
+        levelCategory: initialClassTeacher.levelCategory,
+        numericOrder: initialClassTeacher.numericOrder,
+        name: initialClassTeacher.className || initialClassTeacher.name,
+      })
+    : false;
+
+  const [isClassTeacher, setIsClassTeacher] = useState<boolean>(initialIsClassTeacher);
+  const [assignedClassName, setAssignedClassName] = useState<string | null>(initialClassTeacher?.className || null);
+  const [isLowerPrimaryOrPP, setIsLowerPrimaryOrPP] = useState<boolean>(initialIsLower);
 
   const location = useLocation();
   const userRole = String(user?.roleName || user?.role || 'TEACHER');
@@ -48,9 +67,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       }
     }).catch(() => {});
 
-    // Check if the current logged-in staff member has papers or classes to mark
-    const canHaveMarkingDuties = ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole);
-    if (!canHaveMarkingDuties) {
+    // Teacher workstation check for class teacher assignment and level category
+    const canHaveTeacherWorkstation = ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole);
+    if (!canHaveTeacherWorkstation) {
       return;
     }
 
@@ -59,36 +78,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
         const ws = res.data?.data || res.data;
         if (!ws) return;
 
+        localStorage.setItem('teacher_workstation', JSON.stringify(ws));
+
         if (ws?.classTeacher) {
           setIsClassTeacher(true);
           setAssignedClassName(ws.classTeacher.className);
+          const isLower = isSelfContainedClass({
+            levelCategory: ws.classTeacher.levelCategory,
+            numericOrder: ws.classTeacher.numericOrder,
+            name: ws.classTeacher.className || ws.classTeacher.name,
+          });
+          setIsLowerPrimaryOrPP(isLower);
         } else {
           setIsClassTeacher(false);
           setAssignedClassName(null);
+          setIsLowerPrimaryOrPP(false);
         }
-
-        const hasAllocations =
-          Boolean(ws?.classTeacher) ||
-          (Array.isArray(ws?.subjectAllocations) && ws.subjectAllocations.length > 0) ||
-          (Array.isArray(ws?.markEntryTasks) && ws.markEntryTasks.length > 0);
-
-        setHasMarkingWork(Boolean(hasAllocations));
-
-        // Timetable engine is exclusively designed for Grades 4 through 9 (UPPER_PRIMARY & JUNIOR)
-        const isTargetTimetableClass = (item: any) => {
-          if (!item) return false;
-          return isSubjectTeacherClass({
-            levelCategory: item.levelCategory,
-            numericOrder: item.numericOrder,
-            name: item.className,
-          });
-        };
-
-        const hasGrades4To9Duty =
-          (Array.isArray(ws?.subjectAllocations) && ws.subjectAllocations.some(isTargetTimetableClass)) ||
-          isTargetTimetableClass(ws?.classTeacher);
-
-        setHasTimetable(Boolean(hasGrades4To9Duty));
       })
       .catch(() => {});
   }, [user?.id]);
@@ -100,47 +105,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/staff', label: 'Staff Management', icon: Users, roles: ['HEAD_TEACHER', 'SECRETARY'] },
     { path: '/admissions', label: 'Admissions & Students', icon: UserPlus, roles: ['HEAD_TEACHER', 'SECRETARY'] },
     { path: '/letters', label: 'Official Letters', icon: FileText, roles: ['HEAD_TEACHER'] },
-    { path: '/fee-structures', label: 'Fee Structures', icon: Calculator, roles: ['HEAD_TEACHER'] },
+    { path: '/fee-structures', label: 'Fee Structures', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
     { path: '/allocations', label: 'Class & Teacher Allocations', icon: BookOpen, roles: ['DEPUTY_HEAD'] },
-    { path: '/timetable', label: isDeputy ? 'School Timetable' : 'My Timetable', icon: Calendar, requiresTimetable: true, roles: ['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER'] },
+    {
+      path: '/timetable',
+      label: isDeputy ? 'School Timetable' : 'My Timetable',
+      icon: Calendar,
+      roles: ['DEPUTY_HEAD', 'HEAD_TEACHER', 'TEACHER'],
+    },
     { path: '/inventory', label: 'School Inventory', icon: Package, roles: ['DEPUTY_HEAD'] },
     { path: '/leave-requests', label: 'Teacher Leave-Outs', icon: Clock, roles: ['DEPUTY_HEAD'] },
     { path: '/attendance', label: 'Attendance Oversight', icon: CalendarCheck, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'SECRETARY'] },
-    { path: '/class-register', label: 'Daily Class Register', icon: CalendarCheck, isClassTeacherFeature: true, roles: ['TEACHER'] },
-    { path: '/my-learners', label: 'Class Learners', icon: Users, isClassTeacherFeature: true, roles: ['TEACHER'] },
+    {
+      path: '/class-register',
+      label: 'Daily Class Register',
+      icon: CalendarCheck,
+      isClassTeacherFeature: true,
+      roles: ['TEACHER'],
+    },
+    {
+      path: '/my-learners',
+      label: 'Class Learners',
+      icon: Users,
+      isClassTeacherFeature: true,
+      roles: ['TEACHER'],
+    },
+    {
+      path: '/class-exam-progress',
+      label: 'Class Exam Progress',
+      icon: Layers,
+      isClassTeacherUpperFeature: true,
+      roles: ['TEACHER'],
+    },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DEPUTY_HEAD'] },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
-    { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, requiresMarkingWork: true, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/report-locks', label: 'Report Card Locks', icon: Settings, roles: ['HEAD_TEACHER', 'DOS'] },
     { path: '/subject-performance', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 
-  // Filter items based on logged in user role, active Class Teacher assignment, and active marking duty
+  // Filter items based on logged in user role, active Class Teacher assignment, and class level
   const navItems = allNavItems.filter((item) => {
-    // If it requires active marking work, hide if the staff member has no papers or classes to mark
-    if (item.requiresMarkingWork && !hasMarkingWork) {
-      return false;
+    // 1. Role-based check
+    if (item.roles) {
+      const hasRole = item.roles.some((role) => {
+        if (role === 'DEPUTY_HEAD') {
+          return userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER';
+        }
+        return userRole === role;
+      });
+      if (!hasRole) return false;
     }
 
-    // Timetable is only for Grades 4-9. Non-deputy teachers without Grades 4-9 duties cannot use it.
-    if (item.requiresTimetable && !isDeputy && !hasTimetable) {
-      return false;
-    }
-
-    // If it's a class-teacher feature, only show if user is an active allocated Class Teacher
-    if (item.isClassTeacherFeature) {
-      return isClassTeacher;
-    }
-
-    if (!item.roles) return true;
-    return item.roles.some((role) => {
-      if (role === 'DEPUTY_HEAD') {
-        return userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER';
+    // 2. Specific contextual rules for TEACHER role
+    if (userRole === 'TEACHER') {
+      // Class Teacher features (Daily Register & Class Learners) only visible if assigned as Class Teacher
+      if (item.isClassTeacherFeature && !isClassTeacher) {
+        return false;
       }
-      return userRole === role;
-    });
+
+      // Class Exam Progress is exclusive to Upper Primary / Junior Secondary Class Teachers (Grades 4-9)
+      if (item.isClassTeacherUpperFeature && (!isClassTeacher || isLowerPrimaryOrPP)) {
+        return false;
+      }
+
+      // My Timetable: Hidden ONLY for Pre-Primary and Lower Primary Class Teachers (PP1 - Grade 3)
+      if (item.path === '/timetable' && isClassTeacher && isLowerPrimaryOrPP) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   return (
@@ -257,7 +294,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
                 <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-sky-500 dark:text-slate-500 dark:group-hover:text-sky-400'}`} />
                 <div className={`flex items-center justify-between gap-1.5 flex-1 min-w-0 ${collapsed ? 'flex lg:hidden' : 'flex'}`}>
                   <span className="truncate">{item.label}</span>
-                  {item.isClassTeacherFeature && assignedClassName && (
+                  {(item.isClassTeacherFeature || item.isClassTeacherUpperFeature) && assignedClassName && (
                     <span
                       className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase shrink-0 ${
                         isActive
