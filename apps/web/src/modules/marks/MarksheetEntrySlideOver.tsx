@@ -461,7 +461,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                       Marksheet Submitted to Class Teacher:
                     </span>
                     <p className="text-sky-800 dark:text-sky-300 mt-0.5 leading-relaxed font-medium">
-                      Marks have been submitted and are locked from further editing. If corrections are required, please contact your Class Teacher
+                      Marks have been submitted and are locked from further editing. If corrections are required, please contact the Class Teacher
                       {sheetData?.classTeacher ? (
                         <>
                           {' '}
