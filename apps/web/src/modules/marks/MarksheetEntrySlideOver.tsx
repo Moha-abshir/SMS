@@ -117,11 +117,13 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     };
   }, [isOpen]);
 
-  // Load entry sheet data when parameters change
-  const fetchSheet = async () => {
+  // Load entry sheet data when parameters change (isInitial = true only on drawer open/param change)
+  const fetchSheet = async (isInitial: boolean = false) => {
     if (!examId || !classId || !subjectId) return;
-    setLoading(true);
-    setReadyToShow(false);
+    if (isInitial) {
+      setLoading(true);
+      setReadyToShow(false);
+    }
     try {
       const res = await apiClient.get(
         `/api/mark-submissions/entry-sheet?examId=${examId}&classId=${classId}&subjectId=${subjectId}`
@@ -131,16 +133,20 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       setStudentRows(data.scores || []);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load marksheet details');
-      setSheetData(null);
-      setStudentRows([]);
+      if (isInitial) {
+        setSheetData(null);
+        setStudentRows([]);
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     if (isOpen && examId && classId && subjectId) {
-      fetchSheet();
+      fetchSheet(true);
     } else {
       setReadyToShow(false);
     }
@@ -208,7 +214,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Save as Draft
+  // Save as Draft (silent, keep page still)
   const handleSaveDraft = async () => {
     if (!examId || !classId || !subjectId || saving) return;
     setSaving(true);
@@ -227,8 +233,11 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
       await apiClient.post('/api/mark-submissions/save-draft', payload);
       toast.success('Marksheet draft saved successfully!');
+      setSheetData((prev) =>
+        prev ? { ...prev, status: prev.status === 'NOT_STARTED' ? 'DRAFT' : prev.status } : prev
+      );
       if (onSaved) onSaved();
-      await fetchSheet();
+      await fetchSheet(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save marksheet draft');
     } finally {
@@ -236,7 +245,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Submit Marksheet
+  // Submit Marksheet (silent, keep page still)
   const handleSubmit = async () => {
     if (!examId || !classId || !subjectId || submitting) return;
 
@@ -269,8 +278,9 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
       await apiClient.post('/api/mark-submissions/submit', payload);
       toast.success('Marksheet submitted to Class Teacher for review!');
+      setSheetData((prev) => (prev ? { ...prev, status: 'SUBMITTED', canEdit: false } : prev));
       if (onSubmitted) onSubmitted();
-      await fetchSheet();
+      await fetchSheet(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to submit marksheet');
     } finally {
@@ -278,7 +288,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Request correction without needing a modal message
+  // Request correction without needing a modal message (silent, keep page still)
   const handleRequestCorrection = async () => {
     if (!examId || !classId || !subjectId || requestingCorrection) return;
     setRequestingCorrection(true);
@@ -289,8 +299,9 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         subjectId,
       });
       toast.success('Correction requested. Your Class Teacher has been notified to unlock this marksheet.');
-      await fetchSheet();
+      setSheetData((prev) => (prev ? { ...prev, status: 'CORRECTION_REQUESTED' } : prev));
       if (onSaved) onSaved();
+      await fetchSheet(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to request correction');
     } finally {
@@ -298,15 +309,16 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Lock Marksheet (Class Teacher Oversight)
+  // Lock Marksheet (Class Teacher Oversight: silent, keep page still)
   const handleLockSubmission = async () => {
     if (!sheetData?.submission?.id || regulatingLock) return;
     setRegulatingLock(true);
     try {
       await apiClient.put(`/api/mark-submissions/${sheetData.submission.id}/lock`);
       toast.success('Marksheet locked successfully.');
+      setSheetData((prev) => (prev ? { ...prev, status: 'LOCKED' } : prev));
       if (onSaved) onSaved();
-      await fetchSheet();
+      await fetchSheet(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to lock marksheet');
     } finally {
@@ -314,15 +326,16 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Unlock Marksheet (Class Teacher Oversight: returns to DRAFT so teacher can correct)
+  // Unlock Marksheet (Class Teacher Oversight: silent, keep page still)
   const handleUnlockSubmission = async () => {
     if (!sheetData?.submission?.id || regulatingLock) return;
     setRegulatingLock(true);
     try {
       await apiClient.put(`/api/mark-submissions/${sheetData.submission.id}/unlock`);
       toast.success('Marksheet unlocked. Subject teacher can now edit scores.');
+      setSheetData((prev) => (prev ? { ...prev, status: 'DRAFT' } : prev));
       if (onSaved) onSaved();
-      await fetchSheet();
+      await fetchSheet(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to unlock marksheet');
     } finally {
