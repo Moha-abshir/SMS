@@ -16,6 +16,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { isSelfContainedClass } from '@school/shared/types';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const ReportCardLockView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -82,16 +83,14 @@ export const ReportCardLockView: React.FC = () => {
   const lockedCount = locks.filter((l) => l.isLocked).length;
   const releasedCount = locks.filter((l) => !l.isLocked).length;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Report Card Locking & Release Oversight"
+      subtitle="Validating stream submissions, moderation clearances, and release locks..."
+      icon={Lock}
+    >
+      <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
@@ -318,6 +317,7 @@ export const ReportCardLockView: React.FC = () => {
           </table>
         </div>
       </div>
-    </motion.div>
+      </motion.div>
+    </PageLoadingWrapper>
   );
 };

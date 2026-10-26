@@ -8,6 +8,7 @@ import { SearchableSelect } from '../../components/SearchableSelect';
 import { EmploymentContractModal } from './EmploymentContractModal';
 import { SubjectManagementModal } from './SubjectManagementModal';
 import { TeachingSubjectPicker } from './TeachingSubjectPicker';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const StaffManagementView: React.FC = () => {
   const [staff, setStaff] = useState<any[]>([]);
@@ -591,13 +592,14 @@ export const StaffManagementView: React.FC = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Staff Management Directory"
+      subtitle="Loading staff profiles, roles, and security credentials..."
+      icon={Users}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
           <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
             <Users className="w-4 h-4 text-sky-500" />
@@ -690,9 +692,7 @@ export const StaffManagementView: React.FC = () => {
       <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-glass border border-sky-100 dark:border-[#162b4d] overflow-hidden">
         {/* 1. Mobile & Split-Screen Responsive Card List (< lg) */}
         <div className="lg:hidden divide-y divide-sky-100/70 dark:divide-[#162b4d]/70">
-          {loading ? (
-            <div className="p-8 text-center text-slate-500 dark:text-slate-400">Loading staff directory...</div>
-          ) : displayedList.length === 0 ? (
+          {displayedList.length === 0 ? (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
               {activeTab === 'ACTIVE' && 'No active staff members found.'}
               {activeTab === 'DEACTIVATED' && 'No deactivated staff accounts. All registered staff are currently active.'}
@@ -778,11 +778,7 @@ export const StaffManagementView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-50 dark:divide-[#162b4d] text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">Loading staff directory...</td>
-                </tr>
-              ) : displayedList.length === 0 ? (
+              {displayedList.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-slate-500 dark:text-slate-400">
                     {activeTab === 'ACTIVE' && 'No active staff members found.'}
@@ -1372,6 +1368,7 @@ export const StaffManagementView: React.FC = () => {
         </div>
       </Modal>
 
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };

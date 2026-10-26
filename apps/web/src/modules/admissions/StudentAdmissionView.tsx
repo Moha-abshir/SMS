@@ -26,6 +26,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { SearchableSelect } from '../../components/SearchableSelect';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface ClassItem {
   id: string;
@@ -394,13 +395,14 @@ export const StudentAdmissionView: React.FC = () => {
   });
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-4 sm:space-y-6"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Student Admissions & Directory"
+      subtitle="Loading enrolled rosters, stream allocations, and applicant dossiers..."
+      icon={UserPlus}
     >
-      {/* Header Banner */}
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
           <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
@@ -508,9 +510,7 @@ export const StudentAdmissionView: React.FC = () => {
                 </div>
               </div>
 
-              {loading ? (
-                <div className="py-12 text-center text-slate-400">Loading school grade roster...</div>
-              ) : classesList.length === 0 ? (
+              {classesList.length === 0 ? (
                 <p className="text-xs text-slate-400 italic py-6 text-center">No active classes configured in system.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
@@ -1303,6 +1303,7 @@ export const StudentAdmissionView: React.FC = () => {
           </div>
         </Modal>
       )}
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };

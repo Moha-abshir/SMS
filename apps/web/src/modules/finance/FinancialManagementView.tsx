@@ -15,6 +15,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { printElement } from '../../lib/printElement';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface FinancialSummary {
   academicYear: number;
@@ -295,13 +296,14 @@ export const FinancialManagementView: React.FC = () => {
     : 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-4 sm:space-y-6"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Financial Management & Fee Accounting"
+      subtitle="Auditing fee collections, billed balances, and payment transaction logs..."
+      icon={GraduationCap}
     >
-      {/* Header Banner */}
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
           <div className="text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
@@ -401,11 +403,7 @@ export const FinancialManagementView: React.FC = () => {
       {/* TAB 1: FINANCIAL OVERVIEW */}
       {activeTab === 'overview' && (
         <div className="space-y-4 sm:space-y-6">
-          {loading ? (
-            <div className="py-12 text-center text-slate-400">Loading financial overview...</div>
-          ) : (
-            <>
-              {/* Stat Cards */}
+          {/* Stat Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                 <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
                   <div className="mb-2">
@@ -552,8 +550,6 @@ export const FinancialManagementView: React.FC = () => {
                   </div>
                 )}
               </div>
-            </>
-          )}
         </div>
       )}
 
@@ -1275,6 +1271,7 @@ export const FinancialManagementView: React.FC = () => {
           </div>
         </Modal>
       )}
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };

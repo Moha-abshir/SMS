@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { ClassSubjectAllocationSlideOver } from './ClassSubjectAllocationSlideOver';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const AllocationView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -213,21 +214,14 @@ export const AllocationView: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Class & Subject Allocations"
+      subtitle="Loading academic streams, educator qualifications, and teaching assignments..."
+      icon={Layers}
     >
+      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
@@ -663,6 +657,7 @@ export const AllocationView: React.FC = () => {
         onAssignSubjectTeacher={handleAssignSubjectTeacherDirect}
         onRemoveSubjectAllocation={handleRemoveSubjectAllocation}
       />
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };

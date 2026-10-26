@@ -6,6 +6,7 @@ import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
 import { printElement } from '../../lib/printElement';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface LetterItem {
   id: string;
@@ -99,16 +100,14 @@ export const OfficialLetterView: React.FC = () => {
     printElement('official-letter-paper', printModalData?.letter.title || 'Official Letter');
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Official Academy Communications"
+      subtitle="Loading official letter templates, school branding, and correspondence records..."
+      icon={FileText}
+    >
+      <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
@@ -429,6 +428,7 @@ export const OfficialLetterView: React.FC = () => {
           </div>
         </Modal>
       )}
-    </motion.div>
+      </motion.div>
+    </PageLoadingWrapper>
   );
 };

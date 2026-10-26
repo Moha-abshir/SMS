@@ -12,6 +12,7 @@ import { apiClient } from '../../lib/apiClient';
 import { TimetableWizardModal } from './TimetableWizardModal';
 import { TimetablePrintModal } from './TimetablePrintModal';
 import { ConflictModal } from './ConflictModal';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface TimetableManagementViewProps {
   user: any;
@@ -410,20 +411,54 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
         const cleanClasses = classesRes.data?.data || [];
         setClassesList(cleanClasses);
+        let initialClassId = '';
         if (cleanClasses.length > 0) {
-          setSelectedClassId(cleanClasses[0].id);
+          initialClassId = cleanClasses[0].id;
+          setSelectedClassId(initialClassId);
         }
 
+        const yr = allocRes.data?.data?.academicYear || 2026;
         if (allocRes.data?.data?.academicYear) {
-          setAcademicYear(allocRes.data.data.academicYear);
+          setAcademicYear(yr);
         }
 
         const cleanTeachers = teachersRes.data?.data || [];
         setTeachersList(cleanTeachers);
 
+        let initialTeacherId = '';
         if (cleanTeachers.length > 0) {
           const currentTeacher = cleanTeachers.find((t: any) => t.id === user?.id);
-          setSelectedTeacherId(currentTeacher ? currentTeacher.id : cleanTeachers[0].id);
+          initialTeacherId = currentTeacher ? currentTeacher.id : cleanTeachers[0].id;
+          setSelectedTeacherId(initialTeacherId);
+        }
+
+        // Optimistically pre-fetch timetable schedule before completing initial load
+        const targetTab = isDeputy ? 'class' : 'teacher';
+        if (targetTab === 'class' && initialClassId) {
+          try {
+            const ttRes = await apiClient.get(
+              `/api/timetable/classes/${initialClassId}?academicYear=${yr}&term=${term}`
+            );
+            if (ttRes.data?.data) {
+              setPeriodsGrid(ttRes.data.data.periodsGrid || {});
+              setSlotsList(ttRes.data.data.slots || []);
+              setConfig(ttRes.data.data.config);
+            }
+          } catch (_) {}
+        } else if (targetTab === 'teacher') {
+          const tId = isDeputy ? initialTeacherId : user?.id;
+          if (tId) {
+            try {
+              const ttRes = await apiClient.get(
+                `/api/timetable/teachers/${tId}?academicYear=${yr}&term=${term}`
+              );
+              if (ttRes.data?.data) {
+                setPeriodsGrid(ttRes.data.data.periodsGrid || {});
+                setSlotsList(ttRes.data.data.slots || []);
+                setConfig(ttRes.data.data.config);
+              }
+            } catch (_) {}
+          }
         }
       } catch (err: any) {
         console.error('Error fetching initial timetable metadata', err);
@@ -572,9 +607,14 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       }`
     : 'Teacher Schedule';
 
-  // PREREQUISITE WARNING: Class & Subject Allocations Incomplete
-  if (!initialLoading && isDeputy && allocationsStatus && !allocationsStatus.isReady) {
-    return (
+  return (
+    <PageLoadingWrapper
+      isLoading={initialLoading}
+      title="School Timetable Management"
+      subtitle="Compiling teaching periods, room allocations, and weekly schedules..."
+      icon={Calendar}
+    >
+      {isDeputy && allocationsStatus && !allocationsStatus.isReady ? (
       <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
         <div className="rounded-3xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-[#0c182d] p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-6 border-b border-amber-200/80 dark:border-amber-900/40">
@@ -645,11 +685,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           )}
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    ) : (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Top Banner & Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -1048,6 +1085,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         }}
         isSwapping={swapping}
       />
-    </div>
+      </div>
+    )}
+  </PageLoadingWrapper>
   );
 };

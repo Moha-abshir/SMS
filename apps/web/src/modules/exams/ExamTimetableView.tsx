@@ -11,6 +11,7 @@ import { apiClient } from '../../lib/apiClient';
 import { formatDate } from '../../lib/formatters';
 import { ExamTimetableWizardModal } from './ExamTimetableWizardModal';
 import { ExamTimetablePrintModal } from './ExamTimetablePrintModal';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 // Reusable Custom Dropdown (No default select elements)
 const CustomSelect: React.FC<{
@@ -384,16 +385,14 @@ export const ExamTimetableView: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Examination Timetable Schedules"
+      subtitle="Loading class examination sessions, invigilation slots, and time matrices..."
+      icon={Calendar}
+    >
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Top Banner & Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -999,6 +998,7 @@ export const ExamTimetableView: React.FC = () => {
           schoolSettings={schoolSettings}
         />
       )}
-    </div>
+      </div>
+    </PageLoadingWrapper>
   );
 };

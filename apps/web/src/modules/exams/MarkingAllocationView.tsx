@@ -15,6 +15,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { isSubjectTeacherClass } from '@school/shared/types';
 import { ExamMarkingAllocationSlideOver } from './ExamMarkingAllocationSlideOver';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const MarkingAllocationView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -281,16 +282,14 @@ export const MarkingAllocationView: React.FC = () => {
     }).length;
   }, [markingList, activeExamId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Examination Marking Allocations"
+      subtitle="Loading examiner assignments, paper schedules, and marking quotas..."
+      icon={Award}
+    >
+      <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
@@ -489,6 +488,7 @@ export const MarkingAllocationView: React.FC = () => {
         onAssignExaminer={handleAssignExaminer}
         onRemoveExaminer={handleRemoveExaminer}
       />
-    </motion.div>
+      </motion.div>
+    </PageLoadingWrapper>
   );
 };

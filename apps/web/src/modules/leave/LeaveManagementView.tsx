@@ -7,6 +7,7 @@ import { formatDate } from '../../lib/formatters';
 import { Modal } from '../../components/Modal';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { printElement } from '../../lib/printElement';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const LeaveManagementView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -282,21 +283,14 @@ export const LeaveManagementView: React.FC = () => {
     printElement('leave-slip-printable', 'Leave Out Sheet');
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Staff Leave & Absence Management"
+      subtitle="Synchronizing departure permissions, standing-in teachers, and return status..."
+      icon={Clock}
     >
+      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
       {/* Print Stylesheet injection */}
       <style>{`
         @media print {
@@ -1048,7 +1042,8 @@ export const LeaveManagementView: React.FC = () => {
           </div>
         </div>
       )}
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };
 
