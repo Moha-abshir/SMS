@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, CheckCircle2, AlertCircle, Clock, Send, Users,
-  BookOpen, Search, Eye, AlertTriangle, ShieldCheck, CheckCheck, RefreshCw, Calendar
+  BookOpen, Search, Eye, AlertTriangle, ShieldCheck, CheckCheck, RefreshCw, Calendar, Phone
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -22,12 +22,14 @@ interface SubjectPaperProgress {
     firstName: string;
     lastName: string;
     email: string;
+    phoneNumber?: string | null;
   } | null;
   allocatedTeacher?: {
     id?: string;
     firstName: string;
     lastName: string;
     email: string;
+    phoneNumber?: string | null;
   } | null;
   submittedAt?: string | null;
   reviewedAt?: string | null;
@@ -160,7 +162,8 @@ export const ClassExamProgressView: React.FC = () => {
   const pendingCount = papers.filter((p) => p.status === 'NOT_STARTED').length;
   const correctionCount = papers.filter((p) => p.status === 'CORRECTION_REQUESTED').length;
 
-  const isAllSubmittedOrApproved = totalSubjects > 0 && (approvedCount + submittedCount) === totalSubjects;
+  const isAllSubmittedOrApproved =
+    totalSubjects > 0 && (approvedCount + submittedCount) === totalSubjects && correctionCount === 0;
   const completionPercent = totalSubjects > 0 ? Math.round(((approvedCount + submittedCount) / totalSubjects) * 100) : 0;
 
   // Open inspection slide-over
@@ -397,6 +400,25 @@ export const ClassExamProgressView: React.FC = () => {
           </div>
         </div>
 
+        {/* Active Correction Requests Advisory Banner */}
+        {correctionCount > 0 && (
+          <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                  Action Required: {correctionCount} Subject Teacher{correctionCount > 1 ? 's' : ''} Requested Unlock
+                </h4>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+                  Review the highlighted subjects below and click <strong>"Review & Unlock"</strong> to permit editing.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {filteredPapers.length === 0 ? (
           <div className="p-8 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-2">
             <BookOpen className="w-8 h-8 text-slate-400 mx-auto" />
@@ -414,6 +436,8 @@ export const ClassExamProgressView: React.FC = () => {
                 : 'Unassigned Specialist';
 
               const teacherEmail = paper.submittedBy?.email || paper.allocatedTeacher?.email || null;
+              const teacherPhone = paper.submittedBy?.phoneNumber || paper.allocatedTeacher?.phoneNumber || null;
+              const isCorrectionRequested = paper.status === 'CORRECTION_REQUESTED';
 
               const getStatusBadge = (status: string) => {
                 switch (status) {
@@ -441,9 +465,9 @@ export const ClassExamProgressView: React.FC = () => {
                     );
                   case 'CORRECTION_REQUESTED':
                     return (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1.5 shrink-0">
-                        <AlertTriangle className="w-3 h-3 text-rose-600" />
-                        Correction
+                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-xs flex items-center gap-1.5 shrink-0 animate-pulse">
+                        <AlertCircle className="w-3.5 h-3.5 text-white" />
+                        Correction Requested
                       </span>
                     );
                   default:
@@ -459,7 +483,11 @@ export const ClassExamProgressView: React.FC = () => {
               return (
                 <div
                   key={paper.subjectId}
-                  className="p-4 sm:p-5 bg-white/90 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs"
+                  className={`p-4 sm:p-5 backdrop-blur-md rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs ${
+                    isCorrectionRequested
+                      ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/80 ring-2 ring-amber-400/20'
+                      : 'bg-white/90 dark:bg-[#091326]/90 border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700'
+                  }`}
                 >
                   {/* Left: Subject & Specialist Info */}
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -480,6 +508,20 @@ export const ClassExamProgressView: React.FC = () => {
                           <Users className="w-3 h-3 text-slate-400" />
                           {teacherName}
                         </span>
+                        {teacherPhone && (
+                          <>
+                            <span>•</span>
+                            <a
+                              href={`tel:${teacherPhone.replace(/\s+/g, '')}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline transition-colors"
+                              title={`Call ${teacherName}`}
+                            >
+                              <Phone className="w-3 h-3 text-sky-500" />
+                              <span>{teacherPhone}</span>
+                            </a>
+                          </>
+                        )}
                         {teacherEmail && (
                           <>
                             <span>•</span>
@@ -501,10 +543,14 @@ export const ClassExamProgressView: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => handleOpenSlideOver(paper)}
-                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 dark:bg-[#0c1830] dark:hover:bg-[#122444] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#162b4d] flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
+                          isCorrectionRequested
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs active:scale-95'
+                            : 'bg-sky-50 hover:bg-sky-100 dark:bg-[#0c1830] dark:hover:bg-[#122444] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#162b4d]'
+                        }`}
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        Inspect & Regulate
+                        {isCorrectionRequested ? 'Review & Unlock' : 'Inspect & Regulate'}
                       </button>
                     )}
                   </div>

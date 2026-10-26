@@ -143,10 +143,10 @@ export class MarkSubmissionsController {
       const { examId, classId, subjectId, reason } = req.body;
       const userId = req.user!.id;
 
-      if (!examId || !classId || !subjectId || !reason) {
+      if (!examId || !classId || !subjectId) {
         return res.status(400).json({
           success: false,
-          message: 'examId, classId, subjectId, and reason are required',
+          message: 'examId, classId, and subjectId are required',
         });
       }
 
@@ -160,7 +160,7 @@ export class MarkSubmissionsController {
       return res.status(200).json({
         success: true,
         data: result,
-        message: 'Correction request submitted to Deputy Head',
+        message: 'Correction requested. The Class Teacher has been notified.',
       });
     } catch (error: any) {
       return res.status(400).json({

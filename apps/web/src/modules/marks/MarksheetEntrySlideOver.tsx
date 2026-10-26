@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ArrowLeft, CheckCircle2, AlertCircle, Save, Send, Printer,
-  FileText, Lock, RotateCcw, Search, Sparkles, AlertTriangle, ShieldCheck
+  FileText, Lock, RotateCcw, Search, Sparkles, AlertTriangle, ShieldCheck, Phone, Award
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { printElement } from '../../lib/printElement';
+import { PageLoadingProgress } from '../../components/PageLoadingProgress';
 import {
   calculateCbcRubric,
   calculateJuniorPoints,
@@ -35,6 +36,13 @@ interface MarksheetData {
     firstName: string;
     lastName: string;
     phoneNumber?: string | null;
+  } | null;
+  marker?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber?: string | null;
+    email?: string | null;
   } | null;
   subject: any;
   submission: any;
@@ -81,6 +89,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   isClassTeacherOversight = false,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [readyToShow, setReadyToShow] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [regulatingLock, setRegulatingLock] = useState(false);
@@ -89,9 +98,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   const [studentRows, setStudentRows] = useState<StudentScoreRow[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Correction request modal
-  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
-  const [correctionReason, setCorrectionReason] = useState('');
   const [requestingCorrection, setRequestingCorrection] = useState(false);
 
   // Print modal
@@ -115,6 +121,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   const fetchSheet = async () => {
     if (!examId || !classId || !subjectId) return;
     setLoading(true);
+    setReadyToShow(false);
     try {
       const res = await apiClient.get(
         `/api/mark-submissions/entry-sheet?examId=${examId}&classId=${classId}&subjectId=${subjectId}`
@@ -134,6 +141,8 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   useEffect(() => {
     if (isOpen && examId && classId && subjectId) {
       fetchSheet();
+    } else {
+      setReadyToShow(false);
     }
   }, [isOpen, examId, classId, subjectId]);
 
@@ -259,7 +268,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       };
 
       await apiClient.post('/api/mark-submissions/submit', payload);
-      toast.success('Marksheet submitted to Class Teacher & Deputy Head for review!');
+      toast.success('Marksheet submitted to Class Teacher for review!');
       if (onSubmitted) onSubmitted();
       await fetchSheet();
     } catch (err: any) {
@@ -269,21 +278,19 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Request correction
+  // Request correction without needing a modal message
   const handleRequestCorrection = async () => {
-    if (!examId || !classId || !subjectId || !correctionReason.trim()) return;
+    if (!examId || !classId || !subjectId || requestingCorrection) return;
     setRequestingCorrection(true);
     try {
-      await apiClient.post('/api/mark-submissions/request-correction', {
+      await apiClient.post('/api/mark-submissions/request-correction-by-teacher', {
         examId,
         classId,
         subjectId,
-        reason: correctionReason,
       });
-      toast.success('Correction request submitted to Deputy Head.');
-      setShowCorrectionModal(false);
-      setCorrectionReason('');
+      toast.success('Correction requested. Your Class Teacher has been notified to unlock this marksheet.');
       await fetchSheet();
+      if (onSaved) onSaved();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to request correction');
     } finally {
@@ -383,18 +390,26 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 truncate">
-                        {sheetData?.class?.name || 'Class'} • {sheetData?.subject?.name || 'Subject'}
+                        {readyToShow && sheetData?.class?.name && sheetData?.subject?.name
+                          ? `${sheetData.class.name} • ${sheetData.subject.name}`
+                          : 'Subject Marksheet'}
                       </h2>
-                      {sheetData?.subject?.code && (
+                      {readyToShow && sheetData?.subject?.code && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shrink-0">
                           {sheetData.subject.code}
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
-                      <span>{sheetData?.examination?.title || 'Examination'}</span>
-                      <span>•</span>
-                      <span>{studentRows.length} Enrolled Learners</span>
+                      {readyToShow ? (
+                        <>
+                          <span>{sheetData?.examination?.title || 'Examination'}</span>
+                          <span>•</span>
+                          <span>{studentRows.length} Enrolled Learners</span>
+                        </>
+                      ) : (
+                        <span>Loading marksheet learners and assessment criteria...</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -409,412 +424,483 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                 </div>
               </div>
 
-              {/* Status and Method Banner */}
-              <div className="mt-3 flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-[#112038]">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Grading badge */}
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                    {isJunior ? 'CBC 8-Point Scale (1–8 pts)' : 'CBC 4-Level Rubrics (EE, ME, AE, BE)'}
-                  </span>
+              {/* Status and Method Banner & Search Bar: Only show when readyToShow */}
+              {readyToShow && (
+                <>
+                  <div className="mt-3 flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-[#112038]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Grading badge */}
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                        {isJunior ? 'CBC 8-Point Scale (1–8 pts)' : 'CBC 4-Level Rubrics (EE, ME, AE, BE)'}
+                      </span>
 
-                  {/* Submission status badge */}
-                  {status === 'APPROVED' || status === 'LOCKED' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      {status === 'LOCKED' ? 'Locked' : 'Approved & Finalized'}
-                    </span>
-                  ) : status === 'SUBMITTED' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                      <Lock className="w-3.5 h-3.5 text-sky-600" />
-                      Submitted (Pending Review)
-                    </span>
-                  ) : status === 'CORRECTION_REQUESTED' ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                      Correction Requested
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                      <FileText className="w-3.5 h-3.5 text-slate-500" />
-                      {status === 'DRAFT' ? 'Draft (In Progress)' : 'Not Started'}
-                    </span>
-                  )}
-                </div>
+                      {/* Submission status badge */}
+                      {status === 'APPROVED' || status === 'LOCKED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          {status === 'LOCKED' ? 'Locked' : 'Approved & Finalized'}
+                        </span>
+                      ) : status === 'SUBMITTED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                          <Lock className="w-3.5 h-3.5 text-sky-600" />
+                          Submitted (Pending Review)
+                        </span>
+                      ) : status === 'CORRECTION_REQUESTED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                          Correction Requested
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          <FileText className="w-3.5 h-3.5 text-slate-500" />
+                          {status === 'DRAFT' ? 'Draft (In Progress)' : 'Not Started'}
+                        </span>
+                      )}
+                    </div>
 
-                {status === 'SUBMITTED' && !isClassTeacherOversight && (
-                  <button
-                    onClick={() => setShowCorrectionModal(true)}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                    Request Correction
-                  </button>
-                )}
-              </div>
-
-              {/* Subject teacher submission notice with Class Teacher contact info */}
-              {!isClassTeacherOversight && (status === 'SUBMITTED' || status === 'LOCKED') && (
-                <div className="mt-3 p-3.5 rounded-xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 flex items-start gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <span className="font-bold text-sky-900 dark:text-sky-200">
-                      Marksheet Submitted to Class Teacher:
-                    </span>
-                    <p className="text-sky-800 dark:text-sky-300 mt-0.5 leading-relaxed font-medium">
-                      Marks have been submitted and are locked from further editing. If corrections are required, please contact the Class Teacher
-                      {sheetData?.classTeacher ? (
-                        <>
-                          {' '}
-                          <strong>
-                            ({sheetData.classTeacher.firstName} {sheetData.classTeacher.lastName})
-                          </strong>
-                          {sheetData.classTeacher.phoneNumber ? (
-                            <> at <strong className="underline decoration-sky-400">{sheetData.classTeacher.phoneNumber}</strong></>
-                          ) : null}
-                        </>
-                      ) : null}.
-                    </p>
+                    {status === 'SUBMITTED' && !isClassTeacherOversight && (
+                      <button
+                        type="button"
+                        onClick={handleRequestCorrection}
+                        disabled={requestingCorrection}
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {requestingCorrection ? (
+                          <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                        )}
+                        Request Correction
+                      </button>
+                    )}
                   </div>
-                </div>
-              )}
 
-              {/* Deputy feedback alert if correction requested */}
-              {status === 'CORRECTION_REQUESTED' && sheetData?.correctionReason && (
-                <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <span className="font-bold text-amber-900 dark:text-amber-200">
-                      Deputy Head Correction Request:
-                    </span>
-                    <p className="text-amber-800 dark:text-amber-300 mt-0.5 font-medium">
-                      {sheetData.correctionReason}
-                    </p>
+                  {/* Search bar inside drawer */}
+                  <div className="mt-3 relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search student name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 outline-none transition-colors"
+                    />
                   </div>
-                </div>
+                </>
               )}
-
-              {/* Search bar inside drawer */}
-              <div className="mt-3 relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search student name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 outline-none transition-colors"
-                />
-              </div>
             </div>
 
-            {/* Scrollable table body */}
+            {/* Scrollable drawer body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-              {loading ? (
-                <div className="py-24 text-center">
-                  <div className="w-9 h-9 border-3 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-xs text-slate-500 font-medium">Loading marksheet learners...</p>
-                </div>
-              ) : studentRows.length === 0 ? (
-                <div className="py-24 text-center text-slate-400 text-xs">
-                  No active enrolled learners found in this class.
+              {!readyToShow ? (
+                <div className="h-full min-h-[380px] flex items-center justify-center">
+                  <PageLoadingProgress
+                    isLoading={loading}
+                    title={sheetData?.subject?.name ? `${sheetData.subject.name} Marksheet` : 'Subject Marksheet'}
+                    subtitle="Retrieving enrolled learners, assessment scores, and rubric criteria..."
+                    icon={Award}
+                    onComplete={() => setReadyToShow(true)}
+                  />
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d]">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
-                        <th className="py-3 px-3 w-10 text-center">#</th>
-                        <th className="py-3 px-3">Learner Name</th>
-                        <th className="py-3 px-3 w-28 text-center">Marks / 100</th>
-                        <th className="py-3 px-3 w-32 text-center">
-                          {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
-                        </th>
-                        <th className="py-3 px-3">Teacher Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#112038]">
-                      {filteredRows.map(({ row, originalIndex }, visibleIdx) => (
-                        <tr
-                          key={row.studentId}
-                          className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/60 transition-colors"
+                <>
+                  {/* Subject teacher submission notice with Class Teacher contact info */}
+                  {!isClassTeacherOversight && (status === 'SUBMITTED' || status === 'LOCKED') && (
+                    <div className="p-3.5 rounded-xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex items-start gap-2.5">
+                        <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                          <span className="font-bold text-sky-900 dark:text-sky-200">
+                            Marksheet Submitted to Class Teacher:
+                          </span>
+                          <p className="text-sky-800 dark:text-sky-300 mt-0.5 leading-relaxed font-medium">
+                            Marks have been submitted and are locked from further editing. If corrections are required, please contact the Class Teacher
+                            {sheetData?.classTeacher ? (
+                              <>
+                                {' '}
+                                <strong>
+                                  ({sheetData.classTeacher.firstName} {sheetData.classTeacher.lastName})
+                                </strong>
+                                {sheetData.classTeacher.phoneNumber ? (
+                                  <>
+                                    {' '}at{' '}
+                                    <a
+                                      href={`tel:${sheetData.classTeacher.phoneNumber.replace(/\s+/g, '')}`}
+                                      className="inline-flex items-center gap-1 font-bold text-sky-700 dark:text-sky-300 underline hover:text-sky-900 dark:hover:text-white"
+                                    >
+                                      <Phone className="w-3 h-3 text-sky-600" />
+                                      {sheetData.classTeacher.phoneNumber}
+                                    </a>
+                                  </>
+                                ) : null}
+                              </>
+                            ) : null}{' '}
+                            or click Request Correction.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleRequestCorrection}
+                        disabled={requestingCorrection}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95 shrink-0"
+                        title="Request Class Teacher to unlock marksheet for correction"
+                      >
+                        {requestingCorrection ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        )}
+                        Request Correction
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Subject teacher correction requested banner */}
+                  {!isClassTeacherOversight && status === 'CORRECTION_REQUESTED' && (
+                    <div className="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="text-xs">
+                        <span className="font-bold text-amber-950 dark:text-amber-100">
+                          Unlock Requested:
+                        </span>
+                        <p className="text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed font-medium">
+                          You have requested the Class Teacher to unlock this marksheet for editing. Awaiting Class Teacher review.
+                          {sheetData?.classTeacher?.phoneNumber && (
+                            <span className="block mt-1">
+                              Direct CT Contact:{' '}
+                              <a
+                                href={`tel:${sheetData.classTeacher.phoneNumber.replace(/\s+/g, '')}`}
+                                className="inline-flex items-center gap-1 font-bold text-amber-900 dark:text-amber-200 underline"
+                              >
+                                <Phone className="w-3 h-3 text-amber-700" />
+                                {sheetData.classTeacher.phoneNumber}
+                              </a>
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Class Teacher Oversight: Specialist Marker Card & Call Link */}
+                  {isClassTeacherOversight && (
+                    <div className="p-3.5 rounded-xl bg-sky-50/80 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 flex items-center justify-center font-bold text-xs shrink-0">
+                          {sheetData?.marker?.firstName ? sheetData.marker.firstName[0] : 'T'}
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
+                            Assigned Specialist Marker:
+                          </span>
+                          <span className="text-slate-600 dark:text-slate-400 ml-1.5 font-medium">
+                            {sheetData?.marker ? `${sheetData.marker.firstName} ${sheetData.marker.lastName}` : 'Unassigned'}
+                          </span>
+                          {sheetData?.marker?.email && (
+                            <span className="text-slate-400 text-[11px] ml-1.5 hidden sm:inline">
+                              ({sheetData.marker.email})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {sheetData?.marker?.phoneNumber && (
+                        <a
+                          href={`tel:${sheetData.marker.phoneNumber.replace(/\s+/g, '')}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-100 hover:bg-sky-200 dark:bg-sky-900/60 dark:hover:bg-sky-800 text-sky-800 dark:text-sky-200 text-xs font-bold transition-colors cursor-pointer shrink-0"
+                          title={`Call ${sheetData.marker.firstName} ${sheetData.marker.lastName}`}
                         >
-                          <td className="py-2.5 px-3 text-center text-slate-400 font-medium text-[11px]">
-                            {originalIndex + 1}
-                          </td>
+                          <Phone className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                          Call Marker ({sheetData.marker.phoneNumber})
+                        </a>
+                      )}
+                    </div>
+                  )}
 
-                          <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
-                            <div className="truncate max-w-[240px] sm:max-w-md">{row.fullName}</div>
-                          </td>
+                  {/* Class Teacher Oversight: Correction Requested Banner */}
+                  {isClassTeacherOversight && status === 'CORRECTION_REQUESTED' && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border-2 border-amber-500/80 dark:border-amber-400 flex items-center justify-between gap-3 flex-wrap animate-pulse">
+                      <div className="flex items-center gap-2.5">
+                        <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <div className="text-xs">
+                          <span className="font-black text-amber-950 dark:text-amber-100 uppercase tracking-wide">
+                            Action Required: Subject Teacher Requested Unlock
+                          </span>
+                          <p className="text-amber-900 dark:text-amber-200 mt-0.5 font-medium leading-relaxed">
+                            The subject teacher has requested to unlock this marksheet to correct errors. Click <strong>"Unlock for Correction"</strong> below to permit editing.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                          {/* Score Input */}
-                          <td className="py-2.5 px-3 text-center">
-                            <input
-                              ref={(el) => (inputRefs.current[visibleIdx] = el)}
-                              type="number"
-                              min="0"
-                              max={row.maxMarks || 100}
-                              step="any"
-                              disabled={!isEditable}
-                              value={
-                                row.marksObtained !== null && row.marksObtained !== undefined
-                                  ? row.marksObtained
-                                  : ''
-                              }
-                              onChange={(e) => handleScoreChange(originalIndex, e.target.value)}
-                              onKeyDown={(e) => handleKeyDown(e, visibleIdx)}
-                              placeholder="0-100"
-                              className="w-20 text-center bg-slate-50 dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 focus:ring-1 focus:ring-sky-400 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                            />
-                          </td>
+                  {studentRows.length === 0 ? (
+                    <div className="py-24 text-center text-slate-400 text-xs">
+                      No active enrolled learners found in this class.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d]">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                            <th className="py-3 px-3 w-10 text-center">#</th>
+                            <th className="py-3 px-3">Learner Name</th>
+                            <th className="py-3 px-3 w-28 text-center">Marks / 100</th>
+                            <th className="py-3 px-3 w-32 text-center">
+                              {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
+                            </th>
+                            <th className="py-3 px-3">Teacher Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-[#112038]">
+                          {filteredRows.map(({ row, originalIndex }, visibleIdx) => (
+                            <tr
+                              key={row.studentId}
+                              className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/60 transition-colors"
+                            >
+                              <td className="py-2.5 px-3 text-center text-slate-400 font-medium text-[11px]">
+                                {originalIndex + 1}
+                              </td>
 
-                          {/* Assessment Outcome Column */}
-                          <td className="py-2.5 px-3 text-center">
-                            {isJunior ? (
-                              // FOR GRADES 7–9: ONLY display points (1-8)
-                              row.juniorPoints !== null && row.juniorPoints !== undefined ? (
-                                <span
-                                  className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
-                                    row.juniorPoints >= 7
-                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800'
-                                      : row.juniorPoints >= 5
-                                      ? 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-800'
-                                      : row.juniorPoints >= 3
-                                      ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800'
-                                      : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
-                                  }`}
-                                >
-                                  {row.juniorPoints} pts
-                                </span>
-                              ) : (
-                                <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
-                              )
-                            ) : (
-                              // FOR GRADES 4–6: ONLY display CBC Rubrics (EE, ME, AE, BE)
-                              row.cbcRubricLevel ? (
-                                <span
-                                  className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-black border ${
-                                    row.cbcRubricLevel === 'EE'
-                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800'
-                                      : row.cbcRubricLevel === 'ME'
-                                      ? 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-800'
-                                      : row.cbcRubricLevel === 'AE'
-                                      ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800'
-                                      : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
-                                  }`}
-                                >
-                                  {row.cbcRubricLevel}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
-                              )
-                            )}
-                          </td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
+                                <div className="truncate max-w-[240px] sm:max-w-md">{row.fullName}</div>
+                              </td>
 
-                          {/* Remarks */}
-                          <td className="py-2.5 px-3">
-                            <input
-                              type="text"
-                              disabled={!isEditable}
-                              value={row.teacherRemarks || ''}
-                              onChange={(e) => handleRemarkChange(originalIndex, e.target.value)}
-                              placeholder="Remarks (e.g. Good progress)..."
-                              className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-400 outline-none transition-all disabled:opacity-60"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                              {/* Score Input */}
+                              <td className="py-2.5 px-3 text-center">
+                                <input
+                                  ref={(el) => (inputRefs.current[visibleIdx] = el)}
+                                  type="number"
+                                  min="0"
+                                  max={row.maxMarks || 100}
+                                  step="any"
+                                  disabled={!isEditable}
+                                  value={
+                                    row.marksObtained !== null && row.marksObtained !== undefined
+                                      ? row.marksObtained
+                                      : ''
+                                  }
+                                  onChange={(e) => handleScoreChange(originalIndex, e.target.value)}
+                                  onKeyDown={(e) => handleKeyDown(e, visibleIdx)}
+                                  placeholder="0-100"
+                                  className="w-20 text-center bg-slate-50 dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 focus:ring-1 focus:ring-sky-400 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                />
+                              </td>
+
+                              {/* Assessment Outcome Column */}
+                              <td className="py-2.5 px-3 text-center">
+                                {isJunior ? (
+                                  // FOR GRADES 7–9: ONLY display points (1-8)
+                                  row.juniorPoints !== null && row.juniorPoints !== undefined ? (
+                                    <span
+                                      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
+                                        row.juniorPoints >= 7
+                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800'
+                                          : row.juniorPoints >= 5
+                                          ? 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-800'
+                                          : row.juniorPoints >= 3
+                                          ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800'
+                                          : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
+                                      }`}
+                                    >
+                                      {row.juniorPoints} pts
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                                  )
+                                ) : (
+                                  // FOR GRADES 4–6: ONLY display CBC Rubrics (EE, ME, AE, BE)
+                                  row.cbcRubricLevel ? (
+                                    <span
+                                      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                                        row.cbcRubricLevel === 'EE'
+                                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-800'
+                                          : row.cbcRubricLevel === 'ME'
+                                          ? 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/80 dark:text-sky-300 dark:border-sky-800'
+                                          : row.cbcRubricLevel === 'AE'
+                                          ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-800'
+                                          : 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-800'
+                                      }`}
+                                    >
+                                      {row.cbcRubricLevel}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                                  )
+                                )}
+                              </td>
+
+                              {/* Remarks */}
+                              <td className="py-2.5 px-3">
+                                <input
+                                  type="text"
+                                  disabled={!isEditable}
+                                  value={row.teacherRemarks || ''}
+                                  onChange={(e) => handleRemarkChange(originalIndex, e.target.value)}
+                                  placeholder="Remarks (e.g. Good progress)..."
+                                  className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-400 outline-none transition-all disabled:opacity-60"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* Sticky Bottom Actions Bar */}
             <div className="p-4 bg-white/95 dark:bg-[#081020]/95 backdrop-blur-md border-t border-sky-100 dark:border-[#112038] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 flex-wrap">
-                <span>
-                  Scored:{' '}
-                  <strong className={isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}>
-                    {scoredCount} / {studentRows.length}
-                  </strong>
-                </span>
-                <span>•</span>
-                <span>
-                  Class Average:{' '}
-                  <strong className="text-sky-600 dark:text-sky-400">{averageScore}%</strong>
-                </span>
-                {!isComplete && studentRows.length > 0 && (
-                  <>
-                    <span className="hidden sm:inline">•</span>
-                    <span className="hidden sm:inline text-amber-600 dark:text-amber-400 font-medium text-[11px]">
-                      {studentRows.length - scoredCount} learner(s) remaining
+              {!readyToShow ? (
+                <div className="flex items-center justify-end w-full">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#0d1c38] transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 flex-wrap">
+                    <span>
+                      Scored:{' '}
+                      <strong className={isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}>
+                        {scoredCount} / {studentRows.length}
+                      </strong>
                     </span>
-                  </>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#0d1c38] transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-
-                {isClassTeacherOversight ? (
-                  <div className="flex items-center gap-2">
-                    {status === 'SUBMITTED' && (
+                    <span>•</span>
+                    <span>
+                      Class Average:{' '}
+                      <strong className="text-sky-600 dark:text-sky-400">{averageScore}%</strong>
+                    </span>
+                    {!isComplete && studentRows.length > 0 && (
                       <>
-                        <button
-                          type="button"
-                          onClick={handleUnlockSubmission}
-                          disabled={loading || regulatingLock}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
-                          title="Unlock marksheet to return to draft for teacher corrections"
-                        >
-                          {regulatingLock ? (
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                          ) : (
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          )}
-                          Unlock for Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleLockSubmission}
-                          disabled={loading || regulatingLock}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
-                          title="Lock marksheet to finalize"
-                        >
-                          {regulatingLock ? (
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                          ) : (
-                            <Lock className="w-3.5 h-3.5" />
-                          )}
-                          Lock Marksheet
-                        </button>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="hidden sm:inline text-amber-600 dark:text-amber-400 font-medium text-[11px]">
+                          {studentRows.length - scoredCount} learner(s) remaining
+                        </span>
                       </>
                     )}
+                  </div>
 
-                    {status === 'LOCKED' && (
-                      <button
-                        type="button"
-                        onClick={handleUnlockSubmission}
-                        disabled={loading || regulatingLock}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
-                        title="Unlock marksheet to allow teacher corrections"
-                      >
-                        {regulatingLock ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                        ) : (
-                          <RotateCcw className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#0d1c38] transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+
+                    {isClassTeacherOversight ? (
+                      <div className="flex items-center gap-2">
+                        {sheetData?.marker?.phoneNumber && (
+                          <a
+                            href={`tel:${sheetData.marker.phoneNumber.replace(/\s+/g, '')}`}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                            title={`Call Marker (${sheetData.marker.phoneNumber})`}
+                          >
+                            <Phone className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                            <span className="hidden sm:inline">Call Marker</span>
+                          </a>
                         )}
-                        Unlock Marksheet
-                      </button>
-                    )}
 
-                    {status === 'APPROVED' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Approved by Deputy Head
-                      </span>
+                        {(status === 'SUBMITTED' || status === 'LOCKED' || status === 'CORRECTION_REQUESTED') && (
+                          <button
+                            type="button"
+                            onClick={handleUnlockSubmission}
+                            disabled={loading || regulatingLock}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+                            title="Unlock marksheet to allow teacher corrections"
+                          >
+                            {regulatingLock ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            )}
+                            Unlock for Correction
+                          </button>
+                        )}
+
+                        {status === 'DRAFT' && (
+                          <button
+                            type="button"
+                            onClick={handleLockSubmission}
+                            disabled={loading || regulatingLock}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+                            title="Lock marksheet"
+                          >
+                            {regulatingLock ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Lock className="w-3.5 h-3.5" />
+                            )}
+                            Lock Marksheet
+                          </button>
+                        )}
+
+                        {status === 'APPROVED' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Approved & Locked by Deputy
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      isEditable && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleSaveDraft}
+                            disabled={loading || saving || studentRows.length === 0}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122244] border border-sky-300 dark:border-sky-800 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            {saving ? (
+                              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Save className="w-3.5 h-3.5 text-sky-600" />
+                            )}
+                            {saving ? 'Saving...' : 'Save Draft'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={loading || submitting || !isComplete}
+                            title={
+                              !isComplete
+                                ? `All marks must be entered before submitting (${scoredCount}/${studentRows.length} scored)`
+                                : 'Submit marksheet to Class Teacher for verification'
+                            }
+                            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                              isComplete && !submitting && !loading
+                                ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/20 cursor-pointer active:scale-95'
+                                : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/60 cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            {submitting ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
+                            {submitting ? 'Submitting...' : 'Submit to Class Teacher'}
+                          </button>
+                        </>
+                      )
                     )}
                   </div>
-                ) : (
-                  isEditable && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleSaveDraft}
-                        disabled={loading || saving || studentRows.length === 0}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122244] border border-sky-300 dark:border-sky-800 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                      >
-                        {saving ? (
-                          <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
-                        ) : (
-                          <Save className="w-3.5 h-3.5 text-sky-600" />
-                        )}
-                        {saving ? 'Saving...' : 'Save Draft'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={loading || submitting || !isComplete}
-                        title={
-                          !isComplete
-                            ? `All marks must be entered before submitting (${scoredCount}/${studentRows.length} scored)`
-                            : 'Submit marksheet to Class Teacher & Deputy Head'
-                        }
-                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                          isComplete && !submitting && !loading
-                            ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/20 cursor-pointer active:scale-95'
-                            : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/60 cursor-not-allowed opacity-60'
-                        }`}
-                      >
-                        {submitting ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                        ) : (
-                          <Send className="w-3.5 h-3.5" />
-                        )}
-                        {submitting ? 'Submitting...' : 'Submit for Review'}
-                      </button>
-                    </>
-                  )
-                )}
-              </div>
+                </>
+              )}
             </div>
           </motion.div>
         </div>
       </div>
-
-      {/* Teacher Correction Request Modal */}
-      {showCorrectionModal && (
-        <Modal
-          isOpen={showCorrectionModal}
-          onClose={() => setShowCorrectionModal(false)}
-          title="Request Marksheet Correction"
-        >
-          <div className="space-y-4">
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              This marksheet has already been submitted to the Class Teacher and Deputy Head. Explain why corrections are necessary (e.g. data entry error, reassessment of script). Upon approval, the marksheet will be reopened for editing.
-            </p>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
-                Reason for Correction Request <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                rows={3}
-                value={correctionReason}
-                onChange={(e) => setCorrectionReason(e.target.value)}
-                placeholder="Describe the scores requiring correction and why..."
-                className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] rounded-xl p-3 text-xs sm:text-sm text-slate-800 dark:text-slate-200 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 outline-none transition-all"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-sky-100 dark:border-[#162b4d]">
-              <button
-                onClick={() => setShowCorrectionModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#0d1c38] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRequestCorrection}
-                disabled={requestingCorrection || !correctionReason.trim()}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
-              >
-                {requestingCorrection && (
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                )}
-                {requestingCorrection ? 'Submitting...' : 'Submit Request'}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* Printable Marksheet Stationery Modal */}
       {showPrintModal && (

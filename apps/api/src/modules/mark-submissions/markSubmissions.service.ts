@@ -68,6 +68,7 @@ export class MarkSubmissionsService {
           firstName: users.firstName,
           lastName: users.lastName,
           email: users.email,
+          phoneNumber: users.phoneNumber,
         },
       })
       .from(classes)
@@ -98,6 +99,7 @@ export class MarkSubmissionsService {
           firstName: users.firstName,
           lastName: users.lastName,
           email: users.email,
+          phoneNumber: users.phoneNumber,
         },
       })
       .from(markSubmissions)
@@ -125,6 +127,7 @@ export class MarkSubmissionsService {
             firstName: users.firstName,
             lastName: users.lastName,
             email: users.email,
+            phoneNumber: users.phoneNumber,
           },
         })
         .from(teacherSubjectAllocations)
@@ -140,6 +143,7 @@ export class MarkSubmissionsService {
                 firstName: users.firstName,
                 lastName: users.lastName,
                 email: users.email,
+                phoneNumber: users.phoneNumber,
               },
             })
             .from(markingAllocations)
@@ -485,7 +489,12 @@ export class MarkSubmissionsService {
 
     // If caller is Class Teacher (and NOT the allocated subject teacher and not privileged leadership)
     if (isClassTeacher && !isAllocatedSubjectTeacher && !isPrivileged) {
-      if (currentStatus !== 'SUBMITTED' && currentStatus !== 'APPROVED' && currentStatus !== 'LOCKED') {
+      if (
+        currentStatus !== 'SUBMITTED' &&
+        currentStatus !== 'APPROVED' &&
+        currentStatus !== 'LOCKED' &&
+        currentStatus !== 'CORRECTION_REQUESTED'
+      ) {
         throw new Error('Subject teacher is currently marking. You can view marks once submitted.');
       }
     }
@@ -514,6 +523,69 @@ export class MarkSubmissionsService {
           lastName: ctUser.lastName,
           phoneNumber: ctUser.phoneNumber || null,
         };
+      }
+    }
+
+    // Fetch Assigned Marker details (name & phone) to provide contact info to Class Teacher
+    let markerInfo: { id: string; firstName: string; lastName: string; phoneNumber?: string | null; email?: string | null } | null = null;
+    if (submission?.teacherId) {
+      const [subTeacher] = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          phoneNumber: users.phoneNumber,
+          email: users.email,
+        })
+        .from(users)
+        .where(eq(users.id, submission.teacherId));
+      if (subTeacher) {
+        markerInfo = subTeacher;
+      }
+    }
+    if (!markerInfo) {
+      const [markingAlloc] = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          phoneNumber: users.phoneNumber,
+          email: users.email,
+        })
+        .from(markingAllocations)
+        .innerJoin(users, eq(markingAllocations.teacherId, users.id))
+        .where(
+          and(
+            eq(markingAllocations.examId, examId),
+            eq(markingAllocations.classId, classId),
+            eq(markingAllocations.subjectId, subjectId),
+            isNull(markingAllocations.deletedAt)
+          )
+        );
+      if (markingAlloc) {
+        markerInfo = markingAlloc;
+      }
+    }
+    if (!markerInfo) {
+      const [regularAlloc] = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          phoneNumber: users.phoneNumber,
+          email: users.email,
+        })
+        .from(teacherSubjectAllocations)
+        .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
+        .where(
+          and(
+            eq(teacherSubjectAllocations.classId, classId),
+            eq(teacherSubjectAllocations.subjectId, subjectId),
+            isNull(teacherSubjectAllocations.deletedAt)
+          )
+        );
+      if (regularAlloc) {
+        markerInfo = regularAlloc;
       }
     }
 
@@ -600,6 +672,7 @@ export class MarkSubmissionsService {
       examination,
       class: targetClass,
       classTeacher: classTeacherInfo,
+      marker: markerInfo,
       subject,
       submission: submission || null,
       status: currentStatus,
@@ -860,13 +933,13 @@ export class MarkSubmissionsService {
   }
 
   /**
-   * Teacher request to Deputy for permission to correct submitted marks
+   * Teacher request to Class Teacher for permission to correct submitted marks
    */
   static async requestCorrectionByTeacher(
     examId: string,
     classId: string,
     subjectId: string,
-    reason: string,
+    reason: string | undefined,
     userId: string
   ) {
     const [sub] = await db
@@ -884,14 +957,15 @@ export class MarkSubmissionsService {
       throw new Error('Marksheet submission not found');
     }
 
-    if (sub.status !== 'SUBMITTED') {
-      throw new Error(`Correction requests can only be sent for 'SUBMITTED' marksheets (current: ${sub.status})`);
+    if (sub.status !== 'SUBMITTED' && sub.status !== 'LOCKED') {
+      throw new Error(`Correction requests can only be sent for submitted marksheets (current: ${sub.status})`);
     }
 
-    const note = `[Teacher Request - ${new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' })}]: ${reason}`;
+    const note = reason?.trim() || `Correction requested by subject teacher (${new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' })})`;
     const [updated] = await db
       .update(markSubmissions)
       .set({
+        status: 'CORRECTION_REQUESTED',
         correctionReason: note,
         updatedAt: new Date(),
       })
