@@ -68,7 +68,7 @@ export const TeacherDashboardView: React.FC = () => {
     >
       <div className="space-y-6 max-w-7xl mx-auto">
       {/* Teacher Welcome Banner */}
-      <div className="bg-white/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 shadow-glass">
+      <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 text-white flex items-center justify-center font-black text-lg sm:text-xl shadow-md shrink-0">
@@ -77,14 +77,14 @@ export const TeacherDashboardView: React.FC = () => {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight">
+                <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   Welcome, Teacher {teacher?.firstName} {teacher?.lastName}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                   {classTeacher ? 'Class & Subject Teacher' : 'Subject Specialist'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-2">
                 <span>TSC No: {teacher?.tscNumber || 'Registered'}</span>
                 <span>•</span>
                 <span>{teacher?.email}</span>
@@ -95,22 +95,22 @@ export const TeacherDashboardView: React.FC = () => {
           </div>
 
           {/* Date Indicator */}
-          <div className="flex items-center gap-2 p-2.5 bg-sky-50/70 border border-sky-100 rounded-xl text-xs font-semibold text-sky-800 shrink-0">
-            <CalendarCheck className="w-4 h-4 text-sky-600" />
+          <div className="flex items-center gap-2 p-2.5 bg-sky-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl text-xs font-semibold text-sky-800 dark:text-sky-300 shrink-0">
+            <CalendarCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             <span>Today: {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
           </div>
         </div>
 
         {/* Pending Correction Urgent Alert Banner */}
         {alerts.pendingCorrections > 0 && (
-          <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start justify-between gap-3">
+          <div className="mt-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-amber-900">
+                <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
                   Mark Correction Unlocked by Class Teacher ({alerts.pendingCorrections})
                 </h4>
-                <p className="text-xs text-amber-700 mt-0.5">
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
                   One or more examination marksheets have been unlocked by the Class Teacher for score correction.
                 </p>
               </div>
@@ -127,27 +127,27 @@ export const TeacherDashboardView: React.FC = () => {
 
       {/* Class Teacher Section (Rendered dynamically if teacher is assigned a class) */}
       {classTeacher && (
-        <div className="bg-gradient-to-br from-sky-50/50 via-white to-sky-50/25 rounded-2xl p-5 border border-sky-200 shadow-glass space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
+        <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 dark:border-[#112038] pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-sky-500 text-white shadow-xs">
                 <Users className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                     My Class: {classTeacher.className}
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-sky-700 border border-sky-200 uppercase">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 uppercase">
                     {classTeacher.levelCategory?.replace('_', ' ')}
                   </span>
                   {classTeacher.isStandingIn && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 uppercase">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 uppercase">
                       Standing-In
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {classTeacher.isStandingIn ? (
                     <span className="text-amber-700 dark:text-amber-400 font-semibold">
                       You are the temporary Standing-In Class Teacher (covering for {classTeacher.standingInFor || 'assigned teacher'}) for {classTeacher.studentCount} active enrolled learners.
@@ -169,7 +169,7 @@ export const TeacherDashboardView: React.FC = () => {
               </button>
               <button
                 onClick={() => navigate('/my-learners')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 text-sky-700 hover:bg-sky-50 text-xs font-bold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122444] text-xs font-bold transition-colors cursor-pointer"
               >
                 <Users className="w-4 h-4" />
                 Class Learners
@@ -179,27 +179,27 @@ export const TeacherDashboardView: React.FC = () => {
 
           {/* Today's Register Status Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-            <div className="p-3.5 bg-white rounded-xl border border-sky-100 shadow-xs flex items-center justify-between">
+            <div className="p-3.5 bg-slate-50/70 dark:bg-[#0c1830] rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs flex items-center justify-between">
               <div>
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                   Today's Attendance Status
                 </div>
                 <div className="mt-1">
                   {classTeacher.todayAttendance.isSubmitted ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       Register Marked & Submitted
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700">
-                      <Clock className="w-4 h-4 text-amber-600" />
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
+                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       Pending Roll Call for Today
                     </span>
                   )}
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   {classTeacher.todayAttendance.isSubmitted
                     ? `${classTeacher.todayAttendance.presentCount} present • ${classTeacher.todayAttendance.absentCount} absent`
                     : 'Not taken'}
@@ -207,30 +207,30 @@ export const TeacherDashboardView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3.5 bg-white rounded-xl border border-sky-100 shadow-xs flex items-center justify-between">
+            <div className="p-3.5 bg-slate-50/70 dark:bg-[#0c1830] rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs flex items-center justify-between">
               <div>
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                   Total Class Learners
                 </div>
-                <div className="text-xl font-black text-slate-900 mt-0.5">
+                <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-0.5">
                   {classTeacher.studentCount}
                 </div>
               </div>
-              <div className="p-2 rounded-xl bg-sky-50 text-sky-600">
+              <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
                 <UserCheck className="w-5 h-5" />
               </div>
             </div>
 
-            <div className="p-3.5 bg-white rounded-xl border border-sky-100 shadow-xs flex items-center justify-between">
+            <div className="p-3.5 bg-slate-50/70 dark:bg-[#0c1830] rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs flex items-center justify-between">
               <div>
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                   Roll Call Shortcuts
                 </div>
-                <div className="text-xs text-sky-700 font-bold mt-1 cursor-pointer hover:underline" onClick={() => navigate('/class-register')}>
+                <div className="text-xs text-sky-700 dark:text-sky-400 font-bold mt-1 cursor-pointer hover:underline" onClick={() => navigate('/class-register')}>
                   Open → Mark → Save
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-sky-500" />
+              <ChevronRight className="w-4 h-4 text-sky-500 dark:text-sky-400" />
             </div>
           </div>
         </div>
