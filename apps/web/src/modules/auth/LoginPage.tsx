@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { GraduationCap, Lock, Mail, Key, ArrowRight, ShieldCheck, Eye, EyeOff, RefreshCw, School, CheckCircle2, Clock, AlertTriangle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { apiClient } from '../../lib/apiClient';
@@ -276,17 +276,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             </form>
           ) : view === 'otp' ? (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
-              <div className="flex items-center justify-between p-3.5 bg-sky-50 border border-sky-100 rounded-xl text-xs text-sky-900 gap-2">
+              <div className="flex items-center justify-between p-3.5 bg-sky-50 dark:bg-[#072648]/60 border border-sky-100 dark:border-sky-800/60 rounded-xl text-xs text-sky-900 dark:text-sky-200 gap-2">
                 <div className="leading-relaxed">
-                  A 6-digit 2FA verification code was sent to <strong className="font-bold text-sky-950">{email}</strong>.
+                  A 6-digit 2FA verification code was sent to{' '}
+                  <strong className="font-bold text-sky-600 dark:text-sky-300 underline decoration-sky-400/50 underline-offset-2 break-all">
+                    {email}
+                  </strong>
+                  .
                 </div>
                 <div className={`shrink-0 font-mono font-bold text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${
                   otpCountdown <= 60
                     ? 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse'
-                    : 'bg-white/80 text-sky-700 border-sky-200'
+                    : 'bg-white/80 dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 border-sky-200 dark:border-[#162b4d]'
                 }`}>
                   <Clock className="w-3.5 h-3.5" />
                   <span>{formatCountdown(otpCountdown)}</span>
+                </div>
+              </div>
+
+              {/* Spam Notice */}
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-[11px] sm:text-xs">
+                  <p className="font-bold text-amber-900 dark:text-amber-100">
+                    Haven't received the email? Check your Spam folder
+                  </p>
+                  <p className="text-amber-800/90 dark:text-amber-200/90 leading-normal">
+                    First-time recipients often receive automated authentication emails in their <strong>Spam or Junk folder</strong> due to mailbox sender recognition rules.
+                  </p>
                 </div>
               </div>
 
@@ -358,12 +375,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     <div className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mx-auto">
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    <h3 className="text-sm font-bold text-sky-900">Reset Link Sent</h3>
-                    <p className="text-xs text-sky-800 leading-relaxed">
-                      If an active account is registered with <strong className="font-semibold">{resetEmail}</strong>, a secure password reset link has been dispatched.
+                    <h3 className="text-sm font-bold text-sky-900 dark:text-sky-200">Reset Link Sent</h3>
+                    <p className="text-xs text-sky-800 dark:text-sky-200 leading-relaxed">
+                      If an active account is registered with{' '}
+                      <strong className="font-bold text-sky-600 dark:text-sky-300 underline decoration-sky-400/50 underline-offset-2 break-all">
+                        {resetEmail}
+                      </strong>
+                      , a secure password reset link has been dispatched.
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Please check your email inbox and click the link within 60 minutes.
+                    </p>
+                  </div>
+
+                  {/* Spam Notice */}
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-200 leading-relaxed text-left">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] sm:text-xs text-amber-800/90 dark:text-amber-200/90">
+                      Don't see the email? Please check your <strong>Spam or Junk folder</strong>. First-time users often receive automated messages there due to mailbox sender filters.
                     </p>
                   </div>
 

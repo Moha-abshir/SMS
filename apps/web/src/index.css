@@ -123,6 +123,7 @@ html.dark .text-slate-400 {
   color: #64748b !important;
 }
 
+html.dark .text-sky-950,
 html.dark .text-sky-900,
 html.dark .text-sky-800 {
   color: #7dd3fc !important;
