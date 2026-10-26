@@ -108,10 +108,10 @@ export const TeacherDashboardView: React.FC = () => {
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-xs font-bold text-amber-900">
-                  Mark Correction Requested by Deputy Head ({alerts.pendingCorrections})
+                  Mark Correction Unlocked by Class Teacher ({alerts.pendingCorrections})
                 </h4>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  One or more submitted examination marksheets require correction and have been reopened for editing.
+                  One or more examination marksheets have been unlocked by the Class Teacher for score correction.
                 </p>
               </div>
             </div>

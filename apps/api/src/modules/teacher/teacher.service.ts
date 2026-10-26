@@ -358,7 +358,8 @@ export class TeacherService {
           const totalStudents = studentCountMap.get(area.classId) || 0;
 
           let status = submission?.status || (scoredCount > 0 ? 'DRAFT' : 'NOT_STARTED');
-          if (status === 'CORRECTION_REQUESTED') {
+          const isUnlockedForCorrection = status === 'DRAFT' && Boolean(submission?.correctionReason);
+          if (isUnlockedForCorrection) {
             pendingCorrectionsCount++;
           }
 
@@ -375,6 +376,7 @@ export class TeacherService {
             submissionId: submission?.id || null,
             status,
             correctionReason: submission?.correctionReason || null,
+            isUnlockedForCorrection,
             scoredStudents: scoredCount,
             totalStudents,
             isComplete: scoredCount >= totalStudents && totalStudents > 0,

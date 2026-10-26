@@ -493,16 +493,17 @@ export class MarkSubmissionsService {
         currentStatus !== 'SUBMITTED' &&
         currentStatus !== 'APPROVED' &&
         currentStatus !== 'LOCKED' &&
-        currentStatus !== 'CORRECTION_REQUESTED'
+        currentStatus !== 'CORRECTION_REQUESTED' &&
+        !submission?.submittedAt
       ) {
         throw new Error('Subject teacher is currently marking. You can view marks once submitted.');
       }
     }
 
-    // Only allocated subject teacher (or privileged leadership) can edit, and only when draft/correction requested
+    // Only allocated subject teacher (or privileged leadership) can edit, and strictly only when draft (NOT when submitted, locked, or awaiting CT unlock)
     const canEdit =
       (isAllocatedSubjectTeacher || isPrivileged) &&
-      (currentStatus === 'DRAFT' || currentStatus === 'CORRECTION_REQUESTED' || !submission);
+      (currentStatus === 'DRAFT' || !submission);
 
     // Fetch Class Teacher details (name & phone) to provide contact info to Subject Teacher
     let classTeacherInfo: { id: string; firstName: string; lastName: string; phoneNumber?: string | null } | null = null;
@@ -911,6 +912,7 @@ export class MarkSubmissionsService {
             status: 'SUBMITTED',
             teacherId: userId,
             submittedAt: new Date(),
+            correctionReason: null,
             updatedAt: new Date(),
           })
           .where(eq(markSubmissions.id, existingSub.id));
@@ -1048,6 +1050,9 @@ export class MarkSubmissionsService {
       .update(markSubmissions)
       .set({
         status: 'DRAFT',
+        reviewedById,
+        reviewedAt: new Date(),
+        correctionReason: sub.correctionReason || 'UNLOCKED_FOR_CORRECTION',
         updatedAt: new Date(),
       })
       .where(eq(markSubmissions.id, id))

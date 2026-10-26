@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ArrowLeft, CheckCircle2, AlertCircle, Save, Send, Printer,
-  FileText, Lock, RotateCcw, Search, Sparkles, AlertTriangle, ShieldCheck, Phone, Award
+  FileText, Lock, RotateCcw, Search, Sparkles, AlertTriangle, ShieldCheck, Phone, Award, Clock
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -157,8 +157,12 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       ? sheetData.isJunior
       : isJuniorSecondaryClass(sheetData?.class);
 
-  const isEditable = isClassTeacherOversight ? false : (sheetData?.canEdit ?? true);
   const status = sheetData?.status || 'NOT_STARTED';
+  const isEditable = isClassTeacherOversight
+    ? false
+    : status === 'CORRECTION_REQUESTED' || status === 'SUBMITTED' || status === 'LOCKED' || status === 'APPROVED'
+    ? false
+    : (sheetData?.canEdit ?? (status === 'DRAFT' || status === 'NOT_STARTED'));
 
   // Real-time score change
   const handleScoreChange = (originalIndex: number, val: string) => {
@@ -299,7 +303,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         subjectId,
       });
       toast.success('Correction requested. Your Class Teacher has been notified to unlock this marksheet.');
-      setSheetData((prev) => (prev ? { ...prev, status: 'CORRECTION_REQUESTED' } : prev));
+      setSheetData((prev) => (prev ? { ...prev, status: 'CORRECTION_REQUESTED', canEdit: false } : prev));
       if (onSaved) onSaved();
       await fetchSheet(false);
     } catch (err: any) {
@@ -459,9 +463,14 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                           Submitted (Pending Review)
                         </span>
                       ) : status === 'CORRECTION_REQUESTED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          Unlock Requested
+                        </span>
+                      ) : status === 'DRAFT' && sheetData?.correctionReason ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                          Correction Requested
+                          Fix Required
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
@@ -570,16 +579,16 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                     </div>
                   )}
 
-                  {/* Subject teacher correction requested banner */}
+                  {/* Subject teacher correction requested banner (locked awaiting CT unlock) */}
                   {!isClassTeacherOversight && status === 'CORRECTION_REQUESTED' && (
                     <div className="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 flex items-start gap-2.5">
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div className="text-xs">
                         <span className="font-bold text-amber-950 dark:text-amber-100">
-                          Unlock Requested:
+                          Unlock Requested (Marks Locked):
                         </span>
                         <p className="text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed font-medium">
-                          You have requested the Class Teacher to unlock this marksheet for editing. Awaiting Class Teacher review.
+                          You have requested the Class Teacher to unlock this marksheet for editing. Editing is locked until your Class Teacher reviews and unlocks it.
                           {sheetData?.classTeacher?.phoneNumber && (
                             <span className="block mt-1">
                               Direct CT Contact:{' '}
@@ -592,6 +601,21 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                               </a>
                             </span>
                           )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subject teacher marksheet unlocked for correction by CT banner */}
+                  {!isClassTeacherOversight && status === 'DRAFT' && sheetData?.correctionReason && (
+                    <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="text-xs">
+                        <span className="font-bold text-amber-950 dark:text-amber-100">
+                          Marksheet Unlocked for Correction:
+                        </span>
+                        <p className="text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed font-medium">
+                          Your Class Teacher has unlocked this marksheet for editing. Please update the necessary learner scores and click <strong>"Submit to Class Teacher"</strong> when finished.
                         </p>
                       </div>
                     </div>

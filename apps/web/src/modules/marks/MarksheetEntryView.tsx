@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen, CheckCircle2, AlertCircle, Save, Send, Printer,
   FileText, Sparkles, ChevronRight, Lock, RotateCcw,
-  CheckCheck, ArrowRight, Calendar, Search, Award, Layers
+  CheckCheck, ArrowRight, Calendar, Search, Award, Layers, Clock
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -26,6 +26,7 @@ interface SubjectMarkTask {
   submissionId?: string | null;
   status: 'NOT_STARTED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'CORRECTION_REQUESTED' | 'APPROVED' | 'LOCKED';
   correctionReason?: string | null;
+  isUnlockedForCorrection?: boolean;
   scoredStudents: number;
   totalStudents: number;
   isComplete: boolean;
@@ -378,6 +379,11 @@ export const MarksheetEntryView: React.FC = () => {
                           Submitted
                         </span>
                       ) : task.status === 'CORRECTION_REQUESTED' ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          Unlock Requested
+                        </span>
+                      ) : Boolean(task.isUnlockedForCorrection) || (task.status === 'DRAFT' && Boolean(task.correctionReason)) ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
                           Fix Required
@@ -391,27 +397,34 @@ export const MarksheetEntryView: React.FC = () => {
                     </div>
 
                     {/* CTA Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenSlideOver(task);
-                      }}
-                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 ${
-                        task.status === 'CORRECTION_REQUESTED'
-                          ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                          : task.status === 'SUBMITTED' || task.status === 'APPROVED'
-                          ? 'bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122444]'
-                          : 'bg-sky-500 hover:bg-sky-600 text-white'
-                      }`}
-                    >
-                      {task.status === 'CORRECTION_REQUESTED'
-                        ? 'Fix Marks'
-                        : task.status === 'SUBMITTED' || task.status === 'APPROVED'
-                        ? 'View Marksheet'
-                        : 'Enter Marks'}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    {(() => {
+                      const isUnlockedToFix = Boolean(task.isUnlockedForCorrection) || (task.status === 'DRAFT' && Boolean(task.correctionReason));
+                      const isReadOnlyView = task.status === 'SUBMITTED' || task.status === 'APPROVED' || task.status === 'LOCKED' || task.status === 'CORRECTION_REQUESTED';
+
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenSlideOver(task);
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 ${
+                            isUnlockedToFix
+                              ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                              : isReadOnlyView
+                              ? 'bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122444]'
+                              : 'bg-sky-500 hover:bg-sky-600 text-white'
+                          }`}
+                        >
+                          {isUnlockedToFix
+                            ? 'Fix Marks'
+                            : isReadOnlyView
+                            ? 'View Marksheet'
+                            : 'Enter Marks'}
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               );
