@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, UserCheck, Award, Lock, BarChart3, BookOpen, Clock, ShieldCheck, TrendingUp, FileText, ChevronRight } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface DosDashboardViewProps {
   onNavigate?: (viewId: string) => void;
@@ -66,21 +67,14 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
     navigate(path);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Director of Studies Workstation"
+      subtitle="Compiling examination schedules, marking targets, and academic averages..."
+      icon={BookOpen}
     >
+      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
       {/* Welcome Glass Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass dark:shadow-none">
         <div>
@@ -264,7 +258,8 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
           </button>
         </div>
       </div>
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };
 

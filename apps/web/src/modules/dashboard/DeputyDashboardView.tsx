@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Clock, Package, UserX, ClipboardCheck, Award, ArrowUpRight, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface DeputyDashboardViewProps {
   onNavigate?: (viewId: string) => void;
@@ -106,21 +107,14 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Deputy Principal Dashboard"
+      subtitle="Loading roll call submissions, academic reviews, and school assets..."
+      icon={ClipboardCheck}
     >
+      <div className="space-y-4 sm:space-y-6">
       {/* Welcome Glass Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
         <div>
@@ -289,7 +283,8 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
           </button>
         </div>
       </div>
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };
 

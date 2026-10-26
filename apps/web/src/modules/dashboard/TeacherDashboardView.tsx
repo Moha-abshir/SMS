@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const TeacherDashboardView: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -29,17 +30,6 @@ export const TeacherDashboardView: React.FC = () => {
 
     fetchDashboard();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-3 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs text-slate-500 font-medium">Loading teacher workstation...</p>
-        </div>
-      </div>
-    );
-  }
 
   const teacher = data?.teacher;
   const classTeacher = data?.classTeacher;
@@ -70,7 +60,13 @@ export const TeacherDashboardView: React.FC = () => {
     allocations.some(isTargetTimetableClass) || isTargetTimetableClass(classTeacher);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Teacher Workstation"
+      subtitle="Loading allocated streams, teaching schedules, and active tasks..."
+      icon={Award}
+    >
+      <div className="space-y-6 max-w-7xl mx-auto">
       {/* Teacher Welcome Banner */}
       <div className="bg-white/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 shadow-glass">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -436,7 +432,8 @@ export const TeacherDashboardView: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </PageLoadingWrapper>
   );
 };
 export default TeacherDashboardView;
