@@ -615,7 +615,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                           Marksheet Unlocked for Correction:
                         </span>
                         <p className="text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed font-medium">
-                          Your Class Teacher has unlocked this marksheet for editing. Please update the necessary learner scores and click <strong>"Submit to Class Teacher"</strong> when finished.
+                          The Class Teacher has unlocked this marksheet for editing. Please update the necessary learner scores and click <strong>"Submit to Class Teacher"</strong> when finished.
                         </p>
                       </div>
                     </div>
