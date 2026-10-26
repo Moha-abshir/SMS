@@ -287,11 +287,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     .map((row, originalIndex) => ({ row, originalIndex }))
     .filter(({ row }) => {
       const q = searchQuery.toLowerCase();
-      return (
-        row.fullName.toLowerCase().includes(q) ||
-        (row.admissionNumber && row.admissionNumber.toLowerCase().includes(q)) ||
-        (row.assessmentNumber && row.assessmentNumber.toLowerCase().includes(q))
-      );
+      return row.fullName.toLowerCase().includes(q);
     });
 
   // Calculate live scored metrics
@@ -442,7 +438,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Search student name or admission number..."
+                  placeholder="Search student name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 outline-none transition-colors"
@@ -468,7 +464,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                       <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
                         <th className="py-3 px-3 w-10 text-center">#</th>
                         <th className="py-3 px-3">Learner Name</th>
-                        <th className="py-3 px-3 hidden sm:table-cell">Admission #</th>
                         <th className="py-3 px-3 w-28 text-center">Marks / 100</th>
                         <th className="py-3 px-3 w-32 text-center">
                           {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
@@ -487,14 +482,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                           </td>
 
                           <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">
-                            <div className="truncate max-w-[180px] sm:max-w-xs">{row.fullName}</div>
-                            <span className="text-[10px] text-slate-400 uppercase sm:hidden block">
-                              {row.admissionNumber || 'No Adm #'}
-                            </span>
-                          </td>
-
-                          <td className="py-2.5 px-3 text-slate-500 dark:text-slate-400 hidden sm:table-cell font-mono text-[11px]">
-                            {row.admissionNumber || '—'}
+                            <div className="truncate max-w-[240px] sm:max-w-md">{row.fullName}</div>
                           </td>
 
                           {/* Score Input */}
@@ -754,7 +742,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   <tr className="border-b border-slate-900 bg-slate-100 font-bold">
                     <th className="py-1.5 px-2 w-8 text-center border">#</th>
                     <th className="py-1.5 px-2 border">Learner Name</th>
-                    <th className="py-1.5 px-2 border w-24">Adm #</th>
                     <th className="py-1.5 px-2 border w-16 text-center">Marks / 100</th>
                     <th className="py-1.5 px-2 border w-24 text-center">
                       {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
@@ -767,7 +754,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                     <tr key={r.studentId} className="border-b border-slate-200">
                       <td className="py-1.5 px-2 text-center border">{i + 1}</td>
                       <td className="py-1.5 px-2 font-semibold border">{r.fullName}</td>
-                      <td className="py-1.5 px-2 border">{r.admissionNumber || '—'}</td>
                       <td className="py-1.5 px-2 text-center font-bold border">
                         {r.marksObtained !== null && r.marksObtained !== '' ? r.marksObtained : '—'}
                       </td>

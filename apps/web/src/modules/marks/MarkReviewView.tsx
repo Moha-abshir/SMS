@@ -1143,7 +1143,7 @@ export const MarkReviewView: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-sky-50/90 dark:bg-[#0c1f3d] text-sky-900 dark:text-sky-200 font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#162b4d] sticky top-0 z-10">
                     <tr>
-                      <th className="py-2.5 px-3">Adm #</th>
+                      <th className="py-2.5 px-3 w-10 text-center">#</th>
                       <th className="py-2.5 px-3">Student Name</th>
                       <th className="py-2.5 px-3 text-center">Score</th>
                       <th className="py-2.5 px-3 text-center">Percentage</th>
@@ -1159,13 +1159,13 @@ export const MarkReviewView: React.FC = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredScores.map((s: any) => {
+                      filteredScores.map((s: any, idx: number) => {
                         const pts = s.juniorPoints ?? s.points;
                         const rub = s.cbcRubricLevel || s.rubric;
                         return (
                           <tr key={s.studentId} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1f3d]/50 transition-colors">
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-600 dark:text-slate-400">
-                              {s.admissionNumber || s.assessmentNumber || '—'}
+                            <td className="py-2.5 px-3 text-center text-slate-400 font-medium">
+                              {idx + 1}
                             </td>
                             <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">
                               {s.studentName || s.fullName}
