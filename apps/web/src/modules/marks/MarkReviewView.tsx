@@ -26,6 +26,7 @@ import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { SearchableSelect, SearchableSelectOption } from '../../components/SearchableSelect';
 import { isJuniorSecondaryClass, isSelfContainedClass } from '@school/shared/types';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface ClassOverviewItem {
   class: {
@@ -98,28 +99,7 @@ export const MarkReviewView: React.FC = () => {
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
-  // 1. Initial Load: Fetch Exams
-  const fetchExams = async () => {
-    try {
-      const res = await apiClient.get('/api/exams');
-      const list = res.data.data || [];
-      setExams(list);
-      if (list.length > 0 && !selectedExamId) {
-        // Find active exam or default to first
-        const active = list.find((e: any) => e.exam?.status === 'APPROVED' || e.status === 'APPROVED');
-        const defaultId = active ? (active.exam?.id || active.id) : (list[0].exam?.id || list[0].id);
-        setSelectedExamId(defaultId);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load examinations');
-    }
-  };
-
-  useEffect(() => {
-    fetchExams();
-  }, []);
-
-  // 2. Fetch Classes Review Overview when selectedExamId changes
+  // 1. Initial Load: Fetch Exams & Class Overview together optimistically
   const fetchOverview = async (examId?: string) => {
     try {
       setLoading(true);
@@ -150,10 +130,47 @@ export const MarkReviewView: React.FC = () => {
   };
 
   useEffect(() => {
-    if (selectedExamId) {
-      fetchOverview(selectedExamId);
-    }
-  }, [selectedExamId]);
+    const fetchInitialData = async () => {
+      setLoading(true);
+      try {
+        const res = await apiClient.get('/api/exams');
+        const list = res.data.data || [];
+        setExams(list);
+
+        let defaultId = '';
+        if (list.length > 0) {
+          const active = list.find((e: any) => e.exam?.status === 'APPROVED' || e.status === 'APPROVED');
+          defaultId = active ? (active.exam?.id || active.id) : (list[0].exam?.id || list[0].id);
+          setSelectedExamId(defaultId);
+        }
+
+        if (defaultId) {
+          const overviewRes = await apiClient.get('/api/mark-submissions/classes-overview', {
+            params: { examId: defaultId },
+          });
+          const data: ClassOverviewItem[] = overviewRes.data.data || [];
+          setClassesOverview(data);
+
+          const toExpand = new Set<string>();
+          data.forEach((c) => {
+            if (c.overallStatus === 'SUBMITTED' || c.overallStatus === 'CORRECTION_REQUESTED') {
+              toExpand.add(c.class.id);
+            }
+          });
+          if (toExpand.size === 0 && data.length > 0) {
+            toExpand.add(data[0].class.id);
+          }
+          setExpandedClassIds(toExpand);
+        }
+      } catch (error: any) {
+        toast.error(error.response?.data?.message || 'Failed to load review data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInitialData();
+  }, []);
 
   const toggleClassExpansion = (classId: string) => {
     setExpandedClassIds((prev) => {
@@ -360,37 +377,41 @@ export const MarkReviewView: React.FC = () => {
   }, [inspectData, scoreSearch, filterPoints, filterRubric, isInspectionJunior]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-5 max-w-7xl mx-auto pb-12"
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Mark Submission Review & Moderation"
+      subtitle="Gathering stream marksheets, teacher submissions, and score distributions..."
+      icon={ClipboardCheck}
     >
-      {/* 1. Top Header Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 dark:border-[#162b4d] shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <ClipboardCheck className="w-4 h-4 text-sky-500" />
-            Deputy Examination Oversight & Quality Assurance
+      <div className="space-y-5 max-w-7xl mx-auto pb-12">
+        {/* 1. Top Header Banner */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 dark:border-[#162b4d] shadow-glass">
+          <div>
+            <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
+              <ClipboardCheck className="w-4 h-4 text-sky-500" />
+              Deputy Examination Oversight & Quality Assurance
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+              Marksheet Review & Approval Workflow
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-2xl">
+              Review class teacher submissions for self-contained classes (PP1–Grade 3) and subject specialist papers (Grades 4–9).
+              Inspect student scores, approve marks, or request corrections before final Headteacher locking.
+            </p>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-            Marksheet Review & Approval Workflow
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-2xl">
-            Review class teacher submissions for self-contained classes (PP1–Grade 3) and subject specialist papers (Grades 4–9).
-            Inspect student scores, approve marks, or request corrections before final Headteacher locking.
-          </p>
-        </div>
 
-        {/* Examination Selection Dropdown */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="bg-sky-50/60 dark:bg-[#0c1f3d] border border-sky-200/80 dark:border-[#163660] rounded-xl sm:rounded-2xl p-2 sm:px-3 sm:py-2 min-w-[280px]">
-            <label className="block text-[10px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider mb-1">
-              Examination Period
-            </label>
-            <SearchableSelect
-              value={selectedExamId}
-              onChange={(val) => setSelectedExamId(val)}
+          {/* Examination Selection Dropdown */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="bg-sky-50/60 dark:bg-[#0c1f3d] border border-sky-200/80 dark:border-[#163660] rounded-xl sm:rounded-2xl p-2 sm:px-3 sm:py-2 min-w-[280px]">
+              <label className="block text-[10px] font-bold text-sky-800 dark:text-sky-300 uppercase tracking-wider mb-1">
+                Examination Period
+              </label>
+              <SearchableSelect
+                value={selectedExamId}
+                onChange={(val) => {
+                  setSelectedExamId(val);
+                  fetchOverview(val);
+                }}
               options={exams.map((row: any) => {
                 const item = row.exam || row;
                 const term = row.term || {};
@@ -537,11 +558,7 @@ export const MarkReviewView: React.FC = () => {
       </div>
 
       {/* 4. Classes Review Queue List */}
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : filteredClasses.length === 0 ? (
+      {filteredClasses.length === 0 ? (
         <div className="p-12 text-center bg-white/70 dark:bg-[#091326]/70 border border-sky-100 dark:border-[#162b4d] rounded-3xl shadow-glass">
           <ClipboardCheck className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No classes match the selected filter</h3>
@@ -1386,6 +1403,7 @@ export const MarkReviewView: React.FC = () => {
           </div>
         </Modal>
       )}
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };

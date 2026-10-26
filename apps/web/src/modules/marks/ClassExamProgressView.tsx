@@ -8,6 +8,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 import { isSelfContainedClass, isJuniorSecondaryClass } from '@school/shared/types';
 
 interface SubjectPaperProgress {
@@ -49,6 +50,27 @@ export const ClassExamProgressView: React.FC = () => {
   const activeSubjectIdParam = searchParams.get('subjectId');
   const isSlideOverOpen = Boolean(activeExamIdParam && activeClassIdParam && activeSubjectIdParam);
 
+  const fetchClassProgress = async (examIdToUse?: string) => {
+    const targetExamId = examIdToUse || selectedExamId;
+    const classId = workstation?.classTeacher?.classId;
+    if (!targetExamId || !classId) return;
+    try {
+      const res = await apiClient.get('/api/mark-submissions/classes-overview', {
+        params: { examId: targetExamId },
+      });
+      const data: any[] = res.data?.data || [];
+      const myClass = data.find((c) => c.class.id === classId);
+      setClassOverview(myClass || null);
+    } catch (err: any) {
+      console.warn('[ClassExamProgress] Failed to fetch classes overview:', err);
+    }
+  };
+
+  const handleSelectExam = async (examId: string) => {
+    setSelectedExamId(examId);
+    await fetchClassProgress(examId);
+  };
+
   const fetchInitialData = async () => {
     try {
       setLoading(true);
@@ -81,9 +103,25 @@ export const ClassExamProgressView: React.FC = () => {
       setWorkstation(ws);
       setExams(normalizedExams);
 
+      let initialExamId = '';
       if (normalizedExams.length > 0) {
         const active = normalizedExams.find((ex: any) => ex.status === 'APPROVED' || ex.status === 'ACTIVE');
-        setSelectedExamId(active ? active.id : normalizedExams[0].id);
+        initialExamId = active ? active.id : normalizedExams[0].id;
+        setSelectedExamId(initialExamId);
+      }
+
+      // Optimistic & complete loading: Fetch class overview data RIGHT HERE before completing loading
+      if (initialExamId && ws?.classTeacher?.classId) {
+        try {
+          const overviewRes = await apiClient.get('/api/mark-submissions/classes-overview', {
+            params: { examId: initialExamId },
+          });
+          const overviewList: any[] = overviewRes.data?.data || [];
+          const myClass = overviewList.find((c) => c.class.id === ws.classTeacher.classId);
+          setClassOverview(myClass || null);
+        } catch (err: any) {
+          console.warn('[ClassExamProgress] Failed to fetch classes overview in initial load:', err);
+        }
       }
     } catch (err: any) {
       toast.error('Failed to load initial class progress data');
@@ -95,27 +133,6 @@ export const ClassExamProgressView: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
   }, []);
-
-  // Fetch Class Overview when exam changes
-  const fetchClassProgress = async () => {
-    if (!selectedExamId || !workstation?.classTeacher?.classId) return;
-    try {
-      const res = await apiClient.get('/api/mark-submissions/classes-overview', {
-        params: { examId: selectedExamId },
-      });
-      const data: any[] = res.data?.data || [];
-      const myClass = data.find((c) => c.class.id === workstation.classTeacher.classId);
-      setClassOverview(myClass || null);
-    } catch (err: any) {
-      console.warn('[ClassExamProgress] Failed to fetch classes overview:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (selectedExamId && workstation?.classTeacher?.classId) {
-      fetchClassProgress();
-    }
-  }, [selectedExamId, workstation?.classTeacher?.classId]);
 
   const activeExam = exams.find((e) => e.id === selectedExamId);
   const assignedClass = workstation?.classTeacher || null;
@@ -186,53 +203,43 @@ export const ClassExamProgressView: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 text-center">
-        <div className="w-9 h-9 border-3 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-xs text-slate-500 font-medium">Loading class examination oversight...</p>
-      </div>
-    );
-  }
-
-  // If user is not an allocated class teacher
-  if (!assignedClass) {
-    return (
-      <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
-          <AlertCircle className="w-8 h-8" />
-        </div>
-        <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
-          Class Teacher Oversight Unavailable
-        </h2>
-        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-          You are currently not assigned as a Class Teacher for any stream. If you teach individual subjects, please use the <strong>Marksheet Entry</strong> tab in the sidebar to record your scores.
-        </p>
-      </div>
-    );
-  }
-
-  // If user is Class Teacher of PP1 - Grade 3 (Self-contained)
-  if (isLowerOrPP) {
-    return (
-      <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
-          <BookOpen className="w-8 h-8" />
-        </div>
-        <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
-          Pre-Primary & Lower Primary Class Workflow
-        </h2>
-        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-          As the Class Teacher for <strong>{assignedClass.className}</strong> (self-contained stream), you teach and mark all learning areas directly.
-          Please use <strong>Marksheet Entry</strong> to record marks and submit directly to the Deputy Head. Subject Teacher delegation applies only to Upper Primary and Junior Secondary (Grades 4–9).
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
-      {/* Top Header Card */}
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Class Examination Oversight"
+      subtitle="Synchronizing learning areas, teacher submissions, and stream progress..."
+      icon={Layers}
+    >
+      {/* If user is not an allocated class teacher */}
+      {!assignedClass ? (
+        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
+            Class Teacher Oversight Unavailable
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            You are currently not assigned as a Class Teacher for any stream. If you teach individual subjects, please use the <strong>Marksheet Entry</strong> tab in the sidebar to record your scores.
+          </p>
+        </div>
+      ) : isLowerOrPP ? (
+        /* If user is Class Teacher of PP1 - Grade 3 (Self-contained) */
+        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
+            <BookOpen className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
+            Pre-Primary & Lower Primary Class Workflow
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            As the Class Teacher for <strong>{assignedClass.className}</strong> (self-contained stream), you teach and mark all learning areas directly.
+            Please use <strong>Marksheet Entry</strong> to record marks and submit directly to the Deputy Head. Subject Teacher delegation applies only to Upper Primary and Junior Secondary (Grades 4–9).
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6 max-w-6xl mx-auto pb-16">
+          {/* Top Header Card */}
       <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-glass">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -273,7 +280,7 @@ export const ClassExamProgressView: React.FC = () => {
             {exams.map((ex) => (
               <button
                 key={ex.id}
-                onClick={() => setSelectedExamId(ex.id)}
+                onClick={() => handleSelectExam(ex.id)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
                   selectedExamId === ex.id
                     ? 'bg-sky-500 text-white shadow-xs'
@@ -520,5 +527,7 @@ export const ClassExamProgressView: React.FC = () => {
         isClassTeacherOversight={true}
       />
     </div>
+  )}
+</PageLoadingWrapper>
   );
 };

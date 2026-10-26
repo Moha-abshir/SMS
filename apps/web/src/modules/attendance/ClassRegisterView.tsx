@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface StudentRegisterRow {
   studentId: string;
@@ -78,7 +79,7 @@ export const ClassRegisterView: React.FC = () => {
     students: HistoryLearner[];
   } | null>(null);
 
-  // 1. Initial Load: Fetch teacher workstation data to determine assigned class
+  // 1. Initial Load: Fetch teacher workstation data & register together
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
@@ -88,7 +89,23 @@ export const ClassRegisterView: React.FC = () => {
 
         if (workstation?.classTeacher) {
           setAssignedClass(workstation.classTeacher);
-          setSelectedClassId(workstation.classTeacher.classId);
+          const classId = workstation.classTeacher.classId;
+          setSelectedClassId(classId);
+
+          // Pre-fetch register in initial load so student data is ready before loading finishes
+          if (classId) {
+            try {
+              const res = await apiClient.get(`/api/attendance/classes/${classId}/register?date=${selectedDate}`);
+              const regData = res.data?.data;
+              if (regData) {
+                const backendSubmitted = Boolean(regData.isSubmitted);
+                setIsSubmitted(backendSubmitted);
+                setStudents(regData.students || []);
+              }
+            } catch (regErr) {
+              console.warn('[ClassRegister] Failed to pre-fetch register:', regErr);
+            }
+          }
         } else {
           setAssignedClass(null);
           setSelectedClassId('');
@@ -315,32 +332,35 @@ export const ClassRegisterView: React.FC = () => {
     );
   });
 
-  if (!loading && !assignedClass) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto py-8">
-        <div className="bg-white/90 dark:bg-[#091326]/90 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-sky-100 dark:border-[#162b4d] shadow-glass text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] flex items-center justify-center mx-auto text-sky-600 dark:text-sky-400 shadow-xs">
-            <Users className="w-8 h-8" />
-          </div>
-          <div className="max-w-md mx-auto space-y-2">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">No Class Assigned Yet</h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-              You are currently not assigned as a Class Teacher to any class. The Deputy Head Teacher assigns class teachers via Class & Teacher Allocations.
-            </p>
-          </div>
-          <div className="pt-2">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 text-xs font-semibold border border-sky-100 dark:border-[#0c4a6e]">
-              <span className="w-2 h-2 rounded-full bg-sky-500" />
-              Role: Subject Specialist / Unassigned Class Teacher
+  return (
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Daily Class Register"
+      subtitle="Synchronizing roll call roster, student statuses, and attendance records..."
+      icon={Calendar}
+    >
+      {!assignedClass ? (
+        <div className="space-y-6 max-w-4xl mx-auto py-8">
+          <div className="bg-white/90 dark:bg-[#091326]/90 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-sky-100 dark:border-[#162b4d] shadow-glass text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] flex items-center justify-center mx-auto text-sky-600 dark:text-sky-400 shadow-xs">
+              <Users className="w-8 h-8" />
+            </div>
+            <div className="max-w-md mx-auto space-y-2">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">No Class Assigned Yet</h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                You are currently not assigned as a Class Teacher to any class. The Deputy Head Teacher assigns class teachers via Class & Teacher Allocations.
+              </p>
+            </div>
+            <div className="pt-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 text-xs font-semibold border border-sky-100 dark:border-[#0c4a6e]">
+                <span className="w-2 h-2 rounded-full bg-sky-500" />
+                Role: Subject Specialist / Unassigned Class Teacher
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3.5 max-w-5xl mx-auto pb-10">
+      ) : (
+        <div className="space-y-3.5 max-w-5xl mx-auto pb-10">
       {/* 1. Minimalist Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -554,12 +574,7 @@ export const ClassRegisterView: React.FC = () => {
 
           {/* 3. High-Density Mobile-First Roll Call Roster */}
           <div className="bg-white/90 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-[#1a335a] shadow-xs overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60">
-            {loading ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                Loading student register...
-              </div>
-            ) : filteredStudents.length === 0 ? (
+            {filteredStudents.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">
                 No students found matching current filters.
               </div>
@@ -847,6 +862,8 @@ export const ClassRegisterView: React.FC = () => {
         </div>
       )}
     </div>
+  )}
+</PageLoadingWrapper>
   );
 };
 export default ClassRegisterView;

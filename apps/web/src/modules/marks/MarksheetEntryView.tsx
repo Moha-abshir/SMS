@@ -11,6 +11,7 @@ import { apiClient } from '../../lib/apiClient';
 import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
 import { MarkSubmissionProgressTracker } from './MarkSubmissionProgressTracker';
 import { isJuniorSecondaryClass, isSubjectTeacherClass } from '@school/shared/types';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface SubjectMarkTask {
   examId: string;
@@ -185,7 +186,13 @@ export const MarksheetEntryView: React.FC = () => {
     workstation?.teacher?.role === 'DOS';
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <PageLoadingWrapper
+      isLoading={loading}
+      title="Subject Marksheet Entry"
+      subtitle="Loading assigned subject papers, CBC rubrics, and marking targets..."
+      icon={Award}
+    >
+      <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Top Header Card */}
       <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-glass">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -268,12 +275,7 @@ export const MarksheetEntryView: React.FC = () => {
         </div>
 
         {/* Papers List (Ordered Top to Bottom from Grade 4 to Grade 9) */}
-        {loading ? (
-          <div className="py-20 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d]">
-            <div className="w-9 h-9 border-3 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-xs text-slate-500 font-medium">Loading assigned marksheet papers...</p>
-          </div>
-        ) : filteredTasks.length === 0 ? (
+        {filteredTasks.length === 0 ? (
           <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
               <BookOpen className="w-6 h-6" />
@@ -430,6 +432,7 @@ export const MarksheetEntryView: React.FC = () => {
         onSubmitted={() => fetchData(false)}
       />
     </div>
+</PageLoadingWrapper>
   );
 };
 

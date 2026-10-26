@@ -22,6 +22,7 @@ import {
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 interface ClassSummary {
   classId: string;
@@ -335,21 +336,14 @@ export const AttendanceOversightView: React.FC = () => {
   const modalAbsentCount = registerRecords.filter((r) => r.status === 'ABSENT').length;
   const modalExcusedCount = registerRecords.filter((r) => r.status === 'EXCUSED').length;
 
-  if (initialLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-4 sm:space-y-6 max-w-6xl mx-auto"
+    <PageLoadingWrapper
+      isLoading={initialLoading}
+      title="Attendance Oversight"
+      subtitle="Synchronizing school-wide class registers, roll call metrics, and absentee notifications..."
+      icon={Users}
     >
+      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 bg-white/90 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 dark:border-[#1a335a] shadow-glass">
         <div>
@@ -1040,6 +1034,7 @@ export const AttendanceOversightView: React.FC = () => {
           </div>
         </Modal>
       )}
-    </motion.div>
+      </div>
+    </PageLoadingWrapper>
   );
 };
