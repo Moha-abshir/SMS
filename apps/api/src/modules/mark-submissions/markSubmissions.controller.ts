@@ -194,10 +194,20 @@ export class MarkSubmissionsController {
   static async lockSubmission(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const updated = await MarkSubmissionsService.lockSubmission(id, req.user!.id);
-      return res.status(200).json({ success: true, data: updated, message: 'Marksheet locked permanently' });
+      const updated = await MarkSubmissionsService.lockSubmission(id, req.user!.id, req.user?.roleName);
+      return res.status(200).json({ success: true, data: updated, message: 'Marksheet locked successfully' });
     } catch (error: any) {
       return res.status(400).json({ success: false, message: error.message || 'Failed to lock submission' });
+    }
+  }
+
+  static async unlockSubmission(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const updated = await MarkSubmissionsService.unlockSubmission(id, req.user!.id, req.user?.roleName);
+      return res.status(200).json({ success: true, data: updated, message: 'Marksheet unlocked for subject teacher editing' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to unlock submission' });
     }
   }
 }

@@ -453,11 +453,11 @@ export class MarkSubmissionsService {
     userRole?: string
   ) {
     const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    if (!isPrivileged) {
-      const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId);
-      if (!eligible) {
-        throw new Error('You are not authorized to enter or modify marks for this class and subject');
-      }
+    const isAllocatedSubjectTeacher = isPrivileged || (await this.verifyTeacherEligibility(examId, classId, subjectId, userId));
+    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
+
+    if (!isPrivileged && !isAllocatedSubjectTeacher && !isClassTeacher) {
+      throw new Error('You are not authorized to view or enter marks for this class and subject');
     }
 
     const [examination] = await db.select().from(examinations).where(eq(examinations.id, examId));
@@ -482,11 +482,40 @@ export class MarkSubmissionsService {
       );
 
     const currentStatus = submission?.status || 'DRAFT';
+
+    // If caller is Class Teacher (and NOT the allocated subject teacher and not privileged leadership)
+    if (isClassTeacher && !isAllocatedSubjectTeacher && !isPrivileged) {
+      if (currentStatus !== 'SUBMITTED' && currentStatus !== 'APPROVED' && currentStatus !== 'LOCKED') {
+        throw new Error('Subject teacher is currently marking. You can view marks once submitted.');
+      }
+    }
+
+    // Only allocated subject teacher (or privileged leadership) can edit, and only when draft/correction requested
     const canEdit =
-      currentStatus === 'DRAFT' ||
-      currentStatus === 'CORRECTION_REQUESTED' ||
-      !submission ||
-      isPrivileged;
+      (isAllocatedSubjectTeacher || isPrivileged) &&
+      (currentStatus === 'DRAFT' || currentStatus === 'CORRECTION_REQUESTED' || !submission);
+
+    // Fetch Class Teacher details (name & phone) to provide contact info to Subject Teacher
+    let classTeacherInfo: { id: string; firstName: string; lastName: string; phoneNumber?: string | null } | null = null;
+    if (targetClass.classTeacherId) {
+      const [ctUser] = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          phoneNumber: users.phoneNumber,
+        })
+        .from(users)
+        .where(eq(users.id, targetClass.classTeacherId));
+      if (ctUser) {
+        classTeacherInfo = {
+          id: ctUser.id,
+          firstName: ctUser.firstName,
+          lastName: ctUser.lastName,
+          phoneNumber: ctUser.phoneNumber || null,
+        };
+      }
+    }
 
     // Fetch active students in class
     const classStudents = await db
@@ -570,6 +599,7 @@ export class MarkSubmissionsService {
     return {
       examination,
       class: targetClass,
+      classTeacher: classTeacherInfo,
       subject,
       submission: submission || null,
       status: currentStatus,
@@ -900,13 +930,50 @@ export class MarkSubmissionsService {
     return updated;
   }
 
-  static async lockSubmission(id: string, reviewedById: string) {
+  static async lockSubmission(id: string, reviewedById: string, userRole?: string) {
+    const [sub] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+    if (!sub) {
+      throw new Error('Marksheet submission not found');
+    }
+
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(reviewedById, sub.classId);
+
+    if (!isPrivileged && !isClassTeacher) {
+      throw new Error('You are not authorized to regulate locking for this class marksheet');
+    }
+
     const [updated] = await db
       .update(markSubmissions)
       .set({
         status: 'LOCKED',
         reviewedById,
         reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(markSubmissions.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  static async unlockSubmission(id: string, reviewedById: string, userRole?: string) {
+    const [sub] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+    if (!sub) {
+      throw new Error('Marksheet submission not found');
+    }
+
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(reviewedById, sub.classId);
+
+    if (!isPrivileged && !isClassTeacher) {
+      throw new Error('You are not authorized to regulate locking for this class marksheet');
+    }
+
+    const [updated] = await db
+      .update(markSubmissions)
+      .set({
+        status: 'DRAFT',
         updatedAt: new Date(),
       })
       .where(eq(markSubmissions.id, id))

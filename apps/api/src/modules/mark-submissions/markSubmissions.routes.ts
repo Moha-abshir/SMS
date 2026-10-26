@@ -19,6 +19,7 @@ router.put('/classes/:classId/approve', authorizePermission('marks:approve'), Ma
 router.get('/:id/scores', MarkSubmissionsController.getSubmissionScores);
 router.put('/:id/approve', authorizePermission('marks:approve'), MarkSubmissionsController.approveSubmission);
 router.put('/:id/request-correction', authorizePermission('marks:approve'), MarkSubmissionsController.requestCorrection);
-router.put('/:id/lock', authorizePermission('marks:approve'), MarkSubmissionsController.lockSubmission);
+router.put('/:id/lock', MarkSubmissionsController.lockSubmission);
+router.put('/:id/unlock', MarkSubmissionsController.unlockSubmission);
 
 export default router;
