@@ -456,10 +456,6 @@ export const ClassExamProgressView: React.FC = () => {
                 >
                   {/* Left: Subject & Specialist Info */}
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
-                      {paper.subjectCode || paper.subjectName.slice(0, 3).toUpperCase()}
-                    </div>
-
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 truncate">
@@ -491,13 +487,19 @@ export const ClassExamProgressView: React.FC = () => {
                   <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-[#112038]">
                     {getStatusBadge(paper.status)}
 
-                    <button
-                      onClick={() => handleOpenSlideOver(paper)}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 dark:bg-[#0c1830] dark:hover:bg-[#122444] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#162b4d] flex items-center gap-1.5 cursor-pointer transition-colors"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Inspect Scores
-                    </button>
+                    {paper.status === 'NOT_STARTED' || paper.status === 'DRAFT' ? (
+                      <span className="px-3 py-1.5 rounded-xl text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800 shrink-0">
+                        Awaiting Submission
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenSlideOver(paper)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 dark:bg-[#0c1830] dark:hover:bg-[#122444] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#162b4d] flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Inspect & Regulate
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -515,6 +517,7 @@ export const ClassExamProgressView: React.FC = () => {
         examId={activeExamIdParam}
         classId={activeClassIdParam}
         subjectId={activeSubjectIdParam}
+        isClassTeacherOversight={true}
       />
     </div>
   );

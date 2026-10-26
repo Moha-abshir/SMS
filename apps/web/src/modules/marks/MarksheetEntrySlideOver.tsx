@@ -30,6 +30,12 @@ interface StudentScoreRow {
 interface MarksheetData {
   examination: any;
   class: any;
+  classTeacher?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber?: string | null;
+  } | null;
   subject: any;
   submission: any;
   status: 'NOT_STARTED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'CORRECTION_REQUESTED' | 'APPROVED' | 'LOCKED';
@@ -60,6 +66,7 @@ interface MarksheetEntrySlideOverProps {
   onSaved?: () => void;
   onSubmitted?: () => void;
   schoolSettings?: any;
+  isClassTeacherOversight?: boolean;
 }
 
 export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = ({
@@ -71,10 +78,12 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   onSaved,
   onSubmitted,
   schoolSettings,
+  isClassTeacherOversight = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [regulatingLock, setRegulatingLock] = useState(false);
 
   const [sheetData, setSheetData] = useState<MarksheetData | null>(null);
   const [studentRows, setStudentRows] = useState<StudentScoreRow[]>([]);
@@ -133,7 +142,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       ? sheetData.isJunior
       : isJuniorSecondaryClass(sheetData?.class);
 
-  const isEditable = sheetData?.canEdit ?? true;
+  const isEditable = isClassTeacherOversight ? false : (sheetData?.canEdit ?? true);
   const status = sheetData?.status || 'NOT_STARTED';
 
   // Real-time score change
@@ -282,6 +291,38 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
+  // Lock Marksheet (Class Teacher Oversight)
+  const handleLockSubmission = async () => {
+    if (!sheetData?.submission?.id || regulatingLock) return;
+    setRegulatingLock(true);
+    try {
+      await apiClient.put(`/api/mark-submissions/${sheetData.submission.id}/lock`);
+      toast.success('Marksheet locked successfully.');
+      if (onSaved) onSaved();
+      await fetchSheet();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to lock marksheet');
+    } finally {
+      setRegulatingLock(false);
+    }
+  };
+
+  // Unlock Marksheet (Class Teacher Oversight: returns to DRAFT so teacher can correct)
+  const handleUnlockSubmission = async () => {
+    if (!sheetData?.submission?.id || regulatingLock) return;
+    setRegulatingLock(true);
+    try {
+      await apiClient.put(`/api/mark-submissions/${sheetData.submission.id}/unlock`);
+      toast.success('Marksheet unlocked. Subject teacher can now edit scores.');
+      if (onSaved) onSaved();
+      await fetchSheet();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to unlock marksheet');
+    } finally {
+      setRegulatingLock(false);
+    }
+  };
+
   // Filtered rows for search
   const filteredRows = studentRows
     .map((row, originalIndex) => ({ row, originalIndex }))
@@ -360,14 +401,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setShowPrintModal(true)}
-                    disabled={studentRows.length === 0}
-                    className="p-2 rounded-xl border border-sky-200 dark:border-[#162b4d] text-slate-700 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-[#0d1c38] transition-colors cursor-pointer disabled:opacity-50"
-                    title="Print Marksheet"
-                  >
-                    <Printer className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                  </button>
-                  <button
                     onClick={onClose}
                     className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0f1f38] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   >
@@ -388,7 +421,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   {status === 'APPROVED' || status === 'LOCKED' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      Approved & Finalized
+                      {status === 'LOCKED' ? 'Locked' : 'Approved & Finalized'}
                     </span>
                   ) : status === 'SUBMITTED' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
@@ -408,7 +441,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   )}
                 </div>
 
-                {status === 'SUBMITTED' && (
+                {status === 'SUBMITTED' && !isClassTeacherOversight && (
                   <button
                     onClick={() => setShowCorrectionModal(true)}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all cursor-pointer"
@@ -418,6 +451,32 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   </button>
                 )}
               </div>
+
+              {/* Subject teacher submission notice with Class Teacher contact info */}
+              {!isClassTeacherOversight && (status === 'SUBMITTED' || status === 'LOCKED') && (
+                <div className="mt-3 p-3.5 rounded-xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <span className="font-bold text-sky-900 dark:text-sky-200">
+                      Marksheet Submitted to Class Teacher:
+                    </span>
+                    <p className="text-sky-800 dark:text-sky-300 mt-0.5 leading-relaxed font-medium">
+                      Marks have been submitted and are locked from further editing. If corrections are required, please contact your Class Teacher
+                      {sheetData?.classTeacher ? (
+                        <>
+                          {' '}
+                          <strong>
+                            ({sheetData.classTeacher.firstName} {sheetData.classTeacher.lastName})
+                          </strong>
+                          {sheetData.classTeacher.phoneNumber ? (
+                            <> at <strong className="underline decoration-sky-400">{sheetData.classTeacher.phoneNumber}</strong></>
+                          ) : null}
+                        </>
+                      ) : null}.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Deputy feedback alert if correction requested */}
               {status === 'CORRECTION_REQUESTED' && sheetData?.correctionReason && (
@@ -602,45 +661,107 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   Close
                 </button>
 
-                {isEditable && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleSaveDraft}
-                      disabled={loading || saving || studentRows.length === 0}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122244] border border-sky-300 dark:border-sky-800 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                    >
-                      {saving ? (
-                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
-                      ) : (
-                        <Save className="w-3.5 h-3.5 text-sky-600" />
-                      )}
-                      {saving ? 'Saving...' : 'Save Draft'}
-                    </button>
+                {isClassTeacherOversight ? (
+                  <div className="flex items-center gap-2">
+                    {status === 'SUBMITTED' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleUnlockSubmission}
+                          disabled={loading || regulatingLock}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+                          title="Unlock marksheet to return to draft for teacher corrections"
+                        >
+                          {regulatingLock ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : (
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          )}
+                          Unlock for Edit
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={loading || submitting || !isComplete}
-                      title={
-                        !isComplete
-                          ? `All marks must be entered before submitting (${scoredCount}/${studentRows.length} scored)`
-                          : 'Submit marksheet to Class Teacher & Deputy Head'
-                      }
-                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                        isComplete && !submitting && !loading
-                          ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/20 cursor-pointer active:scale-95'
-                          : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/60 cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      {submitting ? (
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                      ) : (
-                        <Send className="w-3.5 h-3.5" />
-                      )}
-                      {submitting ? 'Submitting...' : 'Submit for Review'}
-                    </button>
-                  </>
+                        <button
+                          type="button"
+                          onClick={handleLockSubmission}
+                          disabled={loading || regulatingLock}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+                          title="Lock marksheet to finalize"
+                        >
+                          {regulatingLock ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                          ) : (
+                            <Lock className="w-3.5 h-3.5" />
+                          )}
+                          Lock Marksheet
+                        </button>
+                      </>
+                    )}
+
+                    {status === 'LOCKED' && (
+                      <button
+                        type="button"
+                        onClick={handleUnlockSubmission}
+                        disabled={loading || regulatingLock}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-95"
+                        title="Unlock marksheet to allow teacher corrections"
+                      >
+                        {regulatingLock ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        )}
+                        Unlock Marksheet
+                      </button>
+                    )}
+
+                    {status === 'APPROVED' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Approved by Deputy Head
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  isEditable && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={loading || saving || studentRows.length === 0}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122244] border border-sky-300 dark:border-sky-800 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      >
+                        {saving ? (
+                          <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <Save className="w-3.5 h-3.5 text-sky-600" />
+                        )}
+                        {saving ? 'Saving...' : 'Save Draft'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={loading || submitting || !isComplete}
+                        title={
+                          !isComplete
+                            ? `All marks must be entered before submitting (${scoredCount}/${studentRows.length} scored)`
+                            : 'Submit marksheet to Class Teacher & Deputy Head'
+                        }
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                          isComplete && !submitting && !loading
+                            ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/20 cursor-pointer active:scale-95'
+                            : 'bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/60 cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        {submitting ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
+                        {submitting ? 'Submitting...' : 'Submit for Review'}
+                      </button>
+                    </>
+                  )
                 )}
               </div>
             </div>
