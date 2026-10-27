@@ -22,6 +22,50 @@ export class MarkSubmissionsController {
     }
   }
 
+  static async submitClassToDeputy(req: Request, res: Response) {
+    try {
+      const { classId } = req.params;
+      const { examId } = req.body;
+      const userId = req.user!.id;
+      const userRole = req.user?.roleName;
+
+      if (!examId) {
+        return res.status(400).json({ success: false, message: 'examId is required in request body' });
+      }
+
+      const result = await MarkSubmissionsService.submitClassToDeputy(classId, examId, userId, userRole);
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: `Successfully submitted class marksheet (${result.length} subject papers) to Deputy Head for final review and locking.`,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to submit class marksheet to Deputy Head' });
+    }
+  }
+
+  static async lockClassSubmissions(req: Request, res: Response) {
+    try {
+      const { classId } = req.params;
+      const { examId } = req.body;
+      const reviewedById = req.user!.id;
+      const userRole = req.user?.roleName;
+
+      if (!examId) {
+        return res.status(400).json({ success: false, message: 'examId is required in request body' });
+      }
+
+      const result = await MarkSubmissionsService.lockClassSubmissions(classId, examId, reviewedById, userRole);
+      return res.status(200).json({
+        success: true,
+        data: result,
+        message: `Successfully permanently locked ${result.length} marksheet(s) for this class.`,
+      });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to lock class submissions' });
+    }
+  }
+
   static async approveClassSubmissions(req: Request, res: Response) {
     try {
       const { classId } = req.params;

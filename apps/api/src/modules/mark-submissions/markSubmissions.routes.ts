@@ -15,6 +15,8 @@ router.post('/request-correction-by-teacher', MarkSubmissionsController.requestC
 // Deputy Review & Approval Endpoints
 router.get('/', MarkSubmissionsController.getSubmissions);
 router.get('/classes-overview', MarkSubmissionsController.getClassesReviewOverview);
+router.put('/classes/:classId/submit-to-deputy', MarkSubmissionsController.submitClassToDeputy);
+router.put('/classes/:classId/lock', authorizePermission('marks:approve'), MarkSubmissionsController.lockClassSubmissions);
 router.put('/classes/:classId/approve', authorizePermission('marks:approve'), MarkSubmissionsController.approveClassSubmissions);
 router.get('/:id/scores', MarkSubmissionsController.getSubmissionScores);
 router.put('/:id/approve', authorizePermission('marks:approve'), MarkSubmissionsController.approveSubmission);

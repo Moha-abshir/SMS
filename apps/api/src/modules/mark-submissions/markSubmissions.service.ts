@@ -13,6 +13,7 @@ import {
   calculateJuniorPoints,
   isJuniorSecondaryClass,
   eq,
+  ne,
   and,
   isNull,
   desc,
@@ -197,17 +198,23 @@ export class MarkSubmissionsService {
       });
 
       const totalExpected = classSubjects.length;
-      const approvedCount = papers.filter((p) => p.status === 'APPROVED' || p.status === 'LOCKED').length;
+      const lockedCount = papers.filter((p) => p.status === 'LOCKED').length;
+      const approvedCount = papers.filter((p) => p.status === 'APPROVED').length;
+      const underReviewCount = papers.filter((p) => p.status === 'UNDER_REVIEW').length;
       const submittedCount = papers.filter((p) => p.status === 'SUBMITTED').length;
       const correctionCount = papers.filter((p) => p.status === 'CORRECTION_REQUESTED').length;
 
-      let overallStatus: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'CORRECTION_REQUESTED' = 'PENDING';
-      if (correctionCount > 0) {
-        overallStatus = 'CORRECTION_REQUESTED';
-      } else if (totalExpected > 0 && approvedCount === totalExpected) {
-        overallStatus = 'APPROVED';
-      } else if (totalExpected > 0 && (approvedCount + submittedCount) === totalExpected) {
+      const isPermanentlyLocked = totalExpected > 0 && lockedCount === totalExpected;
+      const isSubmittedToDeputy =
+        totalExpected > 0 && (lockedCount + approvedCount + underReviewCount) === totalExpected;
+
+      let overallStatus: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'LOCKED' | 'CORRECTION_REQUESTED' = 'PENDING';
+      if (isPermanentlyLocked) {
+        overallStatus = 'LOCKED';
+      } else if (isSubmittedToDeputy) {
         overallStatus = 'SUBMITTED';
+      } else if (correctionCount > 0) {
+        overallStatus = 'CORRECTION_REQUESTED';
       } else {
         overallStatus = 'PENDING';
       }
@@ -218,11 +225,108 @@ export class MarkSubmissionsService {
         totalExpected,
         submittedCount,
         approvedCount,
+        lockedCount,
+        underReviewCount,
         correctionCount,
         overallStatus,
+        isSubmittedToDeputy,
+        isPermanentlyLocked,
         papers,
       };
     });
+  }
+
+  static async submitClassToDeputy(classId: string, examId: string, userId: string, userRole?: string) {
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
+
+    if (!isPrivileged && !isClassTeacher) {
+      throw new Error('Only the assigned Class Teacher can submit the class marksheet to the Deputy Head');
+    }
+
+    const [cls] = await db.select().from(classes).where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
+    if (!cls) {
+      throw new Error('Class stream not found');
+    }
+
+    const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt));
+    const classSubjects = allSubjects.filter(
+      (sub) =>
+        sub.levelCategory === cls.levelCategory ||
+        (cls.levelCategory === 'PRIMARY' &&
+          (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
+    );
+
+    const existingSubs = await db
+      .select()
+      .from(markSubmissions)
+      .where(
+        and(
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.examId, examId),
+          isNull(markSubmissions.deletedAt)
+        )
+      );
+
+    const subMap = new Map<string, any>();
+    existingSubs.forEach((s) => subMap.set(s.subjectId, s));
+
+    const missingSubjects = classSubjects.filter((s) => !subMap.has(s.id));
+    if (missingSubjects.length > 0) {
+      throw new Error(`Cannot submit to Deputy: ${missingSubjects.length} subject(s) have not been submitted yet.`);
+    }
+
+    const invalidSubs = existingSubs.filter(
+      (s) => s.status === 'DRAFT' || s.status === 'CORRECTION_REQUESTED'
+    );
+    if (invalidSubs.length > 0) {
+      throw new Error('Cannot submit to Deputy: All subjects must be submitted. Some subjects are still in draft or pending correction.');
+    }
+
+    const updated = await db
+      .update(markSubmissions)
+      .set({
+        status: 'UNDER_REVIEW',
+        submittedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.examId, examId),
+          ne(markSubmissions.status, 'LOCKED'),
+          isNull(markSubmissions.deletedAt)
+        )
+      )
+      .returning();
+
+    return updated;
+  }
+
+  static async lockClassSubmissions(classId: string, examId: string, reviewedById: string, userRole?: string) {
+    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    if (!isPrivileged) {
+      throw new Error('Only the Deputy Head or Head Teacher is authorized to permanently lock class marksheets');
+    }
+
+    const updated = await db
+      .update(markSubmissions)
+      .set({
+        status: 'LOCKED',
+        reviewedById,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(markSubmissions.classId, classId),
+          eq(markSubmissions.examId, examId),
+          isNull(markSubmissions.deletedAt)
+        )
+      )
+      .returning();
+
+    return updated;
   }
 
   static async approveClassSubmissions(classId: string, examId: string, reviewedById: string) {
