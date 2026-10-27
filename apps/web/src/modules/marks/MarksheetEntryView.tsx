@@ -368,7 +368,12 @@ export const MarksheetEntryView: React.FC = () => {
 
                     {/* Status Pill */}
                     <div className="shrink-0">
-                      {task.status === 'APPROVED' || task.status === 'LOCKED' ? (
+                      {task.status === 'LOCKED' ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                          Permanently Locked
+                        </span>
+                      ) : task.status === 'APPROVED' ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                           Approved

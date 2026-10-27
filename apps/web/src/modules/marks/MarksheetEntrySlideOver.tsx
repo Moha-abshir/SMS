@@ -452,10 +452,15 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                       </span>
 
                       {/* Submission status badge */}
-                      {status === 'APPROVED' || status === 'LOCKED' ? (
+                      {status === 'LOCKED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                          Permanently Locked
+                        </span>
+                      ) : status === 'APPROVED' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          {status === 'LOCKED' ? 'Locked' : 'Approved & Finalized'}
+                          Approved & Finalized
                         </span>
                       ) : status === 'SUBMITTED' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
@@ -526,8 +531,23 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                 </div>
               ) : (
                 <>
+                  {/* Subject teacher permanently locked banner */}
+                  {!isClassTeacherOversight && status === 'LOCKED' && (
+                    <div className="p-3.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5">
+                      <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="text-xs">
+                        <span className="font-bold text-emerald-950 dark:text-emerald-100">
+                          Marksheet Permanently Locked:
+                        </span>
+                        <p className="text-emerald-800 dark:text-emerald-300 mt-0.5 leading-relaxed font-medium">
+                          This marksheet has been submitted by the Class Teacher to the Deputy Head and is under permanent lock. All learner scores are final, archived, and correction requests can no longer be sent.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Subject teacher submission notice with Class Teacher contact info */}
-                  {!isClassTeacherOversight && (status === 'SUBMITTED' || status === 'LOCKED') && (
+                  {!isClassTeacherOversight && status === 'SUBMITTED' && (
                     <div className="p-3.5 rounded-xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 flex items-start justify-between gap-3 flex-wrap">
                       <div className="flex items-start gap-2.5">
                         <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
@@ -848,7 +868,12 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                           </a>
                         )}
 
-                        {(status === 'SUBMITTED' || status === 'LOCKED' || status === 'CORRECTION_REQUESTED') && (
+                        {status === 'LOCKED' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold">
+                            <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                            Permanently Locked (Submitted to Deputy)
+                          </span>
+                        ) : (status === 'SUBMITTED' || status === 'CORRECTION_REQUESTED') ? (
                           <button
                             type="button"
                             onClick={handleUnlockSubmission}
@@ -863,7 +888,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                             )}
                             Unlock for Correction
                           </button>
-                        )}
+                        ) : null}
 
                         {status === 'DRAFT' && (
                           <button
@@ -880,13 +905,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                             )}
                             Lock Marksheet
                           </button>
-                        )}
-
-                        {status === 'APPROVED' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            Approved & Locked by Deputy
-                          </span>
                         )}
                       </div>
                     ) : (
