@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
+import { Modal } from '../../components/Modal';
 import { isSelfContainedClass, isJuniorSecondaryClass } from '@school/shared/types';
 
 interface SubjectPaperProgress {
@@ -43,6 +44,7 @@ export const ClassExamProgressView: React.FC = () => {
   const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [classOverview, setClassOverview] = useState<any>(null);
   const [submittingToDeputy, setSubmittingToDeputy] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Search parameters for inspecting mark sheet in slide-over
@@ -195,20 +197,26 @@ export const ClassExamProgressView: React.FC = () => {
     fetchClassProgress();
   };
 
-  // Submit entire class to Deputy Head
-  const handleSubmitAllToDeputy = async () => {
+  // Open confirmation warning modal before submitting to Deputy Head
+  const handleOpenConfirmSubmit = () => {
     if (!isAllSubmittedOrApproved) {
       toast.warning('All subject teachers must submit their marks before the whole class can be forwarded to the Deputy Head.');
       return;
     }
-    if (!assignedClass?.classId || !selectedExamId) return;
+    setConfirmModalOpen(true);
+  };
+
+  // Confirm and submit entire class to Deputy Head (enters permanent lock state)
+  const handleConfirmSubmitToDeputy = async () => {
+    if (!assignedClass?.classId || !selectedExamId || submittingToDeputy) return;
 
     try {
       setSubmittingToDeputy(true);
       const res = await apiClient.put(`/api/mark-submissions/classes/${assignedClass.classId}/submit-to-deputy`, {
         examId: selectedExamId,
       });
-      toast.success(res.data?.message || `Class marksheet for ${assignedClass.className} successfully forwarded to the Deputy Head for final review!`);
+      toast.success(res.data?.message || `Class marksheet for ${assignedClass.className} permanently locked and submitted to Deputy Head!`);
+      setConfirmModalOpen(false);
       await fetchClassProgress();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to submit class marksheet to Deputy Head');
@@ -325,9 +333,7 @@ export const ClassExamProgressView: React.FC = () => {
 
             <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
               {isPermanentlyLocked
-                ? 'Class Marksheet Permanently Locked'
-                : isSubmittedToDeputy
-                ? 'Class Marksheet Submitted to Deputy Head'
+                ? 'Class Marksheet Permanently Locked & Submitted'
                 : isAllSubmittedOrApproved
                 ? 'All Subject Marksheets Submitted!'
                 : `${totalFinishedCount} of ${totalSubjects} Subjects Submitted`}
@@ -335,12 +341,10 @@ export const ClassExamProgressView: React.FC = () => {
 
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
               {isPermanentlyLocked
-                ? 'All examination scores for this class have been reviewed and permanently locked by the Deputy Head. No further modifications can be made.'
-                : isSubmittedToDeputy
-                ? 'All subject marksheets for this class have been successfully forwarded to the Deputy Head. Awaiting final review and permanent lock.'
+                ? 'All examination marks for this class have been submitted to the Deputy Head and are under permanent lock. Scores are final and archived.'
                 : isAllSubmittedOrApproved
-                ? 'All subject teachers have submitted their marks for this class. You can now submit the entire class marksheet to the Deputy Head for review and lock.'
-                : `Waiting for ${totalSubjects - totalFinishedCount} subject teacher(s) to finalize and submit marks before final submission to Deputy Head.`}
+                ? 'All subject teachers have submitted their marks for this class. You can now submit the entire class marksheet to the Deputy Head.'
+                : `Waiting for ${totalSubjects - totalFinishedCount} subject teacher(s) to finalize and submit marks before submission to Deputy Head.`}
             </p>
           </div>
 
@@ -349,16 +353,11 @@ export const ClassExamProgressView: React.FC = () => {
             {isPermanentlyLocked ? (
               <div className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs">
                 <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                Permanently Locked
-              </div>
-            ) : isSubmittedToDeputy ? (
-              <div className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shadow-xs">
-                <CheckCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                Submitted to Deputy Head
+                Permanently Locked & Submitted
               </div>
             ) : (
               <button
-                onClick={handleSubmitAllToDeputy}
+                onClick={handleOpenConfirmSubmit}
                 disabled={!isAllSubmittedOrApproved || submittingToDeputy}
                 className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs transition-all ${
                   isAllSubmittedOrApproved
@@ -634,6 +633,62 @@ export const ClassExamProgressView: React.FC = () => {
         subjectId={activeSubjectIdParam}
         isClassTeacherOversight={true}
       />
+
+      {/* Permanent Lock Warning & Confirmation Modal for Class Teacher */}
+      <Modal
+        isOpen={confirmModalOpen}
+        onClose={() => !submittingToDeputy && setConfirmModalOpen(false)}
+        title="Submit Class Marksheet to Deputy Head"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs space-y-1.5">
+              <h4 className="font-bold text-amber-900 dark:text-amber-200">
+                Final Action: Permanent Lock Warning
+              </h4>
+              <p className="text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                Submitting this class marksheet to the Deputy Head is <strong>final</strong> and immediately places the marksheet into a <strong>permanent lock state</strong>.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-amber-800 dark:text-amber-300">
+                <li>All subject scores for <strong>{assignedClass?.className}</strong> will become strictly final and immutable.</li>
+                <li>Neither subject teachers nor you will be able to make further edits or request score corrections.</li>
+                <li>The Deputy Head will receive the final verified records immediately.</li>
+              </ul>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Please confirm that you have inspected all {totalSubjects} learning areas and that all learner marks are complete and accurate.
+          </p>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-[#162b4d]">
+            <button
+              type="button"
+              onClick={() => setConfirmModalOpen(false)}
+              disabled={submittingToDeputy}
+              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-[#0c1830] hover:bg-slate-200 dark:hover:bg-[#122444] text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
+            >
+              Cancel & Review Further
+            </button>
+
+            <button
+              type="button"
+              onClick={handleConfirmSubmitToDeputy}
+              disabled={submittingToDeputy}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              {submittingToDeputy ? (
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+              ) : (
+                <Lock className="w-3.5 h-3.5" />
+              )}
+              Confirm & Submit to Deputy
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )}
 </PageLoadingWrapper>
