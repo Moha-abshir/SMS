@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Layers, CheckCircle2, AlertCircle, Clock, Send, Users,
-  BookOpen, Search, Eye, AlertTriangle, ShieldCheck, CheckCheck, RefreshCw, Calendar, Phone
+  BookOpen, Search, Eye, AlertTriangle, ShieldCheck, CheckCheck, RefreshCw, Calendar, Phone, Lock
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -156,15 +156,25 @@ export const ClassExamProgressView: React.FC = () => {
 
   // Overall statistics
   const totalSubjects = papers.length;
-  const approvedCount = papers.filter((p) => p.status === 'APPROVED' || p.status === 'LOCKED').length;
+  const lockedCount = papers.filter((p) => p.status === 'LOCKED').length;
+  const underReviewCount = papers.filter((p) => p.status === 'UNDER_REVIEW').length;
+  const approvedCount = papers.filter((p) => p.status === 'APPROVED').length;
   const submittedCount = papers.filter((p) => p.status === 'SUBMITTED').length;
   const draftCount = papers.filter((p) => p.status === 'DRAFT').length;
   const pendingCount = papers.filter((p) => p.status === 'NOT_STARTED').length;
   const correctionCount = papers.filter((p) => p.status === 'CORRECTION_REQUESTED').length;
 
+  const isPermanentlyLocked = totalSubjects > 0 && lockedCount === totalSubjects;
+  const isSubmittedToDeputy =
+    totalSubjects > 0 && (lockedCount + approvedCount + underReviewCount) === totalSubjects;
+
   const isAllSubmittedOrApproved =
-    totalSubjects > 0 && (approvedCount + submittedCount) === totalSubjects && correctionCount === 0;
-  const completionPercent = totalSubjects > 0 ? Math.round(((approvedCount + submittedCount) / totalSubjects) * 100) : 0;
+    totalSubjects > 0 &&
+    (lockedCount + approvedCount + underReviewCount + submittedCount) === totalSubjects &&
+    correctionCount === 0;
+
+  const totalFinishedCount = lockedCount + approvedCount + underReviewCount + submittedCount;
+  const completionPercent = totalSubjects > 0 ? Math.round((totalFinishedCount / totalSubjects) * 100) : 0;
 
   // Open inspection slide-over
   const handleOpenSlideOver = (paper: SubjectPaperProgress) => {
@@ -191,14 +201,15 @@ export const ClassExamProgressView: React.FC = () => {
       toast.warning('All subject teachers must submit their marks before the whole class can be forwarded to the Deputy Head.');
       return;
     }
+    if (!assignedClass?.classId || !selectedExamId) return;
 
     try {
       setSubmittingToDeputy(true);
-      toast.info('Forwarding class marksheet to Deputy Head...');
-      // Simulated or backend batch trigger
-      await new Promise((res) => setTimeout(res, 800));
-      toast.success(`Class marksheet for ${assignedClass.className} successfully forwarded to the Deputy Head for final review!`);
-      fetchClassProgress();
+      const res = await apiClient.put(`/api/mark-submissions/classes/${assignedClass.classId}/submit-to-deputy`, {
+        examId: selectedExamId,
+      });
+      toast.success(res.data?.message || `Class marksheet for ${assignedClass.className} successfully forwarded to the Deputy Head for final review!`);
+      await fetchClassProgress();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to submit class marksheet to Deputy Head');
     } finally {
@@ -313,36 +324,56 @@ export const ClassExamProgressView: React.FC = () => {
             </div>
 
             <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              {isAllSubmittedOrApproved
+              {isPermanentlyLocked
+                ? 'Class Marksheet Permanently Locked'
+                : isSubmittedToDeputy
+                ? 'Class Marksheet Submitted to Deputy Head'
+                : isAllSubmittedOrApproved
                 ? 'All Subject Marksheets Submitted!'
-                : `${submittedCount + approvedCount} of ${totalSubjects} Subjects Submitted`}
+                : `${totalFinishedCount} of ${totalSubjects} Subjects Submitted`}
             </h2>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-              {isAllSubmittedOrApproved
-                ? 'All subject teachers have submitted their marks for this class. You can now submit the entire class marksheet to the Deputy Head for moderation.'
-                : `Waiting for ${totalSubjects - (submittedCount + approvedCount)} subject teacher(s) to finalize and submit marks before final submission to Deputy Head.`}
+              {isPermanentlyLocked
+                ? 'All examination scores for this class have been reviewed and permanently locked by the Deputy Head. No further modifications can be made.'
+                : isSubmittedToDeputy
+                ? 'All subject marksheets for this class have been successfully forwarded to the Deputy Head. Awaiting final review and permanent lock.'
+                : isAllSubmittedOrApproved
+                ? 'All subject teachers have submitted their marks for this class. You can now submit the entire class marksheet to the Deputy Head for review and lock.'
+                : `Waiting for ${totalSubjects - totalFinishedCount} subject teacher(s) to finalize and submit marks before final submission to Deputy Head.`}
             </p>
           </div>
 
           {/* Action Button */}
           <div className="shrink-0">
-            <button
-              onClick={handleSubmitAllToDeputy}
-              disabled={!isAllSubmittedOrApproved || submittingToDeputy}
-              className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs transition-all ${
-                isAllSubmittedOrApproved
-                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-102 active:scale-98 cursor-pointer'
-                  : 'bg-slate-100 dark:bg-[#0c1830] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#162b4d] cursor-not-allowed opacity-75'
-              }`}
-            >
-              {submittingToDeputy ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-              Submit Entire Class to Deputy Head
-            </button>
+            {isPermanentlyLocked ? (
+              <div className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs">
+                <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Permanently Locked
+              </div>
+            ) : isSubmittedToDeputy ? (
+              <div className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shadow-xs">
+                <CheckCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                Submitted to Deputy Head
+              </div>
+            ) : (
+              <button
+                onClick={handleSubmitAllToDeputy}
+                disabled={!isAllSubmittedOrApproved || submittingToDeputy}
+                className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs transition-all ${
+                  isAllSubmittedOrApproved
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-102 active:scale-98 cursor-pointer'
+                    : 'bg-slate-100 dark:bg-[#0c1830] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#162b4d] cursor-not-allowed opacity-75'
+                }`}
+              >
+                {submittingToDeputy ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Submit Entire Class to Deputy Head
+              </button>
+            )}
           </div>
         </div>
 
@@ -353,13 +384,13 @@ export const ClassExamProgressView: React.FC = () => {
               Stream Completion Track
             </span>
             <span className="font-mono text-sky-600 dark:text-sky-400">
-              {submittedCount + approvedCount} / {totalSubjects} ({completionPercent}%)
+              {totalFinishedCount} / {totalSubjects} ({completionPercent}%)
             </span>
           </div>
           <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-[#0c1830] p-0.5 border border-sky-100/60 dark:border-[#162b4d] overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                isAllSubmittedOrApproved
+                isPermanentlyLocked || isSubmittedToDeputy || isAllSubmittedOrApproved
                   ? 'bg-emerald-500'
                   : 'bg-gradient-to-r from-sky-500 to-indigo-600'
               }`}
@@ -373,12 +404,21 @@ export const ClassExamProgressView: React.FC = () => {
           <span className="px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-[#0c1830] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-[#162b4d] font-semibold text-[11px]">
             Total Subjects: <strong className="text-slate-900 dark:text-white font-bold">{totalSubjects}</strong>
           </span>
-          <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 font-semibold text-[11px]">
-            Approved: <strong>{approvedCount}</strong>
-          </span>
-          <span className="px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 font-semibold text-[11px]">
-            Submitted: <strong>{submittedCount}</strong>
-          </span>
+          {lockedCount > 0 && (
+            <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 font-semibold text-[11px]">
+              🔒 Locked: <strong>{lockedCount}</strong>
+            </span>
+          )}
+          {underReviewCount > 0 && (
+            <span className="px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 font-semibold text-[11px]">
+              Submitted to Deputy: <strong>{underReviewCount}</strong>
+            </span>
+          )}
+          {submittedCount > 0 && (
+            <span className="px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 font-semibold text-[11px]">
+              Submitted: <strong>{submittedCount}</strong>
+            </span>
+          )}
           {draftCount > 0 && (
             <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 font-semibold text-[11px]">
               In Draft: <strong>{draftCount}</strong>
