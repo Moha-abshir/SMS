@@ -199,39 +199,24 @@ export class MarkSubmissionsService {
 
       const totalExpected = classSubjects.length;
       const lockedCount = papers.filter((p) => p.status === 'LOCKED').length;
-      const approvedCount = papers.filter((p) => p.status === 'APPROVED').length;
-      const underReviewCount = papers.filter((p) => p.status === 'UNDER_REVIEW').length;
-      const submittedCount = papers.filter((p) => p.status === 'SUBMITTED').length;
-      const correctionCount = papers.filter((p) => p.status === 'CORRECTION_REQUESTED').length;
+      const isReceived = totalExpected > 0 && lockedCount === totalExpected;
 
-      const isPermanentlyLocked = totalExpected > 0 && lockedCount === totalExpected;
-      const isSubmittedToDeputy =
-        totalExpected > 0 && (lockedCount + approvedCount + underReviewCount) === totalExpected;
-
-      let overallStatus: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'LOCKED' | 'CORRECTION_REQUESTED' = 'PENDING';
-      if (isPermanentlyLocked) {
-        overallStatus = 'LOCKED';
-      } else if (isSubmittedToDeputy) {
-        overallStatus = 'SUBMITTED';
-      } else if (correctionCount > 0) {
-        overallStatus = 'CORRECTION_REQUESTED';
-      } else {
-        overallStatus = 'PENDING';
-      }
+      const overallStatus: 'AWAITING' | 'RECEIVED' = isReceived ? 'RECEIVED' : 'AWAITING';
 
       return {
         class: cls,
         classTeacher: classTeacher?.id ? classTeacher : null,
         totalExpected,
-        submittedCount,
-        approvedCount,
         lockedCount,
-        underReviewCount,
-        correctionCount,
+        isReceived,
+        isPermanentlyLocked: isReceived,
         overallStatus,
-        isSubmittedToDeputy,
-        isPermanentlyLocked,
-        papers,
+        papers: isReceived
+          ? papers
+          : papers.map((p) => ({
+              ...p,
+              submissionId: null, // Gate access: deputy cannot view marks until CT submits
+            })),
       };
     });
   }
@@ -286,15 +271,16 @@ export class MarkSubmissionsService {
     const updated = await db
       .update(markSubmissions)
       .set({
-        status: 'UNDER_REVIEW',
+        status: 'LOCKED',
         submittedAt: new Date(),
+        reviewedAt: new Date(),
+        reviewedById: userId,
         updatedAt: new Date(),
       })
       .where(
         and(
           eq(markSubmissions.classId, classId),
           eq(markSubmissions.examId, examId),
-          ne(markSubmissions.status, 'LOCKED'),
           isNull(markSubmissions.deletedAt)
         )
       )
@@ -1063,7 +1049,11 @@ export class MarkSubmissionsService {
       throw new Error('Marksheet submission not found');
     }
 
-    if (sub.status !== 'SUBMITTED' && sub.status !== 'LOCKED') {
+    if (sub.status === 'LOCKED') {
+      throw new Error('This marksheet has been submitted to the Deputy Head and is under permanent lock. Correction requests can no longer be sent.');
+    }
+
+    if (sub.status !== 'SUBMITTED') {
       throw new Error(`Correction requests can only be sent for submitted marksheets (current: ${sub.status})`);
     }
 
