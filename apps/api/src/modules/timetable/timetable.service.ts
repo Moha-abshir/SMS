@@ -599,6 +599,7 @@ export class TimetableService {
       totalRequiredLessons: genResult.totalRequiredLessons,
       totalPlacedLessons: genResult.totalPlacedLessons,
       unplacedLessons: genResult.unplacedLessons,
+      teacherSummaries: genResult.teacherSummaries,
       message:
         genResult.unplacedLessons.length === 0
           ? `Successfully generated 100% full timetable schedule (${generatedSlots.length} periods) with zero free periods.`
