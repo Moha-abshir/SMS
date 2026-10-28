@@ -1559,7 +1559,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
         onConfirm={handleAuthorizeAndGenerate}
         isSubmitting={isAuthorizing}
         title="Authorize School Timetable Generation"
-        warningMessage="Generating or updating the live timetable will refresh scheduled periods across all Grades 4–9 and staff schedules. This action requires your Deputy Head Teacher password."
+        warningMessage="Authorization is required before generating the timetable."
       />
 
       {/* PRE-GENERATION FREE TIME WARNING MODAL */}
