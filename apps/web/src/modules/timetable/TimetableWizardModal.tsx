@@ -373,28 +373,46 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   const handleAuthorizeAndGenerate = async (password: string) => {
     setIsAuthorizing(true);
     try {
-      const genRes = await apiClient.post('/api/timetable/generate', {
-        academicYear,
-        term,
-        password,
-      });
+      const genRes = await apiClient.post(
+        '/api/timetable/generate',
+        {
+          academicYear,
+          term,
+          password,
+        },
+        {
+          headers: {
+            'X-Skip-Auth-Redirect': 'true',
+          },
+        }
+      );
       const data = genRes.data?.data;
       setIsPasswordModalOpen(false);
 
       if (data?.unplacedLessons && data.unplacedLessons.length > 0) {
+        // Close the wizard setup dialog so user isn't trapped in the wizard
+        onClose();
+        // Immediately notify parent view to load the freshly generated timetable
+        onGenerated();
+        // Open the warnings report dialog cleanly at top level
         setGenerationReportData({
           isOpen: true,
           totalSlots: data.count || data.totalSlots || 0,
           totalRequired: data.totalRequiredLessons || 0,
           unplacedLessons: data.unplacedLessons,
         });
+        toast.warn(
+          `Timetable generated with ${data.count} lessons. ${data.unplacedLessons.length} lessons could not be scheduled due to constraints.`
+        );
       } else {
         toast.success(genRes.data?.message || 'Timetable generated with 100% full coverage (0 free periods)!');
         onClose();
         onGenerated();
       }
     } catch (err: any) {
+      console.error('Error generating timetable:', err);
       const msg = err.response?.data?.message || err.message || 'Failed to generate timetable';
+      toast.error(msg);
       throw new Error(msg);
     } finally {
       setIsAuthorizing(false);
@@ -649,22 +667,28 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     setMaxStepReached((prev) => Math.max(prev, next));
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !underAllocatedModalData.isOpen && !generationReportData.isOpen && !isPasswordModalOpen) {
+    return null;
+  }
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-        {/* Backdrop overlay */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
-        />
+    <>
+      <AnimatePresence>
+        {isOpen && (
+          <div key="timetable-wizard-modal-root" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+            {/* Backdrop overlay */}
+            <motion.div
+              key="timetable-wizard-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
+            />
 
-        {/* Modal Window Container */}
-        <motion.div
+            {/* Modal Window Container */}
+            <motion.div
+              key="timetable-wizard-dialog"
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -1365,6 +1389,14 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                             const teacherId = a.teacher?.id || a.allocation?.teacherId || a.teacherId;
                             return teacherId === leader.id;
                           });
+                          const leaderTotalLessons = leaderAllocations.reduce((sum: number, a: any) => {
+                            const cId = a.classId || a.class?.id;
+                            const sId = a.subjectId || a.subject?.id;
+                            const sub = subjectsList.find((s: any) => s.id === sId) || a.subject;
+                            if (!cId || !sub) return sum;
+                            const req = getSubjectReq(cId, sub);
+                            return sum + (req?.lessons || 0);
+                          }, 0);
 
                           return (
                             <div
@@ -1381,9 +1413,9 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                                   </span>
                                 </div>
                                 <div className="text-right">
-                                  <span className="text-[10px] text-slate-400 block">Allocated Subjects</span>
+                                  <span className="text-[10px] text-slate-400 block">Assigned Lessons</span>
                                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    {leaderAllocations.length} class subjects
+                                    {leaderTotalLessons} periods ({leaderAllocations.length} subjects)
                                   </span>
                                 </div>
                               </div>
@@ -1439,6 +1471,15 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                                   <span className="text-[10px] text-slate-400 font-medium">lessons</span>
                                 </div>
                               </div>
+
+                              {typeof currentLimit === 'number' && currentLimit > 0 && currentLimit < leaderTotalLessons && (
+                                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-300">
+                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                                  <span>
+                                    Cap ({currentLimit} lessons) is lower than assigned subjects ({leaderTotalLessons} lessons). {leaderTotalLessons - currentLimit} lesson(s) will be unscheduled.
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1552,6 +1593,8 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
           </div>
         </motion.div>
       </div>
+        )}
+      </AnimatePresence>
 
       <PasswordConfirmModal
         isOpen={isPasswordModalOpen}
@@ -1565,8 +1608,9 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
       {/* PRE-GENERATION FREE TIME WARNING MODAL */}
       <AnimatePresence>
         {underAllocatedModalData.isOpen && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div key="under-allocated-modal-wrapper" className="fixed inset-0 z-70 flex items-center justify-center p-4">
             <motion.div
+              key="under-allocated-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -1574,6 +1618,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
               className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
             />
             <motion.div
+              key="under-allocated-dialog"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -1640,19 +1685,19 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
       {/* POST-GENERATION REPORT MODAL (When unplaced lessons exist) */}
       <AnimatePresence>
         {generationReportData.isOpen && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div key="generation-report-modal-wrapper" className="fixed inset-0 z-70 flex items-center justify-center p-4">
             <motion.div
+              key="generation-report-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => {
                 setGenerationReportData({ isOpen: false, totalSlots: 0, totalRequired: 0, unplacedLessons: [] });
-                onClose();
-                onGenerated();
               }}
               className="fixed inset-0 bg-slate-900/60 dark:bg-black/75 backdrop-blur-xs"
             />
             <motion.div
+              key="generation-report-dialog"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -1691,18 +1736,16 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                   type="button"
                   onClick={() => {
                     setGenerationReportData({ isOpen: false, totalSlots: 0, totalRequired: 0, unplacedLessons: [] });
-                    onClose();
-                    onGenerated();
                   }}
                   className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  View Generated Timetable
+                  Close & View Timetable
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-    </AnimatePresence>
+    </>
   );
 };

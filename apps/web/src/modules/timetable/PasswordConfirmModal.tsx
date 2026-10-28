@@ -48,9 +48,10 @@ export const PasswordConfirmModal: React.FC<PasswordConfirmModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div key="password-confirm-modal-wrapper" className="fixed inset-0 z-70 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           {/* Backdrop overlay */}
           <motion.div
+            key="password-confirm-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -60,6 +61,7 @@ export const PasswordConfirmModal: React.FC<PasswordConfirmModalProps> = ({
 
           {/* Dialog Container */}
           <motion.div
+            key="password-confirm-dialog"
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 16 }}
