@@ -6,6 +6,7 @@ import {
   classes,
   subjects,
   users,
+  userSubjects,
   teacherSubjectAllocations,
   systemSettings,
   academicTerms,
@@ -137,8 +138,12 @@ export class TimetableService {
       .select({
         classId: teacherSubjectAllocations.classId,
         subjectId: teacherSubjectAllocations.subjectId,
+        teacherId: teacherSubjectAllocations.teacherId,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
       })
       .from(teacherSubjectAllocations)
+      .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
       .where(
         and(
           inArray(teacherSubjectAllocations.classId, classIds),
@@ -147,33 +152,55 @@ export class TimetableService {
         )
       );
 
+    const qualifications = await db
+      .select({
+        userId: userSubjects.userId,
+        subjectId: userSubjects.subjectId,
+      })
+      .from(userSubjects);
+
+    const qualifiedSet = new Set(qualifications.map((q) => `${q.userId}_${q.subjectId}`));
+
     const missing: Array<{ className: string; subjectName: string; subjectCode: string }> = [];
+    const unqualified: Array<{ className: string; subjectName: string; subjectCode: string; teacherName: string }> = [];
     let totalRequired = 0;
 
     targetClasses.forEach((cls) => {
       const levelSubjects = targetSubjects.filter((s) => s.levelCategory === cls.levelCategory);
       levelSubjects.forEach((sub) => {
         totalRequired++;
-        const isAllocated = currentAllocations.some(
+        const alloc = currentAllocations.find(
           (a) => a.classId === cls.id && a.subjectId === sub.id
         );
-        if (!isAllocated) {
+        if (!alloc) {
           missing.push({
             className: cls.name,
             subjectName: sub.name,
             subjectCode: sub.code,
           });
+        } else if (!qualifiedSet.has(`${alloc.teacherId}_${alloc.subjectId}`)) {
+          unqualified.push({
+            className: cls.name,
+            subjectName: sub.name,
+            subjectCode: sub.code,
+            teacherName: `${alloc.teacherFirstName} ${alloc.teacherLastName}`,
+          });
         }
       });
     });
 
-    const isReady = missing.length === 0 && currentAllocations.length > 0;
+    const isReady = missing.length === 0 && unqualified.length === 0 && currentAllocations.length > 0;
 
     return {
       isReady,
       totalRequired,
       totalAllocated: currentAllocations.length,
       missing,
+      unqualified,
+      message:
+        unqualified.length > 0
+          ? `${unqualified.length} subject allocation(s) are assigned to teachers without valid subject certifications.`
+          : undefined,
     };
   }
 
@@ -412,6 +439,38 @@ export class TimetableService {
       throw new Error(
         'No subject teacher allocations found for Grades 4 to 9. Please allocate teachers in the Academic Allocations workspace first.'
       );
+    }
+
+    // 3b. Strict Teacher Qualification Validation: Teachers must hold certification in user_subjects
+    const qualifications = await db
+      .select({
+        userId: userSubjects.userId,
+        subjectId: userSubjects.subjectId,
+      })
+      .from(userSubjects);
+
+    const qualifiedSet = new Set(qualifications.map((q) => `${q.userId}_${q.subjectId}`));
+    const unqualifiedAllocations = allocations.filter(
+      (a) => !qualifiedSet.has(`${a.teacherId}_${a.subjectId}`)
+    );
+
+    if (unqualifiedAllocations.length > 0) {
+      const violations = unqualifiedAllocations
+        .map(
+          (u) =>
+            `${u.teacherFirstName} ${u.teacherLastName} assigned to ${u.subjectName} (${u.subjectCode}) in ${u.className}`
+        )
+        .slice(0, 5)
+        .join('; ');
+      const extra =
+        unqualifiedAllocations.length > 5
+          ? ` and ${unqualifiedAllocations.length - 5} more.`
+          : '.';
+      const err: any = new Error(
+        `Cannot generate timetable: ${unqualifiedAllocations.length} teacher allocation(s) violate subject qualifications (${violations}${extra}). Please assign certified specialists in the Allocations module.`
+      );
+      err.statusCode = 400;
+      throw err;
     }
 
     // 4. Default CBC lesson allocations per subject code if not overridden
