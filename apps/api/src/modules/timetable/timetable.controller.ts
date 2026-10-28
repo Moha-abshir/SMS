@@ -153,4 +153,15 @@ export class TimetableController {
       return res.status(400).json({ success: false, message: error.message || 'Failed to swap timetable slots' });
     }
   }
+
+  static async getCompatibleSwaps(req: Request, res: Response) {
+    try {
+      const { slotId } = req.params;
+      const data = await TimetableService.getCompatibleSwaps(slotId);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      console.error('Error fetching compatible swaps:', error);
+      return res.status(400).json({ success: false, message: error.message || 'Failed to get compatible swaps' });
+    }
+  }
 }

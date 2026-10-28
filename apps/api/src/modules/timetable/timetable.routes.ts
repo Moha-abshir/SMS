@@ -37,6 +37,7 @@ router.get('/teachers/:teacherId', TimetableController.getTeacherTimetable);
 
 // Slot movement & swapping
 router.post('/validate-movement', requireDeputyHead, TimetableController.validateMovement);
+router.get('/slots/:slotId/compatible-swaps', requireDeputyHead, TimetableController.getCompatibleSwaps);
 router.patch('/swap', requireDeputyHead, TimetableController.swapSlots);
 
 export default router;

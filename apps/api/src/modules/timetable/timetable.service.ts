@@ -940,4 +940,135 @@ export class TimetableService {
         : 'Slots swapped successfully.',
     };
   }
+
+  /**
+   * Evaluates all other slots in the same class to determine compatibility for swapping with slotId.
+   * Returns compatibility status (COMPATIBLE, CONFLICT, WARNING) and reason for each candidate slot.
+   */
+  static async getCompatibleSwaps(slotId: string) {
+    const [sourceSlot] = await db
+      .select({
+        id: timetableSlots.id,
+        academicYear: timetableSlots.academicYear,
+        term: timetableSlots.term,
+        classId: timetableSlots.classId,
+        subjectId: timetableSlots.subjectId,
+        teacherId: timetableSlots.teacherId,
+        dayOfWeek: timetableSlots.dayOfWeek,
+        periodIndex: timetableSlots.periodIndex,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+      })
+      .from(timetableSlots)
+      .innerJoin(users, eq(timetableSlots.teacherId, users.id))
+      .where(eq(timetableSlots.id, slotId));
+
+    if (!sourceSlot) throw new Error('Slot not found');
+
+    // Fetch all other slots in this class for the same academic year and term
+    const classSlots = await db
+      .select({
+        id: timetableSlots.id,
+        dayOfWeek: timetableSlots.dayOfWeek,
+        periodIndex: timetableSlots.periodIndex,
+        subjectId: timetableSlots.subjectId,
+        teacherId: timetableSlots.teacherId,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+        subjectName: subjects.name,
+        subjectCode: subjects.code,
+      })
+      .from(timetableSlots)
+      .innerJoin(users, eq(timetableSlots.teacherId, users.id))
+      .innerJoin(subjects, eq(timetableSlots.subjectId, subjects.id))
+      .where(
+        and(
+          eq(timetableSlots.academicYear, sourceSlot.academicYear),
+          eq(timetableSlots.term, sourceSlot.term),
+          eq(timetableSlots.classId, sourceSlot.classId),
+          ne(timetableSlots.id, slotId),
+          isNull(timetableSlots.deletedAt)
+        )
+      );
+
+    const candidates = [];
+    for (const targetSlot of classSlots) {
+      // Check: Is sourceSlot.teacherId free at targetSlot's time in any other class?
+      const [sourceTeacherClash] = await db
+        .select({
+          className: classes.name,
+          subjectName: subjects.name,
+        })
+        .from(timetableSlots)
+        .innerJoin(classes, eq(timetableSlots.classId, classes.id))
+        .innerJoin(subjects, eq(timetableSlots.subjectId, subjects.id))
+        .where(
+          and(
+            eq(timetableSlots.academicYear, sourceSlot.academicYear),
+            eq(timetableSlots.term, sourceSlot.term),
+            eq(timetableSlots.teacherId, sourceSlot.teacherId),
+            eq(timetableSlots.dayOfWeek, targetSlot.dayOfWeek),
+            eq(timetableSlots.periodIndex, targetSlot.periodIndex),
+            ne(timetableSlots.id, slotId),
+            ne(timetableSlots.id, targetSlot.id),
+            isNull(timetableSlots.deletedAt)
+          )
+        )
+        .limit(1);
+
+      // Check: Is targetSlot.teacherId free at sourceSlot's time in any other class?
+      const [targetTeacherClash] = await db
+        .select({
+          className: classes.name,
+          subjectName: subjects.name,
+        })
+        .from(timetableSlots)
+        .innerJoin(classes, eq(timetableSlots.classId, classes.id))
+        .innerJoin(subjects, eq(timetableSlots.subjectId, subjects.id))
+        .where(
+          and(
+            eq(timetableSlots.academicYear, sourceSlot.academicYear),
+            eq(timetableSlots.term, sourceSlot.term),
+            eq(timetableSlots.teacherId, targetSlot.teacherId),
+            eq(timetableSlots.dayOfWeek, sourceSlot.dayOfWeek),
+            eq(timetableSlots.periodIndex, sourceSlot.periodIndex),
+            ne(timetableSlots.id, slotId),
+            ne(timetableSlots.id, targetSlot.id),
+            isNull(timetableSlots.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (sourceTeacherClash) {
+        candidates.push({
+          slotId: targetSlot.id,
+          dayOfWeek: targetSlot.dayOfWeek,
+          periodIndex: targetSlot.periodIndex,
+          status: 'CONFLICT',
+          reason: `${sourceSlot.teacherFirstName} ${sourceSlot.teacherLastName} is already teaching ${sourceTeacherClash.className} (${sourceTeacherClash.subjectName}) at ${targetSlot.dayOfWeek} P${targetSlot.periodIndex}.`,
+        });
+      } else if (targetTeacherClash) {
+        candidates.push({
+          slotId: targetSlot.id,
+          dayOfWeek: targetSlot.dayOfWeek,
+          periodIndex: targetSlot.periodIndex,
+          status: 'CONFLICT',
+          reason: `${targetSlot.teacherFirstName} ${targetSlot.teacherLastName} is already teaching ${targetTeacherClash.className} (${targetTeacherClash.subjectName}) at ${sourceSlot.dayOfWeek} P${sourceSlot.periodIndex}.`,
+        });
+      } else {
+        candidates.push({
+          slotId: targetSlot.id,
+          dayOfWeek: targetSlot.dayOfWeek,
+          periodIndex: targetSlot.periodIndex,
+          status: 'COMPATIBLE',
+          reason: 'Compatible: Both teachers are completely free for this swap.',
+        });
+      }
+    }
+
+    return {
+      sourceSlot,
+      candidates,
+    };
+  }
 }
