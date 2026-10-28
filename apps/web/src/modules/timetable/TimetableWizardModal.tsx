@@ -61,6 +61,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   term,
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [maxStepReached, setMaxStepReached] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
@@ -173,6 +174,9 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   // Fetch initial config & metadata
   useEffect(() => {
     if (!isOpen) return;
+
+    setCurrentStep(1);
+    setMaxStepReached(1);
 
     const loadData = async () => {
       try {
@@ -617,6 +621,19 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     });
   }, [teachersList]);
 
+  // Navigate to next step with capacity validation
+  const handleNextStep = () => {
+    if (currentStep === 3 && isOverCapacity) {
+      toast.warning(
+        `${currentSelectedClass?.name} lessons (${totalClassLessons}) exceed available weekly slots (${totalWeeklyAvailableSlots}). Please reduce lessons before continuing.`
+      );
+      return;
+    }
+    const next = currentStep + 1;
+    setCurrentStep(next);
+    setMaxStepReached((prev) => Math.max(prev, next));
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -672,17 +689,26 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
               ].map((step) => {
                 const isActive = currentStep === step.num;
                 const isPassed = currentStep > step.num;
+                const isReached = step.num <= maxStepReached;
 
                 return (
                   <button
                     key={step.num}
-                    onClick={() => setCurrentStep(step.num)}
-                    className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer ${
+                    type="button"
+                    disabled={!isReached}
+                    onClick={() => {
+                      if (isReached) {
+                        setCurrentStep(step.num);
+                      }
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all ${
                       isActive
-                        ? 'bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-300 font-bold'
+                        ? 'bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-300 font-bold cursor-default'
                         : isPassed
-                        ? 'text-emerald-700 dark:text-emerald-400 hover:bg-slate-50 dark:hover:bg-[#0d1c38]'
-                        : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-[#0d1c38]'
+                        ? 'text-emerald-700 dark:text-emerald-400 hover:bg-slate-50 dark:hover:bg-[#0d1c38] cursor-pointer'
+                        : isReached
+                        ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0d1c38] cursor-pointer'
+                        : 'text-slate-400/50 dark:text-slate-600 opacity-40 cursor-not-allowed select-none'
                     }`}
                   >
                     <div
@@ -691,7 +717,9 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                           ? 'bg-sky-600 text-white'
                           : isPassed
                           ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                          : isReached
+                          ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-600'
                       }`}
                     >
                       {isPassed ? '✓' : step.num}
@@ -1458,62 +1486,54 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
           </div>
 
           {/* Modal Footer Controls */}
-          <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-[#162b4d] bg-slate-50/70 dark:bg-[#0b172e] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-[#162b4d] bg-slate-50/70 dark:bg-[#0b172e] flex items-center justify-between gap-3 shrink-0">
+            <div>
               {currentStep > 1 && (
                 <button
                   type="button"
                   onClick={() => setCurrentStep(currentStep - 1)}
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-[#112038] flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-[#112038] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Back
                 </button>
               )}
-              {currentStep < 4 && (
+            </div>
+
+            <div className="flex items-center gap-3">
+              {currentStep < 4 ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (currentStep === 3 && isOverCapacity) {
-                      toast.warning(
-                        `${currentSelectedClass?.name} lessons (${totalClassLessons}) exceed available weekly slots (${totalWeeklyAvailableSlots}). Please reduce lessons before continuing.`
-                      );
-                      return;
-                    }
-                    setCurrentStep(currentStep + 1);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer"
+                  onClick={handleNextStep}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 text-xs font-bold flex items-center gap-1.5 hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
                 >
                   Next Step
                   <ChevronRight className="w-4 h-4" />
                 </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveConfig(false)}
+                    disabled={saving || isAuthorizing}
+                    className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save Settings'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveConfig(true)}
+                    disabled={saving || isAuthorizing}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save & Generate Live Timetable'}
+                  </button>
+                </>
               )}
             </div>
-
-            {/* Save Settings and Save & Generate buttons appear ONLY on the last step (Step 4) */}
-            {currentStep === 4 && (
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => handleSaveConfig(false)}
-                  disabled={saving || isAuthorizing}
-                  className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 transition-colors cursor-pointer shadow-xs"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Settings'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSaveConfig(true)}
-                  disabled={saving || isAuthorizing}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Zap className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save & Generate Live Timetable'}
-                </button>
-              </div>
-            )}
           </div>
         </motion.div>
       </div>
