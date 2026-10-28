@@ -369,8 +369,12 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   const [slotsList, setSlotsList] = useState<any[]>([]);
   const [config, setConfig] = useState<any>(null);
 
-  // Swapping State
+  // Swapping State & Real-time Compatible Highlighting
   const [selectedSwapSlotA, setSelectedSwapSlotA] = useState<any | null>(null);
+  const [compatibleSwapMap, setCompatibleSwapMap] = useState<
+    Map<string, { status: string; reason: string }>
+  >(new Map());
+  const [loadingSwaps, setLoadingSwaps] = useState<boolean>(false);
   const [swapping, setSwapping] = useState<boolean>(false);
 
   // Modals State
@@ -472,11 +476,36 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
     init();
   }, [user?.id]);
 
+  // Tab change handler
+  const handleTabChange = (tab: 'class' | 'teacher') => {
+    setActiveTab(tab);
+    setSelectedSwapSlotA(null);
+    setCompatibleSwapMap(new Map());
+  };
+
+  // Fetch real-time candidate compatibility when a slot is chosen for swap
+  const fetchCompatibleSwaps = async (slotId: string) => {
+    try {
+      setLoadingSwaps(true);
+      const res = await apiClient.get(`/api/timetable/slots/${slotId}/compatible-swaps`);
+      if (res.data?.data?.candidates) {
+        const map = new Map<string, { status: string; reason: string }>();
+        for (const c of res.data.data.candidates) {
+          map.set(c.slotId, { status: c.status, reason: c.reason });
+        }
+        setCompatibleSwapMap(map);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch compatible swaps', err);
+    } finally {
+      setLoadingSwaps(false);
+    }
+  };
+
   // Load Timetable Data based on active tab and selected filter
   const fetchTimetableData = async () => {
     try {
       setLoading(true);
-      setSelectedSwapSlotA(null);
 
       if (activeTab === 'class') {
         if (!selectedClassId) {
@@ -530,17 +559,37 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   const handleSlotClick = async (slot: any) => {
     if (!isDeputy) return;
 
+    if (activeTab === 'teacher') {
+      // Swapping across different classes is disabled to protect schedule integrity.
+      // Safely navigate to that lesson's class timetable to reschedule!
+      if (slot.classId) {
+        setSelectedClassId(slot.classId);
+        setActiveTab('class');
+        setSelectedSwapSlotA(slot);
+        fetchCompatibleSwaps(slot.id);
+        toast.info(
+          `Switched to ${slot.className} timetable. Select another period in this class to swap ${slot.subjectName}.`
+        );
+      }
+      return;
+    }
+
+    // Active tab is 'class'
     if (!selectedSwapSlotA) {
       setSelectedSwapSlotA(slot);
-      toast.info(`Selected ${slot.subjectName} (P${slot.periodIndex}, ${slot.dayOfWeek}). Click another slot to swap positions.`);
+      fetchCompatibleSwaps(slot.id);
+      toast.info(
+        `Selected ${slot.subjectName} (P${slot.periodIndex}, ${slot.dayOfWeek}). Green slots indicate safe compatible swaps.`
+      );
     } else {
       if (selectedSwapSlotA.id === slot.id) {
         setSelectedSwapSlotA(null);
+        setCompatibleSwapMap(new Map());
         return;
       }
 
       if (selectedSwapSlotA.classId !== slot.classId) {
-        toast.warning('Slots must belong to the same class to swap teaching periods.');
+        toast.warning('Swapping is strictly class-centric. Slots must belong to the same class.');
         return;
       }
 
@@ -560,6 +609,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
       toast.success(res.data?.message || 'Slots swapped successfully!');
       setSelectedSwapSlotA(null);
+      setCompatibleSwapMap(new Map());
       setConflictModalData({ isOpen: false, message: '', slotA: null, slotB: null });
       fetchTimetableData();
     } catch (err: any) {
@@ -770,7 +820,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] rounded-2xl w-fit">
             <button
               type="button"
-              onClick={() => setActiveTab('class')}
+              onClick={() => handleTabChange('class')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'class'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
@@ -782,7 +832,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
             <button
               type="button"
-              onClick={() => setActiveTab('teacher')}
+              onClick={() => handleTabChange('teacher')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'teacher'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
@@ -795,14 +845,18 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         )}
 
         {/* Dynamic Filters depending on active tab */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {activeTab === 'class' && isDeputy && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Select Grade:</span>
               <GradeSelectDropdown
                 classes={classesList}
                 selectedId={selectedClassId}
-                onSelect={(id) => setSelectedClassId(id)}
+                onSelect={(id) => {
+                  setSelectedClassId(id);
+                  setSelectedSwapSlotA(null);
+                  setCompatibleSwapMap(new Map());
+                }}
               />
             </div>
           )}
@@ -813,8 +867,19 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
               <TeacherSelectDropdown
                 teachers={teachersList}
                 selectedId={selectedTeacherId}
-                onSelect={(id) => setSelectedTeacherId(id)}
+                onSelect={(id) => {
+                  setSelectedTeacherId(id);
+                  setSelectedSwapSlotA(null);
+                  setCompatibleSwapMap(new Map());
+                }}
               />
+            </div>
+          )}
+
+          {activeTab === 'teacher' && isDeputy && (
+            <div className="flex items-center gap-1.5 text-[11px] text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200/80 dark:border-sky-800/80 px-2.5 py-1 rounded-xl">
+              <Info className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+              <span>Click any lesson to switch to its class timetable and reschedule.</span>
             </div>
           )}
         </div>
@@ -825,20 +890,41 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-between text-xs text-sky-900 dark:text-sky-200 shadow-xs"
+          className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-sky-900 dark:text-sky-200 shadow-xs"
         >
-          <div className="flex items-center gap-2.5">
-            <ArrowRightLeft className="w-4 h-4 text-sky-600 animate-pulse" />
-            <span>
-              <strong>Swap Mode Active:</strong> Selected{' '}
-              <span className="font-bold underline">{selectedSwapSlotA.subjectName}</span> (Period{' '}
-              {selectedSwapSlotA.periodIndex}, {selectedSwapSlotA.dayOfWeek}). Click another slot in this class to swap positions.
-            </span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="w-4 h-4 text-sky-600 animate-pulse shrink-0" />
+              <span>
+                <strong>Swap Mode Active:</strong> Selected{' '}
+                <span className="font-bold underline">{selectedSwapSlotA.subjectName}</span> (Period{' '}
+                {selectedSwapSlotA.periodIndex}, {selectedSwapSlotA.dayOfWeek}
+                {selectedSwapSlotA.className ? ` • ${selectedSwapSlotA.className}` : ''}). Click another slot in this class to swap positions.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-600 dark:text-slate-400 pl-6">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0 shadow-xs" />
+                <strong className="text-emerald-700 dark:text-emerald-400">Green slots:</strong> Clean safe swap (both teachers free)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shrink-0 shadow-xs" />
+                <strong className="text-rose-700 dark:text-rose-400">Red slots:</strong> Schedule collision (teacher busy in another class)
+              </span>
+              {loadingSwaps && (
+                <span className="text-sky-600 dark:text-sky-400 italic">
+                  Analyzing teacher schedules...
+                </span>
+              )}
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => setSelectedSwapSlotA(null)}
-            className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#0b172e] border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 font-semibold hover:bg-sky-100 transition-colors cursor-pointer"
+            onClick={() => {
+              setSelectedSwapSlotA(null);
+              setCompatibleSwapMap(new Map());
+            }}
+            className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#0b172e] border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 transition-colors cursor-pointer shrink-0 shadow-xs"
           >
             Cancel Selection
           </button>
@@ -1004,32 +1090,75 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                           // Case 3: Teaching period
                           const lesson = singleViewSlotsMap.get(`${dayObj.id}_${slotDef.periodIndex}`);
                           const isSelected = selectedSwapSlotA?.id === lesson?.id;
+                          const swapInfo = lesson ? compatibleSwapMap.get(lesson.id) : undefined;
+                          const isCompatible = swapInfo?.status === 'COMPATIBLE';
+                          const isConflict = swapInfo?.status === 'CONFLICT';
 
                           return (
                             <td
                               key={colIdx}
                               className={`p-1.5 border-r border-slate-200 dark:border-slate-800 last:border-r-0 align-middle transition-colors ${
-                                isSelected ? 'bg-sky-100/80 dark:bg-sky-950/80 ring-2 ring-sky-500' : ''
+                                isSelected ? 'bg-sky-100/80 dark:bg-sky-950/80' : ''
                               }`}
                             >
                               {lesson ? (
                                 <div
                                   onClick={() => handleSlotClick(lesson)}
-                                  className={`p-2.5 rounded-xl border flex flex-col justify-between min-h-[72px] transition-all ${
+                                  className={`p-2.5 rounded-xl border flex flex-col justify-between min-h-[72px] transition-all relative ${
                                     isDeputy ? 'cursor-pointer hover:shadow-xs hover:scale-[1.01]' : ''
                                   } ${getSubjectBadgeColor(
                                     lesson.subjectCode || lesson.subjectName
-                                  )}`}
+                                  )} ${
+                                    isSelected
+                                      ? 'ring-2 ring-sky-500 shadow-md scale-[1.02]'
+                                      : selectedSwapSlotA && activeTab === 'class'
+                                      ? isCompatible
+                                        ? 'ring-2 ring-emerald-500 shadow-md bg-emerald-50/40 dark:bg-emerald-950/30 hover:ring-emerald-400'
+                                        : isConflict
+                                        ? 'ring-1 ring-rose-400/80 opacity-65 hover:opacity-100'
+                                        : ''
+                                      : ''
+                                  }`}
                                   title={
                                     isDeputy
-                                      ? `Click to swap ${lesson.subjectName} (P${lesson.periodIndex}, ${dayObj.label})`
+                                      ? activeTab === 'teacher'
+                                        ? `Click to reschedule ${lesson.subjectName} in ${lesson.className} timetable`
+                                        : selectedSwapSlotA
+                                        ? isSelected
+                                          ? 'Currently selected for swapping (click to cancel)'
+                                          : isCompatible
+                                          ? '🟢 Safe swap: Both teachers free. Click to swap positions.'
+                                          : isConflict
+                                          ? `⚠️ Collision: ${swapInfo?.reason || 'Teacher busy'}. Click to inspect & override.`
+                                          : `Click to swap with ${selectedSwapSlotA.subjectName}`
+                                        : `Click to select ${lesson.subjectName} (P${lesson.periodIndex}, ${dayObj.label}) for swapping`
                                       : `${lesson.subjectName}`
                                   }
                                 >
                                   <div>
-                                    <div className="font-black text-xs leading-tight truncate">
-                                      {lesson.subjectName}
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="font-black text-xs leading-tight truncate">
+                                        {lesson.subjectName}
+                                      </span>
+                                      {isSelected ? (
+                                        <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-sky-600 text-white shrink-0 shadow-xs uppercase">
+                                          Selected
+                                        </span>
+                                      ) : selectedSwapSlotA && activeTab === 'class' ? (
+                                        isCompatible ? (
+                                          <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-emerald-600 text-white shrink-0 shadow-xs uppercase flex items-center gap-0.5">
+                                            <Check className="w-2.5 h-2.5" /> Safe
+                                          </span>
+                                        ) : isConflict ? (
+                                          <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-rose-600 text-white shrink-0 shadow-xs uppercase flex items-center gap-0.5">
+                                            <AlertTriangle className="w-2.5 h-2.5" /> Clash
+                                          </span>
+                                        ) : null
+                                      ) : activeTab === 'teacher' && isDeputy ? (
+                                        <ArrowRight className="w-3 h-3 text-slate-400 opacity-60 hover:opacity-100 shrink-0" />
+                                      ) : null}
                                     </div>
+
                                     <div className="text-[10px] opacity-80 truncate mt-0.5 font-semibold">
                                       {activeTab === 'teacher'
                                         ? lesson.className
@@ -1103,6 +1232,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         conflictMessage={conflictModalData.message}
         onRevert={() => {
           setSelectedSwapSlotA(null);
+          setCompatibleSwapMap(new Map());
           setConflictModalData({ isOpen: false, message: '', slotA: null, slotB: null });
           toast.info('Reverted to previous schedule.');
         }}
