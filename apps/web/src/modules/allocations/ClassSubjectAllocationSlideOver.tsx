@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, ArrowLeft, CheckCircle2,
+  X, ArrowLeft, CheckCircle2, AlertTriangle,
   Trash2, Check, Search, Calendar
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -346,12 +346,15 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                   const currentAlloc = allocationBySubjectId.get(subj.id);
                   const isAllocated = Boolean(currentAlloc);
 
-                  // Teachers qualified to teach this subject (or currently allocated)
+                  // Teachers qualified to teach this subject
                   const qualifiedTeacherIds = qualifications
                     .filter((q) => q.subjectId === subj.id)
                     .map((q) => q.userId);
-                  const eligibleTeachers = teachers.filter(
-                    (t) => qualifiedTeacherIds.includes(t.id) || t.id === currentAlloc?.teacher.id
+                  const isTeacherCertified = currentAlloc
+                    ? qualifiedTeacherIds.includes(currentAlloc.teacher.id)
+                    : true;
+                  const eligibleTeachers = teachers.filter((t) =>
+                    qualifiedTeacherIds.includes(t.id)
                   );
 
                   const selectedTeacherId =
@@ -364,7 +367,9 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                       key={subj.id}
                       className={`p-3 rounded-xl border transition-all ${
                         isAllocated
-                          ? 'bg-white dark:bg-[#0c1830] border-slate-200/80 dark:border-[#162b4d] shadow-2xs'
+                          ? isTeacherCertified
+                            ? 'bg-white dark:bg-[#0c1830] border-slate-200/80 dark:border-[#162b4d] shadow-2xs'
+                            : 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60 shadow-2xs'
                           : 'bg-white dark:bg-[#0b162c] border-slate-200/70 dark:border-[#152744] hover:border-slate-300 dark:hover:border-[#1e3a63]'
                       }`}
                     >
@@ -384,12 +389,24 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
 
                             {/* Status badge */}
                             {currentAlloc ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                <span className="truncate max-w-[130px] sm:max-w-none">
-                                  {currentAlloc.teacher.firstName} {currentAlloc.teacher.lastName}
+                              isTeacherCertified ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                  <span className="truncate max-w-[130px] sm:max-w-none">
+                                    {currentAlloc.teacher.firstName} {currentAlloc.teacher.lastName}
+                                  </span>
                                 </span>
-                              </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[11px] font-bold"
+                                  title="Uncertified: This teacher does not hold subject certification in Teacher Qualifications"
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  <span className="truncate max-w-[130px] sm:max-w-none">
+                                    {currentAlloc.teacher.firstName} {currentAlloc.teacher.lastName} (Uncertified)
+                                  </span>
+                                </span>
+                              )
                             ) : (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700/60 text-[10px] font-medium">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -420,9 +437,18 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                               }
                             }}
                             disabled={isSaving || isRemoving}
-                            className="flex-1 min-w-0 bg-slate-50 dark:bg-[#081224] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer disabled:opacity-50"
+                            className={`flex-1 min-w-0 border rounded-lg px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 cursor-pointer disabled:opacity-50 ${
+                              !isTeacherCertified
+                                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 focus:ring-amber-500'
+                                : 'bg-slate-50 dark:bg-[#081224] border-slate-200 dark:border-[#162b4d] text-slate-800 dark:text-slate-200 focus:ring-sky-500'
+                            }`}
                           >
                             <option value="">-- Choose Teacher --</option>
+                            {!isTeacherCertified && currentAlloc && (
+                              <option value={currentAlloc.teacher.id} disabled>
+                                ⚠️ {currentAlloc.teacher.firstName} {currentAlloc.teacher.lastName} (Uncertified - Reassign)
+                              </option>
+                            )}
                             {eligibleTeachers.length > 0 ? (
                               eligibleTeachers.map((t) => (
                                 <option key={t.id} value={t.id}>
@@ -431,7 +457,7 @@ export const ClassSubjectAllocationSlideOver: React.FC<ClassSubjectAllocationSli
                               ))
                             ) : (
                               <option value="" disabled>
-                                No registered teachers for this subject
+                                No certified teachers for this subject
                               </option>
                             )}
                           </select>
