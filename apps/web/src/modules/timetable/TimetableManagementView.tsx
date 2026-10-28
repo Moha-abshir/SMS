@@ -355,6 +355,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
     totalRequired: number;
     totalAllocated: number;
     missing: Array<{ className: string; subjectName: string; subjectCode: string }>;
+    unqualified?: Array<{ className: string; subjectName: string; subjectCode: string; teacherName: string }>;
   } | null>(null);
 
   // Metadata
@@ -677,6 +678,33 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                     <span className="font-bold text-slate-800 dark:text-slate-200">{item.className}</span>
                     <span className="text-slate-500 dark:text-slate-400">
                       {item.subjectName} ({item.subjectCode})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {allocationsStatus.unqualified && allocationsStatus.unqualified.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-2.5 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                Uncertified Teacher Allocations ({allocationsStatus.unqualified.length})
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                The following subject allocations must be assigned to teachers certified for these subjects before timetable generation:
+              </p>
+              <div className="max-h-56 overflow-y-auto rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white dark:bg-[#091326] divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {allocationsStatus.unqualified.map((item, idx) => (
+                  <div key={idx} className="p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{item.className}</span>
+                      <span className="text-slate-500 dark:text-slate-400 ml-2">
+                        {item.subjectName} ({item.subjectCode})
+                      </span>
+                    </div>
+                    <span className="font-semibold text-amber-700 dark:text-amber-400 text-[11px]">
+                      Assigned to: {item.teacherName} (Uncertified)
                     </span>
                   </div>
                 ))}
