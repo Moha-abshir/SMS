@@ -879,6 +879,12 @@ export class TimetableService {
 
     if (!slotA || !slotB) throw new Error('One or both slots not found');
 
+    if (slotA.classId !== slotB.classId) {
+      throw new Error(
+        'Cannot swap slots between different classes. Timetable swapping must be performed within the same class schedule to prevent cascading conflicts.'
+      );
+    }
+
     // Verify teacher collision for slot A moving to slot B's time (ignoring slot B itself)
     const validationA = await this.validateMovement(slotAId, slotB.dayOfWeek, slotB.periodIndex, slotBId);
     if (validationA.hasConflict && !force) {
