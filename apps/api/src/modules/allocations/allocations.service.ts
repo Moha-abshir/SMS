@@ -168,7 +168,24 @@ export class AllocationsService {
   ) {
     const year = academicYear || (await this.getCurrentAcademicYear());
 
-    // Check if allocation already exists for this class + subject + year
+    // 1. Strict Qualification Validation: Teacher MUST be qualified in user_subjects
+    const [qualification] = await db
+      .select()
+      .from(userSubjects)
+      .where(and(eq(userSubjects.userId, teacherId), eq(userSubjects.subjectId, subjectId)))
+      .limit(1);
+
+    if (!qualification) {
+      const [teacher] = await db.select().from(users).where(eq(users.id, teacherId)).limit(1);
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId)).limit(1);
+      const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'This teacher';
+      const subjectName = subject ? `${subject.name} (${subject.code})` : 'this subject';
+      throw new Error(
+        `Cannot allocate: ${teacherName} is not qualified/certified to teach ${subjectName}. Only certified subject specialists can be assigned.`
+      );
+    }
+
+    // 2. Check if allocation already exists for this class + subject + year
     const [existing] = await db
       .select()
       .from(teacherSubjectAllocations)
