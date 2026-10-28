@@ -63,7 +63,8 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [maxStepReached, setMaxStepReached] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
+  const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
   const [isAuthorizing, setIsAuthorizing] = useState<boolean>(false);
 
@@ -244,114 +245,128 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     loadData();
   }, [isOpen, academicYear, term]);
 
-  const handleSaveConfig = async (triggerGenerate = false) => {
+  const validateSettings = (): boolean => {
+    if (isOverCapacity) {
+      toast.error(
+        `${currentSelectedClass?.name} exceeds available weekly lessons (${totalClassLessons} > ${totalWeeklyAvailableSlots}).`
+      );
+      return false;
+    }
+
+    // Validate breaks time ranges
+    for (const b of breaks) {
+      if (b.startTime && b.endTime && timeToMinutes(b.endTime) <= timeToMinutes(b.startTime)) {
+        toast.error(`Break "${b.name || 'Break'}" has invalid times: End time must be after start time.`);
+        return false;
+      }
+    }
+
+    // Validate Friday Jummah prayer routine if enabled
+    if (fridaySpecial.isSpecial) {
+      const jStart = timeToMinutes(fridaySpecial.jummahBreakStart);
+      const jReturn = timeToMinutes(fridaySpecial.afternoonReturnTime);
+      if (jReturn <= jStart) {
+        toast.error('Friday afternoon return time must be after Jummah break start time.');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const getSettingsPayload = () => ({
+    academicYear,
+    term,
+    schoolDays,
+    startTime,
+    endTime,
+    lessonDurationMinutes,
+    breaks,
+    fridaySchedule: fridaySpecial,
+    coCurriculars,
+    subjectRequirements,
+    teacherConstraints: {
+      maxConsecutiveLessons,
+      minFreePeriodsPerWeek,
+      specialStaffLimits,
+    },
+  });
+
+  // Action 1: Save settings only without generating (allows Deputy to return and resume anytime)
+  const handleSaveSettingsOnly = async () => {
+    if (!validateSettings()) return;
+
     try {
-      setSaving(true);
-
-      if (isOverCapacity) {
-        toast.error(
-          `${currentSelectedClass?.name} exceeds available weekly lessons (${totalClassLessons} > ${totalWeeklyAvailableSlots}).`
-        );
-        setSaving(false);
-        return;
-      }
-
-      // Validate breaks time ranges
-      for (const b of breaks) {
-        if (b.startTime && b.endTime && timeToMinutes(b.endTime) <= timeToMinutes(b.startTime)) {
-          toast.error(`Break "${b.name || 'Break'}" has invalid times: End time must be after start time.`);
-          setSaving(false);
-          return;
-        }
-      }
-
-      // Validate Friday Jummah prayer routine if enabled
-      if (fridaySpecial.isSpecial) {
-        const jStart = timeToMinutes(fridaySpecial.jummahBreakStart);
-        const jReturn = timeToMinutes(fridaySpecial.afternoonReturnTime);
-        if (jReturn <= jStart) {
-          toast.error('Friday afternoon return time must be after Jummah break start time.');
-          setSaving(false);
-          return;
-        }
-      }
-
-      const payload = {
-        academicYear,
-        term,
-        schoolDays,
-        startTime,
-        endTime,
-        lessonDurationMinutes,
-        breaks,
-        fridaySchedule: fridaySpecial,
-        coCurriculars,
-        subjectRequirements,
-        teacherConstraints: {
-          maxConsecutiveLessons,
-          minFreePeriodsPerWeek,
-          specialStaffLimits,
-        },
-      };
-
-      await apiClient.post('/api/timetable/config', payload);
-
-      if (triggerGenerate) {
-        // Pre-generation validation across ALL classes
-        const underAllocated: { id: string; name: string; count: number; missing: number }[] = [];
-        const overAllocated: { name: string; count: number; excess: number }[] = [];
-
-        for (const cls of classesList) {
-          const clsSubjects = subjectsList.filter((s: any) => s.levelCategory === cls.levelCategory);
-          let clsLessons = 0;
-          for (const sub of clsSubjects) {
-            const req = getSubjectReq(cls.id, sub);
-            clsLessons += req.lessons;
-          }
-          if (clsLessons > totalWeeklyAvailableSlots) {
-            overAllocated.push({
-              name: cls.name,
-              count: clsLessons,
-              excess: clsLessons - totalWeeklyAvailableSlots,
-            });
-          } else if (clsLessons < totalWeeklyAvailableSlots) {
-            underAllocated.push({
-              id: cls.id,
-              name: cls.name,
-              count: clsLessons,
-              missing: totalWeeklyAvailableSlots - clsLessons,
-            });
-          }
-        }
-
-        if (overAllocated.length > 0) {
-          toast.error(
-            `Cannot generate: ${overAllocated.map((c) => `${c.name} (${c.count}/${totalWeeklyAvailableSlots})`).join(', ')} exceed weekly lesson capacity.`
-          );
-          setSaving(false);
-          return;
-        }
-
-        if (underAllocated.length > 0) {
-          setUnderAllocatedModalData({
-            isOpen: true,
-            classes: underAllocated,
-          });
-          setSaving(false);
-          return;
-        }
-
-        setIsPasswordModalOpen(true);
-      } else {
-        // Short notification at most 6 words as requested by user
-        toast.success('Settings saved successfully.');
-        onClose();
-      }
+      setIsSavingSettings(true);
+      await apiClient.post('/api/timetable/config', getSettingsPayload());
+      toast.success('Settings saved successfully.');
+      onClose();
     } catch (err: any) {
       console.error('Error saving timetable config:', err);
       toast.error(err.response?.data?.message || 'Failed to save configuration');
     } finally {
-      setSaving(false);
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Action 2: Actually initiate the timetable generation flow
+  const handleGenerateTimetable = async () => {
+    if (!validateSettings()) return;
+
+    try {
+      setIsGenerating(true);
+
+      // Auto-save the latest settings before initiating generation
+      await apiClient.post('/api/timetable/config', getSettingsPayload());
+
+      // Pre-generation validation across ALL classes
+      const underAllocated: { id: string; name: string; count: number; missing: number }[] = [];
+      const overAllocated: { name: string; count: number; excess: number }[] = [];
+
+      for (const cls of classesList) {
+        const clsSubjects = subjectsList.filter((s: any) => s.levelCategory === cls.levelCategory);
+        let clsLessons = 0;
+        for (const sub of clsSubjects) {
+          const req = getSubjectReq(cls.id, sub);
+          clsLessons += req.lessons;
+        }
+        if (clsLessons > totalWeeklyAvailableSlots) {
+          overAllocated.push({
+            name: cls.name,
+            count: clsLessons,
+            excess: clsLessons - totalWeeklyAvailableSlots,
+          });
+        } else if (clsLessons < totalWeeklyAvailableSlots) {
+          underAllocated.push({
+            id: cls.id,
+            name: cls.name,
+            count: clsLessons,
+            missing: totalWeeklyAvailableSlots - clsLessons,
+          });
+        }
+      }
+
+      if (overAllocated.length > 0) {
+        toast.error(
+          `Cannot generate: ${overAllocated.map((c) => `${c.name} (${c.count}/${totalWeeklyAvailableSlots})`).join(', ')} exceed weekly lesson capacity.`
+        );
+        return;
+      }
+
+      if (underAllocated.length > 0) {
+        setUnderAllocatedModalData({
+          isOpen: true,
+          classes: underAllocated,
+        });
+        return;
+      }
+
+      setIsPasswordModalOpen(true);
+    } catch (err: any) {
+      console.error('Error preparing timetable generation:', err);
+      toast.error(err.response?.data?.message || 'Failed to prepare generation');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -1514,22 +1529,22 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                 <>
                   <button
                     type="button"
-                    onClick={() => handleSaveConfig(false)}
-                    disabled={saving || isAuthorizing}
-                    className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 transition-colors cursor-pointer shadow-xs"
+                    onClick={handleSaveSettingsOnly}
+                    disabled={isSavingSettings || isGenerating || isAuthorizing}
+                    className="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : 'Save Settings'}
+                    {isSavingSettings ? 'Saving Settings...' : 'Save Settings'}
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleSaveConfig(true)}
-                    disabled={saving || isAuthorizing}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                    onClick={handleGenerateTimetable}
+                    disabled={isSavingSettings || isGenerating || isAuthorizing}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Zap className="w-4 h-4" />
-                    {saving ? 'Saving...' : 'Save & Generate Live Timetable'}
+                    {isGenerating || isAuthorizing ? 'Generating...' : 'Generate Timetable'}
                   </button>
                 </>
               )}
