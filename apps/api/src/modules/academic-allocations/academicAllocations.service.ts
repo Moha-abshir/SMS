@@ -236,24 +236,25 @@ export class AcademicAllocationsService {
       const teachingIds = new Set(teachingAllocations.map((u) => u.id));
 
       const result = allTeachers.map((t) => {
-        let priority = 3;
+        let priority = 4;
         let qualificationReason = 'Faculty Teacher';
         let isBestMatch = false;
         let isQualified = false;
 
-        if (classSubjectTeacherId && t.id === classSubjectTeacherId) {
-          priority = 1;
-          qualificationReason = 'Class Subject Teacher (Best Match)';
-          isBestMatch = true;
+        // ONLY teachers who hold certification in user_subjects can be qualified examiners!
+        if (qualifiedIds.has(t.id)) {
           isQualified = true;
-        } else if (qualifiedIds.has(t.id)) {
-          priority = 2;
-          qualificationReason = 'Subject Specialist';
-          isQualified = true;
-        } else if (teachingIds.has(t.id)) {
-          priority = 2;
-          qualificationReason = 'Subject Teacher (Other Classes)';
-          isQualified = true;
+          if (classSubjectTeacherId && t.id === classSubjectTeacherId) {
+            priority = 1;
+            qualificationReason = 'Class Subject Teacher (Best Match)';
+            isBestMatch = true;
+          } else if (teachingIds.has(t.id)) {
+            priority = 2;
+            qualificationReason = 'Certified Specialist (Teaching Other Classes)';
+          } else {
+            priority = 3;
+            qualificationReason = 'Certified Subject Specialist';
+          }
         }
 
         return {
@@ -332,24 +333,25 @@ export class AcademicAllocationsService {
 
       const subjectTeachers = allTeachers
         .map((t) => {
-          let priority = 3;
+          let priority = 4;
           let qualificationReason = 'Faculty Teacher';
           let isBestMatch = false;
           let isQualified = false;
 
-          if (classTeacherId && t.id === classTeacherId) {
-            priority = 1;
-            qualificationReason = 'Class Subject Teacher (Best Match)';
-            isBestMatch = true;
+          // ONLY teachers who hold certification in user_subjects can be qualified examiners!
+          if (qSet.has(t.id)) {
             isQualified = true;
-          } else if (qSet.has(t.id)) {
-            priority = 2;
-            qualificationReason = 'Subject Specialist';
-            isQualified = true;
-          } else if (aSet.has(t.id)) {
-            priority = 2;
-            qualificationReason = 'Subject Teacher (Other Classes)';
-            isQualified = true;
+            if (classTeacherId && t.id === classTeacherId) {
+              priority = 1;
+              qualificationReason = 'Class Subject Teacher (Best Match)';
+              isBestMatch = true;
+            } else if (aSet.has(t.id)) {
+              priority = 2;
+              qualificationReason = 'Certified Specialist (Teaching Other Classes)';
+            } else {
+              priority = 3;
+              qualificationReason = 'Certified Subject Specialist';
+            }
           }
 
           return {
@@ -432,6 +434,17 @@ export class AcademicAllocationsService {
       throw new Error(
         `Automated Marking Notice: ${targetClass.name} is a Pre-Primary/Lower Primary class. All subjects are marked exclusively by the assigned Class Teacher.`
       );
+    }
+
+    // Verify teacher holds certification in user_subjects for this subject
+    const [qual] = await db
+      .select()
+      .from(userSubjects)
+      .where(and(eq(userSubjects.userId, data.teacherId), eq(userSubjects.subjectId, data.subjectId)))
+      .limit(1);
+
+    if (!qual) {
+      throw new Error('Selected teacher is not certified/qualified to examine or mark this subject.');
     }
 
     // Check if class + subject + exam is already allocated
