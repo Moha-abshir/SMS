@@ -369,7 +369,7 @@ export class TimetableService {
     if (userId) {
       if (!password || typeof password !== 'string' || password.trim() === '') {
         const err: any = new Error('Deputy password is required to authorize timetable generation.');
-        err.statusCode = 401;
+        err.statusCode = 403;
         throw err;
       }
       const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -381,7 +381,7 @@ export class TimetableService {
       const isMatch = await argon2.verify(user.passwordHash, password);
       if (!isMatch) {
         const err: any = new Error('Incorrect password. Deputy authorization is required to generate the timetable.');
-        err.statusCode = 401;
+        err.statusCode = 403;
         throw err;
       }
     }
