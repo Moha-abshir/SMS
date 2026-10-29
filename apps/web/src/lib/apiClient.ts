@@ -62,7 +62,7 @@ apiClient.interceptors.response.use(
         // Do not force-reload the page if this is a login/auth attempt, an action confirmation, or an unauthenticated public route
         const url = error.config?.url || '';
         const isAuthRequest = url.includes('/api/auth/login') || url.includes('/api/auth/verify-2fa') || url.includes('/api/auth/password-reset');
-        const isActionAuthorization = url.includes('/api/timetable/generate') || Boolean(error.config?.headers?.['X-Skip-Auth-Redirect']);
+        const isActionAuthorization = url.includes('/api/timetable/generate') || Boolean((error.config as any)?.skipAuthRedirect);
         const isPublicRequest = url.includes('/api/settings/public');
         const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
         const isAuthPage = pathname === '/' || pathname === '/login' || pathname.startsWith('/reset-password') || pathname.startsWith('/accept-invitation') || pathname.startsWith('/verify-email');

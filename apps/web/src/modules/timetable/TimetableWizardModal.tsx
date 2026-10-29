@@ -379,11 +379,6 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
           academicYear,
           term,
           password,
-        },
-        {
-          headers: {
-            'X-Skip-Auth-Redirect': 'true',
-          },
         }
       );
       const data = genRes.data?.data;
