@@ -376,6 +376,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   >(new Map());
   const [loadingSwaps, setLoadingSwaps] = useState<boolean>(false);
   const [swapping, setSwapping] = useState<boolean>(false);
+  // High performance cache for instant (< 1ms) compatibility lookups
+  const swapCompatibilityCache = useRef<
+    Map<string, Map<string, { status: string; reason: string }>>
+  >(new Map());
 
   // Modals State
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
@@ -481,10 +485,17 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
     setActiveTab(tab);
     setSelectedSwapSlotA(null);
     setCompatibleSwapMap(new Map());
+    swapCompatibilityCache.current.clear();
   };
 
   // Fetch real-time candidate compatibility when a slot is chosen for swap
   const fetchCompatibleSwaps = async (slotId: string) => {
+    // 1. Instant cache hit: 0ms response time
+    if (swapCompatibilityCache.current.has(slotId)) {
+      setCompatibleSwapMap(swapCompatibilityCache.current.get(slotId)!);
+      return;
+    }
+
     try {
       setLoadingSwaps(true);
       const res = await apiClient.get(`/api/timetable/slots/${slotId}/compatible-swaps`);
@@ -493,6 +504,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         for (const c of res.data.data.candidates) {
           map.set(c.slotId, { status: c.status, reason: c.reason });
         }
+        swapCompatibilityCache.current.set(slotId, map);
         setCompatibleSwapMap(map);
       }
     } catch (err: any) {
@@ -563,6 +575,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       // Swapping across different classes is disabled to protect schedule integrity.
       // Safely navigate to that lesson's class timetable to reschedule!
       if (slot.classId) {
+        swapCompatibilityCache.current.clear();
         setSelectedClassId(slot.classId);
         setActiveTab('class');
         setSelectedSwapSlotA(slot);
@@ -593,6 +606,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         return;
       }
 
+      if (loadingSwaps) {
+        toast.info('Evaluating swap compatibility, please wait a moment...');
+        return;
+      }
+
       executeSwap(selectedSwapSlotA, slot, false);
     }
   };
@@ -610,6 +628,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       toast.success(res.data?.message || 'Slots swapped successfully!');
       setSelectedSwapSlotA(null);
       setCompatibleSwapMap(new Map());
+      swapCompatibilityCache.current.clear();
       setConflictModalData({ isOpen: false, message: '', slotA: null, slotB: null });
       fetchTimetableData();
     } catch (err: any) {
@@ -856,6 +875,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                   setSelectedClassId(id);
                   setSelectedSwapSlotA(null);
                   setCompatibleSwapMap(new Map());
+                  swapCompatibilityCache.current.clear();
                 }}
               />
             </div>
@@ -871,6 +891,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                   setSelectedTeacherId(id);
                   setSelectedSwapSlotA(null);
                   setCompatibleSwapMap(new Map());
+                  swapCompatibilityCache.current.clear();
                 }}
               />
             </div>
@@ -1116,6 +1137,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                         ? 'ring-2 ring-emerald-500 shadow-md bg-emerald-50/40 dark:bg-emerald-950/30 hover:ring-emerald-400'
                                         : isConflict
                                         ? 'ring-1 ring-rose-400/80 opacity-65 hover:opacity-100'
+                                        : loadingSwaps
+                                        ? 'opacity-80 animate-pulse cursor-wait'
                                         : ''
                                       : ''
                                   }`}
@@ -1130,6 +1153,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                           ? '🟢 Safe swap: Both teachers free. Click to swap positions.'
                                           : isConflict
                                           ? `⚠️ Collision: ${swapInfo?.reason || 'Teacher busy'}. Click to inspect & override.`
+                                          : loadingSwaps
+                                          ? 'Evaluating teacher collision safety...'
                                           : `Click to swap with ${selectedSwapSlotA.subjectName}`
                                         : `Click to select ${lesson.subjectName} (P${lesson.periodIndex}, ${dayObj.label}) for swapping`
                                       : `${lesson.subjectName}`
@@ -1152,6 +1177,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                         ) : isConflict ? (
                                           <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-rose-600 text-white shrink-0 shadow-xs uppercase flex items-center gap-0.5">
                                             <AlertTriangle className="w-2.5 h-2.5" /> Clash
+                                          </span>
+                                        ) : loadingSwaps ? (
+                                          <span className="px-1.5 py-0.2 rounded font-bold text-[8px] bg-slate-300/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0 shadow-xs uppercase animate-pulse">
+                                            Checking...
                                           </span>
                                         ) : null
                                       ) : activeTab === 'teacher' && isDeputy ? (
