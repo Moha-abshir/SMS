@@ -674,7 +674,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
   return (
     <>
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && !isPasswordModalOpen && (
           <div key="timetable-wizard-modal-root" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
             {/* Backdrop overlay */}
             <motion.div
