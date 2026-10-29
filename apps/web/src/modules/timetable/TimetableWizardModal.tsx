@@ -288,7 +288,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
     teacherConstraints: {
       maxConsecutiveLessons,
       minFreePeriodsPerWeek,
-      specialStaffLimits,
+      specialStaffLimits: {},
     },
   });
 
@@ -724,7 +724,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                 { num: 1, label: 'Hours & Days', icon: Clock },
                 { num: 2, label: 'Breaks & Jumuaa', icon: Calendar },
                 { num: 3, label: 'Subject Lessons', icon: BookOpen },
-                { num: 4, label: 'Teacher Caps', icon: UserCheck },
+                { num: 4, label: 'Staff Constraints', icon: UserCheck },
               ].map((step) => {
                 const isActive = currentStep === step.num;
                 const isPassed = currentStep > step.num;
@@ -1367,7 +1367,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                   </div>
                 )}
 
-                {/* STEP 4: Administrative Routines & Teacher Workload Caps */}
+                {/* STEP 4: Administrative Routines & Teacher Workload */}
                 {currentStep === 4 && (
                   <div className="space-y-6">
                     {/* Administrative Leaders Routines Section */}
@@ -1375,16 +1375,15 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                       <div className="flex items-center gap-2 mb-1">
                         <ShieldCheck className="w-4 h-4 text-sky-600" />
                         <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                          Administrative Leaders Routines & Workload Caps
+                          Administrative Leaders Teaching Workload Overview
                         </h4>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                        Configure routine workload limits for the Headteacher and Deputy Head Teacher to reserve their administrative hours.
+                        Review the teaching workloads assigned to the Headteacher, Deputy Head, and Director of Studies. To modify any leader's weekly periods, adjust the lessons in Step 3 or reassign subjects in Academic Allocations so students have 100% full lesson coverage with zero free periods.
                       </p>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         {adminLeaders.map((leader) => {
-                          const currentLimit = specialStaffLimits[leader.id] ?? '';
                           const leaderAllocations = allocationsList.filter((a: any) => {
                             const teacherId = a.teacher?.id || a.allocation?.teacherId || a.teacherId;
                             return teacherId === leader.id;
@@ -1443,43 +1442,18 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
                               )}
 
                               <div className="flex items-center justify-between pt-2 border-t border-sky-100/80 dark:border-sky-900/40">
-                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                  Weekly Lesson Limit:
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  Teaching Load: <strong className="text-slate-800 dark:text-slate-200">{leaderTotalLessons} lessons</strong>
                                 </span>
-                                <div className="flex items-center gap-1.5">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={30}
-                                    placeholder="No cap"
-                                    value={currentLimit}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      if (val === '') {
-                                        const copy = { ...specialStaffLimits };
-                                        delete copy[leader.id];
-                                        setSpecialStaffLimits(copy);
-                                      } else {
-                                        setSpecialStaffLimits({
-                                          ...specialStaffLimits,
-                                          [leader.id]: parseInt(val, 10),
-                                        });
-                                      }
-                                    }}
-                                    className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] text-center font-bold text-xs"
-                                  />
-                                  <span className="text-[10px] text-slate-400 font-medium">lessons</span>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setCurrentStep(3)}
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 hover:underline cursor-pointer"
+                                >
+                                  Modify in Step 3
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
                               </div>
-
-                              {typeof currentLimit === 'number' && currentLimit > 0 && currentLimit < leaderTotalLessons && (
-                                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-300">
-                                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                                  <span>
-                                    Cap ({currentLimit} lessons) is lower than assigned subjects ({leaderTotalLessons} lessons). {leaderTotalLessons - currentLimit} lesson(s) will be unscheduled.
-                                  </span>
-                                </div>
-                              )}
                             </div>
                           );
                         })}
