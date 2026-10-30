@@ -5,7 +5,7 @@ import {
   Calendar, Clock, BookOpen, Users, Printer, Settings,
   Sparkles, AlertCircle, ArrowRightLeft, UserCheck, CheckCircle2,
   ChevronDown, X, Info, Download, ShieldCheck, AlertTriangle, ArrowRight,
-  Search, Check, GraduationCap, User
+  Search, Check, GraduationCap, User, Loader2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -376,6 +376,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   >(new Map());
   const [loadingSwaps, setLoadingSwaps] = useState<boolean>(false);
   const [swapping, setSwapping] = useState<boolean>(false);
+  const [swappingSlotB, setSwappingSlotB] = useState<any | null>(null);
   // High performance cache for instant (< 1ms) compatibility lookups
   const swapCompatibilityCache = useRef<
     Map<string, Map<string, { status: string; reason: string }>>
@@ -482,8 +483,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
   // Tab change handler
   const handleTabChange = (tab: 'class' | 'teacher') => {
+    if (swapping) return;
     setActiveTab(tab);
     setSelectedSwapSlotA(null);
+    setSwappingSlotB(null);
     setCompatibleSwapMap(new Map());
     swapCompatibilityCache.current.clear();
   };
@@ -570,6 +573,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   // Slot click handler for manual swapping by Deputy
   const handleSlotClick = async (slot: any) => {
     if (!isDeputy) return;
+    if (swapping) return; // Prevent clicking twice while a swap is already executing
 
     if (activeTab === 'teacher') {
       // Swapping across different classes is disabled to protect schedule integrity.
@@ -597,6 +601,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
     } else {
       if (selectedSwapSlotA.id === slot.id) {
         setSelectedSwapSlotA(null);
+        setSwappingSlotB(null);
         setCompatibleSwapMap(new Map());
         return;
       }
@@ -619,6 +624,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   const executeSwap = async (slotA: any, slotB: any, force: boolean = false) => {
     try {
       setSwapping(true);
+      setSwappingSlotB(slotB);
       const res = await apiClient.patch('/api/timetable/swap', {
         slotAId: slotA.id,
         slotBId: slotB.id,
@@ -627,10 +633,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
       toast.success(res.data?.message || 'Slots swapped successfully!');
       setSelectedSwapSlotA(null);
+      setSwappingSlotB(null);
       setCompatibleSwapMap(new Map());
       swapCompatibilityCache.current.clear();
       setConflictModalData({ isOpen: false, message: '', slotA: null, slotB: null });
-      fetchTimetableData();
+      await fetchTimetableData();
     } catch (err: any) {
       if (err.response?.status === 409 && err.response?.data?.hasConflict) {
         setConflictModalData({
@@ -644,6 +651,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       }
     } finally {
       setSwapping(false);
+      setSwappingSlotB(null);
     }
   };
 
@@ -839,8 +847,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] rounded-2xl w-fit">
             <button
               type="button"
+              disabled={swapping}
               onClick={() => handleTabChange('class')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                swapping ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } ${
                 activeTab === 'class'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -851,8 +862,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
             <button
               type="button"
+              disabled={swapping}
               onClick={() => handleTabChange('teacher')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                swapping ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              } ${
                 activeTab === 'teacher'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -872,8 +886,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                 classes={classesList}
                 selectedId={selectedClassId}
                 onSelect={(id) => {
+                  if (swapping) return;
                   setSelectedClassId(id);
                   setSelectedSwapSlotA(null);
+                  setSwappingSlotB(null);
                   setCompatibleSwapMap(new Map());
                   swapCompatibilityCache.current.clear();
                 }}
@@ -888,8 +904,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                 teachers={teachersList}
                 selectedId={selectedTeacherId}
                 onSelect={(id) => {
+                  if (swapping) return;
                   setSelectedTeacherId(id);
                   setSelectedSwapSlotA(null);
+                  setSwappingSlotB(null);
                   setCompatibleSwapMap(new Map());
                   swapCompatibilityCache.current.clear();
                 }}
@@ -911,41 +929,67 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-sky-900 dark:text-sky-200 shadow-xs"
+          className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs transition-all ${
+            swapping
+              ? 'bg-sky-100/90 dark:bg-sky-950/80 border-sky-300 dark:border-sky-700 text-sky-950 dark:text-sky-100'
+              : 'bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200'
+          }`}
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <ArrowRightLeft className="w-4 h-4 text-sky-600 animate-pulse shrink-0" />
-              <span>
-                <strong>Swap Mode Active:</strong> Selected{' '}
-                <span className="font-bold underline">{selectedSwapSlotA.subjectName}</span> (Period{' '}
-                {selectedSwapSlotA.periodIndex}, {selectedSwapSlotA.dayOfWeek}
-                {selectedSwapSlotA.className ? ` • ${selectedSwapSlotA.className}` : ''}). Click another slot in this class to swap positions.
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-600 dark:text-slate-400 pl-6">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0 shadow-xs" />
-                <strong className="text-emerald-700 dark:text-emerald-400">Green slots:</strong> Clean safe swap (both teachers free)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shrink-0 shadow-xs" />
-                <strong className="text-rose-700 dark:text-rose-400">Red slots:</strong> Schedule collision (teacher busy in another class)
-              </span>
-              {loadingSwaps && (
-                <span className="text-sky-600 dark:text-sky-400 italic">
-                  Analyzing teacher schedules...
-                </span>
+              {swapping ? (
+                <>
+                  <Loader2 className="w-4 h-4 text-sky-600 dark:text-sky-400 animate-spin shrink-0" />
+                  <span>
+                    <strong>Swapping Lessons:</strong> Rescheduling{' '}
+                    <span className="font-bold underline">{selectedSwapSlotA.subjectName}</span>{' '}
+                    with{' '}
+                    <span className="font-bold underline">
+                      {swappingSlotB?.subjectName || 'the selected slot'}
+                    </span>
+                    ... Please wait.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ArrowRightLeft className="w-4 h-4 text-sky-600 animate-pulse shrink-0" />
+                  <span>
+                    <strong>Swap Mode Active:</strong> Selected{' '}
+                    <span className="font-bold underline">{selectedSwapSlotA.subjectName}</span> (Period{' '}
+                    {selectedSwapSlotA.periodIndex}, {selectedSwapSlotA.dayOfWeek}
+                    {selectedSwapSlotA.className ? ` • ${selectedSwapSlotA.className}` : ''}). Click another slot in this class to swap positions.
+                  </span>
+                </>
               )}
             </div>
+            {!swapping && (
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-600 dark:text-slate-400 pl-6">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0 shadow-xs" />
+                  <strong className="text-emerald-700 dark:text-emerald-400">Green slots:</strong> Clean safe swap (both teachers free)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block shrink-0 shadow-xs" />
+                  <strong className="text-rose-700 dark:text-rose-400">Red slots:</strong> Schedule collision (teacher busy in another class)
+                </span>
+                {loadingSwaps && (
+                  <span className="text-sky-600 dark:text-sky-400 italic">
+                    Analyzing teacher schedules...
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <button
             type="button"
+            disabled={swapping}
             onClick={() => {
+              if (swapping) return;
               setSelectedSwapSlotA(null);
+              setSwappingSlotB(null);
               setCompatibleSwapMap(new Map());
             }}
-            className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#0b172e] border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 transition-colors cursor-pointer shrink-0 shadow-xs"
+            className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#0b172e] border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 transition-colors cursor-pointer shrink-0 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel Selection
           </button>
@@ -1111,6 +1155,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                           // Case 3: Teaching period
                           const lesson = singleViewSlotsMap.get(`${dayObj.id}_${slotDef.periodIndex}`);
                           const isSelected = selectedSwapSlotA?.id === lesson?.id;
+                          const isSwappingTarget = swappingSlotB?.id === lesson?.id;
                           const swapInfo = lesson ? compatibleSwapMap.get(lesson.id) : undefined;
                           const isCompatible = swapInfo?.status === 'COMPATIBLE';
                           const isConflict = swapInfo?.status === 'CONFLICT';
@@ -1119,19 +1164,30 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                             <td
                               key={colIdx}
                               className={`p-1.5 border-r border-slate-200 dark:border-slate-800 last:border-r-0 align-middle transition-colors ${
-                                isSelected ? 'bg-sky-100/80 dark:bg-sky-950/80' : ''
+                                isSelected || isSwappingTarget ? 'bg-sky-100/80 dark:bg-sky-950/80' : ''
                               }`}
                             >
                               {lesson ? (
                                 <div
-                                  onClick={() => handleSlotClick(lesson)}
+                                  onClick={() => {
+                                    if (swapping) return;
+                                    handleSlotClick(lesson);
+                                  }}
                                   className={`p-2.5 rounded-xl border flex flex-col justify-between min-h-[72px] transition-all relative ${
-                                    isDeputy ? 'cursor-pointer hover:shadow-xs hover:scale-[1.01]' : ''
+                                    isDeputy
+                                      ? swapping
+                                        ? 'cursor-wait'
+                                        : 'cursor-pointer hover:shadow-xs hover:scale-[1.01]'
+                                      : ''
                                   } ${getSubjectBadgeColor(
                                     lesson.subjectCode || lesson.subjectName
                                   )} ${
-                                    isSelected
-                                      ? 'ring-2 ring-sky-500 shadow-md scale-[1.02]'
+                                    isSwappingTarget
+                                      ? 'ring-2 ring-sky-500 shadow-md scale-[1.02] bg-sky-100/70 dark:bg-sky-950/70 animate-pulse'
+                                      : isSelected
+                                      ? `ring-2 ring-sky-500 shadow-md scale-[1.02] ${swapping ? 'animate-pulse' : ''}`
+                                      : swapping
+                                      ? 'opacity-40 pointer-events-none'
                                       : selectedSwapSlotA && activeTab === 'class'
                                       ? isCompatible
                                         ? 'ring-2 ring-emerald-500 shadow-md bg-emerald-50/40 dark:bg-emerald-950/30 hover:ring-emerald-400'
@@ -1144,7 +1200,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                   }`}
                                   title={
                                     isDeputy
-                                      ? activeTab === 'teacher'
+                                      ? swapping
+                                        ? isSelected || isSwappingTarget
+                                          ? `Swapping ${lesson.subjectName}... Please wait.`
+                                          : 'Timetable swap in progress...'
+                                        : activeTab === 'teacher'
                                         ? `Click to reschedule ${lesson.subjectName} in ${lesson.className} timetable`
                                         : selectedSwapSlotA
                                         ? isSelected
@@ -1165,11 +1225,21 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                       <span className="font-black text-xs leading-tight truncate">
                                         {lesson.subjectName}
                                       </span>
-                                      {isSelected ? (
-                                        <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-sky-600 text-white shrink-0 shadow-xs uppercase">
-                                          Selected
+                                      {isSwappingTarget ? (
+                                        <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-sky-600 text-white shrink-0 shadow-xs uppercase flex items-center gap-1">
+                                          <Loader2 className="w-2.5 h-2.5 animate-spin" /> Swapping...
                                         </span>
-                                      ) : selectedSwapSlotA && activeTab === 'class' ? (
+                                      ) : isSelected ? (
+                                        swapping ? (
+                                          <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-sky-600 text-white shrink-0 shadow-xs uppercase flex items-center gap-1">
+                                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> Swapping...
+                                          </span>
+                                        ) : (
+                                          <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-sky-600 text-white shrink-0 shadow-xs uppercase">
+                                            Selected
+                                          </span>
+                                        )
+                                      ) : swapping ? null : selectedSwapSlotA && activeTab === 'class' ? (
                                         isCompatible ? (
                                           <span className="px-1.5 py-0.2 rounded font-black text-[8px] bg-emerald-600 text-white shrink-0 shadow-xs uppercase flex items-center gap-0.5">
                                             <Check className="w-2.5 h-2.5" /> Safe
