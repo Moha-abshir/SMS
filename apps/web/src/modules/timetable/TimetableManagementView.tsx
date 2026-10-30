@@ -518,13 +518,13 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   };
 
   // Load Timetable Data based on active tab and selected filter
-  const fetchTimetableData = async () => {
+  const fetchTimetableData = async (silent: boolean = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
 
       if (activeTab === 'class') {
         if (!selectedClassId) {
-          setLoading(false);
+          if (!silent) setLoading(false);
           return;
         }
         const res = await apiClient.get(
@@ -541,7 +541,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       } else if (activeTab === 'teacher') {
         const teacherIdToUse = isDeputy ? selectedTeacherId : user?.id;
         if (!teacherIdToUse) {
-          setLoading(false);
+          if (!silent) setLoading(false);
           return;
         }
         const res = await apiClient.get(
@@ -558,9 +558,9 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       }
     } catch (err: any) {
       console.error('Error fetching timetable data:', err);
-      toast.error('Failed to load timetable schedule');
+      if (!silent) toast.error('Failed to load timetable schedule');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -620,25 +620,75 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
     }
   };
 
-  // Execute Swap API call
+  // Execute Swap API call with instant optimistic swap (0ms perceived latency)
   const executeSwap = async (slotA: any, slotB: any, force: boolean = false) => {
+    if (!slotA || !slotB) return;
+
+    // Snapshot previous slotsList for instant rollback on error
+    const previousSlotsList = [...slotsList];
+
     try {
       setSwapping(true);
       setSwappingSlotB(slotB);
-      const res = await apiClient.patch('/api/timetable/swap', {
-        slotAId: slotA.id,
-        slotBId: slotB.id,
-        force,
-      });
 
-      toast.success(res.data?.message || 'Slots swapped successfully!');
+      // 1. OPTIMISTIC SWAP: Instantly swap coordinates in local state (0ms!)
+      const slotAId = slotA.id;
+      const slotBId = slotB.id;
+      const dayA = slotA.dayOfWeek;
+      const periodA = slotA.periodIndex;
+      const startA = slotA.startTime;
+      const endA = slotA.endTime;
+      const dayB = slotB.dayOfWeek;
+      const periodB = slotB.periodIndex;
+      const startB = slotB.startTime;
+      const endB = slotB.endTime;
+
+      setSlotsList((prev) =>
+        prev.map((s) => {
+          if (s.id === slotAId) {
+            return {
+              ...s,
+              dayOfWeek: dayB,
+              periodIndex: periodB,
+              startTime: startB,
+              endTime: endB,
+            };
+          }
+          if (s.id === slotBId) {
+            return {
+              ...s,
+              dayOfWeek: dayA,
+              periodIndex: periodA,
+              startTime: startA,
+              endTime: endA,
+            };
+          }
+          return s;
+        })
+      );
+
+      // Instantly clear swap selection and guide badges so UI feels completely resolved
       setSelectedSwapSlotA(null);
       setSwappingSlotB(null);
       setCompatibleSwapMap(new Map());
       swapCompatibilityCache.current.clear();
       setConflictModalData({ isOpen: false, message: '', slotA: null, slotB: null });
-      await fetchTimetableData();
+
+      // 2. Persist swap to backend
+      const res = await apiClient.patch('/api/timetable/swap', {
+        slotAId,
+        slotBId,
+        force,
+      });
+
+      toast.success(res.data?.message || 'Slots swapped successfully!');
+
+      // 3. Silent background refresh without reloading or tearing down the table
+      fetchTimetableData(true);
     } catch (err: any) {
+      // Revert optimistic swap on error
+      setSlotsList(previousSlotsList);
+
       if (err.response?.status === 409 && err.response?.data?.hasConflict) {
         setConflictModalData({
           isOpen: true,
