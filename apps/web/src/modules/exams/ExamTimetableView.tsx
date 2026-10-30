@@ -272,6 +272,10 @@ export const ExamTimetableView: React.FC = () => {
   // Move an exam paper directly to a target day
   const handleMovePaperToDate = async (sessionItem: any, targetDate: string) => {
     if (!sessionItem || swapping) return;
+
+    // Snapshot current sessions for instant rollback if API fails
+    const previousSessions = [...sessions];
+
     try {
       setSwapping(true);
       let sessionTime = sessionItem.session.sessionTime;
@@ -303,6 +307,28 @@ export const ExamTimetableView: React.FC = () => {
         sessionTime = `${formatMin(newStartMin)} - ${formatMin(newEndMin)}`;
       }
 
+      // 1. OPTIMISTIC UPDATE: instantly update UI in 0ms!
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.session.id === sessionItem.session.id
+            ? {
+                ...s,
+                session: {
+                  ...s.session,
+                  sessionDate: targetDate,
+                  sessionTime,
+                },
+              }
+            : s
+        )
+      );
+
+      // Close all modals / clear selection immediately
+      setSelectedSwapSlotA(null);
+      setPickerTargetDate(null);
+      setReschedulingSession(null);
+
+      // 2. Persist to API in background
       await apiClient.put(`/api/exams/sessions/${sessionItem.session.id}`, {
         sessionDate: targetDate,
         sessionTime,
@@ -310,11 +336,9 @@ export const ExamTimetableView: React.FC = () => {
 
       const targetFormatted = format(parseISO(targetDate), 'EEEE, dd/MM/yyyy');
       toast.success(`Successfully moved ${sessionItem.subject?.name} to ${targetFormatted}!`);
-      setSelectedSwapSlotA(null);
-      setPickerTargetDate(null);
-      setReschedulingSession(null);
-      await fetchSessions();
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
       toast.error(err.response?.data?.message || 'Failed to move examination paper');
     } finally {
       setSwapping(false);
@@ -348,20 +372,59 @@ export const ExamTimetableView: React.FC = () => {
       return;
     }
 
+    // Snapshot for rollback
+    const previousSessions = [...sessions];
+    const slotAId = selectedSwapSlotA.session.id;
+    const slotBId = clickedSlot.session.id;
+    const dateA = selectedSwapSlotA.session.sessionDate;
+    const timeA = selectedSwapSlotA.session.sessionTime;
+    const dateB = clickedSlot.session.sessionDate;
+    const timeB = clickedSlot.session.sessionTime;
+    const subjectAName = selectedSwapSlotA.subject?.name;
+    const subjectBName = clickedSlot.subject?.name;
+
     // Execute swap
     try {
       setSwapping(true);
-      await apiClient.post('/api/exams/sessions/swap', {
-        sessionAId: selectedSwapSlotA.session.id,
-        sessionBId: clickedSlot.session.id,
-      });
 
-      toast.success(
-        `Successfully swapped ${selectedSwapSlotA.subject?.name} and ${clickedSlot.subject?.name}!`
+      // 1. OPTIMISTIC SWAP: instantly swap positions on screen (0ms latency!)
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.session.id === slotAId) {
+            return {
+              ...s,
+              session: {
+                ...s.session,
+                sessionDate: dateB,
+                sessionTime: timeB,
+              },
+            };
+          }
+          if (s.session.id === slotBId) {
+            return {
+              ...s,
+              session: {
+                ...s.session,
+                sessionDate: dateA,
+                sessionTime: timeA,
+              },
+            };
+          }
+          return s;
+        })
       );
       setSelectedSwapSlotA(null);
-      await fetchSessions();
+
+      // 2. Persist swap to API
+      await apiClient.post('/api/exams/sessions/swap', {
+        sessionAId: slotAId,
+        sessionBId: slotBId,
+      });
+
+      toast.success(`Successfully swapped ${subjectAName} and ${subjectBName}!`);
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
       toast.error(err.response?.data?.message || 'Failed to swap examination sessions');
     } finally {
       setSwapping(false);

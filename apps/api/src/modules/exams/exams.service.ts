@@ -15,6 +15,7 @@ import {
   eq,
   and,
   ne,
+  inArray,
   isNull,
   desc,
   count,
@@ -166,7 +167,13 @@ export class ExamsService {
       .where(and(...whereConditions))
       .orderBy(examSessions.sessionDate, examSessions.sessionTime);
 
-    // Get assigned invigilators per session
+    if (sessions.length === 0) {
+      return [];
+    }
+
+    const sessionIds = sessions.map((s) => s.session.id);
+
+    // Get assigned invigilators per session (filtered to the current class/exam sessions)
     const invigAllocs = await db
       .select({
         sessionId: invigilatorAllocations.examSessionId,
@@ -179,7 +186,12 @@ export class ExamsService {
       })
       .from(invigilatorAllocations)
       .innerJoin(users, eq(invigilatorAllocations.teacherId, users.id))
-      .where(isNull(invigilatorAllocations.deletedAt));
+      .where(
+        and(
+          inArray(invigilatorAllocations.examSessionId, sessionIds),
+          isNull(invigilatorAllocations.deletedAt)
+        )
+      );
 
     const invigMap = new Map<string, any>();
     invigAllocs.forEach((a) => {
