@@ -23,6 +23,7 @@ import {
   eq,
   and,
   count,
+  inArray,
   isNull,
   sql,
 } from '@school/shared';
@@ -48,20 +49,20 @@ export class DashboardService {
       .from(attendanceRegisters)
       .where(eq(attendanceRegisters.date, todayStr));
 
-    let attendancePercentage = 98.2; // Default baseline if no registers taken today yet
+    let attendancePercentage = 0;
     let absentCount = 0;
 
     if (todayRegisters.length > 0) {
       const registerIds = todayRegisters.map((r) => r.id);
       const records = await db
         .select()
-        .from(attendanceRecords);
+        .from(attendanceRecords)
+        .where(inArray(attendanceRecords.registerId, registerIds));
 
-      const todayRecords = records.filter((r) => registerIds.includes(r.registerId));
-      if (todayRecords.length > 0) {
-        const present = todayRecords.filter((r) => r.status === 'PRESENT').length;
-        absentCount = todayRecords.filter((r) => r.status === 'ABSENT').length;
-        attendancePercentage = Math.round((present / todayRecords.length) * 1000) / 10;
+      if (records.length > 0) {
+        const present = records.filter((r) => r.status === 'PRESENT').length;
+        absentCount = records.filter((r) => r.status === 'ABSENT').length;
+        attendancePercentage = Math.round((present / records.length) * 1000) / 10;
       }
     }
 
@@ -118,20 +119,21 @@ export class DashboardService {
 
     // Attendance stats for today
     const todayRegisters = await db.select().from(attendanceRegisters).where(eq(attendanceRegisters.date, todayStr));
-    let attendancePercentage = 98.5;
+    let attendancePercentage = 0;
     let absentCount = 0;
     let presentCount = 0;
-    let totalStudents = studentsResult?.total || 0;
+    const totalStudents = studentsResult?.total || 0;
 
     if (todayRegisters.length > 0) {
       const registerIds = todayRegisters.map((r) => r.id);
-      const records = await db.select().from(attendanceRecords);
-      const todayRecords = records.filter((r) => registerIds.includes(r.registerId));
-      if (todayRecords.length > 0) {
-        presentCount = todayRecords.filter((r) => r.status === 'PRESENT').length;
-        absentCount = todayRecords.filter((r) => r.status === 'ABSENT').length;
-        totalStudents = todayRecords.length;
-        attendancePercentage = Math.round((presentCount / todayRecords.length) * 1000) / 10;
+      const records = await db
+        .select()
+        .from(attendanceRecords)
+        .where(inArray(attendanceRecords.registerId, registerIds));
+      if (records.length > 0) {
+        presentCount = records.filter((r) => r.status === 'PRESENT').length;
+        absentCount = records.filter((r) => r.status === 'ABSENT').length;
+        attendancePercentage = Math.round((presentCount / records.length) * 1000) / 10;
       }
     }
 

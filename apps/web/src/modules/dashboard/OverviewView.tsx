@@ -27,7 +27,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
   }>({
     totalLearners: 0,
     totalStaff: 0,
-    todayAttendancePercentage: 98.2,
+    todayAttendancePercentage: 0,
     absentCount: 0,
     totalFeePaid: 0,
     totalFeeBilled: 0,
@@ -110,8 +110,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">{data.todayAttendancePercentage}%</div>
-          <p className="text-xs text-sky-700 dark:text-sky-400 mt-1 font-medium">{data.absentCount} Absences Recorded Today</p>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">
+            {data.todayAttendancePercentage > 0 ? `${data.todayAttendancePercentage}%` : '0%'}
+          </div>
+          <p className="text-xs text-sky-700 dark:text-sky-400 mt-1 font-medium">
+            {data.todayAttendancePercentage > 0
+              ? `${data.absentCount} Absences Recorded Today`
+              : 'Roll call pending today'}
+          </p>
         </div>
 
         <div className="p-4 sm:p-5 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass hover:border-sky-200 dark:hover:border-sky-500 transition-all">

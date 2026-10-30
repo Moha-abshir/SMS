@@ -47,7 +47,7 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
       totalStudents: 0,
       presentCount: 0,
       absentCount: 0,
-      attendanceRate: 100,
+      attendanceRate: 0,
       registersSubmitted: 0,
       totalClasses: 0,
     },
@@ -77,7 +77,7 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
             totalStudents: d.attendance?.totalStudents ?? 0,
             presentCount: d.attendance?.presentCount ?? 0,
             absentCount: d.attendance?.absentCount ?? d.todayAbsentCount ?? 0,
-            attendanceRate: d.attendance?.attendanceRate ?? d.todayAttendancePercentage ?? 100,
+            attendanceRate: d.attendance?.attendanceRate ?? d.todayAttendancePercentage ?? 0,
             registersSubmitted: d.attendance?.registersSubmitted ?? 0,
             totalClasses: d.attendance?.totalClasses ?? d.totalClasses ?? 12,
           },
@@ -154,9 +154,13 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
               <UserX className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">{data?.attendance?.attendanceRate ?? 100}%</div>
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">
+            {data?.attendance?.registersSubmitted > 0 ? `${data.attendance.attendanceRate}%` : '0%'}
+          </div>
           <p className="text-xs text-sky-700 dark:text-sky-400 mt-1 font-medium">
-            {data?.attendance?.presentCount ?? 0} / {data?.attendance?.totalStudents ?? 0} present ({data?.attendance?.absentCount ?? 0} absent)
+            {data?.attendance?.registersSubmitted > 0
+              ? `${data.attendance.presentCount} / ${data.attendance.totalStudents} present (${data.attendance.absentCount} absent)`
+              : `0 / ${data?.attendance?.totalStudents ?? 0} present (Roll call pending)`}
           </p>
         </div>
 
