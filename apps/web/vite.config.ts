@@ -7,13 +7,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true,
+      },
       manifest: {
-        name: 'School Management System',
+        name: 'Eldoret Muslim Academy Staff Portal',
         short_name: 'E-M-A App',
         description: 'Primary & Junior Secondary School Management System',
+        start_url: '/login',
+        display: 'standalone',
         theme_color: '#2563EB',
         background_color: '#0F172A',
-        display: 'standalone',
         icons: [
           {
             src: '/logo.svg',
