@@ -163,7 +163,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [regulatingLock, setRegulatingLock] = useState(false);
-  const [hasLocalDraft, setHasLocalDraft] = useState(false);
 
   const [sheetData, setSheetData] = useState<MarksheetData | null>(null);
   const [studentRows, setStudentRows] = useState<StudentScoreRow[]>([]);
@@ -266,7 +265,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
         setSheetData(data);
         setStudentRows(mergedScores);
-        setHasLocalDraft(true);
       } else {
         if (!isSheetEditable) {
           // If sheet is locked / submitted / non-editable, clear any lingering stale draft
@@ -274,14 +272,12 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         }
         setSheetData(data);
         setStudentRows(data.scores || []);
-        setHasLocalDraft(false);
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load marksheet details');
       if (isInitial) {
         setSheetData(null);
         setStudentRows([]);
-        setHasLocalDraft(false);
       }
     } finally {
       if (isInitial) {
@@ -302,13 +298,9 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         // Teacher reopened the exact same sheet (e.g. after accidental backdrop click)
         // Zero reloading delay: keep readyToShow true so it renders immediately with 0ms delay!
         setReadyToShow(true);
-        const draft = loadDraftFromStorage(examId, classId, subjectId);
-        setHasLocalDraft(draft !== null);
       } else {
         // Different sheet or first time opening:
         cachedKeyRef.current = currentKey;
-        const draft = loadDraftFromStorage(examId, classId, subjectId);
-        setHasLocalDraft(draft !== null);
         setReadyToShow(false);
         fetchSheet(true);
       }
@@ -360,7 +352,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
     if (examId && classId && subjectId) {
       saveDraftToStorage(examId, classId, subjectId, copy);
-      setHasLocalDraft(true);
     }
   };
 
@@ -371,24 +362,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
     if (examId && classId && subjectId) {
       saveDraftToStorage(examId, classId, subjectId, copy);
-      setHasLocalDraft(true);
     }
-  };
-
-  // Discard local unsaved draft and revert to server saved marks
-  const handleDiscardLocalDraft = async () => {
-    if (!examId || !classId || !subjectId) return;
-    if (
-      !window.confirm(
-        'Are you sure you want to discard your unsaved changes and revert to the server saved marks?'
-      )
-    ) {
-      return;
-    }
-    removeDraftFromStorage(examId, classId, subjectId);
-    setHasLocalDraft(false);
-    toast.info('Local unsaved draft discarded. Reverting to server saved marks.');
-    await fetchSheet(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, visibleIdx: number) => {
@@ -427,7 +401,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       await apiClient.post('/api/mark-submissions/save-draft', payload);
       // Release draft from localStorage upon successful server save
       removeDraftFromStorage(examId, classId, subjectId);
-      setHasLocalDraft(false);
 
       toast.success('Marksheet draft saved successfully!');
       setSheetData((prev) =>
@@ -476,7 +449,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       await apiClient.post('/api/mark-submissions/submit', payload);
       // Release draft from localStorage upon successful submit
       removeDraftFromStorage(examId, classId, subjectId);
-      setHasLocalDraft(false);
 
       toast.success('Marksheet submitted to Class Teacher for review!');
       setSheetData((prev) => (prev ? { ...prev, status: 'SUBMITTED', canEdit: false } : prev));
@@ -679,28 +651,6 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                           <FileText className="w-3.5 h-3.5 text-slate-500" />
                           {status === 'DRAFT' ? 'Draft (In Progress)' : 'Not Started'}
                         </span>
-                      )}
-
-                      {/* Local Unsaved Draft Badge & Discard */}
-                      {hasLocalDraft && isEditable && (
-                        <div className="inline-flex items-center gap-1.5">
-                          <span
-                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-xs"
-                            title="Unsaved scores & remarks are safely preserved in browser local storage and will not be lost on accidental exit."
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-                            Unsaved draft (Saved locally)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleDiscardLocalDraft}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer"
-                            title="Discard locally cached changes and revert to the server saved marks"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            Discard
-                          </button>
-                        </div>
                       )}
                     </div>
 
