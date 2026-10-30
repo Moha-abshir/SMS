@@ -301,9 +301,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   <p className="font-bold text-amber-900 dark:text-amber-100">
                     Haven't received the email? Check your Spam folder
                   </p>
-                  <p className="text-amber-800/90 dark:text-amber-200/90 leading-normal">
-                    First-time recipients often receive automated authentication emails in their <strong>Spam or Junk folder</strong> due to mailbox sender recognition rules.
-                  </p>
                 </div>
               </div>
 
