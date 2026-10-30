@@ -316,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
           {/* Theme Mode Switcher */}
           <div className="w-full">
             <div className={collapsed ? 'block lg:hidden' : 'block'}>
-              <ThemeToggle variant="pill" />
+              <ThemeToggle variant="pill" className="w-full" />
             </div>
             {collapsed && (
               <div className="hidden lg:block">

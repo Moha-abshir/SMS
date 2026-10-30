@@ -35,13 +35,13 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'pill', clas
       type="button"
       title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-      className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+      className={`inline-flex items-center justify-between gap-3 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
         isDark
           ? 'bg-[#0c1830] border-[#182f54] text-slate-300 hover:bg-[#0f213d] hover:border-[#1e3d6f]'
           : 'bg-white/80 border-sky-100 text-slate-700 hover:bg-sky-50 hover:border-sky-200 shadow-xs'
       } ${className}`}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <div
           className={`p-1 rounded-lg ${
             isDark ? 'bg-amber-400/10 text-amber-400' : 'bg-sky-100 text-sky-600'
@@ -49,7 +49,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'pill', clas
         >
           {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
         </div>
-        <span>{isDark ? 'Dark Mode' : 'Light Mode'}</span>
+        <span className="whitespace-nowrap">{isDark ? 'Dark Mode' : 'Light Mode'}</span>
       </div>
       <span
         className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${

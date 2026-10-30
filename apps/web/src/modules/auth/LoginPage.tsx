@@ -261,23 +261,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 flex flex-col justify-between relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50/50 via-white to-sky-50/40 dark:from-[#060c18] dark:via-[#091326] dark:to-[#060c18] flex flex-col justify-between relative overflow-x-hidden transition-colors duration-300">
       {/* Top Navbar */}
-      <header className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 overflow-hidden p-1 shrink-0">
+      <header className="px-4 sm:px-8 py-3.5 sm:py-5 flex items-center justify-between gap-4 z-10 w-full max-w-7xl mx-auto">
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 overflow-hidden p-1 shrink-0">
             {logoUrl ? (
               <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
             ) : (
-              <School className="w-5 h-5 sm:w-6 sm:h-6" />
+              <School className="w-6 h-6" />
             )}
           </div>
-          <div className="min-w-0">
-            <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">{schoolName}</h1>
-            <p className="text-[11px] sm:text-xs text-sky-600 dark:text-sky-400 font-semibold truncate">CBC Primary & Junior Secondary</p>
+          <div>
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 leading-tight whitespace-nowrap">
+              {schoolName}
+            </h1>
+            <p className="text-[11px] sm:text-xs text-sky-600 dark:text-sky-400 font-semibold whitespace-nowrap">
+              CBC Primary & Junior Secondary
+            </p>
           </div>
         </div>
-        <ThemeToggle />
+        <div className="shrink-0">
+          <ThemeToggle variant="pill" />
+        </div>
       </header>
 
       {/* Main Login Card with Slide-Up Transition */}
@@ -286,7 +292,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="w-full max-w-md bg-white/85 dark:bg-[#091326]/95 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-glass relative"
+          className="w-full max-w-md bg-white/90 dark:bg-[#091326]/95 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-glass dark:shadow-2xl dark:shadow-black/60 relative transition-colors duration-200"
         >
           {/* Sky Blue Accent Header */}
           <div className="text-center mb-6 sm:mb-8">
@@ -316,14 +322,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   Staff Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="teacher@school.co.ke"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-white/90 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-sm transition-all"
+                    className="w-full pl-11 pr-4 py-3 bg-white/95 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-sm transition-all"
                   />
                 </div>
               </div>
@@ -346,14 +352,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   </button>
                 </div>
                 <div className="relative">
-                  <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Lock className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
                     required
-                    className="w-full pl-11 pr-12 py-3 bg-white/90 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-sm transition-all"
+                    className="w-full pl-11 pr-12 py-3 bg-white/95 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-sm transition-all"
                   />
                   <button
                     type="button"
@@ -366,7 +372,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
 
               {/* PWA App Install Section */}
-              <div className="rounded-xl sm:rounded-2xl border border-sky-200/70 dark:border-[#162b4d] bg-sky-50/60 dark:bg-[#0c1830]/80 p-3 sm:p-3.5 transition-all">
+              <div className="rounded-xl sm:rounded-2xl border border-sky-200/70 dark:border-[#162b4d] bg-sky-50/70 dark:bg-[#0c1830]/80 p-3 sm:p-3.5 transition-all">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-9 h-9 rounded-xl bg-sky-500/15 dark:bg-sky-500/25 border border-sky-500/30 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
@@ -378,7 +384,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     </div>
                     <div className="min-w-0 text-left">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                           {isInstalled ? 'Workstation App Active' : 'Install Web App'}
                         </span>
                         {!isInstalled && (
@@ -469,8 +475,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
 
               {otpCountdown === 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>
                     Your 2FA code has expired (5-minute security limit). Please click <strong>"Resend Code"</strong> below to get a fresh code.
                   </span>
@@ -478,11 +484,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                   Enter 6-Digit 2FA Code
                 </label>
                 <div className="relative">
-                  <Key className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Key className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                   <input
                     type="text"
                     maxLength={6}
@@ -490,7 +496,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="123456"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-white/90 border border-sky-200/70 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 text-center font-mono tracking-widest font-bold text-base sm:text-lg transition-all"
+                    className="w-full pl-11 pr-4 py-3 bg-white/95 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-center font-mono tracking-widest font-bold text-base sm:text-lg transition-all"
                   />
                 </div>
               </div>
@@ -511,7 +517,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="button"
                   onClick={() => setView('login')}
-                  className="hover:underline font-bold text-slate-700 min-h-[36px] flex items-center cursor-pointer"
+                  className="hover:underline font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 min-h-[36px] flex items-center cursor-pointer"
                 >
                   ← Back to Sign In
                 </button>
@@ -520,7 +526,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendLoading}
-                  className="text-sky-600 hover:underline font-bold flex items-center gap-1.5 min-h-[36px] cursor-pointer"
+                  className="text-sky-600 dark:text-sky-400 hover:underline font-bold flex items-center gap-1.5 min-h-[36px] cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
                   <span>Resend Code</span>
@@ -532,8 +538,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <div className="space-y-5">
               {resetSent ? (
                 <div className="space-y-5">
-                  <div className="p-4 bg-sky-50/80 border border-sky-200/70 rounded-2xl text-center space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mx-auto">
+                  <div className="p-4 bg-sky-50/80 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-2xl text-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto">
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
                     <h3 className="text-sm font-bold text-sky-900 dark:text-sky-200">Reset Link Sent</h3>
@@ -570,23 +576,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
               ) : (
                 <form onSubmit={handleRequestPasswordReset} className="space-y-5">
-                  <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl text-xs text-sky-800 leading-relaxed">
+                  <div className="p-3 bg-sky-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl text-xs text-sky-800 dark:text-sky-300 leading-relaxed">
                     Enter your registered staff email address and we will send you a secure link to reset your password.
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                       Staff Email Address
                     </label>
                     <div className="relative">
-                      <Mail className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Mail className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                       <input
                         type="email"
                         value={resetEmail}
                         onChange={(e) => setResetEmail(e.target.value)}
                         placeholder="teacher@school.co.ke"
                         required
-                        className="w-full pl-11 pr-4 py-3 bg-white/90 border border-sky-200/70 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 text-sm transition-all"
+                        className="w-full pl-11 pr-4 py-3 bg-white/95 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-sm transition-all"
                       />
                     </div>
                   </div>
@@ -610,7 +616,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     <button
                       type="button"
                       onClick={() => setView('login')}
-                      className="text-xs font-bold text-slate-600 hover:underline cursor-pointer min-h-[36px]"
+                      className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:underline cursor-pointer min-h-[36px]"
                     >
                       ← Back to Sign In
                     </button>
@@ -623,8 +629,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       </main>
 
       {/* Footer */}
-      <footer className="py-3 sm:py-4 px-4 text-center text-xs text-slate-400 z-10">
-        © 2026 {schoolName}. All rights reserved. Moha Solution.
+      <footer className="py-3 sm:py-4 px-4 text-center text-xs text-slate-400 dark:text-slate-500 z-10">
+        © 2026 {schoolName}. All rights reserved. Powered by AGY SMS.
       </footer>
     </div>
   );
