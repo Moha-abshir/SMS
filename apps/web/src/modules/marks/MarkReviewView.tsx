@@ -83,8 +83,8 @@ interface ClassOverviewItem {
 
 interface ScoreItem {
   studentId: string;
-  admissionNumber: string;
-  assessmentNumber?: string;
+  admissionNumber?: string | null;
+  assessmentNumber?: string | null;
   fullName: string;
   studentName?: string;
   score: number | null;
@@ -297,6 +297,7 @@ export const MarkReviewView: React.FC = () => {
       (s) =>
         s.fullName?.toLowerCase().includes(q) ||
         s.studentName?.toLowerCase().includes(q) ||
+        s.assessmentNumber?.toLowerCase().includes(q) ||
         s.admissionNumber?.toLowerCase().includes(q)
     );
   }, [subjectScoresData, studentSearchQuery]);
@@ -912,7 +913,7 @@ export const MarkReviewView: React.FC = () => {
                       type="text"
                       value={studentSearchQuery}
                       onChange={(e) => setStudentSearchQuery(e.target.value)}
-                      placeholder="Search student name or admission number in marksheet..."
+                      placeholder="Search student name or assessment number in marksheet..."
                       className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
                     />
                   </div>
@@ -938,18 +939,23 @@ export const MarkReviewView: React.FC = () => {
                       No matching students found in this marksheet.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d]">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border-b border-sky-100 dark:border-[#162b4d] uppercase text-[10px] font-bold tracking-wider">
+                    <div
+                      tabIndex={0}
+                      role="region"
+                      aria-label="Learner assessment scores marksheet"
+                      className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    >
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border-b border-sky-100 dark:border-[#162b4d] uppercase text-[10px] font-bold tracking-wider">
                           <tr>
-                            <th className="py-3 px-3.5 text-center w-12">#</th>
-                            <th className="py-3 px-3.5">Admission No.</th>
-                            <th className="py-3 px-3.5">Learner Name</th>
-                            <th className="py-3 px-3.5 text-center">Score / Max</th>
-                            <th className="py-3 px-3.5 text-center">
+                            <th scope="col" className="py-3 px-3.5 text-center w-12">#</th>
+                            <th scope="col" className="py-3 px-3.5">Assessment No.</th>
+                            <th scope="col" className="py-3 px-3.5">Learner Name</th>
+                            <th scope="col" className="py-3 px-3.5 text-center">Score / Max</th>
+                            <th scope="col" className="py-3 px-3.5 text-center">
                               {isSelectedJunior ? 'Points' : 'CBC Rubric'}
                             </th>
-                            <th className="py-3 px-3.5">Teacher Remarks</th>
+                            <th scope="col" className="py-3 px-3.5">Teacher Remarks</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-sky-100/60 dark:divide-[#162b4d]/60 bg-white dark:bg-[#081020]">
@@ -958,8 +964,8 @@ export const MarkReviewView: React.FC = () => {
                               <td className="py-2.5 px-3.5 text-center text-slate-400 font-mono text-[11px]">
                                 {idx + 1}
                               </td>
-                              <td className="py-2.5 px-3.5 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px]">
-                                {score.admissionNumber}
+                              <td className="py-2.5 px-3.5 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px] whitespace-nowrap">
+                                {score.assessmentNumber || score.admissionNumber || '—'}
                               </td>
                               <td className="py-2.5 px-3.5 font-semibold text-slate-900 dark:text-slate-100">
                                 {score.fullName || score.studentName}
