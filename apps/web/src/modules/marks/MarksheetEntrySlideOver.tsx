@@ -77,6 +77,76 @@ interface MarksheetEntrySlideOverProps {
   isClassTeacherOversight?: boolean;
 }
 
+interface LocalDraftData {
+  updatedAt: number;
+  scores: Record<
+    string,
+    {
+      marksObtained: number | string | null;
+      teacherRemarks: string;
+    }
+  >;
+}
+
+const getDraftStorageKey = (eId: string, cId: string, sId: string) =>
+  `marksheet_draft_${eId}_${cId}_${sId}`;
+
+const loadDraftFromStorage = (eId: string, cId: string, sId: string): LocalDraftData | null => {
+  try {
+    const raw = localStorage.getItem(getDraftStorageKey(eId, cId, sId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.scores === 'object') {
+      return parsed as LocalDraftData;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to read marksheet draft from localStorage', err);
+    return null;
+  }
+};
+
+const saveDraftToStorage = (
+  eId: string,
+  cId: string,
+  sId: string,
+  rows: StudentScoreRow[]
+) => {
+  try {
+    const scoreMap: Record<
+      string,
+      {
+        marksObtained: number | string | null;
+        teacherRemarks: string;
+      }
+    > = {};
+
+    for (const r of rows) {
+      scoreMap[r.studentId] = {
+        marksObtained: r.marksObtained,
+        teacherRemarks: r.teacherRemarks || '',
+      };
+    }
+
+    const draftData: LocalDraftData = {
+      updatedAt: Date.now(),
+      scores: scoreMap,
+    };
+
+    localStorage.setItem(getDraftStorageKey(eId, cId, sId), JSON.stringify(draftData));
+  } catch (err) {
+    console.warn('Failed to write marksheet draft to localStorage', err);
+  }
+};
+
+const removeDraftFromStorage = (eId: string, cId: string, sId: string) => {
+  try {
+    localStorage.removeItem(getDraftStorageKey(eId, cId, sId));
+  } catch (err) {
+    console.warn('Failed to remove marksheet draft from localStorage', err);
+  }
+};
+
 export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = ({
   isOpen,
   onClose,
@@ -93,6 +163,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [regulatingLock, setRegulatingLock] = useState(false);
+  const [hasLocalDraft, setHasLocalDraft] = useState(false);
 
   const [sheetData, setSheetData] = useState<MarksheetData | null>(null);
   const [studentRows, setStudentRows] = useState<StudentScoreRow[]>([]);
@@ -104,6 +175,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const cachedKeyRef = useRef<string | null>(null);
 
   // Prevent background scroll when slide-over is open
   useEffect(() => {
@@ -129,13 +201,87 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         `/api/mark-submissions/entry-sheet?examId=${examId}&classId=${classId}&subjectId=${subjectId}`
       );
       const data = res.data?.data as MarksheetData;
-      setSheetData(data);
-      setStudentRows(data.scores || []);
+
+      const isJuniorExam =
+        data?.isJunior !== undefined
+          ? data.isJunior
+          : isJuniorSecondaryClass(data?.class);
+
+      const sheetStatus = data?.status || 'NOT_STARTED';
+      const isSheetEditable = isClassTeacherOversight
+        ? false
+        : sheetStatus === 'CORRECTION_REQUESTED' ||
+          sheetStatus === 'SUBMITTED' ||
+          sheetStatus === 'LOCKED' ||
+          sheetStatus === 'APPROVED'
+        ? false
+        : (data?.canEdit ?? (sheetStatus === 'DRAFT' || sheetStatus === 'NOT_STARTED'));
+
+      // If editable, check if an unsaved draft exists in localStorage
+      const localDraft = isSheetEditable ? loadDraftFromStorage(examId, classId, subjectId) : null;
+
+      if (localDraft && localDraft.scores) {
+        // Merge local draft values over server scores
+        const mergedScores = (data.scores || []).map((row) => {
+          const draftRow = localDraft.scores[row.studentId];
+          if (!draftRow) return row;
+
+          const scoreVal = draftRow.marksObtained;
+          let rubric = row.cbcRubricLevel;
+          let points = row.juniorPoints;
+          let marksObtained: number | string | null = row.marksObtained;
+
+          if (scoreVal !== undefined && scoreVal !== null && scoreVal !== '') {
+            const num = typeof scoreVal === 'number' ? scoreVal : parseFloat(scoreVal as string);
+            if (!isNaN(num)) {
+              const clamped = Math.max(0, Math.min(row.maxMarks || 100, num));
+              marksObtained = clamped;
+              if (isJuniorExam) {
+                points = calculateJuniorPoints(clamped, row.maxMarks || 100);
+                rubric = null;
+              } else {
+                rubric = calculateCbcRubric(clamped, row.maxMarks || 100).code;
+                points = null;
+              }
+            } else {
+              marksObtained = '';
+              rubric = null;
+              points = null;
+            }
+          } else if (scoreVal === '') {
+            marksObtained = '';
+            rubric = null;
+            points = null;
+          }
+
+          return {
+            ...row,
+            marksObtained,
+            cbcRubricLevel: rubric,
+            juniorPoints: points,
+            teacherRemarks:
+              draftRow.teacherRemarks !== undefined ? draftRow.teacherRemarks : row.teacherRemarks,
+          };
+        });
+
+        setSheetData(data);
+        setStudentRows(mergedScores);
+        setHasLocalDraft(true);
+      } else {
+        if (!isSheetEditable) {
+          // If sheet is locked / submitted / non-editable, clear any lingering stale draft
+          removeDraftFromStorage(examId, classId, subjectId);
+        }
+        setSheetData(data);
+        setStudentRows(data.scores || []);
+        setHasLocalDraft(false);
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load marksheet details');
       if (isInitial) {
         setSheetData(null);
         setStudentRows([]);
+        setHasLocalDraft(false);
       }
     } finally {
       if (isInitial) {
@@ -146,9 +292,30 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
   useEffect(() => {
     if (isOpen && examId && classId && subjectId) {
-      fetchSheet(true);
-    } else {
-      setReadyToShow(false);
+      const currentKey = `${examId}_${classId}_${subjectId}`;
+      const isSameSheet =
+        cachedKeyRef.current === currentKey &&
+        sheetData !== null &&
+        studentRows.length > 0;
+
+      if (isSameSheet) {
+        // Teacher reopened the exact same sheet (e.g. after accidental backdrop click)
+        // Zero reloading delay: keep readyToShow true so it renders immediately with 0ms delay!
+        setReadyToShow(true);
+        const draft = loadDraftFromStorage(examId, classId, subjectId);
+        setHasLocalDraft(draft !== null);
+      } else {
+        // Different sheet or first time opening:
+        cachedKeyRef.current = currentKey;
+        const draft = loadDraftFromStorage(examId, classId, subjectId);
+        setHasLocalDraft(draft !== null);
+        setReadyToShow(false);
+        fetchSheet(true);
+      }
+    } else if (!isOpen) {
+      // When closed, reset the search filter so all rows are visible next time
+      setSearchQuery('');
+      // Do NOT reset readyToShow or cachedKeyRef so that reopening the same marksheet is instant!
     }
   }, [isOpen, examId, classId, subjectId]);
 
@@ -164,42 +331,64 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     ? false
     : (sheetData?.canEdit ?? (status === 'DRAFT' || status === 'NOT_STARTED'));
 
-  // Real-time score change
+  // Real-time score change with auto-save to localStorage
   const handleScoreChange = (originalIndex: number, val: string) => {
-    setStudentRows((prev) => {
-      const copy = [...prev];
-      const row = { ...copy[originalIndex] };
+    const copy = [...studentRows];
+    const row = { ...copy[originalIndex] };
 
-      if (val.trim() === '') {
-        row.marksObtained = '';
-        row.cbcRubricLevel = null;
-        row.juniorPoints = null;
-      } else {
-        const num = parseFloat(val);
-        if (!isNaN(num)) {
-          const clamped = Math.max(0, Math.min(row.maxMarks || 100, num));
-          row.marksObtained = clamped;
-          if (isJunior) {
-            row.juniorPoints = calculateJuniorPoints(clamped, row.maxMarks || 100);
-            row.cbcRubricLevel = null;
-          } else {
-            row.cbcRubricLevel = calculateCbcRubric(clamped, row.maxMarks || 100).code;
-            row.juniorPoints = null;
-          }
+    if (val.trim() === '') {
+      row.marksObtained = '';
+      row.cbcRubricLevel = null;
+      row.juniorPoints = null;
+    } else {
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+        const clamped = Math.max(0, Math.min(row.maxMarks || 100, num));
+        row.marksObtained = clamped;
+        if (isJunior) {
+          row.juniorPoints = calculateJuniorPoints(clamped, row.maxMarks || 100);
+          row.cbcRubricLevel = null;
+        } else {
+          row.cbcRubricLevel = calculateCbcRubric(clamped, row.maxMarks || 100).code;
+          row.juniorPoints = null;
         }
       }
+    }
 
-      copy[originalIndex] = row;
-      return copy;
-    });
+    copy[originalIndex] = row;
+    setStudentRows(copy);
+
+    if (examId && classId && subjectId) {
+      saveDraftToStorage(examId, classId, subjectId, copy);
+      setHasLocalDraft(true);
+    }
   };
 
   const handleRemarkChange = (originalIndex: number, val: string) => {
-    setStudentRows((prev) => {
-      const copy = [...prev];
-      copy[originalIndex] = { ...copy[originalIndex], teacherRemarks: val };
-      return copy;
-    });
+    const copy = [...studentRows];
+    copy[originalIndex] = { ...copy[originalIndex], teacherRemarks: val };
+    setStudentRows(copy);
+
+    if (examId && classId && subjectId) {
+      saveDraftToStorage(examId, classId, subjectId, copy);
+      setHasLocalDraft(true);
+    }
+  };
+
+  // Discard local unsaved draft and revert to server saved marks
+  const handleDiscardLocalDraft = async () => {
+    if (!examId || !classId || !subjectId) return;
+    if (
+      !window.confirm(
+        'Are you sure you want to discard your unsaved changes and revert to the server saved marks?'
+      )
+    ) {
+      return;
+    }
+    removeDraftFromStorage(examId, classId, subjectId);
+    setHasLocalDraft(false);
+    toast.info('Local unsaved draft discarded. Reverting to server saved marks.');
+    await fetchSheet(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, visibleIdx: number) => {
@@ -218,7 +407,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Save as Draft (silent, keep page still)
+  // Save as Draft (silent, keep page still, release localStorage draft)
   const handleSaveDraft = async () => {
     if (!examId || !classId || !subjectId || saving) return;
     setSaving(true);
@@ -236,6 +425,10 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       };
 
       await apiClient.post('/api/mark-submissions/save-draft', payload);
+      // Release draft from localStorage upon successful server save
+      removeDraftFromStorage(examId, classId, subjectId);
+      setHasLocalDraft(false);
+
       toast.success('Marksheet draft saved successfully!');
       setSheetData((prev) =>
         prev ? { ...prev, status: prev.status === 'NOT_STARTED' ? 'DRAFT' : prev.status } : prev
@@ -249,7 +442,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
     }
   };
 
-  // Submit Marksheet (silent, keep page still)
+  // Submit Marksheet (silent, keep page still, release localStorage draft)
   const handleSubmit = async () => {
     if (!examId || !classId || !subjectId || submitting) return;
 
@@ -281,6 +474,10 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
       };
 
       await apiClient.post('/api/mark-submissions/submit', payload);
+      // Release draft from localStorage upon successful submit
+      removeDraftFromStorage(examId, classId, subjectId);
+      setHasLocalDraft(false);
+
       toast.success('Marksheet submitted to Class Teacher for review!');
       setSheetData((prev) => (prev ? { ...prev, status: 'SUBMITTED', canEdit: false } : prev));
       if (onSubmitted) onSubmitted();
@@ -482,6 +679,28 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                           <FileText className="w-3.5 h-3.5 text-slate-500" />
                           {status === 'DRAFT' ? 'Draft (In Progress)' : 'Not Started'}
                         </span>
+                      )}
+
+                      {/* Local Unsaved Draft Badge & Discard */}
+                      {hasLocalDraft && isEditable && (
+                        <div className="inline-flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-xs"
+                            title="Unsaved scores & remarks are safely preserved in browser local storage and will not be lost on accidental exit."
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                            Unsaved draft (Saved locally)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleDiscardLocalDraft}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition-colors cursor-pointer"
+                            title="Discard locally cached changes and revert to the server saved marks"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Discard
+                          </button>
+                        </div>
                       )}
                     </div>
 
