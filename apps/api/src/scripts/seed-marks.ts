@@ -64,7 +64,11 @@ const remarksByPoints = {
   1: 'Needs urgent intervention and foundational reinforcement.',
 };
 
-async function seedMarksForClass(className: string) {
+async function seedMarksForAllClasses() {
+  console.log('========================================================');
+  console.log('  SCHOOL-WIDE EXAMINATION MARKS POPULATION & SUBMISSION');
+  console.log('========================================================\n');
+
   // 1. Fetch active approved exam
   const [exam] = await db
     .select()
@@ -72,127 +76,138 @@ async function seedMarksForClass(className: string) {
     .where(and(eq(examinations.status, 'APPROVED'), isNull(examinations.deletedAt)));
 
   if (!exam) {
-    throw new Error('No approved active examination found.');
+    throw new Error('No approved active examination found in database.');
   }
 
-  // 2. Fetch class
-  const [cls] = await db
+  console.log(`Active Examination: "${exam.title}" (ID: ${exam.id})\n`);
+
+  // 2. Fetch all classes ordered by numericOrder
+  const allClasses = await db
     .select()
     .from(classes)
-    .where(and(eq(classes.name, className), isNull(classes.deletedAt)));
+    .where(isNull(classes.deletedAt))
+    .orderBy(classes.numericOrder);
 
-  if (!cls) {
-    throw new Error(`Class "${className}" not found.`);
-  }
-
-  const isJunior = isJuniorSecondaryClass(cls);
-
-  // 3. Fetch all active learners in class
-  const classStudents = await db
-    .select()
-    .from(students)
-    .where(and(eq(students.classId, cls.id), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
-    .orderBy(students.firstName, students.lastName);
-
-  if (classStudents.length === 0) {
-    throw new Error(`No active learners found in class ${className}.`);
-  }
-
-  // 4. Fetch class subjects
+  // 3. Fetch all subjects
   const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt));
-  const classSubjects = allSubjects.filter(
-    (sub) =>
-      sub.levelCategory === cls.levelCategory ||
-      (cls.levelCategory === 'PRIMARY' &&
-        (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
-  );
 
-  // 5. Fetch teacher allocations for class
-  const allocations = await db
+  // 4. Fetch all allocations
+  const allAllocations = await db
     .select()
     .from(teacherSubjectAllocations)
-    .where(and(eq(teacherSubjectAllocations.classId, cls.id), isNull(teacherSubjectAllocations.deletedAt)));
+    .where(isNull(teacherSubjectAllocations.deletedAt));
 
   const allocMap = new Map<string, string>();
-  allocations.forEach((a) => allocMap.set(a.subjectId, a.teacherId));
-
-  const fallbackTeacherId = cls.classTeacherId;
-
-  console.log(`\n========================================`);
-  console.log(`ASSIGNING MARKS FOR: ${cls.name}`);
-  console.log(`Examination: ${exam.title} (${exam.id})`);
-  console.log(`Learners: ${classStudents.length}`);
-  console.log(`Subjects: ${classSubjects.length}`);
-  console.log(`Grading System: ${isJunior ? 'CBC 8-Point Scale' : 'CBC 4-Level Rubrics'}`);
-  console.log(`========================================\n`);
+  allAllocations.forEach((a) => allocMap.set(`${a.classId}_${a.subjectId}`, a.teacherId));
 
   const allScoresToInsert: any[] = [];
   const submissionsToUpsert: any[] = [];
 
-  for (const sub of classSubjects) {
-    const teacherId = allocMap.get(sub.id) || fallbackTeacherId;
-    if (!teacherId) {
-      console.warn(`No teacher allocated for ${sub.name}, skipping`);
+  let grandTotalStudents = 0;
+  let grandTotalPapers = 0;
+
+  for (const cls of allClasses) {
+    const isJunior = isJuniorSecondaryClass(cls);
+
+    // Active students in class
+    const classStudents = await db
+      .select()
+      .from(students)
+      .where(and(eq(students.classId, cls.id), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
+      .orderBy(students.firstName, students.lastName);
+
+    if (classStudents.length === 0) {
+      console.warn(`Class ${cls.name} has 0 active students, skipping`);
       continue;
     }
 
-    submissionsToUpsert.push({
-      examId: exam.id,
-      classId: cls.id,
-      subjectId: sub.id,
-      teacherId,
-      status: 'LOCKED',
-      submittedAt: new Date(),
-      reviewedAt: new Date(),
-      reviewedById: cls.classTeacherId || teacherId,
-    });
+    grandTotalStudents += classStudents.length;
 
-    for (let i = 0; i < classStudents.length; i++) {
-      const st = classStudents[i];
-      const rand = pseudoRandom(`${exam.id}_${cls.id}_${sub.id}_${st.id}`);
-      let rawMark: number;
-      if (rand > 0.85) {
-        rawMark = Math.round(82 + (rand - 0.85) * 93.3);
-      } else if (rand > 0.40) {
-        rawMark = Math.round(60 + (rand - 0.40) * 46.6);
-      } else if (rand > 0.10) {
-        rawMark = Math.round(45 + (rand - 0.10) * 46.6);
-      } else {
-        rawMark = Math.round(32 + rand * 120);
-      }
-      rawMark = Math.max(30, Math.min(98, rawMark));
+    // Subjects matching this levelCategory
+    const classSubjects = allSubjects.filter(
+      (sub) =>
+        sub.levelCategory === cls.levelCategory ||
+        (cls.levelCategory === 'PRIMARY' &&
+          (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
+    );
 
-      let rubric: 'EE' | 'ME' | 'AE' | 'BE' | null = null;
-      let points: number | null = null;
-      let remark = '';
+    grandTotalPapers += classSubjects.length;
 
-      if (isJunior) {
-        points = calculateJuniorPoints(rawMark, 100);
-        remark = remarksByPoints[points as keyof typeof remarksByPoints] || 'Good effort.';
-      } else {
-        rubric = calculateCbcRubric(rawMark, 100).code;
-        const list = remarksByRubric[rubric];
-        const rIndex = Math.floor(rand * list.length);
-        remark = list[rIndex];
+    console.log(`Processing ${cls.name.padEnd(12)} | Category: ${cls.levelCategory.padEnd(14)} | Students: ${classStudents.length} | Subjects: ${classSubjects.length}`);
+
+    for (const sub of classSubjects) {
+      // Find allocated teacher or fallback to class teacher
+      const teacherId = allocMap.get(`${cls.id}_${sub.id}`) || cls.classTeacherId;
+      if (!teacherId) {
+        console.warn(`  Warning: No teacher found for ${cls.name} - ${sub.name}`);
+        continue;
       }
 
-      allScoresToInsert.push({
+      // Prepare submission locked and reviewed by Class Teacher
+      submissionsToUpsert.push({
         examId: exam.id,
-        studentId: st.id,
+        classId: cls.id,
         subjectId: sub.id,
-        marksObtained: rawMark.toFixed(2),
-        maxMarks: 100,
-        cbcRubricLevel: rubric,
-        juniorPoints: points,
-        teacherRemarks: remark,
-        enteredById: teacherId,
+        teacherId,
+        status: 'LOCKED',
+        submittedAt: new Date(),
+        reviewedAt: new Date(),
+        reviewedById: cls.classTeacherId || teacherId,
       });
+
+      // Prepare scores for all learners
+      for (let i = 0; i < classStudents.length; i++) {
+        const st = classStudents[i];
+        const rand = pseudoRandom(`${exam.id}_${cls.id}_${sub.id}_${st.id}`);
+        let rawMark: number;
+        if (rand > 0.85) {
+          rawMark = Math.round(82 + (rand - 0.85) * 93.3);
+        } else if (rand > 0.40) {
+          rawMark = Math.round(60 + (rand - 0.40) * 46.6);
+        } else if (rand > 0.10) {
+          rawMark = Math.round(45 + (rand - 0.10) * 46.6);
+        } else {
+          rawMark = Math.round(32 + rand * 120);
+        }
+        rawMark = Math.max(30, Math.min(98, rawMark));
+
+        let rubric: 'EE' | 'ME' | 'AE' | 'BE' | null = null;
+        let points: number | null = null;
+        let remark = '';
+
+        if (isJunior) {
+          points = calculateJuniorPoints(rawMark, 100);
+          remark = remarksByPoints[points as keyof typeof remarksByPoints] || 'Good effort.';
+        } else {
+          rubric = calculateCbcRubric(rawMark, 100).code;
+          const list = remarksByRubric[rubric];
+          const rIndex = Math.floor(rand * list.length);
+          remark = list[rIndex];
+        }
+
+        allScoresToInsert.push({
+          examId: exam.id,
+          studentId: st.id,
+          subjectId: sub.id,
+          marksObtained: rawMark.toFixed(2),
+          maxMarks: 100,
+          cbcRubricLevel: rubric,
+          juniorPoints: points,
+          teacherRemarks: remark,
+          enteredById: teacherId,
+        });
+      }
     }
   }
 
-  // Fast batch upsert of scores
-  console.log(`Executing batch upsert of ${allScoresToInsert.length} scores...`);
-  const chunkSize = 100;
+  console.log(`\n--------------------------------------------------------`);
+  console.log(`Prepared ${allScoresToInsert.length} total student scores.`);
+  console.log(`Prepared ${submissionsToUpsert.length} class subject submissions to lock.`);
+  console.log(`--------------------------------------------------------\n`);
+
+  // Batch insert examScores in chunks of 250
+  console.log(`Executing batch upsert for ${allScoresToInsert.length} exam scores...`);
+  const chunkSize = 250;
   for (let i = 0; i < allScoresToInsert.length; i += chunkSize) {
     const chunk = allScoresToInsert.slice(i, i + chunkSize);
     await db
@@ -210,52 +225,44 @@ async function seedMarksForClass(className: string) {
           updatedAt: new Date(),
         },
       });
+    process.stdout.write(`  Upserted chunk ${Math.min(i + chunkSize, allScoresToInsert.length)} / ${allScoresToInsert.length} scores\r`);
   }
-  console.log(`✓ Scores batch upsert completed.`);
+  console.log(`\n✓ All ${allScoresToInsert.length} exam scores successfully upserted.`);
 
-  // Upsert submissions
-  for (const subItem of submissionsToUpsert) {
-    const [existing] = await db
-      .select()
-      .from(markSubmissions)
-      .where(
-        and(
-          eq(markSubmissions.examId, subItem.examId),
-          eq(markSubmissions.classId, subItem.classId),
-          eq(markSubmissions.subjectId, subItem.subjectId),
-          isNull(markSubmissions.deletedAt)
-        )
-      );
-
-    if (existing) {
-      await db
-        .update(markSubmissions)
-        .set({
-          status: 'LOCKED',
-          teacherId: subItem.teacherId,
-          submittedAt: subItem.submittedAt,
-          reviewedAt: subItem.reviewedAt,
-          reviewedById: subItem.reviewedById,
+  // Batch upsert mark_submissions in chunks of 50
+  console.log(`\nLocking & submitting ${submissionsToUpsert.length} subject papers to Deputy Head...`);
+  const subChunkSize = 50;
+  for (let i = 0; i < submissionsToUpsert.length; i += subChunkSize) {
+    const chunk = submissionsToUpsert.slice(i, i + subChunkSize);
+    await db
+      .insert(markSubmissions)
+      .values(chunk)
+      .onConflictDoUpdate({
+        target: [markSubmissions.examId, markSubmissions.classId, markSubmissions.subjectId],
+        set: {
+          status: sql`excluded.status`,
+          teacherId: sql`excluded.teacher_id`,
+          submittedAt: sql`excluded.submitted_at`,
+          reviewedAt: sql`excluded.reviewed_at`,
+          reviewedById: sql`excluded.reviewed_by_id`,
           updatedAt: new Date(),
-        })
-        .where(eq(markSubmissions.id, existing.id));
-    } else {
-      await db.insert(markSubmissions).values(subItem);
-    }
+        },
+      });
   }
+  console.log(`✓ All ${submissionsToUpsert.length} subject submissions permanently locked and received by Deputy Head.`);
 
-  console.log(`✓ All ${submissionsToUpsert.length} subject submissions set to LOCKED (Received by Deputy).`);
+  console.log(`\n========================================================`);
+  console.log(`🎉 WHOLE SCHOOL POPULATION COMPLETE!`);
+  console.log(`- Classes Processed: ${allClasses.length}`);
+  console.log(`- Total Students Scored: ${grandTotalStudents}`);
+  console.log(`- Total Scores Upserted: ${allScoresToInsert.length}`);
+  console.log(`- Total Submissions Locked: ${submissionsToUpsert.length}`);
+  console.log(`========================================================\n`);
 }
 
-async function main() {
-  console.log('Seeding marks for Grade 4 (Upper Primary) and Grade 7 (Junior Secondary)...');
-  await seedMarksForClass('Grade 4');
-  await seedMarksForClass('Grade 7');
-  console.log('\n🎉 ALL MARKS SUCCESSFULLY SEEDED AND SUBMITTED TO DEPUTY HEAD!');
-  process.exit(0);
-}
-
-main().catch((err) => {
-  console.error('Failed to seed marks:', err);
-  process.exit(1);
-});
+seedMarksForAllClasses()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('Failed to seed whole-school marks:', err);
+    process.exit(1);
+  });
