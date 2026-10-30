@@ -390,7 +390,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                         {isInstalled
                           ? 'Running in dedicated standalone mode'
-                          : 'Access directly like a regular desktop app'}
+                          : 'Access directly like a regular app'}
                       </p>
                     </div>
                   </div>
