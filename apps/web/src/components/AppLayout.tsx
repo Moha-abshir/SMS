@@ -12,12 +12,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
   const location = useLocation();
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 flex flex-col lg:flex-row font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
+    <div className="min-h-screen lg:h-screen w-full lg:overflow-hidden bg-gradient-to-br from-sky-50/40 via-white to-sky-50/25 text-slate-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 flex flex-col lg:flex-row font-['Plus_Jakarta_Sans',sans-serif] transition-colors duration-200">
       {/* Dynamic Route-Aware Sidebar */}
       <Sidebar user={user} onLogout={onLogout} />
 
       {/* Main Routed Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto h-full">
+      <main className="flex-1 flex flex-col min-w-0 lg:overflow-y-auto lg:h-full">
         <div className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-5 sm:space-y-6">
           <AnimatePresence mode="wait">
             <motion.div

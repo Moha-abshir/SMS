@@ -59,6 +59,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const userRole = String(user?.roleName || user?.role || 'TEACHER');
   const isDeputy = userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER';
 
+  // Lock body scroll only when mobile drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen]);
+
   useEffect(() => {
     apiClient.get('/api/settings/public').then((res) => {
       if (res.data.data) {

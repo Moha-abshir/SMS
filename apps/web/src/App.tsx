@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from './context/ThemeContext';
+import { PullToRefresh } from './components/PullToRefresh';
 import { LoginPage } from './modules/auth/LoginPage';
 import { AcceptInvitationPage } from './modules/auth/AcceptInvitationPage';
 import { ResetPasswordPage } from './modules/auth/ResetPasswordPage';
@@ -104,8 +105,9 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 text-slate-800 antialiased selection:bg-sky-100 selection:text-sky-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 dark:selection:bg-sky-900/60 dark:selection:text-sky-200 transition-colors duration-200">
-      <Routes>
+    <PullToRefresh>
+      <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 text-slate-800 antialiased selection:bg-sky-100 selection:text-sky-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 dark:selection:bg-sky-900/60 dark:selection:text-sky-200 transition-colors duration-200">
+        <Routes>
         {/* Public & Invitation Routes */}
         <Route
           path="/login"
@@ -304,6 +306,7 @@ const AppContent: React.FC = () => {
       </Routes>
       <ToastContainer position="top-right" autoClose={3500} theme="colored" />
     </div>
+    </PullToRefresh>
   );
 };
 
