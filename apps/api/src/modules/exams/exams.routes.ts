@@ -7,6 +7,8 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', ExamsController.getExams);
+router.post('/terminate-period', authorizePermission('exams:manage'), ExamsController.terminateExamPeriod);
+router.post('/activate-period', authorizePermission('exams:manage'), ExamsController.activateExamPeriod);
 router.post('/', authorizePermission('exams:manage'), ExamsController.createExam);
 router.put('/:id', authorizePermission('exams:manage'), ExamsController.updateExam);
 router.delete('/:id', authorizePermission('exams:manage'), ExamsController.deleteExam);

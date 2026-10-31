@@ -103,6 +103,11 @@ export const MarkReviewView: React.FC = () => {
   const [tierFilter, setTierFilter] = useState<'ALL' | 'SELF_CONTAINED' | 'SUBJECT_SPECIALIST'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const hasActiveExams = useMemo(
+    () => exams.some((e: any) => (e.exam?.status || e.status) === 'APPROVED'),
+    [exams]
+  );
+
   // Slide-Over Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassOverviewItem | null>(null);
@@ -347,6 +352,25 @@ export const MarkReviewView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Standby Notice when Exam Period is Inactive / Concluded */}
+        {!hasActiveExams && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-amber-950 dark:text-amber-100">
+                  No Active Examination Period
+                </h4>
+                <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                  All examinations for the term have been concluded. Marksheet reviews are archived or in standby while Continuous Assessment Tests (CATs) or teaching is ongoing.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filter Bar & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-sky-100 dark:border-[#162b4d] shadow-glass">

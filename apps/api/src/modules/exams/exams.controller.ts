@@ -51,6 +51,26 @@ export class ExamsController {
     }
   }
 
+  static async terminateExamPeriod(req: Request, res: Response) {
+    try {
+      const { examId } = req.body || {};
+      const result = await ExamsService.terminateExamPeriod(examId);
+      return res.status(200).json({ success: true, message: result.message });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to terminate exam period' });
+    }
+  }
+
+  static async activateExamPeriod(req: Request, res: Response) {
+    try {
+      const { examId } = req.body || {};
+      const result = await ExamsService.activateExamPeriod(examId);
+      return res.status(200).json({ success: true, message: result.message });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message || 'Failed to activate exam period' });
+    }
+  }
+
   static async getExamSessions(req: Request, res: Response) {
     try {
       const { id } = req.params;

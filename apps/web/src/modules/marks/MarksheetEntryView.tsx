@@ -46,6 +46,11 @@ export const MarksheetEntryView: React.FC = () => {
   // Selected exam ID
   const [selectedExamId, setSelectedExamId] = useState<string>('');
 
+  const hasActiveExams = useMemo(
+    () => exams.some((e: any) => e.status === 'APPROVED' || e.exam?.status === 'APPROVED'),
+    [exams]
+  );
+
   // Active slide-over state
   const activeExamIdParam = searchParams.get('examId');
   const activeClassIdParam = searchParams.get('classId');
@@ -225,6 +230,21 @@ export const MarksheetEntryView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Standby Banner when Examination Period is Inactive / Closed */}
+        {!hasActiveExams && (
+          <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-sm text-amber-950 dark:text-amber-100">
+                Examination Score Entry Closed
+              </h4>
+              <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                There is currently no active examination period in session. Continuous Assessment Tests (CATs) or classroom teaching is in progress. Mark entry will reopen when the next exam series is scheduled by the Director of Studies.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Examination Selector Tabs (if multiple exams exist) */}
         {exams.length > 1 && (

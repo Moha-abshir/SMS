@@ -217,6 +217,11 @@ export const ExamTimetableView: React.FC = () => {
   );
 
   // Group active vs previous exams in the academic year
+  const hasActiveExams = useMemo(
+    () => exams.some((e) => e.exam.status === 'APPROVED'),
+    [exams]
+  );
+
   const activeExamOptions = useMemo(
     () =>
       exams.map((e) => ({
@@ -511,6 +516,32 @@ export const ExamTimetableView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Standby Banner when Exam Period is Inactive / Concluded */}
+      {!hasActiveExams && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-amber-950 dark:text-amber-100">
+                No Active Examination Period
+              </h4>
+              <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                The current term examination period is concluded or inactive. Academic operations are in Continuous Assessment Tests (CATs) or classroom instruction mode.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsWizardOpen(true)}
+            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors self-start sm:self-auto"
+          >
+            Launch / Schedule Next Exam
+          </button>
+        </div>
+      )}
 
       {/* Series Switcher & History Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl shadow-xs">

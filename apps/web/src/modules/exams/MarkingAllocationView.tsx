@@ -67,6 +67,10 @@ export const MarkingAllocationView: React.FC = () => {
     return approved || exams[0];
   }, [exams]);
 
+  const hasActiveExams = useMemo(() => {
+    return exams.some((e: any) => e.exam?.status === 'APPROVED' || e.status === 'APPROVED');
+  }, [exams]);
+
   const activeExamId = activeExam?.exam?.id || activeExam?.id || '';
   const activeExamName = activeExam?.exam?.title || activeExam?.exam?.name || activeExam?.title || activeExam?.name || 'Active Examination';
   const activeExamYear = activeExam?.term?.year || activeExam?.exam?.academicYear || activeExam?.academicYear || 2026;
@@ -336,6 +340,21 @@ export const MarkingAllocationView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Standby Notice when Exam Period is Inactive / Concluded */}
+      {!hasActiveExams && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-sm text-amber-950 dark:text-amber-100">
+              No Active Examination Period
+            </h4>
+            <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+              Paper marking allocations are only active during scheduled examination cycles. All current examinations have been concluded.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 2. Upper Primary & Junior Secondary Grade-by-Grade List (Grades 4 – 9) */}
       <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">

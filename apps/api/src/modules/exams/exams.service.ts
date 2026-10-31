@@ -146,6 +146,45 @@ export class ExamsService {
     return updated;
   }
 
+  static async terminateExamPeriod(examId?: string) {
+    if (examId) {
+      await db
+        .update(examinations)
+        .set({ status: 'LOCKED', updatedAt: new Date() })
+        .where(eq(examinations.id, examId));
+    } else {
+      await db
+        .update(examinations)
+        .set({ status: 'LOCKED', updatedAt: new Date() })
+        .where(and(eq(examinations.status, 'APPROVED'), isNull(examinations.deletedAt)));
+    }
+    return { success: true, message: 'Examination period concluded successfully. Academic operations shifted to CATs mode.' };
+  }
+
+  static async activateExamPeriod(examId?: string) {
+    if (examId) {
+      await db
+        .update(examinations)
+        .set({ status: 'APPROVED', updatedAt: new Date() })
+        .where(eq(examinations.id, examId));
+    } else {
+      const [latest] = await db
+        .select()
+        .from(examinations)
+        .where(isNull(examinations.deletedAt))
+        .orderBy(desc(examinations.createdAt))
+        .limit(1);
+
+      if (latest) {
+        await db
+          .update(examinations)
+          .set({ status: 'APPROVED', updatedAt: new Date() })
+          .where(eq(examinations.id, latest.id));
+      }
+    }
+    return { success: true, message: 'Examination period activated successfully.' };
+  }
+
   static async getExamSessions(examId: string, classId?: string) {
     const whereConditions = [
       eq(examSessions.examId, examId),

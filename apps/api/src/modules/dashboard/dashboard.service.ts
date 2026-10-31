@@ -18,9 +18,13 @@ import {
   markingAllocations,
   reportCardLocks,
   examScores,
+  catAssessments,
+  catScores,
   systemSettings,
   academicTerms,
   eq,
+  ne,
+  desc,
   and,
   count,
   inArray,
@@ -183,20 +187,130 @@ export class DashboardService {
     };
   }
 
-  static async getDosOverview() {
-    const [examsCount] = await db.select({ total: count() }).from(examinations).where(isNull(examinations.deletedAt));
-    const [publishedExamsCount] = await db.select({ total: count() }).from(examinations).where(and(eq(examinations.status, 'APPROVED'), isNull(examinations.deletedAt)));
-    const [sessionsCount] = await db.select({ total: count() }).from(examSessions).where(isNull(examSessions.deletedAt));
-    const [invigilationCount] = await db.select({ total: count() }).from(invigilatorAllocations).where(isNull(invigilatorAllocations.deletedAt));
-    const [markingCount] = await db.select({ total: count() }).from(markingAllocations).where(isNull(markingAllocations.deletedAt));
+  static async getDosOverview(selectedExamId?: string) {
+    const [settings] = await db.select().from(systemSettings).limit(1);
+    const [currentTerm] = await db.select().from(academicTerms).where(eq(academicTerms.isCurrent, true));
+
+    // 1. All examinations
+    const allExams = await db
+      .select({
+        id: examinations.id,
+        title: examinations.title,
+        status: examinations.status,
+        startDate: examinations.startDate,
+        endDate: examinations.endDate,
+        createdAt: examinations.createdAt,
+      })
+      .from(examinations)
+      .where(isNull(examinations.deletedAt))
+      .orderBy(desc(examinations.createdAt));
+
+    const activeExams = allExams.filter((e) => e.status === 'APPROVED');
+    const concludedExams = allExams.filter((e) => e.status === 'LOCKED');
+    const isExamPeriodActive = activeExams.length > 0;
+    const activeMode: 'EXAMS' | 'CATS' = isExamPeriodActive ? 'EXAMS' : 'CATS';
+
+    // 2. Identify target exams for KPIs
+    let targetExamIds: string[] = [];
+    let selectedExamTitle = 'All Term Exams';
+
+    if (selectedExamId && selectedExamId !== 'all') {
+      const match = allExams.find((e) => e.id === selectedExamId);
+      if (match) {
+        targetExamIds = [match.id];
+        selectedExamTitle = match.title;
+      }
+    }
+
+    if (targetExamIds.length === 0) {
+      if (activeExams.length > 0) {
+        targetExamIds = activeExams.map((e) => e.id);
+      } else if (allExams.length > 0) {
+        targetExamIds = allExams.map((e) => e.id);
+      }
+    }
+
+    // 3. Option 3 KPI: Paper Sessions Completion
+    let totalSessions = 0;
+    let completedSessions = 0;
+    let completionRate = 0;
+
+    if (targetExamIds.length > 0) {
+      const sessions = await db
+        .select({
+          id: examSessions.id,
+          sessionDate: examSessions.sessionDate,
+        })
+        .from(examSessions)
+        .where(and(inArray(examSessions.examId, targetExamIds), isNull(examSessions.deletedAt)));
+
+      totalSessions = sessions.length;
+      const todayStr = new Date().toISOString().split('T')[0];
+      completedSessions = sessions.filter((s) => s.sessionDate <= todayStr).length;
+      completionRate = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
+    }
+
+    // 4. Option 3 KPI: Class Marksheet Submissions Progress
+    const nonPlaygroupClasses = await db
+      .select({ id: classes.id, name: classes.name })
+      .from(classes)
+      .where(and(ne(classes.name, 'Playgroup'), isNull(classes.deletedAt)));
+
+    const classIds = nonPlaygroupClasses.map((c) => c.id);
+    let expectedSubmissions = 0;
+    if (classIds.length > 0) {
+      const allocs = await db
+        .select({ id: teacherSubjectAllocations.id })
+        .from(teacherSubjectAllocations)
+        .where(and(inArray(teacherSubjectAllocations.classId, classIds), isNull(teacherSubjectAllocations.deletedAt)));
+      expectedSubmissions = allocs.length > 0 ? allocs.length : nonPlaygroupClasses.length * 6;
+    } else {
+      expectedSubmissions = 66;
+    }
+
+    const totalExpected = (targetExamIds.length > 0 ? targetExamIds.length : 1) * expectedSubmissions;
+
+    let submittedCount = 0;
+    let verifiedCount = 0;
+    let pendingCount = 0;
+    let correctionCount = 0;
+
+    if (targetExamIds.length > 0) {
+      const submissions = await db
+        .select({
+          id: markSubmissions.id,
+          status: markSubmissions.status,
+        })
+        .from(markSubmissions)
+        .where(and(inArray(markSubmissions.examId, targetExamIds), isNull(markSubmissions.deletedAt)));
+
+      submissions.forEach((s) => {
+        if (['SUBMITTED', 'RESUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'LOCKED'].includes(s.status)) {
+          submittedCount++;
+        }
+        if (['APPROVED', 'LOCKED'].includes(s.status)) {
+          verifiedCount++;
+        } else if (['SUBMITTED', 'RESUBMITTED', 'UNDER_REVIEW'].includes(s.status)) {
+          pendingCount++;
+        } else if (s.status === 'CORRECTION_REQUESTED') {
+          correctionCount++;
+        }
+      });
+    }
+
+    const marksSubmissionRate = totalExpected > 0 ? Math.min(100, Math.round((submittedCount / totalExpected) * 100)) : 0;
+    const dosVerificationRate = submittedCount > 0 ? Math.round((verifiedCount / submittedCount) * 100) : 0;
+
+    // 5. Option 3 KPI: Report Release Readiness (Classes Locked)
     const [locksCount] = await db.select({ total: count() }).from(reportCardLocks).where(isNull(reportCardLocks.deletedAt));
     const [lockedCount] = await db.select({ total: count() }).from(reportCardLocks).where(and(eq(reportCardLocks.isLocked, true), isNull(reportCardLocks.deletedAt)));
+    const totalClassesCount = nonPlaygroupClasses.length || 12;
+    const activeLocksCount = lockedCount?.total || 0;
+    const reportReleaseReadiness = totalClassesCount > 0 ? Math.round((activeLocksCount / totalClassesCount) * 100) : 0;
 
-    // Calculate school academic score average
+    // 6. Academic Score Average
     const scores = await db
-      .select({
-        marksObtained: examScores.marksObtained,
-      })
+      .select({ marksObtained: examScores.marksObtained })
       .from(examScores)
       .where(isNull(examScores.deletedAt));
 
@@ -206,23 +320,84 @@ export class DashboardService {
     });
     const schoolAverage = scores.length > 0 ? Math.round((totalMarks / scores.length) * 10) / 10 : 0;
 
-    const [settings] = await db.select().from(systemSettings).limit(1);
-    const [currentTerm] = await db.select().from(academicTerms).where(eq(academicTerms.isCurrent, true));
+    // 7. Continuous Assessment Tests (CATs) Metrics (Ready to occupy CATs change)
+    const catList = await db.select().from(catAssessments).where(isNull(catAssessments.deletedAt));
+    const catScoreList = await db.select().from(catScores).where(isNull(catScores.deletedAt));
+    const classesWithCats = new Set(catList.map((c) => c.classId)).size;
+    const catsClassCoverageRate = totalClassesCount > 0 ? Math.round((classesWithCats / totalClassesCount) * 100) : 0;
+    let totalCatScore = 0;
+    catScoreList.forEach((s) => {
+      totalCatScore += parseFloat(s.marksObtained || '0');
+    });
+    const catsAverage = catScoreList.length > 0 ? Math.round((totalCatScore / catScoreList.length) * 10) / 10 : 0;
+    const rubricMeetingCount = catScoreList.filter((s) => parseFloat(s.marksObtained || '0') >= 50).length;
+    const rubricMeetingRate = catScoreList.length > 0 ? Math.round((rubricMeetingCount / catScoreList.length) * 100) : 0;
+
+    const [invigilationCount] = await db.select({ total: count() }).from(invigilatorAllocations).where(isNull(invigilatorAllocations.deletedAt));
+    const [markingCount] = await db.select({ total: count() }).from(markingAllocations).where(isNull(markingAllocations.deletedAt));
 
     return {
-      totalExams: examsCount?.total || 0,
-      publishedExams: publishedExamsCount?.total || 0,
-      scheduledSessions: sessionsCount?.total || 0,
-      invigilationsCount: invigilationCount?.total || 0,
-      markingCount: markingCount?.total || 0,
-      totalReportLocks: locksCount?.total || 0,
-      activeLocksCount: lockedCount?.total || 0,
-      releasedReportsCount: (locksCount?.total || 0) - (lockedCount?.total || 0),
+      // Smart Mode & Multiple Exams State
+      activeMode,
+      isExamPeriodActive,
+      selectedExamId: selectedExamId || 'all',
+      selectedExamTitle,
+      examsList: allExams,
+
+      // Option 3 Exam Lifecycle KPIs
+      examSeries: {
+        total: allExams.length,
+        active: activeExams.length,
+        concluded: concludedExams.length,
+      },
+      sessionProgress: {
+        totalSessions,
+        completedSessions,
+        completionRate,
+      },
+      marksSubmission: {
+        totalExpected,
+        submittedCount,
+        submissionRate: marksSubmissionRate,
+      },
+      dosVerification: {
+        totalSubmitted: submittedCount,
+        verifiedCount,
+        pendingCount,
+        correctionCount,
+        verificationRate: dosVerificationRate,
+      },
+      reportRelease: {
+        totalClasses: totalClassesCount,
+        lockedClasses: activeLocksCount,
+        readinessRate: reportReleaseReadiness,
+      },
+
+      // CATs Mode Metrics (Occupies and surfaces CATs when active)
+      catsMetrics: {
+        activeCatAssessments: catList.length,
+        catsClassCoverageRate,
+        catScoresCount: catScoreList.length,
+        rubricMeetingRate,
+        catsAverage,
+      },
+
+      // School Academic Mean & Baseline Totals
       schoolAverage,
       totalScoresEntered: scores.length,
       schoolName: settings?.schoolName || 'Eldoret Muslim Academy',
       academicYear: settings?.currentAcademicYear || 2026,
       currentTermNumber: currentTerm?.termNumber || 1,
+
+      // Legacy fallback fields for backward compatibility
+      totalExams: allExams.length,
+      publishedExams: activeExams.length,
+      scheduledSessions: totalSessions,
+      invigilationsCount: invigilationCount?.total || 0,
+      markingCount: markingCount?.total || 0,
+      totalReportLocks: locksCount?.total || 0,
+      activeLocksCount,
+      releasedReportsCount: (locksCount?.total || 0) - activeLocksCount,
     };
   }
 }
