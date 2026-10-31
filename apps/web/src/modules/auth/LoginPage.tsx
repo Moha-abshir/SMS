@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import {
@@ -54,6 +54,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(300); // 5 minutes = 300 seconds
+  const [otpTimerKey, setOtpTimerKey] = useState(0);
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   // Forgot Password State
   const [resetEmail, setResetEmail] = useState('');
@@ -141,7 +143,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   useEffect(() => {
     if (view !== 'otp') return;
     setOtpCountdown(300);
-    const interval = setInterval(() => {
+    const interval = window.setInterval(() => {
       setOtpCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
@@ -151,7 +153,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [view]);
+  }, [view, otpTimerKey]);
+
+  // Auto-focus OTP input when entering 2FA view or resending code
+  useEffect(() => {
+    if (view === 'otp') {
+      const timer = setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [view, otpTimerKey]);
+
+  // Progressive enhancement: WebOTP API for auto-extracting 2FA codes
+  useEffect(() => {
+    if (view !== 'otp') return;
+    if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
+
+    const ac = new AbortController();
+    (navigator as any).credentials
+      ?.get({
+        otp: { transport: ['sms'] },
+        signal: ac.signal,
+      })
+      .then((otp: any) => {
+        if (otp && otp.code) {
+          const digits = otp.code.replace(/\D/g, '').slice(0, 6);
+          setOtpCode(digits);
+          if (digits.length === 6) {
+            handleVerifyOtp(undefined, digits);
+          }
+        }
+      })
+      .catch((err: any) => {
+        if (err && err.name === 'AbortError') return;
+      });
+
+    return () => {
+      ac.abort();
+    };
+  }, [view, otpTimerKey]);
 
   const formatCountdown = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -185,6 +226,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           console.log('%c🔐 [2FA DEV OTP CODE]: ' + data.devOtp, 'background: #2563eb; color: #fff; font-size: 14px; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
         }
         toast.info(data.devOtp ? '2FA code sent! Check your server or browser console.' : '2FA verification code sent to your email address!');
+        setOtpCode('');
+        setOtpTimerKey((prev) => prev + 1);
         setView('otp');
       }
     } catch (error: any) {
@@ -195,16 +238,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 6) {
+  const handleVerifyOtp = async (e?: React.FormEvent, codeOverride?: string) => {
+    if (e) e.preventDefault();
+    if (otpLoading) return;
+
+    const code = (codeOverride !== undefined ? codeOverride : otpCode).trim();
+    if (code.length !== 6) {
       toast.warn('2FA code must be exactly 6 digits');
+      return;
+    }
+
+    if (otpCountdown === 0) {
+      toast.warn('Your 2FA code has expired. Please click "Resend Code" to get a fresh code.');
       return;
     }
 
     setOtpLoading(true);
     try {
-      const response = await apiClient.post('/api/auth/verify-2fa', { email, otp: otpCode });
+      const response = await apiClient.post('/api/auth/verify-2fa', { email, otp: code });
       const data = response.data;
 
       if (data.success) {
@@ -216,6 +267,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       const message = err.response?.data?.message || 'Verification failed. Please try again.';
       toast.error(message);
       setOtpLoading(false);
+      setTimeout(() => {
+        otpInputRef.current?.select();
+      }, 50);
+    }
+  };
+
+  const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 6);
+    setOtpCode(digits);
+    if (digits.length === 6 && !otpLoading && otpCountdown > 0) {
+      handleVerifyOtp(undefined, digits);
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    const digits = pasted.replace(/\D/g, '').slice(0, 6);
+    if (digits) {
+      setOtpCode(digits);
+      if (digits.length === 6 && !otpLoading && otpCountdown > 0) {
+        handleVerifyOtp(undefined, digits);
+      }
     }
   };
 
@@ -228,7 +303,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           console.log('%c🔐 [2FA DEV OTP CODE RESENT]: ' + response.data.devOtp, 'background: #2563eb; color: #fff; font-size: 14px; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
         }
         toast.success(response.data.devOtp ? 'A new verification code has been generated! Check your console.' : 'A new verification code has been sent to your email.');
-        setOtpCountdown(300);
+        setOtpCode('');
+        setOtpTimerKey((prev) => prev + 1);
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Failed to resend code. Please try again.';
@@ -484,19 +560,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                <label
+                  htmlFor="otp-input"
+                  className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2"
+                >
                   Enter 6-Digit 2FA Code
                 </label>
                 <div className="relative">
-                  <Key className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                  <Key className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <input
+                    ref={otpInputRef}
+                    id="otp-input"
+                    name="otp"
                     type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="\d{6}"
                     maxLength={6}
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    onChange={handleOtpChange}
+                    onPaste={handleOtpPaste}
                     placeholder="123456"
                     required
-                    className="w-full pl-11 pr-4 py-3 bg-white/95 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-center font-mono tracking-widest font-bold text-base sm:text-lg transition-all"
+                    disabled={otpLoading}
+                    className="w-full pl-11 pr-4 py-3 bg-white/95 dark:bg-[#0c1830] border border-sky-200/70 dark:border-[#162b4d] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 focus:border-sky-400 text-center font-mono tracking-widest font-bold text-base sm:text-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
