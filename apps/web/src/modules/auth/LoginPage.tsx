@@ -630,7 +630,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
       {/* Footer */}
       <footer className="py-3 sm:py-4 px-4 text-center text-xs text-slate-400 dark:text-slate-500 z-10">
-        © 2026 {schoolName}. All rights reserved. Powered by AGY SMS.
+        © 2026 {schoolName}. All rights reserved. Powered by Hakari x Neon.
       </footer>
     </div>
   );
