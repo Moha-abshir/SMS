@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, UserCheck, Award, Lock, BarChart3, BookOpen, Clock, ShieldCheck, TrendingUp, FileText, ChevronRight } from 'lucide-react';
+import { Calendar, UserCheck, Award, Lock, BarChart3, BookOpen, Clock, ShieldCheck, TrendingUp, FileText, ChevronRight, ClipboardCheck } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
@@ -185,7 +185,7 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             <BookOpen className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             Examination & Academic Operations Workspace Modules
           </h3>
-          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">4 Direct Workstations</span>
+          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">5 Direct Workstations</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3.5 sm:gap-4">
@@ -220,6 +220,23 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">Marking Allocation Matrix</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Assign qualified subject examiners to mark exam papers per class, prevent duplicate assignments, and print schedules.
+            </p>
+          </button>
+
+          {/* 3. Exam Mark Review */}
+          <button
+            onClick={() => handleNav('mark_review', '/mark-review')}
+            className="p-4 sm:p-5 bg-sky-50/40 dark:bg-[#0c1932]/60 hover:bg-sky-50/90 dark:hover:bg-[#142647] border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer shadow-xs"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                <ClipboardCheck className="w-4 h-4" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors" />
+            </div>
+            <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">Exam Mark Review & Lock</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Review completed class marksheets submitted by Class Teachers, verify subject scores, and inspect permanent lock status.
             </p>
           </button>
 

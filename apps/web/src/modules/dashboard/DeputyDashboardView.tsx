@@ -141,8 +141,8 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
         </div>
       </div>
 
-      {/* Real-time Operational KPI Grid (5 Live Indicators) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4">
+      {/* Real-time Operational KPI Grid (4 Live Indicators) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Attendance KPI */}
         <div
           onClick={() => handleGo('attendance_oversight', '/attendance')}
@@ -161,23 +161,6 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
             {data?.attendance?.registersSubmitted > 0
               ? `${data.attendance.presentCount} / ${data.attendance.totalStudents} present (${data.attendance.absentCount} absent)`
               : `0 / ${data?.attendance?.totalStudents ?? 0} present (Roll call pending)`}
-          </p>
-        </div>
-
-        {/* Mark Reviews Queue KPI */}
-        <div
-          onClick={() => handleGo('mark_review', '/mark-review')}
-          className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass hover:border-sky-300 dark:hover:border-sky-500 transition-all cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pending Marks</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1f3d] border border-sky-100 dark:border-[#163660] text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-              <ClipboardCheck className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">{data?.pendingMarkReviews ?? 0}</div>
-          <p className="text-xs text-sky-700 dark:text-sky-400 mt-1 font-medium">
-            {data?.approvedMarkSubmissions ?? 0} / {data?.totalMarkSubmissions ?? 0} marksheets approved
           </p>
         </div>
 
@@ -248,15 +231,6 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
             <UserX className="w-5 h-5 sm:w-6 sm:h-6 text-sky-500 dark:text-sky-400 mb-2 group-hover:scale-105 transition-transform" />
             <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Attendance Oversight & Parent SMS</h4>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Inspect daily registers & 1-click bulk SMS</p>
-          </button>
-
-          <button
-            onClick={() => handleGo('mark_review', '/mark-review')}
-            className="p-4 bg-sky-50/40 dark:bg-[#0c1830] hover:bg-sky-50/80 dark:hover:bg-[#0f2042] border border-sky-100 dark:border-[#162b4d] hover:border-sky-200 dark:hover:border-sky-500 rounded-xl sm:rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer"
-          >
-            <ClipboardCheck className="w-5 h-5 sm:w-6 sm:h-6 text-sky-500 dark:text-sky-400 mb-2 group-hover:scale-105 transition-transform" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Exam Mark Review & Approval</h4>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Inspect student scores, rubric stats & request corrections</p>
           </button>
 
           <button

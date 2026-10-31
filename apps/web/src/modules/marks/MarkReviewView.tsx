@@ -308,7 +308,7 @@ export const MarkReviewView: React.FC = () => {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 mb-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
-                Deputy Head Oversight • Exam Mark Review
+                Director of Studies (DoS) Oversight • Exam Mark Review
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                 Exam Mark Review
@@ -487,7 +487,7 @@ export const MarkReviewView: React.FC = () => {
                     ) : (
                       <div
                         className="w-full text-center py-2 px-3 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-slate-200/80 dark:border-slate-800 text-[11px] text-slate-400 font-medium cursor-not-allowed select-none flex items-center justify-center gap-1.5"
-                        title="Marksheet will become accessible once the Class Teacher verifies and submits to the Deputy Head"
+                        title="Marksheet will become accessible once the Class Teacher verifies and submits to the Director of Studies (DoS)"
                       >
                         <Clock className="w-3.5 h-3.5 text-amber-500" />
                         Awaiting Class Teacher Submission

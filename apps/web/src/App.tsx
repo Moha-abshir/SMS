@@ -258,14 +258,6 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
-            path="/mark-review"
-            element={
-              <RoleGuard allowedRoles={['DEPUTY_HEAD']} user={currentUser}>
-                <MarkReviewView />
-              </RoleGuard>
-            }
-          />
-          <Route
             path="/marks-entry"
             element={
               <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
@@ -296,6 +288,14 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['DOS']} user={currentUser}>
                 <MarkingAllocationView />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/mark-review"
+            element={
+              <RoleGuard allowedRoles={['DOS']} user={currentUser}>
+                <MarkReviewView />
               </RoleGuard>
             }
           />
