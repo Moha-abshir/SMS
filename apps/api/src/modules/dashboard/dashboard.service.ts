@@ -251,29 +251,11 @@ export class DashboardService {
     }
 
     // 4. Option 3 KPI: Class Marksheet Submissions Progress
-    const nonPlaygroupClasses = await db
-      .select({ id: classes.id, name: classes.name })
-      .from(classes)
-      .where(and(ne(classes.name, 'Playgroup'), isNull(classes.deletedAt)));
-
-    const classIds = nonPlaygroupClasses.map((c) => c.id);
-    let expectedSubmissions = 0;
-    if (classIds.length > 0) {
-      const allocs = await db
-        .select({ id: teacherSubjectAllocations.id })
-        .from(teacherSubjectAllocations)
-        .where(and(inArray(teacherSubjectAllocations.classId, classIds), isNull(teacherSubjectAllocations.deletedAt)));
-      expectedSubmissions = allocs.length > 0 ? allocs.length : nonPlaygroupClasses.length * 6;
-    } else {
-      expectedSubmissions = 66;
-    }
-
-    const totalExpected = (targetExamIds.length > 0 ? targetExamIds.length : 1) * expectedSubmissions;
-
     let submittedCount = 0;
     let verifiedCount = 0;
     let pendingCount = 0;
     let correctionCount = 0;
+    let totalSubmissionsCount = 0;
 
     if (targetExamIds.length > 0) {
       const submissions = await db
@@ -283,6 +265,8 @@ export class DashboardService {
         })
         .from(markSubmissions)
         .where(and(inArray(markSubmissions.examId, targetExamIds), isNull(markSubmissions.deletedAt)));
+
+      totalSubmissionsCount = submissions.length;
 
       submissions.forEach((s) => {
         if (['SUBMITTED', 'RESUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'LOCKED'].includes(s.status)) {
@@ -297,6 +281,25 @@ export class DashboardService {
         }
       });
     }
+
+    const nonPlaygroupClasses = await db
+      .select({ id: classes.id, name: classes.name })
+      .from(classes)
+      .where(and(ne(classes.name, 'Playgroup'), isNull(classes.deletedAt)));
+
+    const classIds = nonPlaygroupClasses.map((c) => c.id);
+    let expectedAllocations = 0;
+    if (classIds.length > 0) {
+      const allocs = await db
+        .select({ id: teacherSubjectAllocations.id })
+        .from(teacherSubjectAllocations)
+        .where(and(inArray(teacherSubjectAllocations.classId, classIds), isNull(teacherSubjectAllocations.deletedAt)));
+      expectedAllocations = allocs.length;
+    }
+
+    // Expected class marksheets: the maximum of recorded exam marksheets or class allocations
+    const baseExpected = Math.max(totalSubmissionsCount, expectedAllocations * (targetExamIds.length || 1));
+    const totalExpected = baseExpected > 0 ? baseExpected : totalSubmissionsCount;
 
     const marksSubmissionRate = totalExpected > 0 ? Math.min(100, Math.round((submittedCount / totalExpected) * 100)) : 0;
     const dosVerificationRate = submittedCount > 0 ? Math.round((verifiedCount / submittedCount) * 100) : 0;

@@ -336,7 +336,7 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
               {data.marksSubmission.submissionRate}%
             </div>
             <p className="text-[11px] text-sky-700 dark:text-sky-300 font-semibold mt-1">
-              {data.marksSubmission.submittedCount} of {data.marksSubmission.totalExpected} Class Papers In
+              {data.marksSubmission.submittedCount} of {data.marksSubmission.totalExpected} Class Marksheets In
             </p>
           </div>
 
