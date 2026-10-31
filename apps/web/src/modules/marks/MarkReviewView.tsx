@@ -24,7 +24,6 @@ import {
   AlertTriangle,
   GraduationCap,
   Calendar,
-  Sparkles,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -313,7 +312,7 @@ export const MarkReviewView: React.FC = () => {
     >
       <div className="space-y-6 max-w-7xl mx-auto pb-16">
         {/* Top Header Card */}
-        <div className="relative z-30 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-glass">
+        <div className="relative z-30 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-glass">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 mb-2">
@@ -358,200 +357,172 @@ export const MarkReviewView: React.FC = () => {
           </div>
         </div>
 
-        {/* Enhanced Interactive KPI Cards Strip */}
-        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+        {/* Mobile Summary Strip (< sm) */}
+        <div className="sm:hidden bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl p-3.5 shadow-glass space-y-3">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {/* Stat 1: Total */}
+            <div
+              onClick={() => setStatusFilter('ALL')}
+              className={`p-2 rounded-xl transition-all cursor-pointer ${
+                statusFilter === 'ALL'
+                  ? 'bg-sky-500/10 dark:bg-sky-500/20 border border-sky-500/30 ring-1 ring-sky-500/20'
+                  : 'bg-slate-50/70 dark:bg-[#0c1830] border border-sky-100/50 dark:border-[#162b4d]'
+              }`}
+            >
+              <span className="text-lg font-black text-slate-900 dark:text-slate-100 block">
+                {metrics.totalClasses}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mt-0.5">
+                Streams
+              </span>
+            </div>
+
+            {/* Stat 2: Received */}
+            <div
+              onClick={() => setStatusFilter('RECEIVED')}
+              className={`p-2 rounded-xl transition-all cursor-pointer ${
+                statusFilter === 'RECEIVED'
+                  ? 'bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 ring-1 ring-emerald-500/20'
+                  : 'bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100/60 dark:border-emerald-900/40'
+              }`}
+            >
+              <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 block">
+                {metrics.receivedClasses}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/80 dark:text-emerald-400/80 block mt-0.5">
+                Received
+              </span>
+            </div>
+
+            {/* Stat 3: Awaiting */}
+            <div
+              onClick={() => setStatusFilter('AWAITING')}
+              className={`p-2 rounded-xl transition-all cursor-pointer ${
+                statusFilter === 'AWAITING'
+                  ? 'bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 ring-1 ring-amber-500/20'
+                  : 'bg-slate-50/70 dark:bg-[#0c1830] border border-sky-100/50 dark:border-[#162b4d]'
+              }`}
+            >
+              <span className={`text-lg font-black block ${metrics.awaitingClasses === 0 ? 'text-slate-900 dark:text-slate-100' : 'text-amber-600 dark:text-amber-400'}`}>
+                {metrics.awaitingClasses}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mt-0.5">
+                Awaiting
+              </span>
+            </div>
+          </div>
+
+          {/* Mobile Progress Bar */}
+          <div className="pt-2 border-t border-sky-100/60 dark:border-[#162b4d]/60">
+            <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                style={{ width: `${completionPercentage}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1 font-semibold">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{completionPercentage}% Complete</span>
+              <span>{metrics.receivedClasses} of {metrics.totalClasses} Streams</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop/Tablet Summary Strip (sm+) */}
+        <div className="hidden sm:grid sm:grid-cols-3 gap-3.5 sm:gap-4">
           {/* Card 1: Total Streams */}
           <div
-            role="button"
-            tabIndex={0}
             onClick={() => setStatusFilter('ALL')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setStatusFilter('ALL');
-              }
-            }}
-            className={`group relative p-5 rounded-2xl sm:rounded-3xl backdrop-blur-xl border transition-all duration-200 cursor-pointer shadow-glass hover:shadow-lg hover:-translate-y-0.5 overflow-hidden ${
+            className={`p-4 rounded-2xl backdrop-blur-xl border transition-all duration-200 cursor-pointer shadow-glass hover:shadow-md flex items-center gap-3.5 ${
               statusFilter === 'ALL'
                 ? 'bg-gradient-to-br from-white via-sky-50/50 to-sky-100/30 dark:from-[#091326] dark:via-[#0c1f3d]/70 dark:to-[#091326] border-sky-500 ring-2 ring-sky-500/20'
                 : 'bg-white/85 dark:bg-[#091326]/85 border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700'
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500/15 to-indigo-500/15 dark:from-sky-500/25 dark:to-indigo-500/25 border border-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0 group-hover:scale-105 transition-transform duration-200">
-                <Layers className="w-5 h-5" />
-              </div>
-              <div className="flex items-center gap-1.5">
-                {statusFilter === 'ALL' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-500 text-white shadow-xs">
-                    ACTIVE
-                  </span>
-                )}
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-200/50 dark:border-slate-700/50">
-                  Total Scope
-                </span>
-              </div>
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500/15 to-indigo-500/15 dark:from-sky-500/25 dark:to-indigo-500/25 border border-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+              <Layers className="w-5 h-5" />
             </div>
-
-            <div className="mt-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 block">
-                Total Streams
-              </span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                   {metrics.totalClasses}
                 </span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Classes Active
+                  Streams Active
                 </span>
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block mt-0.5">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block truncate">
                 Playgroup through Grade 9
               </span>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-sky-100/60 dark:border-[#162b4d]/60">
-              <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-sky-500 via-sky-400 to-indigo-500 rounded-full w-full" />
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5 font-semibold">
-                <span>Academic Session 2026</span>
-                <span>{metrics.totalClasses} Streams</span>
-              </div>
             </div>
           </div>
 
           {/* Card 2: Received from CT */}
           <div
-            role="button"
-            tabIndex={0}
             onClick={() => setStatusFilter('RECEIVED')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setStatusFilter('RECEIVED');
-              }
-            }}
-            className={`group relative p-5 rounded-2xl sm:rounded-3xl backdrop-blur-xl border transition-all duration-200 cursor-pointer shadow-glass hover:shadow-lg hover:-translate-y-0.5 overflow-hidden ${
+            className={`p-4 rounded-2xl backdrop-blur-xl border transition-all duration-200 cursor-pointer shadow-glass hover:shadow-md flex flex-col justify-between ${
               statusFilter === 'RECEIVED'
                 ? 'bg-gradient-to-br from-white via-emerald-50/50 to-emerald-100/30 dark:from-[#091326] dark:via-[#072418]/60 dark:to-[#091326] border-emerald-500 ring-2 ring-emerald-500/20'
                 : 'bg-white/85 dark:bg-[#091326]/85 border-emerald-100/80 dark:border-emerald-900/40 hover:border-emerald-300 dark:hover:border-emerald-700'
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 dark:from-emerald-500/25 dark:to-teal-500/25 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-105 transition-transform duration-200">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500/15 to-teal-500/15 dark:from-emerald-500/25 dark:to-teal-500/25 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                 <ShieldCheck className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-1.5">
-                {statusFilter === 'RECEIVED' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-xs">
-                    ACTIVE
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                    {metrics.receivedClasses}
                   </span>
-                )}
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                  {completionPercentage}% Complete
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    / {metrics.totalClasses} Streams
+                  </span>
+                </div>
+                <span className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 font-medium block truncate">
+                  Permanently Locked & Verified
                 </span>
               </div>
             </div>
-
-            <div className="mt-4">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
-                Received from CT
-              </span>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                  {metrics.receivedClasses}
-                </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  / {metrics.totalClasses} Streams
-                </span>
-              </div>
-              <span className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 font-medium block mt-0.5">
-                Permanently Locked & Verified
-              </span>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-emerald-100/60 dark:border-emerald-900/40">
+            <div className="mt-2.5 pt-2 border-t border-emerald-100/50 dark:border-emerald-900/30">
               <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
                   style={{ width: `${completionPercentage}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5 font-semibold">
-                <span>Submitted by Class Teachers</span>
-                <span>{metrics.receivedClasses} of {metrics.totalClasses}</span>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1 font-semibold">
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{completionPercentage}% Complete</span>
+                <span>{metrics.receivedClasses} of {metrics.totalClasses} Streams</span>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Awaiting CT Submission */}
+          {/* Card 3: Awaiting CT */}
           <div
-            role="button"
-            tabIndex={0}
             onClick={() => setStatusFilter('AWAITING')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setStatusFilter('AWAITING');
-              }
-            }}
-            className={`group relative p-5 rounded-2xl sm:rounded-3xl backdrop-blur-xl border transition-all duration-200 cursor-pointer shadow-glass hover:shadow-lg hover:-translate-y-0.5 overflow-hidden ${
+            className={`p-4 rounded-2xl backdrop-blur-xl border transition-all duration-200 cursor-pointer shadow-glass hover:shadow-md flex items-center gap-3.5 ${
               statusFilter === 'AWAITING'
                 ? 'bg-gradient-to-br from-white via-amber-50/50 to-amber-100/30 dark:from-[#091326] dark:via-[#2e1c08]/60 dark:to-[#091326] border-amber-500 ring-2 ring-amber-500/20'
-                : metrics.awaitingClasses === 0
-                ? 'bg-white/85 dark:bg-[#091326]/85 border-sky-100 dark:border-[#162b4d] hover:border-emerald-300 dark:hover:border-emerald-700'
-                : 'bg-white/85 dark:bg-[#091326]/85 border-amber-100/80 dark:border-amber-900/40 hover:border-amber-300 dark:hover:border-amber-700'
+                : 'bg-white/85 dark:bg-[#091326]/85 border-sky-100 dark:border-[#162b4d] hover:border-amber-300 dark:hover:border-amber-700'
             }`}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div
-                className={`w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-200 ${
-                  metrics.awaitingClasses === 0
-                    ? 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/15 dark:from-emerald-500/25 dark:to-emerald-600/25 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                    : 'bg-gradient-to-br from-amber-500/15 to-orange-500/15 dark:from-amber-500/25 dark:to-orange-500/25 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                {metrics.awaitingClasses === 0 ? (
-                  <CheckCheck className="w-5 h-5" />
-                ) : (
-                  <Clock className="w-5 h-5" />
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                {statusFilter === 'AWAITING' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shadow-xs">
-                    ACTIVE
-                  </span>
-                )}
-                {metrics.awaitingClasses === 0 ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80">
-                    <Sparkles className="w-3 h-3 text-emerald-500" />
-                    All Clear
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80">
-                    <Clock className="w-3 h-3 text-amber-500" />
-                    Action Required
-                  </span>
-                )}
-              </div>
+            <div
+              className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 ${
+                metrics.awaitingClasses === 0
+                  ? 'bg-gradient-to-br from-emerald-500/15 to-emerald-600/15 dark:from-emerald-500/25 dark:to-emerald-600/25 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-gradient-to-br from-amber-500/15 to-orange-500/15 dark:from-amber-500/25 dark:to-orange-500/25 border-amber-500/20 text-amber-600 dark:text-amber-400'
+              }`}
+            >
+              {metrics.awaitingClasses === 0 ? (
+                <CheckCheck className="w-5 h-5" />
+              ) : (
+                <Clock className="w-5 h-5" />
+              )}
             </div>
-
-            <div className="mt-4">
-              <span
-                className={`text-[11px] font-bold uppercase tracking-wider block ${
-                  metrics.awaitingClasses === 0
-                    ? 'text-slate-500 dark:text-slate-400'
-                    : 'text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                Awaiting CT Submission
-              </span>
-              <div className="flex items-baseline gap-2 mt-1">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-1.5">
                 <span
-                  className={`text-3xl font-black tracking-tight ${
+                  className={`text-2xl font-black tracking-tight ${
                     metrics.awaitingClasses === 0
                       ? 'text-slate-900 dark:text-slate-100'
                       : 'text-amber-600 dark:text-amber-400'
@@ -560,41 +531,14 @@ export const MarkReviewView: React.FC = () => {
                   {metrics.awaitingClasses}
                 </span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  {metrics.awaitingClasses === 0 ? 'Streams Pending' : `/ ${metrics.totalClasses} Streams`}
+                  {metrics.awaitingClasses === 0 ? 'Pending Streams' : `/ ${metrics.totalClasses} Streams`}
                 </span>
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block mt-0.5">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium block truncate">
                 {metrics.awaitingClasses === 0
                   ? 'All Class Teachers submitted marks'
                   : 'Subject marking in progress'}
               </span>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-sky-100/60 dark:border-[#162b4d]/60">
-              <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                {metrics.awaitingClasses === 0 ? (
-                  <div className="h-full bg-emerald-500 rounded-full w-full" />
-                ) : (
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.round((metrics.awaitingClasses / (metrics.totalClasses || 1)) * 100)}%`,
-                    }}
-                  />
-                )}
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1.5 font-semibold">
-                <span>
-                  {metrics.awaitingClasses === 0
-                    ? 'Zero pending marksheets'
-                    : `${metrics.awaitingClasses} classes awaiting submission`}
-                </span>
-                <span>
-                  {metrics.awaitingClasses === 0
-                    ? 'Ready for Deputy'
-                    : 'In Progress'}
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -660,7 +604,7 @@ export const MarkReviewView: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
             {filteredClasses.map((item) => {
               const isReceived = item.overallStatus === 'RECEIVED' || item.isPermanentlyLocked || item.isSubmittedToDeputy;
               const isSelfContained = isSelfContainedClass(item.class);
@@ -668,20 +612,20 @@ export const MarkReviewView: React.FC = () => {
               return (
                 <div
                   key={item.class.id}
-                  className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass hover:border-sky-300 dark:hover:border-sky-600/50 transition-all flex flex-col justify-between space-y-4"
+                  className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass hover:border-sky-300 dark:hover:border-sky-600/50 transition-all flex flex-col justify-between space-y-3.5 group/card"
                 >
                   <div className="space-y-3">
                     {/* Header Row: Class Name & Status Badge */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0">
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-xs shrink-0 group-hover/card:scale-105 transition-transform duration-200">
                           {item.class.name.slice(0, 3).toUpperCase()}
                         </div>
-                        <div>
-                          <h3 className="text-base font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                        <div className="min-w-0">
+                          <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 tracking-tight truncate">
                             {item.class.name}
                           </h3>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5 truncate">
                             {isSelfContained ? 'Self-Contained (PP1–G3)' : 'Subject Specialists (G4–G9)'}
                           </span>
                         </div>
@@ -702,12 +646,12 @@ export const MarkReviewView: React.FC = () => {
                     </div>
 
                     {/* Class Teacher Info */}
-                    <div className="p-3 bg-slate-50/70 dark:bg-[#0c1830] border border-sky-100/60 dark:border-[#162b4d] rounded-xl flex items-center justify-between text-xs">
-                      <div>
+                    <div className="p-2.5 sm:p-3 bg-slate-50/70 dark:bg-[#0c1830] border border-sky-100/60 dark:border-[#162b4d] rounded-xl flex items-center justify-between text-xs">
+                      <div className="min-w-0 pr-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                           Class Teacher
                         </span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 block mt-0.5">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 block mt-0.5 truncate">
                           {item.classTeacher
                             ? `${item.classTeacher.firstName} ${item.classTeacher.lastName}`
                             : 'Unassigned'}
@@ -716,7 +660,7 @@ export const MarkReviewView: React.FC = () => {
                       {item.classTeacher?.phoneNumber && (
                         <a
                           href={`tel:${item.classTeacher.phoneNumber.replace(/\s+/g, '')}`}
-                          className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-500 hover:text-white transition-colors"
+                          className="p-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-500 hover:text-white transition-colors shrink-0"
                           title={`Call Class Teacher (${item.classTeacher.phoneNumber})`}
                         >
                           <Phone className="w-3.5 h-3.5" />
@@ -730,7 +674,7 @@ export const MarkReviewView: React.FC = () => {
                     {isReceived ? (
                       <button
                         onClick={() => handleOpenDrawer(item)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] hover:bg-sky-50 dark:hover:bg-[#122444] border border-sky-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] hover:bg-sky-50 dark:hover:bg-[#122444] border border-sky-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 text-xs font-bold transition-all shadow-xs cursor-pointer hover:border-sky-300 dark:hover:border-sky-500"
                       >
                         <Eye className="w-3.5 h-3.5 text-sky-500" />
                         View Marksheets
