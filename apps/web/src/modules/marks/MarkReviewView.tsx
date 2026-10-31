@@ -521,7 +521,7 @@ export const MarkReviewView: React.FC = () => {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                className="w-screen max-w-3xl bg-white dark:bg-[#081020] shadow-2xl flex flex-col border-l border-sky-100 dark:border-[#162b4d]"
+                className="w-screen max-w-full sm:max-w-3xl lg:max-w-4xl bg-white dark:bg-[#081020] shadow-2xl flex flex-col border-l border-sky-100 dark:border-[#162b4d]"
               >
                 {/* Drawer Header */}
                 <div className="p-5 sm:p-6 border-b border-sky-100 dark:border-[#162b4d] bg-sky-50/40 dark:bg-[#0c1830] flex items-center justify-between gap-4">
@@ -694,44 +694,44 @@ export const MarkReviewView: React.FC = () => {
                       aria-label="Learner assessment scores marksheet"
                       className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     >
-                      <table className="w-full text-left text-xs border-collapse">
+                      <table className="w-full min-w-[720px] text-left text-xs border-collapse">
                         <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border-b border-sky-100 dark:border-[#162b4d] uppercase text-[10px] font-bold tracking-wider">
                           <tr>
-                            <th scope="col" className="py-3 px-3.5 text-center w-12">#</th>
-                            <th scope="col" className="py-3 px-3.5">Assessment No.</th>
-                            <th scope="col" className="py-3 px-3.5">Learner Name</th>
-                            <th scope="col" className="py-3 px-3.5 text-center">Score / Max</th>
-                            <th scope="col" className="py-3 px-3.5 text-center">
+                            <th scope="col" className="py-3 px-3.5 text-center w-12 whitespace-nowrap">#</th>
+                            <th scope="col" className="py-3 px-3.5 whitespace-nowrap w-36">Assessment No.</th>
+                            <th scope="col" className="py-3 px-3.5 whitespace-nowrap min-w-[160px]">Learner Name</th>
+                            <th scope="col" className="py-3 px-3.5 text-center whitespace-nowrap w-32">Score / Max</th>
+                            <th scope="col" className="py-3 px-3.5 text-center whitespace-nowrap w-28">
                               {isSelectedJunior ? 'Points' : 'CBC Rubric'}
                             </th>
-                            <th scope="col" className="py-3 px-3.5">Teacher Remarks</th>
+                            <th scope="col" className="py-3 px-3.5 min-w-[220px]">Teacher Remarks</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-sky-100/60 dark:divide-[#162b4d]/60 bg-white dark:bg-[#081020]">
                           {filteredStudentScores.map((score, idx) => (
                             <tr key={score.studentId} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/60 transition-colors">
-                              <td className="py-2.5 px-3.5 text-center text-slate-400 font-mono text-[11px]">
+                              <td className="py-2.5 px-3.5 text-center text-slate-400 font-mono text-[11px] whitespace-nowrap">
                                 {idx + 1}
                               </td>
                               <td className="py-2.5 px-3.5 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px] whitespace-nowrap">
                                 {score.assessmentNumber || score.admissionNumber || '—'}
                               </td>
-                              <td className="py-2.5 px-3.5 font-semibold text-slate-900 dark:text-slate-100">
+                              <td className="py-2.5 px-3.5 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                                 {score.fullName || score.studentName}
                               </td>
-                              <td className="py-2.5 px-3.5 text-center font-bold font-mono">
+                              <td className="py-2.5 px-3.5 text-center font-bold font-mono whitespace-nowrap">
                                 {score.score !== null ? (
-                                  <span className="text-slate-900 dark:text-slate-100">
+                                  <span className="text-slate-900 dark:text-slate-100 whitespace-nowrap">
                                     {score.score} <span className="text-slate-400 font-normal">/ {score.maxScore}</span>
                                   </span>
                                 ) : (
                                   <span className="text-slate-400 italic">Not set</span>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3.5 text-center">
+                              <td className="py-2.5 px-3.5 text-center whitespace-nowrap">
                                 {isSelectedJunior ? (
                                   score.juniorPoints ? (
-                                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                    <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800 whitespace-nowrap">
                                       {score.juniorPoints} Pts
                                     </span>
                                   ) : (
@@ -739,7 +739,7 @@ export const MarkReviewView: React.FC = () => {
                                   )
                                 ) : score.cbcRubricLevel ? (
                                   <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                    className={`inline-flex items-center justify-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap ${
                                       score.cbcRubricLevel === 'EE'
                                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                                         : score.cbcRubricLevel === 'ME'
@@ -755,7 +755,7 @@ export const MarkReviewView: React.FC = () => {
                                   <span className="text-slate-400">—</span>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 text-[11px]">
+                              <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 text-xs">
                                 {score.teacherRemarks || <span className="italic text-slate-300 dark:text-slate-600">—</span>}
                               </td>
                             </tr>

@@ -877,16 +877,16 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                       aria-label="Learner marksheet entry table"
                       className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d] focus:outline-none focus:ring-1 focus:ring-sky-500"
                     >
-                      <table className="w-full text-left text-xs border-collapse">
+                      <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                         <thead className="sticky top-0 z-10 bg-sky-50 dark:bg-[#0c1830]">
                           <tr className="border-b border-sky-100 dark:border-[#162b4d] text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
-                            <th scope="col" className="py-3 px-3 w-10 text-center">#</th>
-                            <th scope="col" className="py-3 px-3">Learner Name</th>
-                            <th scope="col" className="py-3 px-3 w-28 text-center">Marks / 100</th>
-                            <th scope="col" className="py-3 px-3 w-32 text-center">
+                            <th scope="col" className="py-3 px-3 w-10 text-center whitespace-nowrap">#</th>
+                            <th scope="col" className="py-3 px-3 min-w-[160px] whitespace-nowrap">Learner Name</th>
+                            <th scope="col" className="py-3 px-3 w-28 text-center whitespace-nowrap">Marks / 100</th>
+                            <th scope="col" className="py-3 px-3 w-32 text-center whitespace-nowrap">
                               {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
                             </th>
-                            <th scope="col" className="py-3 px-3">Teacher Remarks</th>
+                            <th scope="col" className="py-3 px-3 min-w-[200px]">Teacher Remarks</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-[#112038]">
