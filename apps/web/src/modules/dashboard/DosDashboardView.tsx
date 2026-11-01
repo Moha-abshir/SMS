@@ -158,7 +158,7 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             {data.schoolName} Academic Operations Center
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
-            Real-time control over term examinations, invigilator duty allocations, paper marking oversight, CBC grading analytics, and report release security.
+            Real-time control over term examinations, invigilator duty allocations, paper marking oversight, CBC grading analytics, and schoolwide academic performance.
           </p>
         </div>
 
@@ -293,19 +293,19 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             </p>
           </div>
 
-          {/* 5. Report Release Readiness */}
+          {/* 5. School Mean Score */}
           <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all col-span-1 sm:col-span-2 lg:col-span-1">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Report Release</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">School Mean Score</span>
               <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1932] border border-sky-100 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                <Lock className="w-4 h-4" />
+                <Award className="w-4 h-4" />
               </div>
             </div>
             <div className="text-2xl sm:text-3xl font-black text-sky-700 dark:text-sky-300 font-mono">
-              {data.reportRelease.readinessRate}%
+              {data.schoolAverage > 0 ? `${data.schoolAverage}%` : 'Pending'}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-              {data.reportRelease.lockedClasses} of {data.reportRelease.totalClasses} Classes Locked
+              {data.totalScoresEntered > 0 ? `${data.totalScoresEntered} Scores Compiled` : 'No scores entered yet'}
             </p>
           </div>
         </div>
@@ -483,20 +483,20 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
             </p>
           </button>
 
-          {/* 4. Report Card Locks */}
+          {/* 4. Schoolwide Results & League Table */}
           <button
-            onClick={() => handleNav('report_locks', '/report-locks')}
+            onClick={() => handleNav('subject_analytics', '/subject-performance')}
             className="p-4 sm:p-5 bg-sky-50/40 dark:bg-[#0c1932]/60 hover:bg-sky-50/90 dark:hover:bg-[#142647] border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer shadow-xs"
           >
             <div className="flex items-center justify-between mb-2">
               <div className="w-9 h-9 rounded-xl bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-                <Lock className="w-4 h-4" />
+                <Award className="w-4 h-4" />
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors" />
             </div>
-            <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">Report Card Lock Control</h4>
+            <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">Schoolwide Results & Broadsheet</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Audit score entry completion, toggle class report card visibility, and review unlock requests from teachers.
+              Examine schoolwide performance, cross-class rankings, subject league tables, CBC rubrics, and top achievers.
             </p>
           </button>
 

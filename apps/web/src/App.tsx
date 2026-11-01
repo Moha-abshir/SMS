@@ -32,7 +32,6 @@ import { ClassExamProgressView } from './modules/marks/ClassExamProgressView';
 import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
 import { ExamTimetableView } from './modules/exams/ExamTimetableView';
 import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
-import { ReportCardLockView } from './modules/exams/ReportCardLockView';
 import { TimetableManagementView } from './modules/timetable/TimetableManagementView';
 import { apiClient } from './lib/apiClient';
 
@@ -172,14 +171,6 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['HEAD_TEACHER']} user={currentUser}>
                 <FeeStructureView />
-              </RoleGuard>
-            }
-          />
-          <Route
-            path="/report-locks"
-            element={
-              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DOS']} user={currentUser}>
-                <ReportCardLockView />
               </RoleGuard>
             }
           />
