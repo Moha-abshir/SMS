@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   Settings, FileText, Package, Clock, LogOut,
-  Menu, X, School, ClipboardCheck, Calendar, Layers
+  Menu, X, School, ClipboardCheck, Calendar, Layers, Award
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { ThemeToggle } from './ThemeToggle';
@@ -153,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DOS'] },
     { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
-    { path: '/subject-performance', label: 'Subject Performance', icon: TrendingUp, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { path: '/school-results', label: 'Schoolwide Results', icon: Award, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 

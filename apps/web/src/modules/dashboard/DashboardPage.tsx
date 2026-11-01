@@ -18,6 +18,7 @@ import { MarkReviewView } from '../marks/MarkReviewView';
 import { ExamTimetableView } from '../exams/ExamTimetableView';
 import { MarkingAllocationView } from '../exams/MarkingAllocationView';
 import { SubjectPerformanceView } from '../dos/SubjectPerformanceView';
+import { SchoolResultsView } from '../dos/SchoolResultsView';
 
 interface DashboardPageProps {
   user: any;
@@ -204,15 +205,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
               </motion.div>
             )}
 
-            {activeView === 'subject_analytics' && (
+            {(activeView === 'school_results' || activeView === 'subject_analytics') && (
               <motion.div
-                key="subject_analytics"
+                key="school_results"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <SubjectPerformanceView />
+                <SchoolResultsView />
               </motion.div>
             )}
 
@@ -229,7 +230,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ user, onLogout }) 
             )}
 
             {/* Dynamic View Router Container for remaining sub-pages */}
-            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'invigilation' && activeView !== 'marking_allocations' && activeView !== 'subject_analytics' && activeView !== 'staff' && (
+            {activeView !== 'overview' && activeView !== 'settings' && activeView !== 'fee_structure' && activeView !== 'admissions' && activeView !== 'letters' && activeView !== 'allocations' && activeView !== 'leave_requests' && activeView !== 'inventory' && activeView !== 'attendance_oversight' && activeView !== 'mark_review' && activeView !== 'exams' && activeView !== 'invigilation' && activeView !== 'marking_allocations' && activeView !== 'school_results' && activeView !== 'subject_analytics' && activeView !== 'staff' && (
               <motion.div
                 key={activeView}
                 initial={{ opacity: 0, y: 10 }}

@@ -485,7 +485,7 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
 
           {/* 4. Schoolwide Results & League Table */}
           <button
-            onClick={() => handleNav('subject_analytics', '/subject-performance')}
+            onClick={() => handleNav('school_results', '/school-results')}
             className="p-4 sm:p-5 bg-sky-50/40 dark:bg-[#0c1932]/60 hover:bg-sky-50/90 dark:hover:bg-[#142647] border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700 rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer shadow-xs"
           >
             <div className="flex items-center justify-between mb-2">

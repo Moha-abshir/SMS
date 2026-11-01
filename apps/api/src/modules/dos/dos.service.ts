@@ -7,6 +7,7 @@ import {
   examinations,
   academicTerms,
   systemSettings,
+  users,
   calculateCbcRubric,
   calculateJuniorPoints,
   isJuniorSecondaryClass,
@@ -102,12 +103,29 @@ export class DosService {
 
     const targetExamRecord = allExams.find((e) => e.exam.id === targetExamId);
 
-    // 2. Fetch all classes and subjects
+    // 2. Fetch all classes, teachers, active students, and subjects
     const allClasses = await db
-      .select()
+      .select({
+        id: classes.id,
+        name: classes.name,
+        levelCategory: classes.levelCategory,
+        numericOrder: classes.numericOrder,
+        classTeacherId: classes.classTeacherId,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+      })
       .from(classes)
+      .leftJoin(users, eq(classes.classTeacherId, users.id))
       .where(isNull(classes.deletedAt))
       .orderBy(classes.numericOrder, classes.name);
+
+    const activeStudents = await db
+      .select({
+        id: students.id,
+        classId: students.classId,
+      })
+      .from(students)
+      .where(and(eq(students.status, 'ACTIVE'), isNull(students.deletedAt)));
 
     const allSubjects = await db
       .select()
@@ -137,7 +155,7 @@ export class DosService {
 
     const rawScores = await scoresQuery;
 
-    // 4. Compute School-Wide Overview
+    // 4. Compute School-Wide Overview & Student Global Aggregates
     let totalMarksSum = 0;
     let eeTotal = 0;
     let meTotal = 0;
@@ -146,29 +164,135 @@ export class DosService {
     const pointsTotal: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     const uniqueStudents = new Set<string>();
 
+    const globalStudentMap = new Map<string, {
+      studentId: string;
+      studentName: string;
+      admissionNumber: string | null;
+      classId: string;
+      className: string;
+      levelCategory: string;
+      isJunior: boolean;
+      subjectsCount: number;
+      totalMarks: number;
+      topSubject: string;
+      topScore: number;
+      distinctionCount: number;
+      failingCount: number;
+      subjectScores: { subjectName: string; score: number; rubric: string | null; points: number | null }[];
+    }>();
+
+    const globalRemedialMap = new Map<string, {
+      studentId: string;
+      studentName: string;
+      admissionNumber: string | null;
+      classId: string;
+      className: string;
+      classTeacher: string;
+      failingSubjects: { subjectName: string; marksObtained: number; rubric: string | null; points: number | null; remarks: string }[];
+    }>();
+
     rawScores.forEach((row) => {
       const marks = parseFloat(row.score.marksObtained);
       totalMarksSum += marks;
-      uniqueStudents.add(row.student.id);
+      const sId = row.student.id;
+      uniqueStudents.add(sId);
 
       const isJunior = isJuniorSecondaryClass(row.class);
+      let rubCode: string | null = null;
+      let ptsValue: number | null = null;
+
       if (isJunior) {
-        const pts = row.score.juniorPoints ?? calculateJuniorPoints(marks, row.score.maxMarks || 100);
-        if (pts in pointsTotal) {
-          pointsTotal[pts]++;
+        ptsValue = row.score.juniorPoints ?? calculateJuniorPoints(marks, row.score.maxMarks || 100);
+        if (ptsValue in pointsTotal) {
+          pointsTotal[ptsValue]++;
         }
       } else {
-        const rub = row.score.cbcRubricLevel || calculateCbcRubric(marks, row.score.maxMarks || 100).code;
-        if (rub === 'EE') eeTotal++;
-        else if (rub === 'ME') meTotal++;
-        else if (rub === 'AE') aeTotal++;
+        rubCode = row.score.cbcRubricLevel || calculateCbcRubric(marks, row.score.maxMarks || 100).code;
+        if (rubCode === 'EE') eeTotal++;
+        else if (rubCode === 'ME') meTotal++;
+        else if (rubCode === 'AE') aeTotal++;
         else beTotal++;
+      }
+
+      // Populate global student map for Merit List (Honor Roll)
+      if (!globalStudentMap.has(sId)) {
+        globalStudentMap.set(sId, {
+          studentId: sId,
+          studentName: `${row.student.firstName} ${row.student.lastName}`,
+          admissionNumber: row.student.admissionNumber,
+          classId: row.class.id,
+          className: row.class.name,
+          levelCategory: row.class.levelCategory,
+          isJunior,
+          subjectsCount: 0,
+          totalMarks: 0,
+          topSubject: '',
+          topScore: -1,
+          distinctionCount: 0,
+          failingCount: 0,
+          subjectScores: [],
+        });
+      }
+      const sEntry = globalStudentMap.get(sId)!;
+      sEntry.subjectsCount++;
+      sEntry.totalMarks += marks;
+      if (marks > sEntry.topScore) {
+        sEntry.topScore = marks;
+        sEntry.topSubject = row.subject.name;
+      }
+      if (marks >= 75 || rubCode === 'EE' || (ptsValue && ptsValue >= 7)) {
+        sEntry.distinctionCount++;
+      }
+      if (marks < 50 || rubCode === 'BE') {
+        sEntry.failingCount++;
+      }
+      sEntry.subjectScores.push({
+        subjectName: row.subject.name,
+        score: marks,
+        rubric: rubCode,
+        points: ptsValue,
+      });
+
+      // Populate Remedial Watchlist if score < 50 or BE
+      if (marks < 50 || rubCode === 'BE') {
+        if (!globalRemedialMap.has(sId)) {
+          const clsMatch = allClasses.find((c) => c.id === row.class.id);
+          const teacherName = clsMatch?.teacherFirstName ? `${clsMatch.teacherFirstName} ${clsMatch.teacherLastName}` : 'Unassigned';
+          globalRemedialMap.set(sId, {
+            studentId: sId,
+            studentName: `${row.student.firstName} ${row.student.lastName}`,
+            admissionNumber: row.student.admissionNumber,
+            classId: row.class.id,
+            className: row.class.name,
+            classTeacher: teacherName,
+            failingSubjects: [],
+          });
+        }
+        const rEntry = globalRemedialMap.get(sId)!;
+        rEntry.failingSubjects.push({
+          subjectName: row.subject.name,
+          marksObtained: marks,
+          rubric: rubCode,
+          points: ptsValue,
+          remarks: row.score.teacherRemarks || 'Requires remedial intervention',
+        });
       }
     });
 
     const schoolAverage = rawScores.length > 0 ? Math.round((totalMarksSum / rawScores.length) * 10) / 10 : 0;
+    const totalEnrolled = activeStudents.length || uniqueStudents.size;
+    const totalSat = uniqueStudents.size;
+    const absentCount = Math.max(0, totalEnrolled - totalSat);
+    const candidacyRate = totalEnrolled > 0 ? Math.round((totalSat / totalEnrolled) * 1000) / 10 : 100;
 
-    // 5. Subject Breakdown
+    const totalScoresCount = rawScores.length;
+    const eeRate = totalScoresCount > 0 ? Math.round((eeTotal / totalScoresCount) * 100) : 0;
+    const meRate = totalScoresCount > 0 ? Math.round((meTotal / totalScoresCount) * 100) : 0;
+    const aeRate = totalScoresCount > 0 ? Math.round((aeTotal / totalScoresCount) * 100) : 0;
+    const beRate = totalScoresCount > 0 ? Math.round((beTotal / totalScoresCount) * 100) : 0;
+    const proficiencyBenchmark = eeRate + meRate;
+
+    // 5. Subject Breakdown & Matrix
     const subjectSummaries = allSubjects.map((s) => {
       const subScores = rawScores.filter((r) => r.subject.id === s.id);
       const subCount = subScores.length;
@@ -204,6 +328,9 @@ export class DosService {
       });
 
       const avg = subCount > 0 ? Math.round((subMarksSum / subCount) * 10) / 10 : 0;
+      const targetScore = 70;
+      const status: 'DISTINCTION' | 'ON_TRACK' | 'NEEDS_ATTENTION' =
+        avg >= 75 ? 'DISTINCTION' : avg >= 60 ? 'ON_TRACK' : 'NEEDS_ATTENTION';
 
       return {
         subjectId: s.id,
@@ -213,24 +340,33 @@ export class DosService {
         isJunior: isSubJunior,
         testedCount: subCount,
         averageScore: avg,
+        targetScore,
+        variance: Math.round((avg - targetScore) * 10) / 10,
         highestScore: highest,
         lowestScore: lowest,
+        status,
         needsAttention: subCount > 0 && (avg < 55 || (be / subCount) > 0.3),
         rubric: { EE: ee, ME: me, AE: ae, BE: be },
         points: subPoints,
       };
     });
 
-    // Determine highest and lowest performing subjects with test data
     const activeSubjects = subjectSummaries.filter((s) => s.testedCount > 0);
     activeSubjects.sort((a, b) => b.averageScore - a.averageScore);
     const topSubject = activeSubjects.length > 0 ? activeSubjects[0] : null;
     const lowestSubject = activeSubjects.length > 0 ? activeSubjects[activeSubjects.length - 1] : null;
 
-    // 6. Class Breakdown
+    // 6. Class Breakdown & Comparative League Table
     const classSummaries = allClasses.map((cls) => {
       const clsScores = rawScores.filter((r) => r.class.id === cls.id);
       const studentMap = new Map<string, { student: any; scores: any[]; totalMarks: number }>();
+      let clsMarksSum = 0;
+      let highestMark = 0;
+      let lowestMark = clsScores.length > 0 ? 100 : 0;
+      let ee = 0;
+      let me = 0;
+      let ae = 0;
+      let be = 0;
 
       clsScores.forEach((r) => {
         if (!studentMap.has(r.student.id)) {
@@ -239,22 +375,23 @@ export class DosService {
         const sEntry = studentMap.get(r.student.id)!;
         sEntry.scores.push(r);
         sEntry.totalMarks += parseFloat(r.score.marksObtained);
-      });
 
-      let clsMarksSum = 0;
-      let highestMark = 0;
-      let lowestMark = clsScores.length > 0 ? 100 : 0;
-
-      clsScores.forEach((r) => {
         const m = parseFloat(r.score.marksObtained);
         clsMarksSum += m;
         if (m > highestMark) highestMark = m;
         if (m < lowestMark) lowestMark = m;
+
+        const rub = r.score.cbcRubricLevel || calculateCbcRubric(m, r.score.maxMarks || 100).code;
+        if (rub === 'EE') ee++;
+        else if (rub === 'ME') me++;
+        else if (rub === 'AE') ae++;
+        else be++;
       });
 
+      const enrolledCount = activeStudents.filter((s) => s.classId === cls.id).length;
+      const testedCount = studentMap.size;
       const classAverage = clsScores.length > 0 ? Math.round((clsMarksSum / clsScores.length) * 10) / 10 : 0;
 
-      // Find top student in this class
       let topStudent: any = null;
       let maxStudentAvg = -1;
       let strugglingCount = 0;
@@ -275,22 +412,84 @@ export class DosService {
         }
       });
 
+      const teacherName = cls.teacherFirstName ? `${cls.teacherFirstName} ${cls.teacherLastName}` : 'Unassigned';
+
       return {
         classId: cls.id,
         className: cls.name,
         levelCategory: cls.levelCategory,
-        isJunior: isJuniorSecondaryClass(cls),
-        testedCount: studentMap.size,
+        isJunior: isJuniorSecondaryClass(cls as any),
+        classTeacher: teacherName,
+        enrolledCount: Math.max(enrolledCount, testedCount),
+        testedCount,
         totalScores: clsScores.length,
         classAverage,
         highestMark,
         lowestMark: clsScores.length > 0 ? lowestMark : 0,
+        rubric: { EE: ee, ME: me, AE: ae, BE: be },
         topStudent,
         strugglingCount,
       };
     });
 
-    // 7. Learners Requiring Intervention (<50% in any subject)
+    // Rank classes by classAverage descending
+    classSummaries.sort((a, b) => b.classAverage - a.classAverage);
+    const rankedClassSummaries = classSummaries.map((cls, idx) => ({
+      ...cls,
+      rank: idx + 1,
+    }));
+
+    // 7. Top Achievers Honor Roll (Schoolwide Merit List)
+    const allRankedStudents = Array.from(globalStudentMap.values())
+      .map((s) => {
+        const avg = s.subjectsCount > 0 ? Math.round((s.totalMarks / s.subjectsCount) * 10) / 10 : 0;
+        let proficiencyLevel = 'ME';
+        if (avg >= 75) proficiencyLevel = 'EE';
+        else if (avg >= 50) proficiencyLevel = 'ME';
+        else if (avg >= 40) proficiencyLevel = 'AE';
+        else proficiencyLevel = 'BE';
+
+        return {
+          ...s,
+          averageScore: avg,
+          proficiencyLevel,
+        };
+      })
+      .sort((a, b) => b.averageScore - a.averageScore);
+
+    const honorRoll = allRankedStudents.slice(0, 25).map((s, idx) => ({
+      ...s,
+      rank: idx + 1,
+    }));
+
+    // 8. Academic Intervention & Remedial Watchlist
+    const remedialWatchlist = Array.from(globalRemedialMap.values())
+      .map((r) => {
+        const fullProfile = globalStudentMap.get(r.studentId);
+        const overallAvg =
+          fullProfile && fullProfile.subjectsCount > 0
+            ? Math.round((fullProfile.totalMarks / fullProfile.subjectsCount) * 10) / 10
+            : 0;
+        const failingCount = r.failingSubjects.length;
+        const riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' =
+          failingCount >= 3 ? 'HIGH' : failingCount >= 2 ? 'MEDIUM' : 'LOW';
+
+        return {
+          studentId: r.studentId,
+          studentName: r.studentName,
+          admissionNumber: r.admissionNumber,
+          classId: r.classId,
+          className: r.className,
+          classTeacher: r.classTeacher,
+          overallAverage: overallAvg,
+          failingCount,
+          riskLevel,
+          failingSubjects: r.failingSubjects,
+        };
+      })
+      .sort((a, b) => b.failingCount - a.failingCount || a.overallAverage - b.overallAverage);
+
+    // Backward compatible intervention learners flat list
     const interventionLearners = rawScores
       .filter((r) => parseFloat(r.score.marksObtained) < 50)
       .map((r) => {
@@ -311,13 +510,13 @@ export class DosService {
         };
       });
 
-    // 8. Specific Class Drill-Down (if requested)
+    // 9. Specific Class Drill-Down (if requested)
     let selectedClassDetail: any = null;
     if (classId) {
       const clsScores = rawScores.filter((r) => r.class.id === classId);
       const studentScoreMap = new Map<string, any>();
       const targetCls = allClasses.find((c) => c.id === classId);
-      const isJunior = isJuniorSecondaryClass(targetCls);
+      const isJunior = isJuniorSecondaryClass(targetCls as any);
 
       clsScores.forEach((r) => {
         if (!studentScoreMap.has(r.student.id)) {
@@ -373,16 +572,24 @@ export class DosService {
         : null,
       schoolOverview: {
         schoolAverage,
-        totalLearnersTested: uniqueStudents.size,
-        totalScoresEntered: rawScores.length,
+        totalLearnersTested: totalSat,
+        totalEnrolled,
+        absentCount,
+        candidacyRate,
+        totalScoresEntered: totalScoresCount,
         topSubject: topSubject ? { name: topSubject.subjectName, average: topSubject.averageScore } : null,
         lowestSubject: lowestSubject ? { name: lowestSubject.subjectName, average: lowestSubject.averageScore } : null,
+        topStream: rankedClassSummaries.length > 0 ? { name: rankedClassSummaries[0].className, average: rankedClassSummaries[0].classAverage } : null,
         rubricDistribution: { EE: eeTotal, ME: meTotal, AE: aeTotal, BE: beTotal },
+        rubricPercentages: { EE: eeRate, ME: meRate, AE: aeRate, BE: beRate },
+        proficiencyBenchmark,
         pointsDistribution: pointsTotal,
-        strugglingTotal: interventionLearners.length,
+        strugglingTotal: remedialWatchlist.length,
       },
       subjects: subjectSummaries,
-      classes: classSummaries,
+      classes: rankedClassSummaries,
+      honorRoll,
+      remedialWatchlist,
       interventionLearners,
       selectedClassDetail,
     };

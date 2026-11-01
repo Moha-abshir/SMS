@@ -30,6 +30,7 @@ import { MarkReviewView } from './modules/marks/MarkReviewView';
 import { MarksheetEntryView } from './modules/marks/MarksheetEntryView';
 import { ClassExamProgressView } from './modules/marks/ClassExamProgressView';
 import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
+import { SchoolResultsView } from './modules/dos/SchoolResultsView';
 import { ExamTimetableView } from './modules/exams/ExamTimetableView';
 import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
 import { TimetableManagementView } from './modules/timetable/TimetableManagementView';
@@ -199,10 +200,18 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
+            path="/school-results"
+            element={
+              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+                <SchoolResultsView />
+              </RoleGuard>
+            }
+          />
+          <Route
             path="/subject-performance"
             element={
               <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
-                <SubjectPerformanceView />
+                <SchoolResultsView />
               </RoleGuard>
             }
           />
