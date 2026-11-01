@@ -198,20 +198,18 @@ export class DosService {
       uniqueStudents.add(sId);
 
       const isJunior = isJuniorSecondaryClass(row.class);
-      let rubCode: string | null = null;
-      let ptsValue: number | null = null;
+      const rubCode = row.score.cbcRubricLevel || calculateCbcRubric(marks, row.score.maxMarks || 100).code;
+      if (rubCode === 'EE') eeTotal++;
+      else if (rubCode === 'ME') meTotal++;
+      else if (rubCode === 'AE') aeTotal++;
+      else beTotal++;
 
+      let ptsValue: number | null = null;
       if (isJunior) {
         ptsValue = row.score.juniorPoints ?? calculateJuniorPoints(marks, row.score.maxMarks || 100);
         if (ptsValue in pointsTotal) {
           pointsTotal[ptsValue]++;
         }
-      } else {
-        rubCode = row.score.cbcRubricLevel || calculateCbcRubric(marks, row.score.maxMarks || 100).code;
-        if (rubCode === 'EE') eeTotal++;
-        else if (rubCode === 'ME') meTotal++;
-        else if (rubCode === 'AE') aeTotal++;
-        else beTotal++;
       }
 
       // Populate global student map for Merit List (Honor Roll)
@@ -312,18 +310,18 @@ export class DosService {
         if (m > highest) highest = m;
         if (m < lowest) lowest = m;
 
+        const rub = sc.score.cbcRubricLevel || calculateCbcRubric(m, sc.score.maxMarks || 100).code;
+        if (rub === 'EE') ee++;
+        else if (rub === 'ME') me++;
+        else if (rub === 'AE') ae++;
+        else be++;
+
         const isJunior = isJuniorSecondaryClass(sc.class);
         if (isJunior) {
           const pts = sc.score.juniorPoints ?? calculateJuniorPoints(m, sc.score.maxMarks || 100);
           if (pts in subPoints) {
             subPoints[pts]++;
           }
-        } else {
-          const rub = sc.score.cbcRubricLevel || calculateCbcRubric(m, sc.score.maxMarks || 100).code;
-          if (rub === 'EE') ee++;
-          else if (rub === 'ME') me++;
-          else if (rub === 'AE') ae++;
-          else be++;
         }
       });
 

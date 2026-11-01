@@ -431,107 +431,105 @@ export const SchoolResultsView: React.FC = () => {
           </div>
 
           {/* 3. Deep-Dive View Tabs & Filter Bar */}
-          <div className="space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-[#162b4d] pb-3">
-              {/* Main Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <div className="space-y-3.5">
+            {/* Row 1: Main Navigation Tabs with Horizontal Scrollability */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]">
+              <button
+                type="button"
+                onClick={() => setActiveTab('CLASSES')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'CLASSES'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Class League Table ({filteredClasses.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('SUBJECTS')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'SUBJECTS'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Subject Department Matrix ({filteredSubjects.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('HONOR_ROLL')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'HONOR_ROLL'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5" />
+                <span>Top Achievers Honor Roll ({filteredHonorRoll.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('REMEDIAL')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'REMEDIAL'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Remedial Watchlist ({filteredRemedial.length})</span>
+              </button>
+
+              {analysis?.selectedClassDetail && (
                 <button
                   type="button"
-                  onClick={() => setActiveTab('CLASSES')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'CLASSES'
-                      ? 'bg-sky-600 text-white shadow-sm'
+                  onClick={() => setActiveTab('DRILLDOWN')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                    activeTab === 'DRILLDOWN'
+                      ? 'bg-indigo-600 text-white shadow-sm'
                       : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
                   }`}
                 >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Class League Table ({filteredClasses.length})</span>
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Class Marksheet: {analysis.selectedClassDetail.className}</span>
                 </button>
+              )}
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('SUBJECTS')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'SUBJECTS'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                  }`}
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>Subject Department Matrix ({filteredSubjects.length})</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('HONOR_ROLL')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'HONOR_ROLL'
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                  }`}
-                >
-                  <Star className="w-3.5 h-3.5" />
-                  <span>Top Achievers Honor Roll ({filteredHonorRoll.length})</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('REMEDIAL')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'REMEDIAL'
-                      ? 'bg-rose-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                  }`}
-                >
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Remedial Watchlist ({filteredRemedial.length})</span>
-                </button>
-
-                {analysis?.selectedClassDetail && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('DRILLDOWN')}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-                      activeTab === 'DRILLDOWN'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                    }`}
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>Class Marksheet: {analysis.selectedClassDetail.className}</span>
-                  </button>
-                )}
+            {/* Row 2: Search Input & Grade Tier Filter */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-[#162b4d] pb-3.5">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search learners, classes, or subjects..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-xs"
+                />
               </div>
 
-              {/* Tier Filters & Search Bar */}
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search table..."
-                    className="pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-36 sm:w-44"
-                  />
-                </div>
-
-                <div className="flex items-center bg-slate-100 dark:bg-[#0c1932] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d] text-[11px] font-bold">
-                  {(['ALL', 'PP', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'] as TierFilter[]).map((tier) => (
-                    <button
-                      key={tier}
-                      type="button"
-                      onClick={() => setTierFilter(tier)}
-                      className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                        tierFilter === tier
-                          ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      {tier === 'ALL' ? 'All' : tier === 'PP' ? 'PP1-2' : tier === 'LOWER_PRIMARY' ? 'G1-3' : tier === 'UPPER_PRIMARY' ? 'G4-6' : 'JSS'}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex items-center overflow-x-auto bg-slate-100 dark:bg-[#0c1932] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d] text-[11px] font-bold shrink-0">
+                {(['ALL', 'PP', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'] as TierFilter[]).map((tier) => (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => setTierFilter(tier)}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                      tierFilter === tier
+                        ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    {tier === 'ALL' ? 'All Classes' : tier === 'PP' ? 'Pre-Primary' : tier === 'LOWER_PRIMARY' ? 'Lower (G1-3)' : tier === 'UPPER_PRIMARY' ? 'Upper (G4-6)' : 'Junior (G7-9)'}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -553,9 +551,9 @@ export const SchoolResultsView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[750px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
+                  <table className="w-full text-left text-xs min-w-[950px]">
+                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
                       <tr>
                         <th className="py-3 px-4 text-center">Rank</th>
                         <th className="py-3 px-4">Class & Stream</th>
@@ -673,9 +671,9 @@ export const SchoolResultsView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[750px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
+                  <table className="w-full text-left text-xs min-w-[980px]">
+                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
                       <tr>
                         <th className="py-3 px-4">Subject Code & Name</th>
                         <th className="py-3 px-4">Category</th>
@@ -697,38 +695,38 @@ export const SchoolResultsView: React.FC = () => {
                       ) : (
                         filteredSubjects.map((sub: any) => (
                           <tr key={sub.subjectId} className="hover:bg-sky-50/30 dark:hover:bg-[#0c1932]/60 transition-colors">
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               <span className="font-bold text-slate-900 dark:text-slate-100">{sub.subjectName}</span>
                               <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
                                 {sub.subjectCode}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               <span className="text-[11px] text-slate-500 uppercase font-semibold">
                                 {sub.isJunior ? 'Junior Secondary' : 'Primary'}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold">
+                            <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap">
                               {sub.testedCount}
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
                               <span className="text-sm font-black font-mono text-sky-700 dark:text-sky-300">
                                 {sub.averageScore > 0 ? `${sub.averageScore}%` : '—'}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-xs">
+                            <td className="py-3.5 px-4 text-center font-mono text-xs whitespace-nowrap">
                               {sub.variance >= 0 ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{sub.variance}% ▲</span>
                               ) : (
                                 <span className="text-rose-600 dark:text-rose-400 font-bold">{sub.variance}% ▼</span>
                               )}
                             </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-xs">
+                            <td className="py-3.5 px-4 text-center font-mono text-xs whitespace-nowrap">
                               <span className="text-emerald-600 font-bold">{sub.highestScore}%</span>
                               <span className="text-slate-400 mx-1">/</span>
                               <span className="text-rose-600 font-bold">{sub.lowestScore}%</span>
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               <div className="flex items-center gap-1.5 text-[10px] font-mono">
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold">
                                   {sub.rubric?.EE ?? 0} EE
@@ -744,7 +742,7 @@ export const SchoolResultsView: React.FC = () => {
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
                               <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                                 sub.status === 'DISTINCTION'
                                   ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
@@ -787,9 +785,9 @@ export const SchoolResultsView: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[700px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
+                  <table className="w-full text-left text-xs min-w-[850px]">
+                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
                       <tr>
                         <th className="py-3 px-4 text-center">Rank</th>
                         <th className="py-3 px-4">Learner Name</th>
@@ -884,9 +882,9 @@ export const SchoolResultsView: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[750px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
+                  <table className="w-full text-left text-xs min-w-[980px]">
+                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
                       <tr>
                         <th className="py-3 px-4">Learner Name</th>
                         <th className="py-3 px-4">Admission No</th>
@@ -977,9 +975,9 @@ export const SchoolResultsView: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[700px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
+                  <table className="w-full text-left text-xs min-w-[850px]">
+                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
                       <tr>
                         <th className="py-3 px-4 text-center">Rank</th>
                         <th className="py-3 px-4">Learner Name</th>
