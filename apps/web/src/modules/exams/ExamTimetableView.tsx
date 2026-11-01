@@ -497,7 +497,13 @@ export const ExamTimetableView: React.FC = () => {
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2.5">
+                {hasActiveExams && (
+                  <span className="relative flex h-2.5 w-2.5 shrink-0" title="Examination Period Active">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                )}
                 Examination Timetabling & Schedules
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -509,18 +515,6 @@ export const ExamTimetableView: React.FC = () => {
 
         {/* Action Buttons & CTAs */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Smart Active Mode Status Badge */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold shadow-xs ${
-            hasActiveExams
-              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25'
-              : 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/25'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              hasActiveExams ? 'bg-emerald-500 animate-pulse' : 'bg-indigo-500'
-            }`} />
-            <span>{hasActiveExams ? 'Examination Period Active' : 'CATs / Teaching Mode'}</span>
-          </div>
-
           {/* Conclude or Reactivate Exam Period Button */}
           {hasActiveExams ? (
             <button
