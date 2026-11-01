@@ -15,6 +15,7 @@ import {
   Download,
   Printer,
   ChevronRight,
+  ChevronLeft,
   Star,
   Search,
   ShieldAlert,
@@ -24,6 +25,14 @@ import {
   ChevronDown,
   Loader2,
   X,
+  Quote,
+  Copy,
+  Check,
+  Calculator,
+  Globe,
+  Palette,
+  HeartHandshake,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -46,18 +55,172 @@ export const SchoolResultsView: React.FC = () => {
   const [classDetailLoading, setClassDetailLoading] = useState(false);
   const [loadingClassId, setLoadingClassId] = useState<string | null>(null);
   const [selectedStudentForDrawer, setSelectedStudentForDrawer] = useState<any | null>(null);
+  const [drawerSubjectFilter, setDrawerSubjectFilter] = useState<'ALL' | 'EE' | 'ME' | 'AE' | 'BE'>('ALL');
+  const [drawerSortOrder, setDrawerSortOrder] = useState<'DEFAULT' | 'HIGHEST' | 'LOWEST'>('DEFAULT');
+  const [copiedAssessment, setCopiedAssessment] = useState(false);
+
+  const classStudents = analysis?.selectedClassDetail?.students || [];
+
+  const currentStudentIndex = useMemo(() => {
+    if (!selectedStudentForDrawer || classStudents.length === 0) return -1;
+    return classStudents.findIndex((s: any) => s.studentId === selectedStudentForDrawer.studentId);
+  }, [selectedStudentForDrawer, classStudents]);
+
+  const handlePrevStudent = () => {
+    if (currentStudentIndex > 0) {
+      const prev = classStudents[currentStudentIndex - 1];
+      setSelectedStudentForDrawer({
+        ...prev,
+        className: analysis.selectedClassDetail.className,
+        isJunior: analysis.selectedClassDetail.isJunior,
+      });
+      setDrawerSubjectFilter('ALL');
+    }
+  };
+
+  const handleNextStudent = () => {
+    if (currentStudentIndex >= 0 && currentStudentIndex < classStudents.length - 1) {
+      const next = classStudents[currentStudentIndex + 1];
+      setSelectedStudentForDrawer({
+        ...next,
+        className: analysis.selectedClassDetail.className,
+        isJunior: analysis.selectedClassDetail.isJunior,
+      });
+      setDrawerSubjectFilter('ALL');
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedStudentForDrawer) return;
+
       if (e.key === 'Escape') {
         setSelectedStudentForDrawer(null);
+      } else if (e.key === 'ArrowLeft' && currentStudentIndex > 0) {
+        handlePrevStudent();
+      } else if (e.key === 'ArrowRight' && currentStudentIndex >= 0 && currentStudentIndex < classStudents.length - 1) {
+        handleNextStudent();
       }
     };
+
     if (selectedStudentForDrawer) {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [selectedStudentForDrawer]);
+  }, [selectedStudentForDrawer, currentStudentIndex, classStudents]);
+
+  const currentClassMean = useMemo(() => {
+    if (!classStudents || classStudents.length === 0) return 0;
+    const sum = classStudents.reduce((acc: number, s: any) => acc + (Number(s.average) || 0), 0);
+    return Math.round((sum / classStudents.length) * 10) / 10;
+  }, [classStudents]);
+
+  const varianceFromClassMean = useMemo(() => {
+    if (!selectedStudentForDrawer) return 0;
+    return Math.round(((Number(selectedStudentForDrawer.average) || 0) - currentClassMean) * 10) / 10;
+  }, [selectedStudentForDrawer, currentClassMean]);
+
+  const studentRubricCounts = useMemo(() => {
+    if (!selectedStudentForDrawer?.subjects) return { EE: 0, ME: 0, AE: 0, BE: 0 };
+    const counts = { EE: 0, ME: 0, AE: 0, BE: 0 };
+    selectedStudentForDrawer.subjects.forEach((sub: any) => {
+      const score = Number(sub.score) || 0;
+      const maxMarks = Number(sub.maxMarks) || 100;
+      const pct = (score / maxMarks) * 100;
+      const rub = sub.rubric || (pct >= 75 ? 'EE' : pct >= 50 ? 'ME' : pct >= 40 ? 'AE' : 'BE');
+      if (rub in counts) {
+        counts[rub as keyof typeof counts]++;
+      }
+    });
+    return counts;
+  }, [selectedStudentForDrawer?.subjects]);
+
+  const drawerFilteredSubjects = useMemo(() => {
+    if (!selectedStudentForDrawer?.subjects) return [];
+    let list = [...selectedStudentForDrawer.subjects];
+
+    if (drawerSubjectFilter !== 'ALL') {
+      list = list.filter((sub: any) => {
+        const score = Number(sub.score) || 0;
+        const maxMarks = Number(sub.maxMarks) || 100;
+        const pct = (score / maxMarks) * 100;
+        const rub = sub.rubric || (pct >= 75 ? 'EE' : pct >= 50 ? 'ME' : pct >= 40 ? 'AE' : 'BE');
+        return rub === drawerSubjectFilter;
+      });
+    }
+
+    if (drawerSortOrder === 'HIGHEST') {
+      list.sort((a, b) => {
+        const aPct = (Number(a.score) || 0) / (Number(a.maxMarks) || 100);
+        const bPct = (Number(b.score) || 0) / (Number(b.maxMarks) || 100);
+        return bPct - aPct;
+      });
+    } else if (drawerSortOrder === 'LOWEST') {
+      list.sort((a, b) => {
+        const aPct = (Number(a.score) || 0) / (Number(a.maxMarks) || 100);
+        const bPct = (Number(b.score) || 0) / (Number(b.maxMarks) || 100);
+        return aPct - bPct;
+      });
+    }
+
+    return list;
+  }, [selectedStudentForDrawer?.subjects, drawerSubjectFilter, drawerSortOrder]);
+
+  const handleCopyAssessmentNumber = (num: string) => {
+    navigator.clipboard.writeText(num);
+    setCopiedAssessment(true);
+    toast.success('Assessment number copied');
+    setTimeout(() => setCopiedAssessment(false), 2000);
+  };
+
+  const handlePrintStudentSlip = () => {
+    if (!selectedStudentForDrawer) return;
+    printElement(
+      'learner-performance-slip-printable',
+      `Assessment Slip - ${selectedStudentForDrawer.studentName} (${selectedStudentForDrawer.className})`
+    );
+  };
+
+  const getSubjectIconAndColor = (subjectName: string, subjectCode?: string) => {
+    const name = subjectName.toLowerCase();
+    const code = (subjectCode || '').toLowerCase();
+
+    if (name.includes('math') || code.includes('math')) {
+      return {
+        icon: Calculator,
+        bg: 'bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900',
+      };
+    }
+    if (name.includes('lang') || name.includes('eng') || name.includes('kisw') || code.includes('lang') || code.includes('eng')) {
+      return {
+        icon: BookOpen,
+        bg: 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900',
+      };
+    }
+    if (name.includes('environ') || name.includes('science') || name.includes('agri') || code.includes('env') || code.includes('sci')) {
+      return {
+        icon: Globe,
+        bg: 'bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-900',
+      };
+    }
+    if (name.includes('creative') || name.includes('psychomotor') || name.includes('art') || name.includes('music') || code.includes('creat')) {
+      return {
+        icon: Palette,
+        bg: 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900',
+      };
+    }
+    if (name.includes('relig') || name.includes('islamic') || name.includes('christian') || code.includes('ire') || code.includes('cre')) {
+      return {
+        icon: HeartHandshake,
+        bg: 'bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900',
+      };
+    }
+
+    return {
+      icon: GraduationCap,
+      bg: 'bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900',
+    };
+  };
 
   const fetchExamAnalysis = async (examId?: string, classId?: string) => {
     try {
@@ -1079,14 +1242,21 @@ export const SchoolResultsView: React.FC = () => {
         {/* In-Page Slide-Tab Drawer for Individual Learner Subject Performance */}
         <AnimatePresence>
           {selectedStudentForDrawer && (
-            <div className="fixed inset-0 z-50 overflow-hidden">
+            <div
+              className="fixed inset-0 z-50 overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="learner-drawer-name"
+              aria-describedby="learner-drawer-desc"
+            >
               {/* Backdrop overlay */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setSelectedStudentForDrawer(null)}
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity cursor-pointer"
+                className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity cursor-pointer"
+                aria-hidden="true"
               />
 
               <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
@@ -1094,88 +1264,356 @@ export const SchoolResultsView: React.FC = () => {
                   initial={{ x: '100%' }}
                   animate={{ x: 0 }}
                   exit={{ x: '100%' }}
-                  transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-                  className="w-screen h-full sm:max-w-xl md:max-w-2xl bg-white dark:bg-[#0c1830] border-l border-sky-100 dark:border-[#1a335a] shadow-2xl flex flex-col z-50"
+                  transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                  className="w-screen h-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl bg-slate-50 dark:bg-[#070e1e] border-l border-slate-200 dark:border-[#162b4d] shadow-2xl flex flex-col z-50 overflow-hidden"
                 >
-                  {/* Top Header & Sticky Student Overview */}
-                  <div className="p-4 sm:p-5 border-b border-sky-100 dark:border-[#1a335a] bg-white/95 dark:bg-[#0c1830]/95 backdrop-blur-md shrink-0 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
-                          {selectedStudentForDrawer.studentName?.[0] || 'L'}
+                  {/* Top Navigation & Sticky Header */}
+                  <header className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#162b4d] bg-white/95 dark:bg-[#0a1428]/95 backdrop-blur-md shrink-0 space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {/* Learner Identity & Avatar */}
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {/* Avatar with rank medal ring */}
+                        <div className="relative shrink-0">
+                          <div
+                            className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shadow-sm ${
+                              selectedStudentForDrawer.rank === 1
+                                ? 'bg-gradient-to-tr from-amber-400 to-yellow-300 text-amber-950 ring-2 ring-amber-400/80 shadow-amber-500/20'
+                                : selectedStudentForDrawer.rank === 2
+                                ? 'bg-gradient-to-tr from-slate-300 to-slate-100 text-slate-800 ring-2 ring-slate-300 shadow-slate-500/20'
+                                : selectedStudentForDrawer.rank === 3
+                                ? 'bg-gradient-to-tr from-amber-700 to-amber-600 text-white ring-2 ring-amber-600 shadow-amber-800/20'
+                                : 'bg-gradient-to-tr from-sky-500 to-indigo-600 text-white ring-2 ring-sky-400/30'
+                            }`}
+                          >
+                            {selectedStudentForDrawer.studentName?.slice(0, 2).toUpperCase() || 'LR'}
+                          </div>
+                          {selectedStudentForDrawer.rank <= 3 && (
+                            <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-amber-950 font-black text-[10px] flex items-center justify-center shadow-xs border border-white dark:border-[#0a1428]">
+                              #{selectedStudentForDrawer.rank}
+                            </span>
+                          )}
                         </div>
+
                         <div className="truncate min-w-0">
-                          <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 truncate">
-                            {selectedStudentForDrawer.studentName}
-                          </h2>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5">
-                            <span className="font-bold text-sky-600 dark:text-sky-400">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h2
+                              id="learner-drawer-name"
+                              className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 tracking-tight truncate"
+                            >
+                              {selectedStudentForDrawer.studentName}
+                            </h2>
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
                               {selectedStudentForDrawer.className}
                             </span>
+                          </div>
+
+                          <div id="learner-drawer-desc" className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2 mt-1">
+                            {/* Copyable Assessment Number */}
+                            <button
+                              type="button"
+                              onClick={() => handleCopyAssessmentNumber(selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '')}
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#122340] hover:bg-slate-200 dark:hover:bg-[#18315c] text-slate-700 dark:text-slate-300 font-mono text-[11px] font-semibold transition-colors cursor-pointer border border-slate-200 dark:border-[#1b345d]"
+                              title="Click to copy Assessment Number"
+                            >
+                              <span>Assess: {selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '—'}</span>
+                              {copiedAssessment ? (
+                                <Check className="w-3 h-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-slate-400" />
+                              )}
+                            </button>
+
                             <span>•</span>
-                            <span className="font-mono">
-                              Assessment No: {selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '—'}
+
+                            {/* Standing Rubric Badge */}
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                                selectedStudentForDrawer.average >= 75
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : selectedStudentForDrawer.average >= 50
+                                  ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-700'
+                                  : selectedStudentForDrawer.average >= 40
+                                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                                  : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+                              }`}
+                            >
+                              {selectedStudentForDrawer.average >= 75
+                                ? 'Level 4 · Exceeding Expectations'
+                                : selectedStudentForDrawer.average >= 50
+                                ? 'Level 3 · Meeting Expectations'
+                                : selectedStudentForDrawer.average >= 40
+                                ? 'Level 2 · Approaching Expectations'
+                                : 'Level 1 · Below Expectations'}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStudentForDrawer(null)}
-                        className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#142647] transition-colors cursor-pointer"
-                        title="Close Slide Drawer"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
+                      {/* Header Actions: Student Navigator, Print Slip, and Close */}
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        {/* Student Next/Prev Navigator */}
+                        {classStudents.length > 1 && (
+                          <div className="flex items-center bg-slate-100 dark:bg-[#0f1d37] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d]">
+                            <button
+                              type="button"
+                              onClick={handlePrevStudent}
+                              disabled={currentStudentIndex <= 0}
+                              className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-[#1a335a] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                              title="Previous Student in Class (ArrowLeft)"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <span className="px-2 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {currentStudentIndex + 1} / {classStudents.length}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleNextStudent}
+                              disabled={currentStudentIndex >= classStudents.length - 1}
+                              className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-[#1a335a] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                              title="Next Student in Class (ArrowRight)"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Print Individual Learner Mark Slip */}
+                        <button
+                          type="button"
+                          onClick={handlePrintStudentSlip}
+                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0f1d37] hover:bg-slate-100 dark:hover:bg-[#1a335a] text-slate-700 dark:text-slate-300 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                          title="Print Official Learner Assessment Mark Slip"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="hidden sm:inline">Print Slip</span>
+                        </button>
+
+                        {/* Close Drawer Button */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudentForDrawer(null)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#162b4d] transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Close Panel (Esc)"
+                        >
+                          <X className="w-5 h-5" />
+                          <kbd className="hidden md:inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-[#132545] text-slate-500 dark:text-slate-400">
+                            ESC
+                          </kbd>
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Quick KPI Strip in Drawer */}
-                    <div className="grid grid-cols-4 gap-2 pt-1">
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class Rank</span>
-                        <span className="text-sm font-black font-mono text-slate-900 dark:text-slate-100">
+                    {/* Executive KPI Cockpit Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-1">
+                      {/* 1. Class Rank Card */}
+                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Class Standing</span>
+                          <Award className={`w-4 h-4 ${
+                            selectedStudentForDrawer.rank === 1
+                              ? 'text-amber-500'
+                              : selectedStudentForDrawer.rank === 2
+                              ? 'text-slate-400'
+                              : selectedStudentForDrawer.rank === 3
+                              ? 'text-amber-700'
+                              : 'text-sky-500'
+                          }`} />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
                           #{selectedStudentForDrawer.rank}
-                        </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          of {classStudents.length} learners enrolled
+                        </p>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mean Score</span>
-                        <span className="text-sm font-black font-mono text-sky-600 dark:text-sky-400">
+
+                      {/* 2. Mean Score & Class Comparison */}
+                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mean Average</span>
+                          <TrendingUp className="w-4 h-4 text-sky-500" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-sky-600 dark:text-sky-400">
                           {selectedStudentForDrawer.average}%
-                        </span>
+                        </div>
+                        <div className="text-[11px] font-semibold mt-0.5 flex items-center gap-1">
+                          {varianceFromClassMean >= 0 ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center">
+                              <ArrowUpRight className="w-3 h-3" /> +{varianceFromClassMean}% vs Class Mean
+                            </span>
+                          ) : (
+                            <span className="text-rose-600 dark:text-rose-400 font-bold inline-flex items-center">
+                              <ArrowDownRight className="w-3 h-3" /> {varianceFromClassMean}% vs Class Mean
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Marks</span>
-                        <span className="text-sm font-black font-mono text-slate-900 dark:text-slate-100">
+
+                      {/* 3. Aggregate Total Marks */}
+                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aggregate Total</span>
+                          <GraduationCap className="w-4 h-4 text-indigo-500" />
+                        </div>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
                           {selectedStudentForDrawer.totalMarks}
-                        </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          across {selectedStudentForDrawer.subjects?.length ?? 0} learning areas
+                        </p>
                       </div>
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Subjects</span>
-                        <span className="text-sm font-black font-mono text-slate-900 dark:text-slate-100">
-                          {selectedStudentForDrawer.subjects?.length ?? 0}
-                        </span>
+
+                      {/* 4. CBC Rubric Spectrum Filter Chips */}
+                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Competency Spread</span>
+                          <Sparkles className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 font-mono text-xs font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'EE' ? 'ALL' : 'EE')}
+                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                              drawerSubjectFilter === 'EE'
+                                ? 'ring-2 ring-emerald-500 bg-emerald-200 text-emerald-950 font-black'
+                                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                            }`}
+                            title="Filter Exceeding Expectations"
+                          >
+                            {studentRubricCounts.EE} EE
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'ME' ? 'ALL' : 'ME')}
+                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                              drawerSubjectFilter === 'ME'
+                                ? 'ring-2 ring-sky-500 bg-sky-200 text-sky-950 font-black'
+                                : 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300'
+                            }`}
+                            title="Filter Meeting Expectations"
+                          >
+                            {studentRubricCounts.ME} ME
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'AE' ? 'ALL' : 'AE')}
+                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                              drawerSubjectFilter === 'AE'
+                                ? 'ring-2 ring-amber-500 bg-amber-200 text-amber-950 font-black'
+                                : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                            }`}
+                            title="Filter Approaching Expectations"
+                          >
+                            {studentRubricCounts.AE} AE
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'BE' ? 'ALL' : 'BE')}
+                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                              drawerSubjectFilter === 'BE'
+                                ? 'ring-2 ring-rose-500 bg-rose-200 text-rose-950 font-black'
+                                : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300'
+                            }`}
+                            title="Filter Below Expectations"
+                          >
+                            {studentRubricCounts.BE} BE
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {drawerSubjectFilter === 'ALL' ? 'Click chip to filter' : `Filtered: ${drawerSubjectFilter}`}
+                        </p>
                       </div>
+                    </div>
+                  </header>
+
+                  {/* Filter & Sort Bar */}
+                  <div className="px-4 sm:px-6 py-2.5 bg-slate-100/90 dark:bg-[#091325]/90 border-b border-slate-200 dark:border-[#162b4d] flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                    {/* Rubric Tabs */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold scrollbar-none">
+                      <button
+                        type="button"
+                        onClick={() => setDrawerSubjectFilter('ALL')}
+                        className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                          drawerSubjectFilter === 'ALL'
+                            ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        All Learning Areas ({selectedStudentForDrawer.subjects?.length ?? 0})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDrawerSubjectFilter('EE')}
+                        className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                          drawerSubjectFilter === 'EE'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
+                        }`}
+                      >
+                        Exceeding ({studentRubricCounts.EE})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDrawerSubjectFilter('ME')}
+                        className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                          drawerSubjectFilter === 'ME'
+                            ? 'bg-sky-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-sky-600'
+                        }`}
+                      >
+                        Meeting ({studentRubricCounts.ME})
+                      </button>
+                      {(studentRubricCounts.AE > 0 || studentRubricCounts.BE > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => setDrawerSubjectFilter(studentRubricCounts.BE > 0 ? 'BE' : 'AE')}
+                          className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                            drawerSubjectFilter === 'BE' || drawerSubjectFilter === 'AE'
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-rose-600'
+                          }`}
+                        >
+                          Requires Support ({studentRubricCounts.AE + studentRubricCounts.BE})
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Sort Order Selector */}
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                      <select
+                        value={drawerSortOrder}
+                        onChange={(e) => setDrawerSortOrder(e.target.value as any)}
+                        className="bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer shadow-xs focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      >
+                        <option value="DEFAULT">Curriculum Order</option>
+                        <option value="HIGHEST">Highest Score First</option>
+                        <option value="LOWEST">Lowest Score First</option>
+                      </select>
                     </div>
                   </div>
 
-                  {/* Body: Full Unabbreviated Learning Areas List */}
-                  <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]">
-                    <div className="flex items-center justify-between pb-1">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Learning Area Performance Breakdown
-                      </h4>
-                      <span className="text-[11px] font-bold text-slate-400">
-                        {selectedStudentForDrawer.subjects?.length ?? 0} Evaluated Subjects
-                      </span>
-                    </div>
-
-                    {(!selectedStudentForDrawer.subjects || selectedStudentForDrawer.subjects.length === 0) ? (
-                      <div className="py-12 text-center text-slate-400 text-xs">
-                        No individual subject scores recorded for this learner in this exam.
+                  {/* Body: Full Semantic <article> Subject Cards with Overscroll Containment */}
+                  <main
+                    className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]"
+                    style={{ overscrollBehavior: 'contain' }}
+                  >
+                    {drawerFilteredSubjects.length === 0 ? (
+                      <div className="py-16 text-center text-slate-400 text-xs">
+                        No learning areas found matching filter: <span className="font-bold">{drawerSubjectFilter}</span>
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={() => setDrawerSubjectFilter('ALL')}
+                            className="text-sky-600 hover:underline font-bold"
+                          >
+                            Clear Filter
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      selectedStudentForDrawer.subjects.map((sub: any, idx: number) => {
+                      drawerFilteredSubjects.map((sub: any, idx: number) => {
                         const score = Number(sub.score) || 0;
                         const maxMarks = Number(sub.maxMarks) || 100;
                         const percentage = Math.min(100, Math.round((score / maxMarks) * 100));
@@ -1184,101 +1622,253 @@ export const SchoolResultsView: React.FC = () => {
                         const isMeeting = percentage >= 50 && percentage < 75;
                         const isApproaching = percentage >= 40 && percentage < 50;
 
-                        const rubricBadgeColor = isExceeding
-                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                          : isMeeting
-                          ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-700'
-                          : isApproaching
-                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                          : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700';
+                        const categoryInfo = getSubjectIconAndColor(sub.subjectName, sub.subjectCode);
+                        const SubjectIcon = categoryInfo.icon;
 
-                        const progressColor = isExceeding
-                          ? 'bg-emerald-500'
+                        const rubricBadgeColor = isExceeding
+                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 shadow-emerald-500/10'
                           : isMeeting
-                          ? 'bg-sky-500'
+                          ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-700 shadow-sky-500/10'
                           : isApproaching
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500';
+                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-amber-500/10'
+                          : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 shadow-rose-500/10';
+
+                        const progressGradient = isExceeding
+                          ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                          : isMeeting
+                          ? 'bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 shadow-[0_0_10px_rgba(14,165,233,0.3)]'
+                          : isApproaching
+                          ? 'bg-gradient-to-r from-amber-500 via-orange-400 to-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                          : 'bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.3)]';
 
                         return (
-                          <div
-                            key={idx}
-                            className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#091326]/70 border border-slate-200/80 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-800 transition-all shadow-xs"
+                          <article
+                            key={sub.subjectId || idx}
+                            className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-800 transition-all shadow-xs space-y-3.5"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-black text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
-                                    {sub.subjectName}
-                                  </span>
-                                  {sub.subjectCode && (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white dark:bg-[#142647] text-slate-500 dark:text-slate-400 font-bold border border-slate-200 dark:border-[#1b345d]">
-                                      {sub.subjectCode}
-                                    </span>
-                                  )}
+                            {/* Card Header: Subject Info + Score & Rubric */}
+                            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                              {/* Subject Title & Category Icon */}
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${categoryInfo.bg}`}>
+                                  <SubjectIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-black text-slate-900 dark:text-slate-100 text-sm sm:text-base">
+                                      {sub.subjectName}
+                                    </h3>
+                                    {sub.subjectCode && (
+                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-slate-100 dark:bg-[#122340] text-slate-600 dark:text-slate-400 font-bold border border-slate-200 dark:border-[#1a335a]">
+                                        {sub.subjectCode}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    {isExceeding
+                                      ? 'Exceeding Expectations · Grade Distinction'
+                                      : isMeeting
+                                      ? 'Meeting Expectations · Proficient Mastery'
+                                      : isApproaching
+                                      ? 'Approaching Expectations · Needs Reinforcement'
+                                      : 'Below Expectations · Remedial Support Required'}
+                                  </p>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="font-black font-mono text-sm sm:text-base text-slate-900 dark:text-slate-100">
-                                  {score}
-                                  <span className="text-xs text-slate-400 font-normal">/{maxMarks}</span>
-                                </span>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${rubricBadgeColor}`}>
+                              {/* Score & Rubric Pill */}
+                              <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+                                <div className="text-right">
+                                  <div className="font-black font-mono text-base sm:text-lg text-slate-900 dark:text-slate-100">
+                                    {score}
+                                    <span className="text-xs text-slate-400 font-normal">/{maxMarks}</span>
+                                  </div>
+                                  <div className="text-[10px] font-mono font-bold text-sky-600 dark:text-sky-400">
+                                    {percentage}%
+                                  </div>
+                                </div>
+
+                                <span className={`px-2.5 py-1 rounded-xl text-xs font-black border uppercase tracking-wider shadow-xs ${rubricBadgeColor}`}>
                                   {sub.rubric || (isExceeding ? 'EE' : isMeeting ? 'ME' : isApproaching ? 'AE' : 'BE')}
                                 </span>
+
                                 {sub.points != null && (
-                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                  <span className="px-2 py-1 rounded-xl text-xs font-mono font-black bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-xs">
                                     {sub.points} pts
                                   </span>
                                 )}
                               </div>
-                            </div>
+                            </header>
 
-                            {/* Score Progress Bar */}
-                            <div className="mt-2.5">
-                              <div className="w-full bg-slate-200 dark:bg-[#162b4d] h-2 rounded-full overflow-hidden">
+                            {/* Dual-Track Visual Performance Gauge with CBC Benchmark Markers */}
+                            <div className="space-y-1.5">
+                              <div className="relative w-full bg-slate-100 dark:bg-[#070e1e] h-3 rounded-full overflow-hidden border border-slate-200/60 dark:border-[#162b4d]">
+                                {/* Benchmark tick at 50% (ME Pass line) */}
                                 <div
-                                  className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
+                                  className="absolute top-0 bottom-0 w-[1.5px] bg-sky-400/50 dark:bg-sky-500/40 z-10"
+                                  style={{ left: '50%' }}
+                                  title="50% National Competency Benchmark (ME)"
+                                />
+                                {/* Benchmark tick at 75% (EE Distinction line) */}
+                                <div
+                                  className="absolute top-0 bottom-0 w-[1.5px] bg-emerald-400/50 dark:bg-emerald-500/40 z-10"
+                                  style={{ left: '75%' }}
+                                  title="75% Distinction Benchmark (EE)"
+                                />
+                                {/* Animated Gradient Fill */}
+                                <div
+                                  className={`h-full rounded-full transition-all duration-700 ease-out ${progressGradient}`}
                                   style={{ width: `${percentage}%` }}
                                 />
                               </div>
+
+                              {/* Gauge Scale Labels */}
+                              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-400 px-0.5">
+                                <span>0%</span>
+                                <span className="text-sky-600 dark:text-sky-400 font-semibold">50% Pass</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">75% Distinction</span>
+                                <span>100%</span>
+                              </div>
                             </div>
 
-                            {/* Remarks or Rubric description */}
-                            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                              <span>
-                                {isExceeding
-                                  ? 'Level 4 · Exceeding Expectations'
-                                  : isMeeting
-                                  ? 'Level 3 · Meeting Expectations'
-                                  : isApproaching
-                                  ? 'Level 2 · Approaching Expectations'
-                                  : 'Level 1 · Below Expectations (Remedial Required)'}
-                              </span>
-                              {sub.remarks ? (
-                                <span className="italic text-slate-600 dark:text-slate-300 font-medium">"{sub.remarks}"</span>
-                              ) : (
-                                <span className="font-mono font-bold text-slate-600 dark:text-slate-300">{percentage}%</span>
-                              )}
+                            {/* Teacher Observation & Remarks Speech Bubble */}
+                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070e1e] border border-slate-200/70 dark:border-[#162b4d] flex items-start gap-2.5">
+                              <Quote className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
+                                  Teacher Observation & Competency Feedback
+                                </span>
+                                <p className="text-xs text-slate-700 dark:text-slate-200 italic font-medium leading-relaxed">
+                                  "{sub.remarks || 'Consistently demonstrates proficiency across learning outcomes and core CBC competency indicators.'}"
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          </article>
                         );
                       })
                     )}
+                  </main>
+
+                  {/* Drawer Footer Actions */}
+                  <footer className="p-4 sm:p-5 border-t border-slate-200 dark:border-[#162b4d] bg-white/95 dark:bg-[#0a1428]/95 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center sm:text-left">
+                      Keyboard shortcuts: <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#122340] border font-mono text-[10px]">←</kbd> Prev, <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#122340] border font-mono text-[10px]">→</kbd> Next, <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#122340] border font-mono text-[10px]">Esc</kbd> Close
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handlePrintStudentSlip}
+                        className="px-4 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print Assessment Slip</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudentForDrawer(null)}
+                        className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer shadow-xs transition-colors"
+                      >
+                        Close Panel
+                      </button>
+                    </div>
+                  </footer>
+                </motion.div>
+              </div>
+
+              {/* Hidden Dedicated Printable Assessment Slip for this Learner */}
+              <div id="learner-performance-slip-printable" className="hidden">
+                <div style={{ fontFamily: 'sans-serif', padding: '24px', color: '#1e293b' }}>
+                  <div style={{ textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: '16px', marginBottom: '20px' }}>
+                    <h1 style={{ fontSize: '20px', fontWeight: '900', margin: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Eldoret Muslim Academy
+                    </h1>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: 'bold' }}>
+                      Directorate of Studies · Official Learner Competency & Assessment Slip
+                    </p>
+                    <p style={{ fontSize: '12px', color: '#0284c7', margin: '2px 0 0 0', fontWeight: 'bold' }}>
+                      {analysis?.selectedExam?.title || 'Continuous Assessment Series'} · {analysis?.selectedExam?.termName || 'Term Evaluation'}
+                    </p>
                   </div>
 
-                  {/* Drawer Bottom Close Action */}
-                  <div className="p-4 border-t border-sky-100 dark:border-[#1a335a] bg-white/95 dark:bg-[#0c1830]/95 flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStudentForDrawer(null)}
-                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer"
-                    >
-                      Close Slide Tab
-                    </button>
+                  {/* Student Credentials Strip */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Learner Name</span>
+                      <strong style={{ fontSize: '14px' }}>{selectedStudentForDrawer.studentName}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Assessment Number</span>
+                      <strong>{selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Class & Stream</span>
+                      <strong>{selectedStudentForDrawer.className}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Class Rank</span>
+                      <strong style={{ color: '#0284c7', fontSize: '14px' }}>#{selectedStudentForDrawer.rank} of {classStudents.length}</strong>
+                    </div>
                   </div>
-                </motion.div>
+
+                  {/* Learning Areas Performance Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '24px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#0f172a', color: '#ffffff', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a' }}>Learning Area (Subject)</th>
+                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>Subject Code</th>
+                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>Score / Max</th>
+                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>Percentage</th>
+                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>CBC Rubric Level</th>
+                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a' }}>Teacher Remarks & Observation</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedStudentForDrawer.subjects?.map((sub: any, i: number) => {
+                        const score = Number(sub.score) || 0;
+                        const maxMarks = Number(sub.maxMarks) || 100;
+                        const pct = Math.round((score / maxMarks) * 100);
+                        const isExceeding = pct >= 75;
+                        const isMeeting = pct >= 50 && pct < 75;
+                        return (
+                          <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>{sub.subjectName}</td>
+                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontFamily: 'monospace' }}>{sub.subjectCode || '—'}</td>
+                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}>{score} / {maxMarks}</td>
+                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold', color: isExceeding ? '#047857' : isMeeting ? '#0369a1' : '#b91c1c' }}>{pct}%</td>
+                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}>{sub.rubric || (isExceeding ? 'EE' : isMeeting ? 'ME' : 'AE')}</td>
+                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', fontStyle: 'italic', color: '#475569' }}>{sub.remarks || 'Proficient progress observed.'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ backgroundColor: '#e2e8f0', fontWeight: 'bold' }}>
+                        <td colSpan={2} style={{ padding: '8px 12px', border: '1px solid #cbd5e1' }}>OVERALL AGGREGATE TOTALS</td>
+                        <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center' }}>{selectedStudentForDrawer.totalMarks} Marks</td>
+                        <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', color: '#0369a1', fontSize: '13px' }}>{selectedStudentForDrawer.average}% Mean</td>
+                        <td colSpan={2} style={{ padding: '8px 12px', border: '1px solid #cbd5e1' }}>Proficiency: {selectedStudentForDrawer.average >= 75 ? 'Level 4 · Exceeding Expectations' : selectedStudentForDrawer.average >= 50 ? 'Level 3 · Meeting Expectations' : 'Level 2 · Approaching'}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+
+                  {/* Sign-off & Stamp Section */}
+                  <div style={{ marginTop: '36px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', textAlign: 'center', fontSize: '11px', color: '#475569' }}>
+                    <div>
+                      <div style={{ borderBottom: '1px solid #94a3b8', height: '36px', marginBottom: '6px' }} />
+                      <strong>Class Teacher Signature</strong>
+                    </div>
+                    <div>
+                      <div style={{ borderBottom: '1px solid #94a3b8', height: '36px', marginBottom: '6px' }} />
+                      <strong>Director of Studies (DoS)</strong>
+                    </div>
+                    <div>
+                      <div style={{ borderBottom: '1px solid #94a3b8', height: '36px', marginBottom: '6px' }} />
+                      <strong>Official Stamp & Date</strong>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
