@@ -167,6 +167,7 @@ export class DosService {
     const globalStudentMap = new Map<string, {
       studentId: string;
       studentName: string;
+      assessmentNumber: string | null;
       admissionNumber: string | null;
       classId: string;
       className: string;
@@ -184,6 +185,7 @@ export class DosService {
     const globalRemedialMap = new Map<string, {
       studentId: string;
       studentName: string;
+      assessmentNumber: string | null;
       admissionNumber: string | null;
       classId: string;
       className: string;
@@ -217,7 +219,8 @@ export class DosService {
         globalStudentMap.set(sId, {
           studentId: sId,
           studentName: `${row.student.firstName} ${row.student.lastName}`,
-          admissionNumber: row.student.admissionNumber,
+          assessmentNumber: row.student.assessmentNumber || row.student.admissionNumber || '—',
+          admissionNumber: row.student.assessmentNumber || row.student.admissionNumber || '—',
           classId: row.class.id,
           className: row.class.name,
           levelCategory: row.class.levelCategory,
@@ -259,7 +262,8 @@ export class DosService {
           globalRemedialMap.set(sId, {
             studentId: sId,
             studentName: `${row.student.firstName} ${row.student.lastName}`,
-            admissionNumber: row.student.admissionNumber,
+            assessmentNumber: row.student.assessmentNumber || row.student.admissionNumber || '—',
+            admissionNumber: row.student.assessmentNumber || row.student.admissionNumber || '—',
             classId: row.class.id,
             className: row.class.name,
             classTeacher: teacherName,
@@ -401,7 +405,8 @@ export class DosService {
           topStudent = {
             studentId: entry.student.id,
             name: `${entry.student.firstName} ${entry.student.lastName}`,
-            admissionNumber: entry.student.admissionNumber,
+            assessmentNumber: entry.student.assessmentNumber || entry.student.admissionNumber || '—',
+            admissionNumber: entry.student.assessmentNumber || entry.student.admissionNumber || '—',
             average: Math.round(sAvg * 10) / 10,
           };
         }
@@ -475,7 +480,8 @@ export class DosService {
         return {
           studentId: r.studentId,
           studentName: r.studentName,
-          admissionNumber: r.admissionNumber,
+          assessmentNumber: r.assessmentNumber || r.admissionNumber || '—',
+          admissionNumber: r.assessmentNumber || r.admissionNumber || '—',
           classId: r.classId,
           className: r.className,
           classTeacher: r.classTeacher,
@@ -497,7 +503,8 @@ export class DosService {
           scoreId: r.score.id,
           studentId: r.student.id,
           studentName: `${r.student.firstName} ${r.student.lastName}`,
-          admissionNumber: r.student.admissionNumber,
+          assessmentNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
+          admissionNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
           className: r.class.name,
           subjectName: r.subject.name,
           marksObtained: marks,
@@ -521,7 +528,8 @@ export class DosService {
           studentScoreMap.set(r.student.id, {
             studentId: r.student.id,
             studentName: `${r.student.firstName} ${r.student.lastName}`,
-            admissionNumber: r.student.admissionNumber,
+            assessmentNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
+            admissionNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
             subjects: [],
             totalMarks: 0,
           });
@@ -529,10 +537,14 @@ export class DosService {
         const sObj = studentScoreMap.get(r.student.id);
         const marks = parseFloat(r.score.marksObtained);
         sObj.subjects.push({
+          subjectId: r.subject.id,
           subjectName: r.subject.name,
+          subjectCode: r.subject.code,
           score: marks,
-          rubric: isJunior ? null : (r.score.cbcRubricLevel || calculateCbcRubric(marks, 100).code),
-          points: isJunior ? (r.score.juniorPoints ?? calculateJuniorPoints(marks, 100)) : null,
+          maxMarks: r.score.maxMarks || 100,
+          rubric: r.score.cbcRubricLevel || calculateCbcRubric(marks, r.score.maxMarks || 100).code,
+          points: isJunior ? (r.score.juniorPoints ?? calculateJuniorPoints(marks, r.score.maxMarks || 100)) : null,
+          remarks: r.score.teacherRemarks || '',
         });
         sObj.totalMarks += marks;
       });

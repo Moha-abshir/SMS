@@ -22,6 +22,8 @@ import {
   Sparkles,
   ExternalLink,
   ChevronDown,
+  Loader2,
+  X,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -42,6 +44,20 @@ export const SchoolResultsView: React.FC = () => {
   const [selectedExamId, setSelectedExamId] = useState('');
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [classDetailLoading, setClassDetailLoading] = useState(false);
+  const [loadingClassId, setLoadingClassId] = useState<string | null>(null);
+  const [selectedStudentForDrawer, setSelectedStudentForDrawer] = useState<any | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedStudentForDrawer(null);
+      }
+    };
+    if (selectedStudentForDrawer) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [selectedStudentForDrawer]);
 
   const fetchExamAnalysis = async (examId?: string, classId?: string) => {
     try {
@@ -66,6 +82,7 @@ export const SchoolResultsView: React.FC = () => {
 
   const fetchClassDrilldown = async (classId: string) => {
     try {
+      setLoadingClassId(classId);
       setClassDetailLoading(true);
       setSelectedClassId(classId);
       const examParam = selectedExamId && selectedExamId !== 'all' ? selectedExamId : undefined;
@@ -85,6 +102,7 @@ export const SchoolResultsView: React.FC = () => {
       toast.error(error.response?.data?.message || 'Failed to load class drill-down marks');
     } finally {
       setClassDetailLoading(false);
+      setLoadingClassId(null);
     }
   };
 
@@ -133,6 +151,7 @@ export const SchoolResultsView: React.FC = () => {
     if (!analysis?.honorRoll) return [];
     return analysis.honorRoll.filter((student: any) => {
       const matchesSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (student.assessmentNumber && student.assessmentNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
                             (student.admissionNumber && student.admissionNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
                             student.className.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
@@ -150,6 +169,7 @@ export const SchoolResultsView: React.FC = () => {
     if (!analysis?.remedialWatchlist) return [];
     return analysis.remedialWatchlist.filter((student: any) => {
       const matchesSearch = student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (student.assessmentNumber && student.assessmentNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
                             (student.admissionNumber && student.admissionNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
                             student.className.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
@@ -168,10 +188,10 @@ export const SchoolResultsView: React.FC = () => {
       return;
     }
 
-    const headers = ['Rank', 'Admission Number', 'Student Name', 'Class', 'Subjects Assessed', 'Average Score (%)', 'Proficiency Level', 'Top Learning Area'];
+    const headers = ['Rank', 'Assessment Number', 'Student Name', 'Class', 'Subjects Assessed', 'Average Score (%)', 'Proficiency Level', 'Top Learning Area'];
     const rows = analysis.honorRoll.map((s: any) => [
       s.rank,
-      `"${s.admissionNumber || '—'}"`,
+      `"${s.assessmentNumber || s.admissionNumber || '—'}"`,
       `"${s.studentName}"`,
       `"${s.className}"`,
       s.subjectsCount,
@@ -198,9 +218,9 @@ export const SchoolResultsView: React.FC = () => {
       return;
     }
 
-    const headers = ['Admission Number', 'Student Name', 'Class', 'Class Teacher', 'Failing Subjects Count', 'Critical Subjects', 'Overall Average (%)', 'Risk Level'];
+    const headers = ['Assessment Number', 'Student Name', 'Class', 'Class Teacher', 'Failing Subjects Count', 'Critical Subjects', 'Overall Average (%)', 'Risk Level'];
     const rows = analysis.remedialWatchlist.map((s: any) => [
-      `"${s.admissionNumber || '—'}"`,
+      `"${s.assessmentNumber || s.admissionNumber || '—'}"`,
       `"${s.studentName}"`,
       `"${s.className}"`,
       `"${s.classTeacher}"`,
@@ -638,11 +658,26 @@ export const SchoolResultsView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => fetchClassDrilldown(cls.classId)}
-                                disabled={classDetailLoading}
-                                className="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 text-sky-700 dark:text-sky-300 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                disabled={Boolean(loadingClassId)}
+                                className={`px-2.5 py-1.5 rounded-lg border font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                                  loadingClassId === cls.classId
+                                    ? 'border-sky-300 dark:border-sky-700 bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 cursor-wait'
+                                    : loadingClassId
+                                    ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-[#162b4d] bg-slate-100 dark:bg-[#0c1932] text-slate-400'
+                                    : 'border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300'
+                                }`}
                               >
-                                <span>Marksheet</span>
-                                <ChevronRight className="w-3 h-3" />
+                                {loadingClassId === cls.classId ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" />
+                                    <span>Fetching...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Marksheet</span>
+                                    <ChevronRight className="w-3 h-3 text-sky-500" />
+                                  </>
+                                )}
                               </button>
                             </td>
                           </tr>
@@ -791,7 +826,7 @@ export const SchoolResultsView: React.FC = () => {
                       <tr>
                         <th className="py-3 px-4 text-center">Rank</th>
                         <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-4">Admission No</th>
+                        <th className="py-3 px-4">Assessment No</th>
                         <th className="py-3 px-4">Class</th>
                         <th className="py-3 px-4 text-center">Subjects</th>
                         <th className="py-3 px-4">Top Subject</th>
@@ -826,7 +861,7 @@ export const SchoolResultsView: React.FC = () => {
                               <span className="font-black text-slate-900 dark:text-slate-100">{student.studentName}</span>
                             </td>
                             <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
-                              {student.admissionNumber || '—'}
+                              {student.assessmentNumber || student.admissionNumber || '—'}
                             </td>
                             <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
                               {student.className}
@@ -887,7 +922,7 @@ export const SchoolResultsView: React.FC = () => {
                     <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
                       <tr>
                         <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-4">Admission No</th>
+                        <th className="py-3 px-4">Assessment No</th>
                         <th className="py-3 px-4">Class</th>
                         <th className="py-3 px-4">Class Teacher</th>
                         <th className="py-3 px-4 text-center">Failing Subjects</th>
@@ -910,7 +945,7 @@ export const SchoolResultsView: React.FC = () => {
                               {student.studentName}
                             </td>
                             <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
-                              {student.admissionNumber || '—'}
+                              {student.assessmentNumber || student.admissionNumber || '—'}
                             </td>
                             <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
                               {student.className}
@@ -963,13 +998,13 @@ export const SchoolResultsView: React.FC = () => {
                       Class Broadsheet: {analysis.selectedClassDetail.className}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Individual student performance marksheet and subject scores breakdown
+                      Individual learner marksheet and subject scores breakdown · Click "View Subjects" or any row to open performance slide-tab
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab('CLASSES')}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer"
                   >
                     Back to League Table
                   </button>
@@ -981,42 +1016,49 @@ export const SchoolResultsView: React.FC = () => {
                       <tr>
                         <th className="py-3 px-4 text-center">Rank</th>
                         <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-4">Admission No</th>
-                        <th className="py-3 px-4">Subject Scores</th>
+                        <th className="py-3 px-4">Assessment No</th>
+                        <th className="py-3 px-4">Subject Performance</th>
                         <th className="py-3 px-4 text-center">Total Marks</th>
                         <th className="py-3 px-4 text-center">Average (%)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
                       {analysis.selectedClassDetail.students?.map((student: any) => (
-                        <tr key={student.studentId} className="hover:bg-indigo-50/20 dark:hover:bg-[#142647]/50 transition-colors">
+                        <tr
+                          key={student.studentId}
+                          onClick={() => setSelectedStudentForDrawer({
+                            ...student,
+                            className: analysis.selectedClassDetail.className,
+                            isJunior: analysis.selectedClassDetail.isJunior,
+                          })}
+                          className="hover:bg-indigo-50/30 dark:hover:bg-[#142647]/50 transition-colors cursor-pointer group"
+                        >
                           <td className="py-3.5 px-4 text-center font-bold font-mono">
                             #{student.rank}
                           </td>
-                          <td className="py-3.5 px-4 font-black text-slate-900 dark:text-slate-100">
+                          <td className="py-3.5 px-4 font-black text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                             {student.studentName}
                           </td>
                           <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
-                            {student.admissionNumber || '—'}
+                            {student.assessmentNumber || student.admissionNumber || '—'}
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="flex flex-wrap gap-1.5">
-                              {student.subjects?.map((sub: any, i: number) => (
-                                <span
-                                  key={i}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                                    sub.score >= 75
-                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                      : sub.score >= 50
-                                      ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
-                                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                  }`}
-                                  title={`${sub.subjectName}: ${sub.score}%`}
-                                >
-                                  {sub.subjectName.substring(0, 3).toUpperCase()}: {sub.score}%
-                                </span>
-                              ))}
-                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedStudentForDrawer({
+                                  ...student,
+                                  className: analysis.selectedClassDetail.className,
+                                  isJunior: analysis.selectedClassDetail.isJunior,
+                                });
+                              }}
+                              className="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer group/btn"
+                            >
+                              <BookOpen className="w-3.5 h-3.5 text-sky-500 group-hover/btn:scale-110 transition-transform" />
+                              <span>View {student.subjects?.length ?? 0} Subjects</span>
+                              <ChevronRight className="w-3 h-3 text-sky-400 group-hover/btn:translate-x-0.5 transition-transform" />
+                            </button>
                           </td>
                           <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
                             {student.totalMarks}
@@ -1033,6 +1075,214 @@ export const SchoolResultsView: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* In-Page Slide-Tab Drawer for Individual Learner Subject Performance */}
+        <AnimatePresence>
+          {selectedStudentForDrawer && (
+            <div className="fixed inset-0 z-50 overflow-hidden">
+              {/* Backdrop overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSelectedStudentForDrawer(null)}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity cursor-pointer"
+              />
+
+              <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+                <motion.div
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+                  className="w-screen h-full sm:max-w-xl md:max-w-2xl bg-white dark:bg-[#0c1830] border-l border-sky-100 dark:border-[#1a335a] shadow-2xl flex flex-col z-50"
+                >
+                  {/* Top Header & Sticky Student Overview */}
+                  <div className="p-4 sm:p-5 border-b border-sky-100 dark:border-[#1a335a] bg-white/95 dark:bg-[#0c1830]/95 backdrop-blur-md shrink-0 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                          {selectedStudentForDrawer.studentName?.[0] || 'L'}
+                        </div>
+                        <div className="truncate min-w-0">
+                          <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 truncate">
+                            {selectedStudentForDrawer.studentName}
+                          </h2>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span className="font-bold text-sky-600 dark:text-sky-400">
+                              {selectedStudentForDrawer.className}
+                            </span>
+                            <span>•</span>
+                            <span className="font-mono">
+                              Assessment No: {selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '—'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudentForDrawer(null)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#142647] transition-colors cursor-pointer"
+                        title="Close Slide Drawer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Quick KPI Strip in Drawer */}
+                    <div className="grid grid-cols-4 gap-2 pt-1">
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class Rank</span>
+                        <span className="text-sm font-black font-mono text-slate-900 dark:text-slate-100">
+                          #{selectedStudentForDrawer.rank}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mean Score</span>
+                        <span className="text-sm font-black font-mono text-sky-600 dark:text-sky-400">
+                          {selectedStudentForDrawer.average}%
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Marks</span>
+                        <span className="text-sm font-black font-mono text-slate-900 dark:text-slate-100">
+                          {selectedStudentForDrawer.totalMarks}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#081226] border border-slate-100 dark:border-[#162b4d] text-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Subjects</span>
+                        <span className="text-sm font-black font-mono text-slate-900 dark:text-slate-100">
+                          {selectedStudentForDrawer.subjects?.length ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body: Full Unabbreviated Learning Areas List */}
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]">
+                    <div className="flex items-center justify-between pb-1">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Learning Area Performance Breakdown
+                      </h4>
+                      <span className="text-[11px] font-bold text-slate-400">
+                        {selectedStudentForDrawer.subjects?.length ?? 0} Evaluated Subjects
+                      </span>
+                    </div>
+
+                    {(!selectedStudentForDrawer.subjects || selectedStudentForDrawer.subjects.length === 0) ? (
+                      <div className="py-12 text-center text-slate-400 text-xs">
+                        No individual subject scores recorded for this learner in this exam.
+                      </div>
+                    ) : (
+                      selectedStudentForDrawer.subjects.map((sub: any, idx: number) => {
+                        const score = Number(sub.score) || 0;
+                        const maxMarks = Number(sub.maxMarks) || 100;
+                        const percentage = Math.min(100, Math.round((score / maxMarks) * 100));
+
+                        const isExceeding = percentage >= 75;
+                        const isMeeting = percentage >= 50 && percentage < 75;
+                        const isApproaching = percentage >= 40 && percentage < 50;
+
+                        const rubricBadgeColor = isExceeding
+                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                          : isMeeting
+                          ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-700'
+                          : isApproaching
+                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                          : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700';
+
+                        const progressColor = isExceeding
+                          ? 'bg-emerald-500'
+                          : isMeeting
+                          ? 'bg-sky-500'
+                          : isApproaching
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500';
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#091326]/70 border border-slate-200/80 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-800 transition-all shadow-xs"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-black text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                                    {sub.subjectName}
+                                  </span>
+                                  {sub.subjectCode && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white dark:bg-[#142647] text-slate-500 dark:text-slate-400 font-bold border border-slate-200 dark:border-[#1b345d]">
+                                      {sub.subjectCode}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="font-black font-mono text-sm sm:text-base text-slate-900 dark:text-slate-100">
+                                  {score}
+                                  <span className="text-xs text-slate-400 font-normal">/{maxMarks}</span>
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${rubricBadgeColor}`}>
+                                  {sub.rubric || (isExceeding ? 'EE' : isMeeting ? 'ME' : isApproaching ? 'AE' : 'BE')}
+                                </span>
+                                {sub.points != null && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                    {sub.points} pts
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Score Progress Bar */}
+                            <div className="mt-2.5">
+                              <div className="w-full bg-slate-200 dark:bg-[#162b4d] h-2 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Remarks or Rubric description */}
+                            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>
+                                {isExceeding
+                                  ? 'Level 4 · Exceeding Expectations'
+                                  : isMeeting
+                                  ? 'Level 3 · Meeting Expectations'
+                                  : isApproaching
+                                  ? 'Level 2 · Approaching Expectations'
+                                  : 'Level 1 · Below Expectations (Remedial Required)'}
+                              </span>
+                              {sub.remarks ? (
+                                <span className="italic text-slate-600 dark:text-slate-300 font-medium">"{sub.remarks}"</span>
+                              ) : (
+                                <span className="font-mono font-bold text-slate-600 dark:text-slate-300">{percentage}%</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Drawer Bottom Close Action */}
+                  <div className="p-4 border-t border-sky-100 dark:border-[#1a335a] bg-white/95 dark:bg-[#0c1830]/95 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudentForDrawer(null)}
+                      className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer"
+                    >
+                      Close Slide Tab
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </PageLoadingWrapper>
   );
