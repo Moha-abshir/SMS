@@ -10,7 +10,7 @@ process.on('unhandledRejection', (reason: any) => {
 
 process.on('uncaughtException', (err: any) => {
   console.error('⚠️ [Process Uncaught Exception]:', err?.message || err);
-});
+}) ;
 
 const PORT = parseInt(env.PORT, 10);
 
