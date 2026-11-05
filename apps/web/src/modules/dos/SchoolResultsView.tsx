@@ -44,6 +44,7 @@ type ActiveTab = 'CLASSES' | 'SUBJECTS' | 'HONOR_ROLL' | 'REMEDIAL' | 'DRILLDOWN
 
 export const SchoolResultsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('CLASSES');
   const [tierFilter, setTierFilter] = useState<TierFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -225,6 +226,7 @@ export const SchoolResultsView: React.FC = () => {
   const fetchExamAnalysis = async (examId?: string, classId?: string) => {
     try {
       setLoading(true);
+      setAccessDeniedMessage(null);
       const params = new URLSearchParams();
       if (examId && examId !== 'all') params.append('examId', examId);
       if (classId) params.append('classId', classId);
@@ -236,8 +238,21 @@ export const SchoolResultsView: React.FC = () => {
       if (data?.selectedExam && !selectedExamId) {
         setSelectedExamId(data.selectedExam.id);
       }
+      if (data?.selectedClassDetail && !selectedClassId) {
+        setSelectedClassId(data.selectedClassDetail.classId);
+        if (data.userScope && !data.userScope.isLeadership) {
+          setActiveTab('DRILLDOWN');
+        }
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load schoolwide results');
+      if (error.response?.status === 403) {
+        setAccessDeniedMessage(
+          error.response?.data?.message ||
+            'Access denied: You do not have an active class assignment or subject allocation.'
+        );
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to load results');
+      }
     } finally {
       setLoading(false);
     }
@@ -254,11 +269,8 @@ export const SchoolResultsView: React.FC = () => {
       params.append('classId', classId);
 
       const res = await apiClient.get(`/api/dos/exam-analysis?${params.toString()}`);
-      if (res.data?.data?.selectedClassDetail) {
-        setAnalysis((prev: any) => ({
-          ...prev,
-          selectedClassDetail: res.data.data.selectedClassDetail,
-        }));
+      if (res.data?.data) {
+        setAnalysis(res.data.data);
         setActiveTab('DRILLDOWN');
       }
     } catch (error: any) {
@@ -410,9 +422,57 @@ export const SchoolResultsView: React.FC = () => {
   };
 
   const overview = analysis?.schoolOverview || {};
+  const userScope = analysis?.userScope;
+
+  const headerTitle = useMemo(() => {
+    if (!userScope || userScope.isLeadership) return 'Schoolwide Results & Broadsheet Center';
+    if (userScope.role === 'CLASS_TEACHER') return 'Class Broadsheet & Academic Results';
+    if (userScope.role === 'SUBJECT_TEACHER') return 'Allocated Subject Performance & Results';
+    if (userScope.role === 'DUAL_ROLE') return 'Class Broadsheet & Subject Performance';
+    return 'Academic Results Center';
+  }, [userScope]);
+
+  const headerSubtitle = useMemo(() => {
+    if (!userScope || userScope.isLeadership) {
+      return 'Executive academic intelligence, class rankings, subject league tables, and CBC performance analytics';
+    }
+    if (userScope.role === 'CLASS_TEACHER') {
+      return 'Multi-subject class broadsheets, learner rankings, competency rubric spreads, and student performance slide drawers';
+    }
+    if (userScope.role === 'SUBJECT_TEACHER') {
+      return 'Restricted examination analytics, subject league tables, and student performance for your allocated teaching areas';
+    }
+    return 'Class broadsheets for your assigned class stream and allocated subject performance matrices';
+  }, [userScope]);
+
+  if (!loading && accessDeniedMessage && !analysis) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
+        <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-amber-200 dark:border-amber-900/50 p-6 sm:p-8 rounded-2xl shadow-glass dark:shadow-none text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
+            Academic Results Access Restricted
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
+            {accessDeniedMessage}
+          </p>
+          <div className="pt-2">
+            <a
+              href="/overview"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs"
+            >
+              Return to Overview
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <PageLoadingWrapper isLoading={loading} subtitle="Compiling schoolwide results & league tables...">
+    <PageLoadingWrapper isLoading={loading} subtitle="Compiling results & league tables...">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         {/* Printable Container wrapper with id */}
         <div id="school-results-printable-area" className="space-y-6">
@@ -425,11 +485,20 @@ export const SchoolResultsView: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                    Schoolwide Results & Broadsheet Center
+                    {headerTitle}
                   </h1>
+                  {userScope && !userScope.isLeadership && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                      {userScope.role === 'CLASS_TEACHER'
+                        ? 'Class Teacher Scoped'
+                        : userScope.role === 'SUBJECT_TEACHER'
+                        ? 'Subject Teacher Scoped'
+                        : 'Dual-Role Scoped'}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Executive academic intelligence, class rankings, subject league tables, and CBC performance analytics
+                  {headerSubtitle}
                 </p>
               </div>
             </div>
@@ -448,6 +517,36 @@ export const SchoolResultsView: React.FC = () => {
                     {analysis.examsList.map((exam: any) => (
                       <option key={exam.id} value={exam.id}>
                         {exam.title} ({exam.termName})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
+
+              {/* Class Scope Selector */}
+              {analysis?.classes && analysis.classes.length > 1 && (
+                <div className="relative">
+                  <select
+                    value={selectedClassId || ''}
+                    onChange={(e) => {
+                      const newClassId = e.target.value;
+                      if (newClassId) {
+                        fetchClassDrilldown(newClassId);
+                      } else {
+                        setSelectedClassId(null);
+                        fetchExamAnalysis(selectedExamId || undefined, undefined);
+                        setActiveTab('CLASSES');
+                      }
+                    }}
+                    className="px-3.5 py-2 pr-9 bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer shadow-xs appearance-none"
+                  >
+                    {userScope?.isLeadership && (
+                      <option value="">All Classes (Schoolwide)</option>
+                    )}
+                    {analysis.classes.map((cls: any) => (
+                      <option key={cls.classId} value={cls.classId}>
+                        Class: {cls.className}
                       </option>
                     ))}
                   </select>
@@ -680,7 +779,11 @@ export const SchoolResultsView: React.FC = () => {
                   }`}
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span>Class Marksheet: {analysis.selectedClassDetail.className}</span>
+                  <span>
+                    {analysis.selectedClassDetail.isClassTeacherScope
+                      ? `Class Broadsheet: ${analysis.selectedClassDetail.className}`
+                      : `Allocated Subject Marksheet: ${analysis.selectedClassDetail.className}`}
+                  </span>
                 </button>
               )}
             </div>
@@ -1158,10 +1261,14 @@ export const SchoolResultsView: React.FC = () => {
                   <div>
                     <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <GraduationCap className="w-4 h-4 text-indigo-600" />
-                      Class Broadsheet: {analysis.selectedClassDetail.className}
+                      {analysis.selectedClassDetail.isClassTeacherScope
+                        ? `Class Broadsheet: ${analysis.selectedClassDetail.className}`
+                        : `Allocated Subject Performance: ${analysis.selectedClassDetail.className}`}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Individual learner marksheet and subject scores breakdown · Click "View Subjects" or any row to open performance slide-tab
+                      {analysis.selectedClassDetail.isClassTeacherScope
+                        ? 'Full multi-subject examination broadsheet for your assigned class stream · Click "View Subjects" or any row to open performance slide drawer'
+                        : 'Restricted examination marksheet for your allocated teaching areas · Learning areas outside your teaching allocation are filtered'}
                     </p>
                   </div>
                   <button
@@ -1219,7 +1326,7 @@ export const SchoolResultsView: React.FC = () => {
                               className="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer group/btn"
                             >
                               <BookOpen className="w-3.5 h-3.5 text-sky-500 group-hover/btn:scale-110 transition-transform" />
-                              <span>View {student.subjects?.length ?? 0} Subjects</span>
+                              <span>View {student.subjects?.length ?? 0} {student.subjects?.length === 1 ? 'Subject' : 'Subjects'}</span>
                               <ChevronRight className="w-3 h-3 text-sky-400 group-hover/btn:translate-x-0.5 transition-transform" />
                             </button>
                           </td>
@@ -1437,7 +1544,7 @@ export const SchoolResultsView: React.FC = () => {
                           <span className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-slate-100">
                             {selectedStudentForDrawer.totalMarks}
                           </span>
-                          <span className="text-slate-400 text-xs font-medium">/ {selectedStudentForDrawer.subjects?.length ?? 0} subjects</span>
+                          <span className="text-slate-400 text-xs font-medium">/ {selectedStudentForDrawer.subjects?.length ?? 0} {selectedStudentForDrawer.subjects?.length === 1 ? 'subject' : 'subjects'}</span>
                         </div>
                       </div>
 

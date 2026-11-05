@@ -43,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const initialWs = getCachedWs();
   const initialClassTeacher = initialWs?.classTeacher || null;
   const initialIsClassTeacher = Boolean(initialClassTeacher);
+  const initialHasSubjectAllocations = Array.isArray(initialWs?.subjectAllocations) && initialWs.subjectAllocations.length > 0;
   const initialIsLower = initialClassTeacher
     ? isSelfContainedClass({
         levelCategory: initialClassTeacher.levelCategory,
@@ -54,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   const [isClassTeacher, setIsClassTeacher] = useState<boolean>(initialIsClassTeacher);
   const [assignedClassName, setAssignedClassName] = useState<string | null>(initialClassTeacher?.className || null);
   const [isLowerPrimaryOrPP, setIsLowerPrimaryOrPP] = useState<boolean>(initialIsLower);
+  const [hasSubjectAllocations, setHasSubjectAllocations] = useState<boolean>(initialHasSubjectAllocations);
 
   const location = useLocation();
   const userRole = String(user?.roleName || user?.role || 'TEACHER');
@@ -106,6 +108,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
           setAssignedClassName(null);
           setIsLowerPrimaryOrPP(false);
         }
+
+        if (Array.isArray(ws?.subjectAllocations) && ws.subjectAllocations.length > 0) {
+          setHasSubjectAllocations(true);
+        } else {
+          setHasSubjectAllocations(false);
+        }
       })
       .catch(() => {});
   }, [user?.id]);
@@ -153,7 +161,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DOS'] },
     { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
-    { path: '/school-results', label: 'Schoolwide Results', icon: Award, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    {
+      path: '/school-results',
+      label: userRole === 'TEACHER' ? 'Academic Results' : 'Schoolwide Results',
+      icon: Award,
+      roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER'],
+    },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 
@@ -172,6 +185,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
     // 2. Specific contextual rules for TEACHER role
     if (userRole === 'TEACHER') {
+      // Academic Results visible only if teacher has active class assignment or subject allocations
+      if (item.path === '/school-results' && !isClassTeacher && !hasSubjectAllocations) {
+        return false;
+      }
+
       // Class Teacher features (Daily Register & Class Learners) only visible if assigned as Class Teacher
       if (item.isClassTeacherFeature && !isClassTeacher) {
         return false;

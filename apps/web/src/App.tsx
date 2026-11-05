@@ -202,7 +202,7 @@ const AppContent: React.FC = () => {
           <Route
             path="/school-results"
             element={
-              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER']} user={currentUser}>
                 <SchoolResultsView />
               </RoleGuard>
             }
@@ -210,7 +210,7 @@ const AppContent: React.FC = () => {
           <Route
             path="/subject-performance"
             element={
-              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER']} user={currentUser}>
                 <SchoolResultsView />
               </RoleGuard>
             }

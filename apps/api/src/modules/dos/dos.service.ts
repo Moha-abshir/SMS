@@ -8,6 +8,8 @@ import {
   academicTerms,
   systemSettings,
   users,
+  teacherSubjectAllocations,
+  markingAllocations,
   calculateCbcRubric,
   calculateJuniorPoints,
   isJuniorSecondaryClass,
@@ -16,27 +18,154 @@ import {
   and,
   desc,
   sql,
+  inArray,
 } from '@school/shared';
+import { AuthenticatedUser } from '../../middleware/auth.js';
+import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 
 export class DosService {
-  static async getSubjectAnalytics() {
-    const subjectsList = await db
-      .select()
-      .from(subjects)
-      .where(isNull(subjects.deletedAt))
-      .orderBy(subjects.name);
+  static async getSubjectAnalytics(user?: AuthenticatedUser) {
+    const isLeadership = !user || ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
+    const managedClassIds = new Set<string>();
+    const allocatedClassSubjectPairs = new Set<string>();
+    const allocatedClassIds = new Set<string>();
+    const allocatedSubjectIds = new Set<string>();
+
+    if (!isLeadership && user) {
+      // 1. Resolve Class Teacher assignments
+      const assignedClasses = await db
+        .select({
+          id: classes.id,
+          levelCategory: classes.levelCategory,
+        })
+        .from(classes)
+        .where(and(eq(classes.classTeacherId, user.id), isNull(classes.deletedAt)));
+
+      for (const cls of assignedClasses) {
+        managedClassIds.add(cls.id);
+      }
+
+      try {
+        const delegation = await LeaveRequestsService.getActiveStandInDelegationForTeacher(user.id);
+        if (delegation?.assignedClass) {
+          managedClassIds.add(delegation.assignedClass.id);
+        }
+      } catch (e) {
+        // proceed if delegation check fails
+      }
+
+      // 2. Resolve Subject Allocations
+      const [teacherAllocs, markingAllocs] = await Promise.all([
+        db
+          .select({
+            classId: teacherSubjectAllocations.classId,
+            subjectId: teacherSubjectAllocations.subjectId,
+          })
+          .from(teacherSubjectAllocations)
+          .where(and(eq(teacherSubjectAllocations.teacherId, user.id), isNull(teacherSubjectAllocations.deletedAt))),
+        db
+          .select({
+            classId: markingAllocations.classId,
+            subjectId: markingAllocations.subjectId,
+          })
+          .from(markingAllocations)
+          .where(and(eq(markingAllocations.teacherId, user.id), isNull(markingAllocations.deletedAt))),
+      ]);
+
+      for (const a of [...teacherAllocs, ...markingAllocs]) {
+        allocatedClassSubjectPairs.add(`${a.classId}:${a.subjectId}`);
+        allocatedClassIds.add(a.classId);
+        allocatedSubjectIds.add(a.subjectId);
+      }
+
+      // Zero-allocation check
+      if (managedClassIds.size === 0 && allocatedClassSubjectPairs.size === 0) {
+        const forbiddenError = new Error('Access denied: You do not have an active class assignment or subject allocation.');
+        (forbiddenError as any).statusCode = 403;
+        throw forbiddenError;
+      }
+    }
+
+    const [subjectsList, allClassesList] = await Promise.all([
+      db
+        .select()
+        .from(subjects)
+        .where(isNull(subjects.deletedAt))
+        .orderBy(subjects.name),
+      db
+        .select({
+          id: classes.id,
+          levelCategory: classes.levelCategory,
+          numericOrder: classes.numericOrder,
+        })
+        .from(classes)
+        .where(isNull(classes.deletedAt)),
+    ]);
+
+    let visibleSubjectsList = subjectsList;
+    if (!isLeadership) {
+      visibleSubjectsList = subjectsList.filter((s) => {
+        if (allocatedSubjectIds.has(s.id)) return true;
+        if (managedClassIds.size > 0) {
+          return Array.from(managedClassIds).some((cId) => {
+            const cls = allClassesList.find((c) => c.id === cId);
+            if (!cls) return false;
+            if (cls.levelCategory === s.levelCategory) return true;
+            if (
+              ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(cls.levelCategory) &&
+              ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(s.levelCategory)
+            ) {
+              return isJuniorSecondaryClass(cls as any) === (s.levelCategory === 'JUNIOR');
+            }
+            return false;
+          });
+        }
+        return false;
+      });
+    }
+
+    const allowedClassIds = isLeadership
+      ? null
+      : Array.from(new Set([...managedClassIds, ...allocatedClassIds]));
+
+    const whereConditions: any[] = [
+      isNull(examScores.deletedAt),
+      isNull(students.deletedAt),
+      isNull(subjects.deletedAt),
+      isNull(classes.deletedAt),
+    ];
+    if (allowedClassIds && allowedClassIds.length > 0) {
+      whereConditions.push(inArray(classes.id, allowedClassIds));
+    }
 
     const scores = await db
       .select({
-        score: examScores,
-        subject: subjects,
+        score: {
+          marksObtained: examScores.marksObtained,
+        },
+        subject: {
+          id: subjects.id,
+        },
+        class: {
+          id: classes.id,
+        },
       })
       .from(examScores)
       .innerJoin(subjects, eq(examScores.subjectId, subjects.id))
-      .where(isNull(examScores.deletedAt));
+      .innerJoin(students, eq(examScores.studentId, students.id))
+      .innerJoin(classes, eq(students.classId, classes.id))
+      .where(and(...whereConditions));
 
-    const distribution = subjectsList.map((s) => {
-      const subjectScores = scores.filter((sc) => sc.subject.id === s.id);
+    const authorizedScores = isLeadership
+      ? scores
+      : scores.filter((row) => {
+          if (managedClassIds.has(row.class.id)) return true;
+          if (allocatedClassSubjectPairs.has(`${row.class.id}:${row.subject.id}`)) return true;
+          return false;
+        });
+
+    const distribution = visibleSubjectsList.map((s) => {
+      const subjectScores = authorizedScores.filter((sc) => sc.subject.id === s.id);
       const totalCount = subjectScores.length;
 
       let eeCount = 0;
@@ -76,7 +205,102 @@ export class DosService {
     return distribution;
   }
 
-  static async getExamAnalysis(examId?: string, classId?: string) {
+  static async getExamAnalysis(examId?: string, classId?: string, user?: AuthenticatedUser) {
+    const isLeadership = !user || ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
+
+    const managedClassIds = new Set<string>();
+    const allocatedClassSubjectPairs = new Set<string>();
+    const allocatedClassIds = new Set<string>();
+    const allocatedSubjectIds = new Set<string>();
+
+    if (!isLeadership && user) {
+      // 1. Resolve Class Teacher assignments
+      const assignedClasses = await db
+        .select({
+          id: classes.id,
+          name: classes.name,
+          levelCategory: classes.levelCategory,
+          numericOrder: classes.numericOrder,
+        })
+        .from(classes)
+        .where(and(eq(classes.classTeacherId, user.id), isNull(classes.deletedAt)));
+
+      for (const cls of assignedClasses) {
+        managedClassIds.add(cls.id);
+      }
+
+      // Check stand-in delegation
+      try {
+        const delegation = await LeaveRequestsService.getActiveStandInDelegationForTeacher(user.id);
+        if (delegation?.assignedClass) {
+          managedClassIds.add(delegation.assignedClass.id);
+        }
+      } catch (e) {
+        // proceed if delegation check fails
+      }
+
+      // 2. Resolve Subject Allocations
+      const [teacherAllocs, markingAllocs] = await Promise.all([
+        db
+          .select({
+            classId: teacherSubjectAllocations.classId,
+            subjectId: teacherSubjectAllocations.subjectId,
+          })
+          .from(teacherSubjectAllocations)
+          .where(
+            and(
+              eq(teacherSubjectAllocations.teacherId, user.id),
+              isNull(teacherSubjectAllocations.deletedAt)
+            )
+          ),
+        db
+          .select({
+            classId: markingAllocations.classId,
+            subjectId: markingAllocations.subjectId,
+          })
+          .from(markingAllocations)
+          .where(
+            and(
+              eq(markingAllocations.teacherId, user.id),
+              isNull(markingAllocations.deletedAt)
+            )
+          ),
+      ]);
+
+      for (const a of [...teacherAllocs, ...markingAllocs]) {
+        allocatedClassSubjectPairs.add(`${a.classId}:${a.subjectId}`);
+        allocatedClassIds.add(a.classId);
+        allocatedSubjectIds.add(a.subjectId);
+      }
+
+      // 3. Zero-allocation check: If teacher has neither class teacher assignment nor subject allocations, forbid access
+      if (managedClassIds.size === 0 && allocatedClassSubjectPairs.size === 0) {
+        const forbiddenError = new Error('Access denied: You do not have an active class assignment or subject allocation.');
+        (forbiddenError as any).statusCode = 403;
+        throw forbiddenError;
+      }
+
+      // 4. Requested classId check: if teacher explicitly requested an unallocated class
+      if (classId) {
+        const hasAccessToRequestedClass = managedClassIds.has(classId) || allocatedClassIds.has(classId);
+        if (!hasAccessToRequestedClass) {
+          const forbiddenError = new Error('Access denied: You do not have authorization to view academic results for this class.');
+          (forbiddenError as any).statusCode = 403;
+          throw forbiddenError;
+        }
+      }
+    }
+
+    // Default targetClassId if teacher did not provide classId
+    let targetClassId = classId;
+    if (!targetClassId && !isLeadership) {
+      if (managedClassIds.size > 0) {
+        targetClassId = Array.from(managedClassIds)[0];
+      } else if (allocatedClassIds.size > 0) {
+        targetClassId = Array.from(allocatedClassIds)[0];
+      }
+    }
+
     // 1. Resolve target exam
     let targetExamId = examId;
     if (!targetExamId) {
@@ -133,27 +357,120 @@ export class DosService {
       .where(isNull(subjects.deletedAt))
       .orderBy(subjects.name);
 
+    const visibleClasses = isLeadership
+      ? allClasses
+      : allClasses.filter((c) => managedClassIds.has(c.id) || allocatedClassIds.has(c.id));
+
+    let visibleSubjects = allSubjects;
+    if (!isLeadership) {
+      if (targetClassId) {
+        if (managedClassIds.has(targetClassId)) {
+          // Class Teacher viewing their assigned class stream:
+          // Full subject access for this class's level category
+          const targetCls = allClasses.find((c) => c.id === targetClassId);
+          visibleSubjects = allSubjects.filter((s) => {
+            if (!targetCls) return false;
+            if (targetCls.levelCategory === s.levelCategory) return true;
+            if (
+              ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(targetCls.levelCategory) &&
+              ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(s.levelCategory)
+            ) {
+              return isJuniorSecondaryClass(targetCls as any) === (s.levelCategory === 'JUNIOR');
+            }
+            return false;
+          });
+        } else {
+          // Subject Teacher viewing an allocated class:
+          // ONLY view performance for specific learning areas allocated to them in this class
+          visibleSubjects = allSubjects.filter((s) =>
+            allocatedClassSubjectPairs.has(`${targetClassId}:${s.id}`)
+          );
+        }
+      } else {
+        visibleSubjects = allSubjects.filter((s) => {
+          if (allocatedSubjectIds.has(s.id)) return true;
+          if (managedClassIds.size > 0) {
+            return Array.from(managedClassIds).some((cId) => {
+              const cls = allClasses.find((c) => c.id === cId);
+              if (!cls) return false;
+              if (cls.levelCategory === s.levelCategory) return true;
+              if (
+                ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(cls.levelCategory) &&
+                ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(s.levelCategory)
+              ) {
+                return isJuniorSecondaryClass(cls as any) === (s.levelCategory === 'JUNIOR');
+              }
+              return false;
+            });
+          }
+          return false;
+        });
+      }
+    }
+
     // 3. Fetch scores for this exam
+    const allowedClassIds = isLeadership
+      ? null
+      : Array.from(new Set([...managedClassIds, ...allocatedClassIds]));
+
+    const whereConditions: any[] = [
+      isNull(examScores.deletedAt),
+      isNull(students.deletedAt),
+      isNull(subjects.deletedAt),
+      isNull(classes.deletedAt),
+    ];
+    if (targetExamId) {
+      whereConditions.push(eq(examScores.examId, targetExamId));
+    }
+    if (allowedClassIds && allowedClassIds.length > 0) {
+      whereConditions.push(inArray(classes.id, allowedClassIds));
+    }
+
     let scoresQuery = db
       .select({
-        score: examScores,
-        student: students,
-        subject: subjects,
-        class: classes,
+        score: {
+          id: examScores.id,
+          marksObtained: examScores.marksObtained,
+          cbcRubricLevel: examScores.cbcRubricLevel,
+          juniorPoints: examScores.juniorPoints,
+          maxMarks: examScores.maxMarks,
+          teacherRemarks: examScores.teacherRemarks,
+        },
+        student: {
+          id: students.id,
+          firstName: students.firstName,
+          lastName: students.lastName,
+          assessmentNumber: students.assessmentNumber,
+          admissionNumber: students.admissionNumber,
+        },
+        subject: {
+          id: subjects.id,
+          name: subjects.name,
+          code: subjects.code,
+          levelCategory: subjects.levelCategory,
+        },
+        class: {
+          id: classes.id,
+          name: classes.name,
+          levelCategory: classes.levelCategory,
+        },
       })
       .from(examScores)
       .innerJoin(students, eq(examScores.studentId, students.id))
       .innerJoin(subjects, eq(examScores.subjectId, subjects.id))
       .innerJoin(classes, eq(students.classId, classes.id))
-      .where(
-        and(
-          targetExamId ? eq(examScores.examId, targetExamId) : sql`1=1`,
-          isNull(examScores.deletedAt),
-          isNull(students.deletedAt)
-        )
-      );
+      .where(and(...whereConditions));
 
     const rawScores = await scoresQuery;
+
+    const isScoreAuthorized = (row: typeof rawScores[0]) => {
+      if (isLeadership) return true;
+      if (managedClassIds.has(row.class.id)) return true;
+      if (allocatedClassSubjectPairs.has(`${row.class.id}:${row.subject.id}`)) return true;
+      return false;
+    };
+
+    const authorizedScores = isLeadership ? rawScores : rawScores.filter(isScoreAuthorized);
 
     // 4. Compute School-Wide Overview & Student Global Aggregates
     let totalMarksSum = 0;
@@ -193,7 +510,7 @@ export class DosService {
       failingSubjects: { subjectName: string; marksObtained: number; rubric: string | null; points: number | null; remarks: string }[];
     }>();
 
-    rawScores.forEach((row) => {
+    authorizedScores.forEach((row) => {
       const marks = parseFloat(row.score.marksObtained);
       totalMarksSum += marks;
       const sId = row.student.id;
@@ -281,13 +598,16 @@ export class DosService {
       }
     });
 
-    const schoolAverage = rawScores.length > 0 ? Math.round((totalMarksSum / rawScores.length) * 10) / 10 : 0;
-    const totalEnrolled = activeStudents.length || uniqueStudents.size;
+    const schoolAverage = authorizedScores.length > 0 ? Math.round((totalMarksSum / authorizedScores.length) * 10) / 10 : 0;
+    const scopedActiveStudents = isLeadership
+      ? activeStudents
+      : activeStudents.filter((s) => visibleClasses.some((c) => c.id === s.classId));
+    const totalEnrolled = scopedActiveStudents.length || uniqueStudents.size;
     const totalSat = uniqueStudents.size;
     const absentCount = Math.max(0, totalEnrolled - totalSat);
     const candidacyRate = totalEnrolled > 0 ? Math.round((totalSat / totalEnrolled) * 1000) / 10 : 100;
 
-    const totalScoresCount = rawScores.length;
+    const totalScoresCount = authorizedScores.length;
     const eeRate = totalScoresCount > 0 ? Math.round((eeTotal / totalScoresCount) * 100) : 0;
     const meRate = totalScoresCount > 0 ? Math.round((meTotal / totalScoresCount) * 100) : 0;
     const aeRate = totalScoresCount > 0 ? Math.round((aeTotal / totalScoresCount) * 100) : 0;
@@ -295,8 +615,14 @@ export class DosService {
     const proficiencyBenchmark = eeRate + meRate;
 
     // 5. Subject Breakdown & Matrix
-    const subjectSummaries = allSubjects.map((s) => {
-      const subScores = rawScores.filter((r) => r.subject.id === s.id);
+    const subjectSummaries = visibleSubjects.map((s) => {
+      const subScores = authorizedScores.filter((r) => {
+        if (r.subject.id !== s.id) return false;
+        if (!isLeadership && targetClassId) {
+          return r.class.id === targetClassId;
+        }
+        return true;
+      });
       const subCount = subScores.length;
       let subMarksSum = 0;
       let highest = 0;
@@ -359,8 +685,8 @@ export class DosService {
     const lowestSubject = activeSubjects.length > 0 ? activeSubjects[activeSubjects.length - 1] : null;
 
     // 6. Class Breakdown & Comparative League Table
-    const classSummaries = allClasses.map((cls) => {
-      const clsScores = rawScores.filter((r) => r.class.id === cls.id);
+    const classSummaries = visibleClasses.map((cls) => {
+      const clsScores = authorizedScores.filter((r) => r.class.id === cls.id);
       const studentMap = new Map<string, { student: any; scores: any[]; totalMarks: number }>();
       let clsMarksSum = 0;
       let highestMark = 0;
@@ -494,7 +820,7 @@ export class DosService {
       .sort((a, b) => b.failingCount - a.failingCount || a.overallAverage - b.overallAverage);
 
     // Backward compatible intervention learners flat list
-    const interventionLearners = rawScores
+    const interventionLearners = authorizedScores
       .filter((r) => parseFloat(r.score.marksObtained) < 50)
       .map((r) => {
         const isJunior = isJuniorSecondaryClass(r.class);
@@ -515,12 +841,13 @@ export class DosService {
         };
       });
 
-    // 9. Specific Class Drill-Down (if requested)
+    // 9. Specific Class Drill-Down (if requested or defaulted)
     let selectedClassDetail: any = null;
-    if (classId) {
-      const clsScores = rawScores.filter((r) => r.class.id === classId);
+    const drilldownClassId = classId || targetClassId;
+    if (drilldownClassId) {
+      const clsScores = authorizedScores.filter((r) => r.class.id === drilldownClassId);
       const studentScoreMap = new Map<string, any>();
-      const targetCls = allClasses.find((c) => c.id === classId);
+      const targetCls = allClasses.find((c) => c.id === drilldownClassId);
       const isJunior = isJuniorSecondaryClass(targetCls as any);
 
       clsScores.forEach((r) => {
@@ -557,13 +884,30 @@ export class DosService {
       studentRankings.sort((a, b) => b.average - a.average);
 
       selectedClassDetail = {
-        classId,
+        classId: drilldownClassId,
         className: targetCls?.name || 'Class Drill-Down',
         isJunior,
         gradingType: isJunior ? 'POINTS' : 'RUBRIC',
+        isClassTeacherScope: isLeadership || managedClassIds.has(drilldownClassId),
         students: studentRankings.map((s, idx) => ({ ...s, rank: idx + 1 })),
       };
     }
+
+    const userScope = {
+      role: isLeadership
+        ? 'LEADERSHIP'
+        : managedClassIds.size > 0 && allocatedClassSubjectPairs.size > 0
+        ? 'DUAL_ROLE'
+        : managedClassIds.size > 0
+        ? 'CLASS_TEACHER'
+        : 'SUBJECT_TEACHER',
+      isLeadership,
+      isClassTeacher: managedClassIds.size > 0,
+      isSubjectTeacher: allocatedClassSubjectPairs.size > 0,
+      managedClassIds: Array.from(managedClassIds),
+      allocatedClassIds: Array.from(allocatedClassIds),
+      defaultClassId: targetClassId || null,
+    };
 
     return {
       examsList: allExams.map((e) => ({
@@ -602,11 +946,12 @@ export class DosService {
       remedialWatchlist,
       interventionLearners,
       selectedClassDetail,
+      userScope,
     };
   }
 
-  static async getAcademicInsights(examId?: string) {
-    const analysis = await this.getExamAnalysis(examId);
+  static async getAcademicInsights(examId?: string, user?: AuthenticatedUser) {
+    const analysis = await this.getExamAnalysis(examId, undefined, user);
     const insights: Array<{ type: 'ALERT' | 'INFO' | 'ACHIEVEMENT' | 'ACTION'; title: string; message: string }> = [];
 
     // Insight 1: Subject Bottlenecks
