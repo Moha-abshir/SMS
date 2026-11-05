@@ -1404,79 +1404,53 @@ export const SchoolResultsView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Executive KPI Cockpit Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-1">
-                      {/* 1. Class Rank Card */}
-                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Class Standing</span>
-                          <Award className={`w-4 h-4 ${
-                            selectedStudentForDrawer.rank === 1
-                              ? 'text-amber-500'
-                              : selectedStudentForDrawer.rank === 2
-                              ? 'text-slate-400'
-                              : selectedStudentForDrawer.rank === 3
-                              ? 'text-amber-700'
-                              : 'text-sky-500'
-                          }`} />
-                        </div>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
-                          #{selectedStudentForDrawer.rank}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                          of {classStudents.length} learners enrolled
-                        </p>
-                      </div>
-
-                      {/* 2. Mean Score & Class Comparison */}
-                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mean Average</span>
-                          <TrendingUp className="w-4 h-4 text-sky-500" />
-                        </div>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-sky-600 dark:text-sky-400">
-                          {selectedStudentForDrawer.average}%
-                        </div>
-                        <div className="text-[11px] font-semibold mt-0.5 flex items-center gap-1">
-                          {varianceFromClassMean >= 0 ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center">
-                              <ArrowUpRight className="w-3 h-3" /> +{varianceFromClassMean}% vs Class Mean
-                            </span>
-                          ) : (
-                            <span className="text-rose-600 dark:text-rose-400 font-bold inline-flex items-center">
-                              <ArrowDownRight className="w-3 h-3" /> {varianceFromClassMean}% vs Class Mean
-                            </span>
-                          )}
+                    {/* Compact Metric Summary Bar (No large cards) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-[#162b4d] border-t border-slate-200 dark:border-[#162b4d] pt-3 mt-1">
+                      {/* 1. Class Standing */}
+                      <div className="sm:pr-4 py-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class Standing</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-slate-100">
+                            #{selectedStudentForDrawer.rank}
+                          </span>
+                          <span className="text-slate-400 text-xs font-medium">/ {classStudents.length} learners</span>
                         </div>
                       </div>
 
-                      {/* 3. Aggregate Total Marks */}
-                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Aggregate Total</span>
-                          <GraduationCap className="w-4 h-4 text-indigo-500" />
+                      {/* 2. Mean Average */}
+                      <div className="sm:px-4 py-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mean Average</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base sm:text-lg font-black font-mono text-sky-600 dark:text-sky-400">
+                            {selectedStudentForDrawer.average}%
+                          </span>
+                          <span className={`text-[11px] font-bold ${varianceFromClassMean >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            ({varianceFromClassMean >= 0 ? `+${varianceFromClassMean}%` : `${varianceFromClassMean}%`})
+                          </span>
                         </div>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
-                          {selectedStudentForDrawer.totalMarks}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                          across {selectedStudentForDrawer.subjects?.length ?? 0} learning areas
-                        </p>
                       </div>
 
-                      {/* 4. CBC Rubric Spectrum Filter Chips */}
-                      <div className="p-3 sm:p-3.5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] shadow-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Competency Spread</span>
-                          <Sparkles className="w-4 h-4 text-emerald-500" />
+                      {/* 3. Aggregate Total */}
+                      <div className="sm:px-4 py-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Aggregate Total</span>
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-slate-100">
+                            {selectedStudentForDrawer.totalMarks}
+                          </span>
+                          <span className="text-slate-400 text-xs font-medium">/ {selectedStudentForDrawer.subjects?.length ?? 0} subjects</span>
                         </div>
+                      </div>
+
+                      {/* 4. Competency Spread */}
+                      <div className="sm:pl-4 py-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Competency Spread</span>
                         <div className="flex items-center gap-1.5 mt-1 font-mono text-xs font-bold">
                           <button
                             type="button"
                             onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'EE' ? 'ALL' : 'EE')}
                             className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
                               drawerSubjectFilter === 'EE'
-                                ? 'ring-2 ring-emerald-500 bg-emerald-200 text-emerald-950 font-black'
+                                ? 'ring-2 ring-emerald-500 bg-emerald-200 dark:bg-emerald-900 text-emerald-950 dark:text-emerald-100 font-black'
                                 : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                             }`}
                             title="Filter Exceeding Expectations"
@@ -1488,7 +1462,7 @@ export const SchoolResultsView: React.FC = () => {
                             onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'ME' ? 'ALL' : 'ME')}
                             className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
                               drawerSubjectFilter === 'ME'
-                                ? 'ring-2 ring-sky-500 bg-sky-200 text-sky-950 font-black'
+                                ? 'ring-2 ring-sky-500 bg-sky-200 dark:bg-sky-900 text-sky-950 dark:text-sky-100 font-black'
                                 : 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300'
                             }`}
                             title="Filter Meeting Expectations"
@@ -1500,7 +1474,7 @@ export const SchoolResultsView: React.FC = () => {
                             onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'AE' ? 'ALL' : 'AE')}
                             className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
                               drawerSubjectFilter === 'AE'
-                                ? 'ring-2 ring-amber-500 bg-amber-200 text-amber-950 font-black'
+                                ? 'ring-2 ring-amber-500 bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 font-black'
                                 : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
                             }`}
                             title="Filter Approaching Expectations"
@@ -1512,7 +1486,7 @@ export const SchoolResultsView: React.FC = () => {
                             onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'BE' ? 'ALL' : 'BE')}
                             className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
                               drawerSubjectFilter === 'BE'
-                                ? 'ring-2 ring-rose-500 bg-rose-200 text-rose-950 font-black'
+                                ? 'ring-2 ring-rose-500 bg-rose-200 dark:bg-rose-900 text-rose-950 dark:text-rose-100 font-black'
                                 : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300'
                             }`}
                             title="Filter Below Expectations"
@@ -1520,9 +1494,6 @@ export const SchoolResultsView: React.FC = () => {
                             {studentRubricCounts.BE} BE
                           </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          {drawerSubjectFilter === 'ALL' ? 'Click chip to filter' : `Filtered: ${drawerSubjectFilter}`}
-                        </p>
                       </div>
                     </div>
                   </header>
