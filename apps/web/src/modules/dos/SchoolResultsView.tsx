@@ -238,9 +238,11 @@ export const SchoolResultsView: React.FC = () => {
       if (data?.selectedExam && !selectedExamId) {
         setSelectedExamId(data.selectedExam.id);
       }
-      if (data?.selectedClassDetail && !selectedClassId) {
-        setSelectedClassId(data.selectedClassDetail.classId);
-        if (data.userScope && !data.userScope.isLeadership) {
+      if (data?.selectedClassDetail) {
+        if (!selectedClassId) {
+          setSelectedClassId(data.selectedClassDetail.classId);
+        }
+        if (data.userScope && !data.userScope.isLeadership && activeTab === 'CLASSES') {
           setActiveTab('DRILLDOWN');
         }
       }
@@ -423,14 +425,19 @@ export const SchoolResultsView: React.FC = () => {
 
   const overview = analysis?.schoolOverview || {};
   const userScope = analysis?.userScope;
+  const currentClassName = overview?.className || analysis?.selectedClassDetail?.className;
 
   const headerTitle = useMemo(() => {
     if (!userScope || userScope.isLeadership) return 'Schoolwide Results & Broadsheet Center';
+    if (currentClassName) {
+      if (overview?.scopeType === 'SUBJECT') return `${currentClassName} — Subject Performance`;
+      return `${currentClassName} — Class Broadsheet & Results`;
+    }
     if (userScope.role === 'CLASS_TEACHER') return 'Class Broadsheet & Academic Results';
     if (userScope.role === 'SUBJECT_TEACHER') return 'Allocated Subject Performance & Results';
     if (userScope.role === 'DUAL_ROLE') return 'Class Broadsheet & Subject Performance';
     return 'Academic Results Center';
-  }, [userScope]);
+  }, [userScope, currentClassName, overview?.scopeType]);
 
   const headerSubtitle = useMemo(() => {
     if (!userScope || userScope.isLeadership) {
@@ -546,7 +553,11 @@ export const SchoolResultsView: React.FC = () => {
                     )}
                     {analysis.classes.map((cls: any) => (
                       <option key={cls.classId} value={cls.classId}>
-                        Class: {cls.className}
+                        {userScope?.isLeadership
+                          ? `Class: ${cls.className}`
+                          : cls.roleInClass === 'CLASS_TEACHER'
+                          ? `Class Stream: ${cls.className}`
+                          : `Allocated Subject: ${cls.className}`}
                       </option>
                     ))}
                   </select>
@@ -580,10 +591,12 @@ export const SchoolResultsView: React.FC = () => {
 
           {/* 2. Top-Level Executive KPI Strip */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
-            {/* 1. School Mean Score */}
+            {/* 1. Mean Score (Class / Subject / School Mean) */}
             <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">School Mean</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {overview.scopeType === 'SUBJECT' ? 'Subject Mean' : overview.isClassScoped ? 'Class Mean' : 'School Mean'}
+                </span>
                 <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1932] border border-sky-100 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center">
                   <TrendingUp className="w-4 h-4" />
                 </div>
@@ -599,7 +612,9 @@ export const SchoolResultsView: React.FC = () => {
             {/* 2. Assessment Candidacy */}
             <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Candidacy Sat</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {overview.scopeType === 'SUBJECT' ? 'Learners Assessed' : overview.isClassScoped ? 'Class Candidacy' : 'Candidacy Sat'}
+                </span>
                 <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1932] border border-sky-100 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center">
                   <Users className="w-4 h-4" />
                 </div>
@@ -615,7 +630,9 @@ export const SchoolResultsView: React.FC = () => {
             {/* 3. CBC Proficiency Benchmark (EE + ME) */}
             <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Proficiency Pass</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {overview.isClassScoped ? 'Class Proficiency' : 'Proficiency Pass'}
+                </span>
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
@@ -628,26 +645,34 @@ export const SchoolResultsView: React.FC = () => {
               </p>
             </div>
 
-            {/* 4. Top Performing Stream */}
+            {/* 4. Top Performing Stream OR Top Learner in Class */}
             <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Top Stream</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {overview.isClassScoped ? 'Top Learner' : 'Top Stream'}
+                </span>
                 <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                   <Award className="w-4 h-4" />
                 </div>
               </div>
               <div className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 truncate">
-                {overview.topStream?.name || '—'}
+                {overview.isClassScoped
+                  ? (overview.topStudent?.name || '—')
+                  : (overview.topStream?.name || '—')}
               </div>
               <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold font-mono mt-1">
-                {overview.topStream ? `${overview.topStream.average}% Class Mean` : 'No data'}
+                {overview.isClassScoped
+                  ? (overview.topStudent ? `${overview.topStudent.average}% Average` : 'No scores')
+                  : (overview.topStream ? `${overview.topStream.average}% Class Mean` : 'No data')}
               </p>
             </div>
 
             {/* 5. Leading Department / Learning Area */}
             <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Top Department</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {overview.scopeType === 'SUBJECT' ? 'Learning Area' : 'Top Department'}
+                </span>
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                   <BookOpen className="w-4 h-4" />
                 </div>
@@ -716,58 +741,23 @@ export const SchoolResultsView: React.FC = () => {
           <div className="space-y-3.5">
             {/* Row 1: Main Navigation Tabs with Horizontal Scrollability */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]">
-              <button
-                type="button"
-                onClick={() => setActiveTab('CLASSES')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                  activeTab === 'CLASSES'
-                    ? 'bg-sky-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Class League Table ({filteredClasses.length})</span>
-              </button>
+              {/* Class League Table (Leadership Only) */}
+              {(!userScope || userScope.isLeadership) && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('CLASSES')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                    activeTab === 'CLASSES'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Class League Table ({filteredClasses.length})</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setActiveTab('SUBJECTS')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                  activeTab === 'SUBJECTS'
-                    ? 'bg-sky-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Subject Department Matrix ({filteredSubjects.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('HONOR_ROLL')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                  activeTab === 'HONOR_ROLL'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                }`}
-              >
-                <Star className="w-3.5 h-3.5" />
-                <span>Top Achievers Honor Roll ({filteredHonorRoll.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('REMEDIAL')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
-                  activeTab === 'REMEDIAL'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Remedial Watchlist ({filteredRemedial.length})</span>
-              </button>
-
+              {/* Class Broadsheet / Subject Marksheet Tab (Primary for teachers) */}
               {analysis?.selectedClassDetail && (
                 <button
                   type="button"
@@ -786,6 +776,57 @@ export const SchoolResultsView: React.FC = () => {
                   </span>
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('SUBJECTS')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'SUBJECTS'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>
+                  {!userScope || userScope.isLeadership
+                    ? `Subject Department Matrix (${filteredSubjects.length})`
+                    : `Subject Matrix (${filteredSubjects.length})`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('HONOR_ROLL')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'HONOR_ROLL'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5" />
+                <span>
+                  {!userScope || userScope.isLeadership
+                    ? `Top Achievers Honor Roll (${filteredHonorRoll.length})`
+                    : `Class Merit List (${filteredHonorRoll.length})`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('REMEDIAL')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  activeTab === 'REMEDIAL'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>
+                  {!userScope || userScope.isLeadership
+                    ? `Remedial Watchlist (${filteredRemedial.length})`
+                    : `Class Remedial Watchlist (${filteredRemedial.length})`}
+                </span>
+              </button>
             </div>
 
             {/* Row 2: Search Input & Grade Tier Filter */}
@@ -796,27 +837,34 @@ export const SchoolResultsView: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search learners, classes, or subjects..."
+                  placeholder={
+                    !userScope || userScope.isLeadership
+                      ? "Search learners, classes, or subjects..."
+                      : "Search learners or subjects in this class..."
+                  }
                   className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-xs"
                 />
               </div>
 
-              <div className="flex items-center overflow-x-auto bg-slate-100 dark:bg-[#0c1932] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d] text-[11px] font-bold shrink-0">
-                {(['ALL', 'PP', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'] as TierFilter[]).map((tier) => (
-                  <button
-                    key={tier}
-                    type="button"
-                    onClick={() => setTierFilter(tier)}
-                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-                      tierFilter === tier
-                        ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    {tier === 'ALL' ? 'All Classes' : tier === 'PP' ? 'Pre-Primary' : tier === 'LOWER_PRIMARY' ? 'Lower (G1-3)' : tier === 'UPPER_PRIMARY' ? 'Upper (G4-6)' : 'Junior (G7-9)'}
-                  </button>
-                ))}
-              </div>
+              {/* Tier Filters: Only for Leadership */}
+              {(!userScope || userScope.isLeadership) && (
+                <div className="flex items-center overflow-x-auto bg-slate-100 dark:bg-[#0c1932] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d] text-[11px] font-bold shrink-0">
+                  {(['ALL', 'PP', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'] as TierFilter[]).map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      onClick={() => setTierFilter(tier)}
+                      className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                        tierFilter === tier
+                          ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      {tier === 'ALL' ? 'All Classes' : tier === 'PP' ? 'Pre-Primary' : tier === 'LOWER_PRIMARY' ? 'Lower (G1-3)' : tier === 'UPPER_PRIMARY' ? 'Upper (G4-6)' : 'Junior (G7-9)'}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* TAB CONTENT PANELS */}
@@ -1271,13 +1319,15 @@ export const SchoolResultsView: React.FC = () => {
                         : 'Restricted examination marksheet for your allocated teaching areas · Learning areas outside your teaching allocation are filtered'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('CLASSES')}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer"
-                  >
-                    Back to League Table
-                  </button>
+                  {(!userScope || userScope.isLeadership) && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('CLASSES')}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer"
+                    >
+                      Back to League Table
+                    </button>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">

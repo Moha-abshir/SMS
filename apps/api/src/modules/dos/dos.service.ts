@@ -472,7 +472,23 @@ export class DosService {
 
     const authorizedScores = isLeadership ? rawScores : rawScores.filter(isScoreAuthorized);
 
-    // 4. Compute School-Wide Overview & Student Global Aggregates
+    // If viewing as a teacher (non-leadership), scope the overview, rubrics, honor roll, and remedial watchlist
+    // strictly to the targeted class (and allocated subjects for that class if subject teacher)
+    const isTargetClassClassTeacher = targetClassId ? managedClassIds.has(targetClassId) : false;
+    let viewScores = authorizedScores;
+    if (!isLeadership && targetClassId) {
+      if (isTargetClassClassTeacher) {
+        // Class Teacher: strictly view all scores for their assigned class
+        viewScores = authorizedScores.filter((r) => r.class.id === targetClassId);
+      } else {
+        // Subject Teacher: strictly view allocated subjects in this class
+        viewScores = authorizedScores.filter(
+          (r) => r.class.id === targetClassId && allocatedClassSubjectPairs.has(`${targetClassId}:${r.subject.id}`)
+        );
+      }
+    }
+
+    // 4. Compute Overview & Student Aggregates (Class-Scoped for Teachers, School-Wide for Leadership)
     let totalMarksSum = 0;
     let eeTotal = 0;
     let meTotal = 0;
@@ -510,7 +526,7 @@ export class DosService {
       failingSubjects: { subjectName: string; marksObtained: number; rubric: string | null; points: number | null; remarks: string }[];
     }>();
 
-    authorizedScores.forEach((row) => {
+    viewScores.forEach((row) => {
       const marks = parseFloat(row.score.marksObtained);
       totalMarksSum += marks;
       const sId = row.student.id;
@@ -598,16 +614,18 @@ export class DosService {
       }
     });
 
-    const schoolAverage = authorizedScores.length > 0 ? Math.round((totalMarksSum / authorizedScores.length) * 10) / 10 : 0;
-    const scopedActiveStudents = isLeadership
-      ? activeStudents
-      : activeStudents.filter((s) => visibleClasses.some((c) => c.id === s.classId));
+    const schoolAverage = viewScores.length > 0 ? Math.round((totalMarksSum / viewScores.length) * 10) / 10 : 0;
+    const scopedActiveStudents = (!isLeadership && targetClassId)
+      ? activeStudents.filter((s) => s.classId === targetClassId)
+      : (isLeadership
+          ? activeStudents
+          : activeStudents.filter((s) => visibleClasses.some((c) => c.id === s.classId)));
     const totalEnrolled = scopedActiveStudents.length || uniqueStudents.size;
     const totalSat = uniqueStudents.size;
     const absentCount = Math.max(0, totalEnrolled - totalSat);
     const candidacyRate = totalEnrolled > 0 ? Math.round((totalSat / totalEnrolled) * 1000) / 10 : 100;
 
-    const totalScoresCount = authorizedScores.length;
+    const totalScoresCount = viewScores.length;
     const eeRate = totalScoresCount > 0 ? Math.round((eeTotal / totalScoresCount) * 100) : 0;
     const meRate = totalScoresCount > 0 ? Math.round((meTotal / totalScoresCount) * 100) : 0;
     const aeRate = totalScoresCount > 0 ? Math.round((aeTotal / totalScoresCount) * 100) : 0;
@@ -616,13 +634,7 @@ export class DosService {
 
     // 5. Subject Breakdown & Matrix
     const subjectSummaries = visibleSubjects.map((s) => {
-      const subScores = authorizedScores.filter((r) => {
-        if (r.subject.id !== s.id) return false;
-        if (!isLeadership && targetClassId) {
-          return r.class.id === targetClassId;
-        }
-        return true;
-      });
+      const subScores = viewScores.filter((r) => r.subject.id === s.id);
       const subCount = subScores.length;
       let subMarksSum = 0;
       let highest = 0;
@@ -749,6 +761,7 @@ export class DosService {
         levelCategory: cls.levelCategory,
         isJunior: isJuniorSecondaryClass(cls as any),
         classTeacher: teacherName,
+        roleInClass: managedClassIds.has(cls.id) ? 'CLASS_TEACHER' : 'SUBJECT_TEACHER',
         enrolledCount: Math.max(enrolledCount, testedCount),
         testedCount,
         totalScores: clsScores.length,
@@ -820,7 +833,7 @@ export class DosService {
       .sort((a, b) => b.failingCount - a.failingCount || a.overallAverage - b.overallAverage);
 
     // Backward compatible intervention learners flat list
-    const interventionLearners = authorizedScores
+    const interventionLearners = viewScores
       .filter((r) => parseFloat(r.score.marksObtained) < 50)
       .map((r) => {
         const isJunior = isJuniorSecondaryClass(r.class);
@@ -909,6 +922,9 @@ export class DosService {
       defaultClassId: targetClassId || null,
     };
 
+    const targetClassRecord = targetClassId ? allClasses.find((c) => c.id === targetClassId) : null;
+    const topStudentOverall = allRankedStudents.length > 0 ? allRankedStudents[0] : null;
+
     return {
       examsList: allExams.map((e) => ({
         id: e.exam.id,
@@ -933,12 +949,20 @@ export class DosService {
         totalScoresEntered: totalScoresCount,
         topSubject: topSubject ? { name: topSubject.subjectName, average: topSubject.averageScore } : null,
         lowestSubject: lowestSubject ? { name: lowestSubject.subjectName, average: lowestSubject.averageScore } : null,
-        topStream: rankedClassSummaries.length > 0 ? { name: rankedClassSummaries[0].className, average: rankedClassSummaries[0].classAverage } : null,
+        topStream: isLeadership && !targetClassId
+          ? (rankedClassSummaries.length > 0 ? { name: rankedClassSummaries[0].className, average: rankedClassSummaries[0].classAverage } : null)
+          : null,
+        topStudent: topStudentOverall ? { name: topStudentOverall.studentName, average: topStudentOverall.averageScore } : null,
         rubricDistribution: { EE: eeTotal, ME: meTotal, AE: aeTotal, BE: beTotal },
         rubricPercentages: { EE: eeRate, ME: meRate, AE: aeRate, BE: beRate },
         proficiencyBenchmark,
         pointsDistribution: pointsTotal,
         strugglingTotal: remedialWatchlist.length,
+        isClassScoped: !isLeadership || Boolean(targetClassId),
+        className: targetClassRecord?.name || null,
+        scopeType: isLeadership
+          ? (targetClassId ? 'CLASS' : 'SCHOOLWIDE')
+          : (targetClassId && managedClassIds.has(targetClassId) ? 'CLASS' : 'SUBJECT'),
       },
       subjects: subjectSummaries,
       classes: rankedClassSummaries,
