@@ -561,4 +561,331 @@ export class SchoolwideOverviewService {
       allGradeRows: gradeRows,
     };
   }
+
+  /**
+   * Aggregates detailed grade overview:
+   * - Grade summary metrics
+   * - Learning Area (subject) breakdown
+   * - Student broadsheet merit list with per-subject marks & rubrics/points
+   */
+  static async getGradeOverview(classId: string, examId?: string, compareExamId?: string) {
+    const { selectedExam, compareExam, availableExams } = await this.resolveExams(examId, compareExamId);
+
+    if (!selectedExam) {
+      const err = new Error('No examination found');
+      (err as any).statusCode = 404;
+      throw err;
+    }
+
+    // 1. Fetch Class
+    const [targetClass] = await db
+      .select({
+        id: classes.id,
+        name: classes.name,
+        levelCategory: classes.levelCategory,
+        numericOrder: classes.numericOrder,
+        classTeacherId: classes.classTeacherId,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+      })
+      .from(classes)
+      .leftJoin(users, eq(classes.classTeacherId, users.id))
+      .where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
+
+    if (!targetClass) {
+      const err = new Error('Class not found');
+      (err as any).statusCode = 404;
+      throw err;
+    }
+
+    const isJunior = isJuniorGrade(targetClass);
+    const classTeacherName = targetClass.teacherFirstName
+      ? `${targetClass.teacherFirstName} ${targetClass.teacherLastName || ''}`.trim()
+      : 'Not Assigned';
+
+    // 2. Fetch Active Students in Class
+    const classStudents = await db
+      .select({
+        id: students.id,
+        admissionNumber: students.admissionNumber,
+        assessmentNumber: students.assessmentNumber,
+        firstName: students.firstName,
+        middleName: students.middleName,
+        lastName: students.lastName,
+        gender: students.gender,
+      })
+      .from(students)
+      .where(and(eq(students.classId, classId), eq(students.status, 'ACTIVE'), isNull(students.deletedAt)))
+      .orderBy(students.lastName, students.firstName);
+
+    const enrolledCount = classStudents.length;
+    const studentIds = classStudents.map((s) => s.id);
+
+    // 3. Fetch Teacher Subject Allocations for this class
+    const allocations = await db
+      .select({
+        subjectId: teacherSubjectAllocations.subjectId,
+        teacherId: teacherSubjectAllocations.teacherId,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+      })
+      .from(teacherSubjectAllocations)
+      .innerJoin(users, eq(teacherSubjectAllocations.teacherId, users.id))
+      .where(and(eq(teacherSubjectAllocations.classId, classId), isNull(teacherSubjectAllocations.deletedAt)));
+
+    const teacherBySubject = new Map<string, string>();
+    for (const a of allocations) {
+      teacherBySubject.set(a.subjectId, `${a.teacherFirstName} ${a.teacherLastName || ''}`.trim());
+    }
+
+    // 4. Fetch Scores for Target Exam & Compare Exam
+    const examIdsToFetch = [selectedExam.id];
+    if (compareExam) examIdsToFetch.push(compareExam.id);
+
+    let scores: Array<{
+      examId: string;
+      studentId: string;
+      subjectId: string;
+      marksObtained: string | number;
+    }> = [];
+
+    if (studentIds.length > 0) {
+      scores = await db
+        .select({
+          examId: examScores.examId,
+          studentId: examScores.studentId,
+          subjectId: examScores.subjectId,
+          marksObtained: examScores.marksObtained,
+        })
+        .from(examScores)
+        .where(
+          and(
+            inArray(examScores.examId, examIdsToFetch),
+            inArray(examScores.studentId, studentIds),
+            isNull(examScores.deletedAt)
+          )
+        );
+    }
+
+    const currentScores = scores.filter((s) => s.examId === selectedExam.id);
+    const compareScores = compareExam ? scores.filter((s) => s.examId === compareExam.id) : [];
+
+    // Distinct subject IDs with scores or allocations
+    const subjectIds = new Set<string>();
+    for (const s of currentScores) subjectIds.add(s.subjectId);
+    for (const s of compareScores) subjectIds.add(s.subjectId);
+    for (const a of allocations) subjectIds.add(a.subjectId);
+
+    const classSubjects = subjectIds.size > 0
+      ? await db
+          .select({
+            id: subjects.id,
+            name: subjects.name,
+            code: subjects.code,
+            levelCategory: subjects.levelCategory,
+          })
+          .from(subjects)
+          .where(and(inArray(subjects.id, Array.from(subjectIds)), isNull(subjects.deletedAt)))
+          .orderBy(subjects.name)
+      : [];
+
+    const subjectMap = new Map(classSubjects.map((s) => [s.id, s]));
+
+    // Aggregate Learner Scores for Current Exam
+    const currentLearnerAggregates = this.aggregateLearnerScores(currentScores);
+    const compareLearnerAggregates = this.aggregateLearnerScores(compareScores);
+
+    // 5. Build Learning Area (Subject) Breakdown
+    const subjectBreakdown = [];
+    for (const sub of classSubjects) {
+      const curSubScores = currentScores.filter((s) => s.subjectId === sub.id);
+      const prevSubScores = compareScores.filter((s) => s.subjectId === sub.id);
+
+      const teacherName = teacherBySubject.get(sub.id) || 'Not Assigned';
+      const satCount = curSubScores.length;
+
+      let meanPct = 0;
+      let deltaPct: number | null = null;
+      let beCount = 0;
+
+      const rubricDistribution: PrimaryRubricCounts = { EE: 0, ME: 0, AE: 0, BE: 0 };
+      const pointDistribution: JuniorPointCounts = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+      if (satCount > 0) {
+        const totalMarks = curSubScores.reduce((sum, s) => {
+          const m = typeof s.marksObtained === 'number' ? s.marksObtained : parseFloat(s.marksObtained) || 0;
+          return sum + m;
+        }, 0);
+        meanPct = +(totalMarks / satCount).toFixed(1);
+
+        if (prevSubScores.length > 0) {
+          const prevTotal = prevSubScores.reduce((sum, s) => {
+            const m = typeof s.marksObtained === 'number' ? s.marksObtained : parseFloat(s.marksObtained) || 0;
+            return sum + m;
+          }, 0);
+          const prevMean = +(prevTotal / prevSubScores.length).toFixed(1);
+          deltaPct = +(meanPct - prevMean).toFixed(1);
+        }
+
+        for (const s of curSubScores) {
+          const m = typeof s.marksObtained === 'number' ? s.marksObtained : parseFloat(s.marksObtained) || 0;
+          if (isJunior) {
+            const pt = getJuniorPointScale(m).points as keyof JuniorPointCounts;
+            if (pointDistribution[pt] !== undefined) pointDistribution[pt]++;
+            if (m < 21) beCount++;
+          } else {
+            const rub = getPrimaryRubric(m);
+            rubricDistribution[rub]++;
+            if (m < 40) beCount++;
+          }
+        }
+      }
+
+      const meanPointsOrRubric = isJunior
+        ? `${getJuniorPointScale(meanPct).points} pts (${getJuniorPointScale(meanPct).label})`
+        : getPrimaryRubric(meanPct);
+
+      subjectBreakdown.push({
+        subjectId: sub.id,
+        subjectName: sub.name,
+        subjectCode: sub.code,
+        teacherName,
+        satCount,
+        meanPct,
+        deltaPct,
+        meanPointsOrRubric,
+        distribution: isJunior ? pointDistribution : rubricDistribution,
+        beCount,
+      });
+    }
+
+    // Sort subjects by meanPct descending
+    subjectBreakdown.sort((a, b) => b.meanPct - a.meanPct);
+
+    // 6. Build Student Broadsheet & Performance List
+    const broadsheet = [];
+    for (const st of classStudents) {
+      const cur = currentLearnerAggregates.get(st.id);
+      const prev = compareLearnerAggregates.get(st.id);
+
+      const studentSubjectsMap: Record<string, { marks: number; rubricOrPoints: string; rubric: string; points: number }> = {};
+
+      if (cur) {
+        for (const [subId, marks] of cur.subjects.entries()) {
+          const rubric = getPrimaryRubric(marks);
+          const jScale = getJuniorPointScale(marks);
+          studentSubjectsMap[subId] = {
+            marks,
+            rubricOrPoints: isJunior ? `${jScale.points} pts` : rubric,
+            rubric,
+            points: jScale.points,
+          };
+        }
+      }
+
+      const totalMarks = cur?.totalMarks || 0;
+      const subjectCount = cur?.subjectCount || 0;
+      const maxPossibleMarks = subjectCount * 100;
+      const meanPct = cur?.meanPercentage || 0;
+
+      let deltaPct: number | null = null;
+      if (cur && prev && prev.subjectCount > 0) {
+        deltaPct = +(meanPct - prev.meanPercentage).toFixed(1);
+      }
+
+      const overallRubricOrPoints = isJunior
+        ? `${getJuniorPointScale(meanPct).points} pts (${getJuniorPointScale(meanPct).label})`
+        : getPrimaryRubric(meanPct);
+
+      const fullName = [st.firstName, st.middleName, st.lastName].filter(Boolean).join(' ');
+
+      broadsheet.push({
+        studentId: st.id,
+        admissionNo: st.admissionNumber || st.assessmentNumber,
+        assessmentNumber: st.assessmentNumber,
+        fullName,
+        gender: st.gender,
+        hasMarks: subjectCount > 0,
+        totalMarks,
+        maxPossibleMarks,
+        meanPct,
+        deltaPct,
+        overallRubric: getPrimaryRubric(meanPct),
+        overallPoints: getJuniorPointScale(meanPct).points,
+        overallRubricOrPoints,
+        subjects: studentSubjectsMap,
+      });
+    }
+
+    // Sort broadsheet by meanPct descending to calculate rank
+    broadsheet.sort((a, b) => b.meanPct - a.meanPct);
+    broadsheet.forEach((learner, index) => {
+      learner.rank = index + 1;
+    });
+
+    // 7. Calculate Grade Summary Header Data
+    const satLearners = broadsheet.filter((l) => l.hasMarks);
+    const satCount = satLearners.length;
+
+    let gradeMeanPct = 0;
+    let gradeDeltaPct: number | null = null;
+    let gradeMeanPoints: number | null = null;
+    let gradeDeltaPoints: number | null = null;
+
+    if (satCount > 0) {
+      const sumPct = satLearners.reduce((sum, l) => sum + l.meanPct, 0);
+      gradeMeanPct = +(sumPct / satCount).toFixed(1);
+
+      if (isJunior) {
+        const sumPts = satLearners.reduce((sum, l) => sum + l.overallPoints, 0);
+        gradeMeanPoints = +(sumPts / satCount).toFixed(1);
+      }
+
+      const prevLearners = classStudents
+        .map((st) => compareLearnerAggregates.get(st.id))
+        .filter((c) => c && c.subjectCount > 0);
+
+      if (prevLearners.length > 0) {
+        const prevSumPct = prevLearners.reduce((sum, l) => sum + l!.meanPercentage, 0);
+        const prevMeanPct = +(prevSumPct / prevLearners.length).toFixed(1);
+        gradeDeltaPct = +(gradeMeanPct - prevMeanPct).toFixed(1);
+
+        if (isJunior) {
+          const prevSumPts = prevLearners.reduce((sum, l) => sum + l!.juniorScale.points, 0);
+          const prevMeanPts = +(prevSumPts / prevLearners.length).toFixed(1);
+          gradeDeltaPoints = +(gradeMeanPoints! - prevMeanPts).toFixed(1);
+        }
+      }
+    }
+
+    const gradeHeader = {
+      classId: targetClass.id,
+      gradeName: targetClass.name,
+      levelCategory: targetClass.levelCategory,
+      numericOrder: targetClass.numericOrder,
+      isJunior,
+      classTeacherId: targetClass.classTeacherId,
+      classTeacherName,
+      enrolledCount,
+      satCount,
+      hasMarks: satCount > 0,
+      meanPercentage: gradeMeanPct,
+      meanPoints: gradeMeanPoints,
+      deltaPercentage: gradeDeltaPct,
+      deltaPoints: gradeDeltaPoints,
+      overallScaleOrRubric: isJunior
+        ? `${gradeMeanPoints || 0} pts (${getJuniorPointScale(gradeMeanPct).label})`
+        : getPrimaryRubric(gradeMeanPct),
+    };
+
+    return {
+      selectedExam,
+      compareExam,
+      availableExams,
+      gradeHeader,
+      subjectBreakdown,
+      broadsheet,
+      subjects: classSubjects,
+    };
+  }
 }
