@@ -34,5 +34,18 @@ export class DosController {
       return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch academic insights' });
     }
   }
+
+  static async getSubjectPerformance(req: Request, res: Response) {
+    try {
+      const examId = req.query.examId as string | undefined;
+      const subjectId = req.query.subjectId as string | undefined;
+      const classId = req.query.classId as string | undefined;
+      const data = await DosService.getSubjectPerformance(examId, subjectId, classId, req.user);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch subject performance' });
+    }
+  }
 }
 
