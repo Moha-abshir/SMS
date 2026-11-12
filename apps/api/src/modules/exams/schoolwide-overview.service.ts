@@ -8,8 +8,12 @@ import {
   subjects,
   teacherSubjectAllocations,
   users,
+  eq,
+  and,
+  isNull,
+  desc,
+  inArray,
 } from '@school/shared';
-import { eq, and, isNull, desc, inArray } from 'drizzle-orm';
 
 export interface PrimaryRubricCounts {
   EE: number;
@@ -800,6 +804,7 @@ export class SchoolwideOverviewService {
       const fullName = [st.firstName, st.middleName, st.lastName].filter(Boolean).join(' ');
 
       broadsheet.push({
+        rank: 0,
         studentId: st.id,
         admissionNo: st.admissionNumber || st.assessmentNumber,
         assessmentNumber: st.assessmentNumber,

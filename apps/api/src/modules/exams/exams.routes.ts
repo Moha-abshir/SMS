@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { authenticate, authorizePermission } from '../../middleware/auth.js';
 import { ExamsController } from './exams.controller.js';
+import { SchoolwideOverviewController } from './schoolwide-overview.controller.js';
 
 const router = Router();
 
 router.use(authenticate);
+
+router.get('/schoolwide-overview', SchoolwideOverviewController.getSchoolwideOverview);
+router.get('/schoolwide-overview/classes/:classId', SchoolwideOverviewController.getGradeOverview);
 
 router.get('/', ExamsController.getExams);
 router.post('/terminate-period', authorizePermission('exams:manage'), ExamsController.terminateExamPeriod);
