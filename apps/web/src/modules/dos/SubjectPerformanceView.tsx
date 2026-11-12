@@ -1,1035 +1,921 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Award,
-  BookOpen,
   BarChart3,
-  TrendingUp,
+  BookOpen,
+  Award,
   Users,
   AlertTriangle,
   CheckCircle2,
+  TrendingUp,
+  Download,
+  Printer,
+  Search,
+  ChevronDown,
   Layers,
-  ArrowUpRight,
-  ArrowDownRight,
-  Filter,
+  Sparkles,
+  ShieldAlert,
+  ArrowRight,
+  Calculator,
+  UserCheck,
+  UserX,
+  Target,
+  GraduationCap,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
+import { printElement } from '../../lib/printElement';
+
+type ActiveTab = 'MARKSHEET' | 'REMEDIAL' | 'CROSS_CLASS' | 'DISTRIBUTION';
 
 export const SubjectPerformanceView: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'PRIMARY_RUBRICS' | 'JUNIOR_POINTS' | 'DRILLDOWN'>('PRIMARY_RUBRICS');
-  const [classFilter, setClassFilter] = useState<'ALL' | 'PRIMARY' | 'JUNIOR'>('ALL');
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('MARKSHEET');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Exam & Analysis data
-  const [analysis, setAnalysis] = useState<any | null>(null);
-  const [selectedExamId, setSelectedExamId] = useState('');
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [classDetailLoading, setClassDetailLoading] = useState(false);
+  // Analysis payload & filter states
+  const [data, setData] = useState<any | null>(null);
+  const [selectedExamId, setSelectedExamId] = useState<string>('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
 
-  const fetchExamAnalysis = async (examId?: string, classId?: string) => {
+  const fetchPerformance = async (examId?: string, subjectId?: string, classId?: string) => {
     try {
       setLoading(true);
+      setAccessDeniedMessage(null);
       const params = new URLSearchParams();
-      if (examId) params.append('examId', examId);
+      if (examId && examId !== 'all') params.append('examId', examId);
+      if (subjectId) params.append('subjectId', subjectId);
       if (classId) params.append('classId', classId);
 
-      const res = await apiClient.get(`/api/dos/exam-analysis?${params.toString()}`);
-      const data = res.data.data;
-      setAnalysis(data);
+      const res = await apiClient.get(`/api/dos/subject-performance?${params.toString()}`);
+      const payload = res.data.data;
+      setData(payload);
 
-      if (data?.selectedExam && !selectedExamId) {
-        setSelectedExamId(data.selectedExam.id);
+      if (payload?.selectedExam && !selectedExamId) {
+        setSelectedExamId(payload.selectedExam.id);
+      }
+      if (payload?.selectedSubject) {
+        setSelectedSubjectId(payload.selectedSubject.id);
+      }
+      if (payload?.selectedClass) {
+        setSelectedClassId(payload.selectedClass.id);
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load academic analytics');
+      if (error.response?.status === 403) {
+        setAccessDeniedMessage(
+          error.response?.data?.message ||
+            'Access denied: You do not have an active subject teaching allocation.'
+        );
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to load subject performance');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchClassDrilldown = async (classId: string) => {
-    try {
-      setClassDetailLoading(true);
-      setSelectedClassId(classId);
-      const res = await apiClient.get(`/api/dos/exam-analysis?examId=${selectedExamId}&classId=${classId}`);
-      if (res.data?.data?.selectedClassDetail) {
-        setAnalysis((prev: any) => ({
-          ...prev,
-          selectedClassDetail: res.data.data.selectedClassDetail,
-        }));
-      }
-    } catch (error: any) {
-      toast.error('Failed to load class learner drill-down');
-    } finally {
-      setClassDetailLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchExamAnalysis();
+    fetchPerformance();
   }, []);
 
-  const handleExamChange = (newExamId: string) => {
-    setSelectedExamId(newExamId);
-    setSelectedClassId(null);
-    fetchExamAnalysis(newExamId);
+  const handleExamChange = (examId: string) => {
+    setSelectedExamId(examId);
+    fetchPerformance(examId, selectedSubjectId || undefined, selectedClassId || undefined);
   };
 
-  const subjectsList: any[] = analysis?.subjects || [];
-  const classesList: any[] = analysis?.classes || [];
-  const interventionLearners: any[] = analysis?.interventionLearners || [];
-  const selectedClassDetail = analysis?.selectedClassDetail;
-  const examsList: any[] = analysis?.examsList || [];
+  const handleSubjectChange = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    // Let backend pick default class for this subject
+    setSelectedClassId('');
+    fetchPerformance(selectedExamId || undefined, subjectId, undefined);
+  };
 
-  // Categorize subjects: Primary (PP1 - G6) vs Junior Secondary (G7 - G9)
-  const primarySubjects = subjectsList.filter(
-    (s) => !s.isJunior && s.levelCategory !== 'JUNIOR'
-  );
-  const juniorSubjects = subjectsList.filter(
-    (s) => s.isJunior || s.levelCategory === 'JUNIOR'
-  );
+  const handleClassChange = (classId: string) => {
+    setSelectedClassId(classId);
+    fetchPerformance(selectedExamId || undefined, selectedSubjectId || undefined, classId);
+  };
 
-  // Categorize classes:
-  const primaryClasses = classesList.filter((c) => !c.isJunior);
-  const juniorClasses = classesList.filter((c) => c.isJunior);
+  const metrics = data?.subjectMetrics || {};
+  const selectedSubject = data?.selectedSubject;
+  const selectedClass = data?.selectedClass;
+  const userScope = data?.userScope;
 
-  // Filtered classes for drilldown
-  const filteredClasses = classesList.filter((c) => {
-    if (classFilter === 'PRIMARY') return !c.isJunior;
-    if (classFilter === 'JUNIOR') return c.isJunior;
-    return true;
-  });
+  // Filtered marksheet students
+  const filteredMarksheet = useMemo(() => {
+    if (!data?.studentsMarksheet) return [];
+    if (!searchQuery.trim()) return data.studentsMarksheet;
+    const q = searchQuery.toLowerCase();
+    return data.studentsMarksheet.filter(
+      (s: any) =>
+        s.studentName.toLowerCase().includes(q) ||
+        (s.assessmentNumber && s.assessmentNumber.toLowerCase().includes(q))
+    );
+  }, [data?.studentsMarksheet, searchQuery]);
 
-  // Categorize interventions:
-  const primaryInterventions = interventionLearners.filter((row) => !row.isJunior);
-  const juniorInterventions = interventionLearners.filter((row) => row.isJunior);
+  // Filtered remedial students
+  const filteredRemedial = useMemo(() => {
+    if (!data?.remedialLearners) return [];
+    if (!searchQuery.trim()) return data.remedialLearners;
+    const q = searchQuery.toLowerCase();
+    return data.remedialLearners.filter(
+      (s: any) =>
+        s.studentName.toLowerCase().includes(q) ||
+        (s.assessmentNumber && s.assessmentNumber.toLowerCase().includes(q))
+    );
+  }, [data?.remedialLearners, searchQuery]);
 
-  // Primary Metrics
-  const primaryTestedScores = primarySubjects.reduce((acc, s) => acc + (s.testedCount || 0), 0);
-  const activePrimarySubjects = primarySubjects.filter((s) => s.testedCount > 0);
-  const primaryAverage =
-    activePrimarySubjects.length > 0
-      ? Math.round((activePrimarySubjects.reduce((acc, s) => acc + s.averageScore, 0) / activePrimarySubjects.length) * 10) / 10
-      : 0;
-  const sortedPrimarySubjects = [...activePrimarySubjects].sort((a, b) => b.averageScore - a.averageScore);
-  const topPrimarySubject = sortedPrimarySubjects[0] || null;
-  const lowestPrimarySubject = sortedPrimarySubjects.length > 1 ? sortedPrimarySubjects[sortedPrimarySubjects.length - 1] : null;
+  // CSV Export for Subject Marksheet
+  const handleExportCSV = () => {
+    if (!data?.studentsMarksheet || data.studentsMarksheet.length === 0) {
+      toast.warning('No student marks available to export');
+      return;
+    }
 
-  const primaryRubricTotals = primarySubjects.reduce(
-    (acc, s) => ({
-      EE: acc.EE + (s.rubric?.EE || 0),
-      ME: acc.ME + (s.rubric?.ME || 0),
-      AE: acc.AE + (s.rubric?.AE || 0),
-      BE: acc.BE + (s.rubric?.BE || 0),
-    }),
-    { EE: 0, ME: 0, AE: 0, BE: 0 }
-  );
+    const headers = ['Rank', 'Assessment Number', 'Student Name', 'Marks Obtained', 'Max Marks', 'Percentage (%)', 'Rubric / Points', 'Teacher Remarks'];
+    const rows = data.studentsMarksheet.map((s: any) => [
+      s.rank,
+      `"${s.assessmentNumber || '—'}"`,
+      `"${s.studentName}"`,
+      s.marksObtained,
+      s.maxMarks,
+      `${Math.round((s.marksObtained / s.maxMarks) * 100)}%`,
+      s.points ? `Points ${s.points}` : s.rubric,
+      `"${s.remarks || '—'}"`,
+    ]);
 
-  // Junior Secondary Metrics
-  const juniorTestedScores = juniorSubjects.reduce((acc, s) => acc + (s.testedCount || 0), 0);
-  const activeJuniorSubjects = juniorSubjects.filter((s) => s.testedCount > 0);
-  const juniorAverage =
-    activeJuniorSubjects.length > 0
-      ? Math.round((activeJuniorSubjects.reduce((acc, s) => acc + s.averageScore, 0) / activeJuniorSubjects.length) * 10) / 10
-      : 0;
-  const sortedJuniorSubjects = [...activeJuniorSubjects].sort((a, b) => b.averageScore - a.averageScore);
-  const topJuniorSubject = sortedJuniorSubjects[0] || null;
-  const lowestJuniorSubject = sortedJuniorSubjects.length > 1 ? sortedJuniorSubjects[sortedJuniorSubjects.length - 1] : null;
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e: any[]) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `${selectedSubject?.name || 'Subject'}_${selectedClass?.name || 'Class'}_Marksheet.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Subject marksheet downloaded');
+  };
 
-  const juniorPointsTotals = juniorSubjects.reduce(
-    (acc, s) => {
-      for (let p = 1; p <= 8; p++) {
-        acc[p] = (acc[p] || 0) + (s.points?.[p] || 0);
-      }
-      return acc;
-    },
-    { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<number, number>
-  );
+  // Print Subject Performance
+  const handlePrint = () => {
+    printElement(
+      'subject-performance-printable-area',
+      `${selectedSubject?.name || 'Subject'} - ${selectedClass?.name || 'Class'} Performance`
+    );
+  };
+
+  if (!loading && accessDeniedMessage && !data) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl mx-auto space-y-6">
+        <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-amber-200 dark:border-amber-900/50 p-6 sm:p-8 rounded-2xl shadow-glass dark:shadow-none text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
+            Subject Performance Access Restricted
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto">
+            {accessDeniedMessage}
+          </p>
+          <div className="pt-2">
+            <a
+              href="/overview"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs"
+            >
+              Return to Overview
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <PageLoadingWrapper
-      isLoading={loading && !analysis}
-      title="Academic Performance Intelligence"
-      subtitle="Aggregating CBC rubric frequencies, score rankings, and stream averages..."
-      icon={BarChart3}
-    >
-      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
-            <BarChart3 className="w-4 h-4 text-sky-500" />
-            Academic Intelligence & Performance Hub
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-            Learning Area Performance & Academic Oversight
-          </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
-            Streamlined evaluation structured into dedicated sections for Pre-Primary & Primary (CBC Rubrics) and Junior Secondary (Points System).
-          </p>
-        </div>
-
-        {/* Exam Selector */}
-        <div className="flex items-center gap-2.5">
-          <label className="text-xs font-bold text-slate-600">Exam:</label>
-          <select
-            value={selectedExamId}
-            onChange={(e) => handleExamChange(e.target.value)}
-            className="bg-white border border-sky-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-800 focus:border-sky-500 outline-hidden transition-colors shadow-xs"
-          >
-            {examsList.map((e: any) => (
-              <option key={e.id} value={e.id}>
-                {e.title} ({e.termName})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 p-1.5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('PRIMARY_RUBRICS')}
-          className={`flex-1 min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === 'PRIMARY_RUBRICS'
-              ? 'bg-sky-500 text-white shadow-glass'
-              : 'text-slate-600 hover:bg-sky-50'
-          }`}
-        >
-          <BookOpen className="w-4 h-4" />
-          Pre-Primary & Primary (CBC Rubrics · PP–G6)
-        </button>
-
-        <button
-          onClick={() => setActiveTab('JUNIOR_POINTS')}
-          className={`flex-1 min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === 'JUNIOR_POINTS'
-              ? 'bg-sky-500 text-white shadow-glass'
-              : 'text-slate-600 hover:bg-sky-50'
-          }`}
-        >
-          <Award className="w-4 h-4" />
-          Junior Secondary (Points Scale · G7–G9)
-        </button>
-
-        <button
-          onClick={() => setActiveTab('DRILLDOWN')}
-          className={`flex-1 min-h-[42px] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer ${
-            activeTab === 'DRILLDOWN'
-              ? 'bg-sky-500 text-white shadow-glass'
-              : 'text-slate-600 hover:bg-sky-50'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          Class & Learner Drill-Down
-        </button>
-      </div>
-
-      {/* SECTION 1: PRE-PRIMARY & PRIMARY (CBC RUBRICS) */}
-      {activeTab === 'PRIMARY_RUBRICS' && (
-        <div className="space-y-4 sm:space-y-6">
-          {/* Primary Summary KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700">Primary Average</span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">{primaryAverage}%</div>
-              <p className="text-[11px] text-sky-600 font-semibold mt-0.5">{primaryTestedScores} Evaluated Scores</p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700">Primary Classes</span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">{primaryClasses.length}</div>
-              <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Playgroup, PP1, PP2 & G1–G6</p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-                <ArrowUpRight className="w-3 h-3 text-emerald-600" /> Top Subject
-              </span>
-              <div className="text-sm font-black text-slate-900 mt-1 truncate">
-                {topPrimarySubject ? topPrimarySubject.subjectName : '—'}
+    <PageLoadingWrapper isLoading={loading} subtitle="Analyzing subject marks & stream benchmarks...">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+        <div id="subject-performance-printable-area" className="space-y-6">
+          {/* 1. Header & Context Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] p-4 sm:p-5 rounded-2xl shadow-glass dark:shadow-none">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-sky-50 dark:bg-[#0c1932] border border-sky-200 dark:border-[#162b4d] flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs shrink-0">
+                <BarChart3 className="w-6 h-6" />
               </div>
-              <p className="text-[11px] text-emerald-600 font-bold font-mono mt-0.5">
-                {topPrimarySubject ? `${topPrimarySubject.averageScore}% Mean` : 'No data'}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1">
-                <ArrowDownRight className="w-3 h-3 text-amber-600" /> Lowest Subject
-              </span>
-              <div className="text-sm font-black text-slate-900 mt-1 truncate">
-                {lowestPrimarySubject ? lowestPrimarySubject.subjectName : '—'}
-              </div>
-              <p className="text-[11px] text-amber-600 font-bold font-mono mt-0.5">
-                {lowestPrimarySubject ? `${lowestPrimarySubject.averageScore}% Mean` : 'No data'}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass col-span-2 lg:col-span-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 text-rose-600" /> Remedial Alerts
-              </span>
-              <div className="text-2xl font-black text-rose-600 mt-1 font-mono">{primaryInterventions.length}</div>
-              <p className="text-[11px] text-rose-700 font-semibold mt-0.5">Scores Below 50% Threshold</p>
-            </div>
-          </div>
-
-          {/* Strict 4-Level CBC Rubric Reference Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-black text-emerald-900 text-sm">EE (75% – 100%)</span>
-                <span className="px-1.5 py-0.5 bg-emerald-200 text-emerald-900 font-bold rounded-full text-[10px] font-mono">
-                  {primaryRubricTotals.EE}
-                </span>
-              </div>
-              <span className="text-[11px] text-emerald-800 font-medium block">Exceeding Expectations · Level 4</span>
-            </div>
-
-            <div className="p-3.5 bg-sky-50/80 border border-sky-200 rounded-2xl text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-black text-sky-900 text-sm">ME (50% – 74%)</span>
-                <span className="px-1.5 py-0.5 bg-sky-200 text-sky-900 font-bold rounded-full text-[10px] font-mono">
-                  {primaryRubricTotals.ME}
-                </span>
-              </div>
-              <span className="text-[11px] text-sky-800 font-medium block">Meeting Expectations · Level 3</span>
-            </div>
-
-            <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-black text-amber-900 text-sm">AE (25% – 49%)</span>
-                <span className="px-1.5 py-0.5 bg-amber-200 text-amber-900 font-bold rounded-full text-[10px] font-mono">
-                  {primaryRubricTotals.AE}
-                </span>
-              </div>
-              <span className="text-[11px] text-amber-800 font-medium block">Approaching Expectations · Level 2</span>
-            </div>
-
-            <div className="p-3.5 bg-rose-50/80 border border-rose-200 rounded-2xl text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-black text-rose-900 text-sm">BE (0% – 24%)</span>
-                <span className="px-1.5 py-0.5 bg-rose-200 text-rose-900 font-bold rounded-full text-[10px] font-mono">
-                  {primaryRubricTotals.BE}
-                </span>
-              </div>
-              <span className="text-[11px] text-rose-800 font-medium block">Below Expectations · Level 1</span>
-            </div>
-          </div>
-
-          {/* Primary Learning Areas Table */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <div className="flex items-center justify-between border-b border-sky-100 pb-3">
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-sky-600" />
-                  Pre-Primary & Primary Learning Areas ({primarySubjects.length} Subjects Evaluated)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Academic performance strictly evaluated using the 4-Level CBC Rubric scale.
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                    {selectedSubject ? `${selectedSubject.name}` : 'Subject Performance'}
+                    {selectedClass ? ` · ${selectedClass.name}` : ''}
+                  </h1>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                    {userScope?.isLeadership ? 'Leadership Oversight' : 'Subject Teacher'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Subject-specific examination marks, cross-class stream comparisons, and remedial intervention roster
                 </p>
               </div>
             </div>
 
-            {primarySubjects.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 italic text-xs">
-                No Pre-Primary or Primary subjects recorded for this examination.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[700px]">
-                  <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
-                    <tr>
-                      <th className="py-3.5 px-4">Subject Name</th>
-                      <th className="py-3.5 px-4">Level Tier</th>
-                      <th className="py-3.5 px-4 text-center">Learners</th>
-                      <th className="py-3.5 px-4 text-center">Average</th>
-                      <th className="py-3.5 px-4 text-center">Lowest / Highest</th>
-                      <th className="py-3.5 px-4 text-center">CBC Rubrics Breakdown</th>
-                      <th className="py-3.5 px-4 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-sky-100/60 font-medium">
-                    {primarySubjects.map((sub: any) => (
-                      <tr key={sub.subjectId} className="hover:bg-sky-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-900">
-                          {sub.subjectName}
-                          <span className="text-[10px] text-slate-400 font-mono block">Code: {sub.subjectCode}</span>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className="bg-sky-50 text-sky-800 px-2 py-0.5 rounded border border-sky-100 text-[10px] font-bold">
-                            {sub.levelCategory || 'PRIMARY'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-bold text-slate-700 font-mono">
-                          {sub.testedCount}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-mono font-extrabold text-sm text-sky-700">
-                          {sub.testedCount > 0 ? `${sub.averageScore}%` : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-mono text-[11px] text-slate-600">
-                          {sub.testedCount > 0 ? `${sub.lowestScore}% / ${sub.highestScore}%` : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1 font-mono text-[10px] font-bold">
-                            <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded" title="EE: 75-100%">
-                              EE: {sub.rubric?.EE || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded border border-sky-100" title="ME: 50-74%">
-                              ME: {sub.rubric?.ME || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded" title="AE: 25-49%">
-                              AE: {sub.rubric?.AE || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200" title="BE: 0-24%">
-                              BE: {sub.rubric?.BE || 0}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {sub.needsAttention ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded-full text-[10px] font-bold">
-                              <AlertTriangle className="w-3 h-3 text-rose-600" />
-                              Bottleneck Focus
-                            </span>
-                          ) : sub.testedCount > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              Satisfactory
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 italic">No submissions</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Primary Remedial Registry (<50%) */}
-          {primaryInterventions.length > 0 && (
-            <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-rose-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-              <div className="flex items-center justify-between border-b border-rose-100 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-rose-800 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
-                    Primary Remedial Registry ({primaryInterventions.length} Scores Below 50%)
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Primary candidates requiring teacher intervention and remedial coaching.
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[650px]">
-                  <thead className="bg-rose-50/70 text-rose-900 font-bold uppercase tracking-wider border-b border-rose-100">
-                    <tr>
-                      <th className="py-3 px-4">Learner Name</th>
-                      <th className="py-3 px-3">Class</th>
-                      <th className="py-3 px-4">Subject</th>
-                      <th className="py-3 px-3 text-center">Score</th>
-                      <th className="py-3 px-3 text-center">CBC Rubric</th>
-                      <th className="py-3 px-4">Teacher Remark</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-rose-100/50">
-                    {primaryInterventions.map((row: any) => (
-                      <tr key={row.scoreId} className="hover:bg-rose-50/30 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">
-                          {row.studentName}
-                          <span className="text-[10px] text-slate-400 font-mono block">Adm: {row.admissionNumber || '—'}</span>
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-slate-700">{row.className}</td>
-                        <td className="py-3 px-4 font-bold text-rose-800">{row.subjectName}</td>
-                        <td className="py-3 px-3 text-center font-mono font-black text-rose-700">{row.marksObtained}%</td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold text-[10px]">
-                            {row.rubric || 'BE'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 italic">{row.remarks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SECTION 2: JUNIOR SECONDARY (POINTS SYSTEM) */}
-      {activeTab === 'JUNIOR_POINTS' && (
-        <div className="space-y-4 sm:space-y-6">
-          {/* Junior Secondary Summary KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700">Junior Sec. Average</span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">{juniorAverage}%</div>
-              <p className="text-[11px] text-sky-600 font-semibold mt-0.5">{juniorTestedScores} Evaluated Scores</p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-700">Junior Sec. Classes</span>
-              <div className="text-2xl font-black text-slate-900 mt-1 font-mono">{juniorClasses.length}</div>
-              <p className="text-[11px] text-slate-500 font-semibold mt-0.5">Grades 7, 8 & 9</p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-                <ArrowUpRight className="w-3 h-3 text-emerald-600" /> Top Subject
-              </span>
-              <div className="text-sm font-black text-slate-900 mt-1 truncate">
-                {topJuniorSubject ? topJuniorSubject.subjectName : '—'}
-              </div>
-              <p className="text-[11px] text-emerald-600 font-bold font-mono mt-0.5">
-                {topJuniorSubject ? `${topJuniorSubject.averageScore}% Mean` : 'No data'}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1">
-                <ArrowDownRight className="w-3 h-3 text-amber-600" /> Lowest Subject
-              </span>
-              <div className="text-sm font-black text-slate-900 mt-1 truncate">
-                {lowestJuniorSubject ? lowestJuniorSubject.subjectName : '—'}
-              </div>
-              <p className="text-[11px] text-amber-600 font-bold font-mono mt-0.5">
-                {lowestJuniorSubject ? `${lowestJuniorSubject.averageScore}% Mean` : 'No data'}
-              </p>
-            </div>
-
-            <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass col-span-2 lg:col-span-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 text-rose-600" /> Remedial Alerts
-              </span>
-              <div className="text-2xl font-black text-rose-600 mt-1 font-mono">{juniorInterventions.length}</div>
-              <p className="text-[11px] text-rose-700 font-semibold mt-0.5">Scores Below 50% Threshold</p>
-            </div>
-          </div>
-
-          {/* Strict 8-Level Junior Secondary Points Reference Bar */}
-          <div className="p-4 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-sky-600" />
-                Junior Secondary 8-Level Points System (1 to 8 Points)
-              </span>
-              <span className="text-[11px] text-slate-400 font-medium">Headteacher Scale Specification</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-              <div className="p-2.5 bg-sky-600 text-white rounded-xl text-center shadow-xs">
-                <div className="text-base font-black font-mono">8 pts</div>
-                <div className="text-[10px] opacity-90">90 – 100%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white/20 rounded py-0.5">
-                  {juniorPointsTotals[8] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-sky-100 text-sky-900 border border-sky-300 rounded-xl text-center">
-                <div className="text-base font-black font-mono">7 pts</div>
-                <div className="text-[10px] text-sky-700">75 – 89%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-sky-200">
-                  {juniorPointsTotals[7] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-teal-50 text-teal-900 border border-teal-200 rounded-xl text-center">
-                <div className="text-base font-black font-mono">6 pts</div>
-                <div className="text-[10px] text-teal-700">58 – 74%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-teal-200">
-                  {juniorPointsTotals[6] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-blue-50 text-blue-900 border border-blue-200 rounded-xl text-center">
-                <div className="text-base font-black font-mono">5 pts</div>
-                <div className="text-[10px] text-blue-700">41 – 57%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-blue-200">
-                  {juniorPointsTotals[5] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-center">
-                <div className="text-base font-black font-mono">4 pts</div>
-                <div className="text-[10px] text-slate-500">31 – 40%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-slate-200">
-                  {juniorPointsTotals[4] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-center">
-                <div className="text-base font-black font-mono">3 pts</div>
-                <div className="text-[10px] text-amber-700">21 – 30%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-amber-200">
-                  {juniorPointsTotals[3] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-orange-50 text-orange-900 border border-orange-200 rounded-xl text-center">
-                <div className="text-base font-black font-mono">2 pts</div>
-                <div className="text-[10px] text-orange-700">11 – 20%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-orange-200">
-                  {juniorPointsTotals[2] || 0}
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-rose-50 text-rose-900 border border-rose-200 rounded-xl text-center">
-                <div className="text-base font-black font-mono">1 pt</div>
-                <div className="text-[10px] text-rose-700">0 – 10%</div>
-                <div className="text-[11px] font-bold mt-1 font-mono bg-white rounded py-0.5 border border-rose-200">
-                  {juniorPointsTotals[1] || 0}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Junior Secondary Learning Areas Table */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <div className="flex items-center justify-between border-b border-sky-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-sky-600" />
-                  Junior Secondary Learning Areas ({juniorSubjects.length} Subjects Evaluated)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Academic performance strictly evaluated using the 8-Level Points scale.
-                </p>
-              </div>
-            </div>
-
-            {juniorSubjects.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 italic text-xs">
-                No Junior Secondary subjects recorded for this examination.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[700px]">
-                  <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
-                    <tr>
-                      <th className="py-3.5 px-4">Subject Name</th>
-                      <th className="py-3.5 px-4 text-center">Learners</th>
-                      <th className="py-3.5 px-4 text-center">Average</th>
-                      <th className="py-3.5 px-4 text-center">Lowest / Highest</th>
-                      <th className="py-3.5 px-4 text-center">Points Distribution (8p down to 1p)</th>
-                      <th className="py-3.5 px-4 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-sky-100/60 font-medium">
-                    {juniorSubjects.map((sub: any) => (
-                      <tr key={sub.subjectId} className="hover:bg-sky-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-900">
-                          {sub.subjectName}
-                          <span className="text-[10px] text-slate-400 font-mono block">Code: {sub.subjectCode}</span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-bold text-slate-700 font-mono">
-                          {sub.testedCount}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-mono font-extrabold text-sm text-sky-700">
-                          {sub.testedCount > 0 ? `${sub.averageScore}%` : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-center font-mono text-[11px] text-slate-600">
-                          {sub.testedCount > 0 ? `${sub.lowestScore}% / ${sub.highestScore}%` : '—'}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1 font-mono text-[10px] font-bold flex-wrap">
-                            <span className="px-1.5 py-0.5 bg-sky-600 text-white rounded" title="8 pts (90-100%)">
-                              8p:{sub.points?.[8] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded border border-sky-200" title="7 pts (75-89%)">
-                              7p:{sub.points?.[7] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-teal-50 text-teal-800 rounded border border-teal-200" title="6 pts (58-74%)">
-                              6p:{sub.points?.[6] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-800 rounded border border-blue-200" title="5 pts (41-57%)">
-                              5p:{sub.points?.[5] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200" title="4 pts (31-40%)">
-                              4p:{sub.points?.[4] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 rounded border border-amber-200" title="3 pts (21-30%)">
-                              3p:{sub.points?.[3] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-orange-50 text-orange-800 rounded border border-orange-200" title="2 pts (11-20%)">
-                              2p:{sub.points?.[2] || 0}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200" title="1 pt (0-10%)">
-                              1p:{sub.points?.[1] || 0}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {sub.needsAttention ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded-full text-[10px] font-bold">
-                              <AlertTriangle className="w-3 h-3 text-rose-600" />
-                              Bottleneck Focus
-                            </span>
-                          ) : sub.testedCount > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              Satisfactory
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 italic">No submissions</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Junior Secondary Remedial Registry (<50%) */}
-          {juniorInterventions.length > 0 && (
-            <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-rose-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-              <div className="flex items-center justify-between border-b border-rose-100 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-rose-800 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
-                    Junior Secondary Remedial Registry ({juniorInterventions.length} Scores Below 50%)
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Junior Secondary candidates requiring targeted subject remedial sessions.
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[650px]">
-                  <thead className="bg-rose-50/70 text-rose-900 font-bold uppercase tracking-wider border-b border-rose-100">
-                    <tr>
-                      <th className="py-3 px-4">Learner Name</th>
-                      <th className="py-3 px-3">Class</th>
-                      <th className="py-3 px-4">Subject</th>
-                      <th className="py-3 px-3 text-center">Score</th>
-                      <th className="py-3 px-3 text-center">Points</th>
-                      <th className="py-3 px-4">Teacher Remark</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-rose-100/50">
-                    {juniorInterventions.map((row: any) => (
-                      <tr key={row.scoreId} className="hover:bg-rose-50/30 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">
-                          {row.studentName}
-                          <span className="text-[10px] text-slate-400 font-mono block">Adm: {row.admissionNumber || '—'}</span>
-                        </td>
-                        <td className="py-3 px-3 font-semibold text-slate-700">{row.className}</td>
-                        <td className="py-3 px-4 font-bold text-rose-800">{row.subjectName}</td>
-                        <td className="py-3 px-3 text-center font-mono font-black text-rose-700">{row.marksObtained}%</td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded font-bold text-[10px]">
-                            {row.points !== null && row.points !== undefined ? `${row.points} pts` : '—'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-slate-600 italic">{row.remarks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SECTION 3: MULTI-TIER CLASS & LEARNER DRILL-DOWN */}
-      {activeTab === 'DRILLDOWN' && (
-        <div className="space-y-6">
-          {/* Level 1: Classes Overview Matrix with Tier Filter */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-sky-600" />
-                  Class Stream Performance Overview ({filteredClasses.length} Streams)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Select a class stream to inspect individual student scorecards and rankings.
-                </p>
-              </div>
-
-              {/* Tier Filter Pills */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl text-xs font-bold self-start sm:self-auto">
-                <button
-                  onClick={() => setClassFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    classFilter === 'ALL'
-                      ? 'bg-white text-slate-800 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  All ({classesList.length})
-                </button>
-                <button
-                  onClick={() => setClassFilter('PRIMARY')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    classFilter === 'PRIMARY'
-                      ? 'bg-white text-sky-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Primary ({primaryClasses.length})
-                </button>
-                <button
-                  onClick={() => setClassFilter('JUNIOR')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    classFilter === 'JUNIOR'
-                      ? 'bg-white text-indigo-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Junior Sec. ({juniorClasses.length})
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredClasses.map((cls: any) => {
-                const isSelected = selectedClassId === cls.classId;
-                return (
-                  <div
-                    key={cls.classId}
-                    onClick={() => fetchClassDrilldown(cls.classId)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-sky-50 border-sky-300 shadow-md ring-2 ring-sky-400'
-                        : 'bg-white hover:bg-sky-50/50 border-sky-100 shadow-xs'
-                    }`}
+            {/* Selector Controls & Export */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Exam Selector */}
+              {data?.examsList && data.examsList.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={selectedExamId}
+                    onChange={(e) => handleExamChange(e.target.value)}
+                    className="px-3.5 py-2 pr-9 bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer shadow-xs appearance-none"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-black text-slate-900 text-sm">{cls.className}</span>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                          cls.isJunior
-                            ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                            : 'bg-sky-100 text-sky-800'
-                        }`}
-                      >
-                        {cls.isJunior ? 'Junior Sec. (Points)' : 'Primary (Rubrics)'}
-                      </span>
-                    </div>
+                    {data.examsList.map((exam: any) => (
+                      <option key={exam.id} value={exam.id}>
+                        {exam.title} ({exam.termName})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
 
-                    <div className="flex items-center justify-between text-xs py-1 border-t border-sky-100/60">
-                      <span className="text-slate-500 font-medium">Class Average:</span>
-                      <span className="font-mono font-extrabold text-sky-700 text-sm">{cls.classAverage}%</span>
-                    </div>
+              {/* Subject Selector */}
+              {data?.subjectsList && data.subjectsList.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={selectedSubjectId}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
+                    className="px-3.5 py-2 pr-9 bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer shadow-xs appearance-none"
+                  >
+                    {data.subjectsList.map((sub: any) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name} {sub.code ? `(${sub.code})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
 
-                    <div className="flex items-center justify-between text-xs py-1">
-                      <span className="text-slate-500 font-medium">Learners Tested:</span>
-                      <span className="font-mono font-bold text-slate-700">{cls.testedCount}</span>
-                    </div>
+              {/* Export CSV */}
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                title="Export Subject Marksheet to CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
 
-                    <div className="flex items-center justify-between text-xs py-1">
-                      <span className="text-slate-500 font-medium">Top Student:</span>
-                      <span className="font-bold text-slate-800 truncate max-w-[140px]">
-                        {cls.topStudent ? `${cls.topStudent.name} (${cls.topStudent.average}%)` : '—'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs py-1 pt-1.5 border-t border-sky-100/60">
-                      <span className="text-rose-600 font-semibold flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" /> Below 50%:
-                      </span>
-                      <span className="font-mono font-bold text-rose-700">{cls.strugglingCount}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {/* Print Marksheet */}
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] hover:bg-slate-50 dark:hover:bg-[#142647] text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                title="Print Subject Summary"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                <span>Print</span>
+              </button>
             </div>
           </div>
 
-          {/* Level 2: Deep Student Scorecard for Selected Class */}
-          {selectedClassDetail && (
-            <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-200 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass ring-1 ring-sky-200">
-              <div className="flex items-center justify-between border-b border-sky-100 pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-sky-600" />
-                      {selectedClassDetail.className} — Learner Scorecard & Rankings
-                    </h3>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                        selectedClassDetail.isJunior
-                          ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                          : 'bg-sky-100 text-sky-800'
+          {/* 2. Interactive Class Switcher (for teachers teaching multiple classes) */}
+          {data?.classesList && data.classesList.length > 1 && (
+            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] p-3 sm:p-4 rounded-2xl shadow-glass dark:shadow-none flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Switch Class Stream for {selectedSubject?.name || 'this subject'}:
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {data.classesList.map((cls: any) => {
+                  const isActive = cls.id === selectedClassId;
+                  return (
+                    <button
+                      key={cls.id}
+                      type="button"
+                      onClick={() => handleClassChange(cls.id)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-[#0c1932] text-slate-700 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-[#142647]'
                       }`}
                     >
-                      {selectedClassDetail.isJunior ? 'Points Scale (1–8)' : 'CBC Rubrics (EE/ME/AE/BE)'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Individual examination marks ranked in descending order of performance ({selectedClassDetail.students?.length} Learners).
+                      {cls.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Compact KPI Strip (Sleek Horizontal Banner instead of large bulky cards) */}
+          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none p-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-[#162b4d] grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-0">
+            {/* Metric 1: Subject Class Mean */}
+            <div className="sm:px-4 py-2 sm:py-0 first:pl-0 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Subject Mean
+              </span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+                  {metrics.averageScore > 0 ? `${metrics.averageScore}%` : '—'}
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                {metrics.averageScore >= 75 ? 'Level 4 · Exceeding' : metrics.averageScore >= 50 ? 'Level 3 · Meeting' : 'Level 2 · Approaching'}
+              </span>
+            </div>
+
+            {/* Metric 2: Candidacy Sat */}
+            <div className="sm:px-4 py-2 sm:py-0 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Candidacy Sat
+              </span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+                  {metrics.candidacyRate ?? 100}%
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                {metrics.totalSat ?? 0} of {metrics.totalEnrolled ?? 0} assessed
+              </span>
+            </div>
+
+            {/* Metric 3: Proficiency Pass */}
+            <div className="sm:px-4 py-2 sm:py-0 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Proficiency Pass
+              </span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                  {metrics.proficiencyRate ?? 0}%
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                {(metrics.rubricDistribution?.EE ?? 0) + (metrics.rubricDistribution?.ME ?? 0)} Scores EE / ME
+              </span>
+            </div>
+
+            {/* Metric 4: #1 Top Learner */}
+            <div className="sm:px-4 py-2 sm:py-0 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                #1 Top Learner
+              </span>
+              <div className="mt-1 truncate">
+                <span className="text-sm font-black text-slate-900 dark:text-slate-100 truncate block">
+                  {metrics.topLearner?.studentName || '—'}
+                </span>
+              </div>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold font-mono mt-0.5">
+                {metrics.topLearner ? `${metrics.topLearner.marksObtained}% (${metrics.topLearner.rubric})` : 'No scores'}
+              </span>
+            </div>
+
+            {/* Metric 5: Lowest Learner */}
+            <div className="sm:px-4 py-2 sm:py-0 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Lowest Learner
+              </span>
+              <div className="mt-1 truncate">
+                <span className="text-sm font-black text-slate-900 dark:text-slate-100 truncate block">
+                  {metrics.lowestLearner?.studentName || '—'}
+                </span>
+              </div>
+              <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold font-mono mt-0.5">
+                {metrics.lowestLearner ? `${metrics.lowestLearner.marksObtained}% (${metrics.lowestLearner.rubric})` : 'No scores'}
+              </span>
+            </div>
+
+            {/* Metric 6: Remedial Attention Count */}
+            <div className="sm:px-4 py-2 sm:py-0 last:pr-0 flex flex-col justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Needs Attention
+              </span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className={`text-2xl font-black font-mono ${metrics.remedialCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {metrics.remedialCount ?? 0}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                {metrics.remedialCount > 0 ? 'Learners <50% or BE' : 'All learners passing'}
+              </span>
+            </div>
+          </div>
+
+          {/* 4. Cross-Class Stream Quick Alert (if multiple classes exist) */}
+          {data?.crossClassComparison && data.crossClassComparison.length > 1 && (
+            <div className="bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-[#09152b] dark:to-[#0f1d38] border border-sky-200 dark:border-[#1a335c] p-3.5 sm:p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-slate-100">
+                    Cross-Class Stream Performance Comparison
+                  </h4>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
+                    You teach {selectedSubject?.name || 'this subject'} across {data.crossClassComparison.length} classes. Click below to inspect cross-class benchmarks.
                   </p>
                 </div>
-                <button
-                  onClick={() => setSelectedClassId(null)}
-                  className="text-xs text-sky-600 hover:underline font-bold cursor-pointer"
-                >
-                  Close Drill-Down
-                </button>
               </div>
+              <div className="flex items-center gap-2">
+                {data.crossClassComparison.map((c: any) => (
+                  <div
+                    key={c.classId}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-bold font-mono ${
+                      c.classId === selectedClassId
+                        ? 'border-sky-500 bg-white dark:bg-[#0c1932] text-sky-600 dark:text-sky-400 shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#0c1932]/50 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {c.className}: {c.averageScore}% Mean ({c.proficiencyRate}% Pass)
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-              {classDetailLoading ? (
-                <div className="py-8 flex justify-center">
-                  <div className="w-6 h-6 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : selectedClassDetail.students?.length === 0 ? (
-                <div className="py-6 text-center text-slate-400 italic text-xs">
-                  No individual scores recorded for this class in this examination.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[700px]">
-                    <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
-                      <tr>
-                        <th className="py-3 px-3 w-10 text-center">Rank</th>
-                        <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-3">Adm #</th>
-                        <th className="py-3 px-4">
-                          Learning Areas ({selectedClassDetail.isJunior ? 'Points' : 'Rubrics'})
-                        </th>
-                        <th className="py-3 px-3 text-center">Average</th>
-                        <th className="py-3 px-3 text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-sky-100/60 font-medium">
-                      {selectedClassDetail.students?.map((st: any) => (
-                        <tr key={st.studentId} className="hover:bg-sky-50/40 transition-colors">
-                          <td className="py-3 px-3 text-center font-black font-mono text-slate-500">
-                            #{st.rank}
-                          </td>
-                          <td className="py-3 px-4 font-bold text-slate-900">
-                            {st.studentName}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-slate-500">
-                            {st.admissionNumber || '—'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1">
-                              {st.subjects.map((sub: any, sIdx: number) => (
-                                <span
-                                  key={sIdx}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                                    sub.score >= 50
-                                      ? 'bg-sky-50 text-sky-800 border border-sky-100'
-                                      : 'bg-rose-50 text-rose-800 border border-rose-200'
-                                  }`}
-                                >
-                                  {sub.subjectName}: {sub.score}% (
-                                  {selectedClassDetail.isJunior && sub.points != null
-                                    ? `${sub.points} pts`
-                                    : (sub.rubric || '—')}
-                                  )
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-center font-mono font-black text-sm text-sky-700">
-                            {st.average}%
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            {st.average >= 50 ? (
-                              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold">
-                                Passed
+          {/* 5. Modern Single-Row Accessible Tab Bar (modern-web-guidance) */}
+          <div className="border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 overflow-x-auto flex-nowrap">
+            <div
+              role="tablist"
+              aria-label="Subject performance view tabs"
+              className="flex items-center gap-2 shrink-0"
+            >
+              <button
+                type="button"
+                role="tab"
+                id="tab-marksheet"
+                aria-selected={activeTab === 'MARKSHEET'}
+                aria-controls="panel-marksheet"
+                onClick={() => setActiveTab('MARKSHEET')}
+                className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
+                  activeTab === 'MARKSHEET'
+                    ? 'text-sky-600 dark:text-sky-400 border-b-2 border-sky-600 dark:border-sky-400'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                Subject Marksheet ({data?.studentsMarksheet?.length || 0})
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                id="tab-remedial"
+                aria-selected={activeTab === 'REMEDIAL'}
+                aria-controls="panel-remedial"
+                onClick={() => setActiveTab('REMEDIAL')}
+                className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'REMEDIAL'
+                    ? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <span>Learners Needing Attention</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                  metrics.remedialCount > 0
+                    ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                  {metrics.remedialCount || 0}
+                </span>
+              </button>
+
+              {data?.crossClassComparison && data.crossClassComparison.length > 1 && (
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-cross-class"
+                  aria-selected={activeTab === 'CROSS_CLASS'}
+                  aria-controls="panel-cross-class"
+                  onClick={() => setActiveTab('CROSS_CLASS')}
+                  className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
+                    activeTab === 'CROSS_CLASS'
+                      ? 'text-sky-600 dark:text-sky-400 border-b-2 border-sky-600 dark:border-sky-400'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Cross-Class Stream Benchmarks ({data.crossClassComparison.length})
+                </button>
+              )}
+
+              <button
+                type="button"
+                role="tab"
+                id="tab-distribution"
+                aria-selected={activeTab === 'DISTRIBUTION'}
+                aria-controls="panel-distribution"
+                onClick={() => setActiveTab('DISTRIBUTION')}
+                className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
+                  activeTab === 'DISTRIBUTION'
+                    ? 'text-sky-600 dark:text-sky-400 border-b-2 border-sky-600 dark:border-sky-400'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                Rubric & Points Spread
+              </button>
+            </div>
+
+            {/* Quick search input */}
+            {(activeTab === 'MARKSHEET' || activeTab === 'REMEDIAL') && (
+              <div className="relative w-48 sm:w-64 pb-2">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search learner..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 shadow-xs"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 6. Tab Content Panels */}
+          {/* TAB 1: SUBJECT MARKSHEET */}
+          <div
+            role="tabpanel"
+            id="panel-marksheet"
+            aria-labelledby="tab-marksheet"
+            tabIndex={0}
+            hidden={activeTab !== 'MARKSHEET'}
+            className="space-y-4 focus:outline-none"
+          >
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Subject marksheet table"
+              className="table-wrapper overflow-x-auto rounded-2xl border border-sky-100 dark:border-[#162b4d] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+            >
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-sky-100 dark:border-[#162b4d] bg-slate-50/95 dark:bg-[#0c1932]/95 backdrop-blur-md text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th scope="col" className="p-3.5 w-16 text-center">Rank</th>
+                    <th scope="col" className="p-3.5 w-36">Assessment No</th>
+                    <th scope="col" className="p-3.5">Learner Name</th>
+                    <th scope="col" className="p-3.5 w-28 text-right">Score</th>
+                    <th scope="col" className="p-3.5 w-32 text-center">Competency</th>
+                    <th scope="col" className="p-3.5 w-32 text-center">Performance Level</th>
+                    <th scope="col" className="p-3.5">Teacher Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]">
+                  {filteredMarksheet.length > 0 ? (
+                    filteredMarksheet.map((student: any) => {
+                      const isTop = student.rank === 1;
+                      const isLast = student.rank === (data?.studentsMarksheet?.length || 0);
+                      const isStruggling = student.marksObtained < 50 || student.rubric === 'BE';
+
+                      return (
+                        <tr
+                          key={student.studentId}
+                          className={`hover:bg-sky-50/50 dark:hover:bg-[#0e2040]/50 transition-colors ${
+                            isTop ? 'bg-amber-50/30 dark:bg-amber-950/20' : isStruggling ? 'bg-rose-50/20 dark:bg-rose-950/20' : ''
+                          }`}
+                        >
+                          <td className="p-3.5 text-center font-mono font-bold">
+                            {isTop ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-black text-[10px]">
+                                #1
+                              </span>
+                            ) : isLast ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[10px]">
+                                #{student.rank}
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 bg-rose-50 text-rose-800 border border-rose-200 rounded-full text-[10px] font-bold">
-                                Needs Remedial
+                              `#${student.rank}`
+                            )}
+                          </td>
+                          <td className="p-3.5 font-mono text-slate-600 dark:text-slate-400">
+                            {student.assessmentNumber || '—'}
+                          </td>
+                          <th scope="row" className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                            {student.studentName}
+                          </th>
+                          <td className="p-3.5 text-right font-mono font-bold text-sm">
+                            <span className={student.marksObtained >= 75 ? 'text-emerald-600 dark:text-emerald-400' : student.marksObtained >= 50 ? 'text-sky-600 dark:text-sky-400' : 'text-rose-600 dark:text-rose-400'}>
+                              {student.marksObtained}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-normal ml-0.5">/{student.maxMarks}</span>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            {student.points ? (
+                              <span className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                {student.points} Pts
+                              </span>
+                            ) : (
+                              <span className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
+                                student.rubric === 'EE'
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-200'
+                                  : student.rubric === 'ME'
+                                  ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-200'
+                                  : student.rubric === 'AE'
+                                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-200'
+                                  : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-200'
+                              }`}>
+                                {student.rubric}
                               </span>
                             )}
                           </td>
+                          <td className="p-3.5 text-center">
+                            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                              {student.rubric === 'EE'
+                                ? 'Exceeding'
+                                : student.rubric === 'ME'
+                                ? 'Meeting'
+                                : student.rubric === 'AE'
+                                ? 'Approaching'
+                                : 'Below'}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-slate-600 dark:text-slate-400 italic">
+                            {student.remarks || '—'}
+                          </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-500">
+                        No learner examination records found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
 
-          {/* Combined Remedial Registry with Tier Filter */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-rose-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-100 pb-3">
+          {/* TAB 2: REMEDIAL WATCHLIST */}
+          <div
+            role="tabpanel"
+            id="panel-remedial"
+            aria-labelledby="tab-remedial"
+            tabIndex={0}
+            hidden={activeTab !== 'REMEDIAL'}
+            className="space-y-4 focus:outline-none"
+          >
+            <div className="bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-4 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-rose-800 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600" />
-                  Priority Intervention Registry ({interventionLearners.length} Instances Below 50%)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Targeted learners requiring remedial tutoring and subject teacher follow-up across streams.
+                <h4 className="text-xs font-black text-amber-900 dark:text-amber-300">
+                  Targeted Subject Remedial Intervention Roster
+                </h4>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-400/80 mt-0.5">
+                  The following learners scored below the 50% passing threshold or were assessed as Below Expectations (BE) in {selectedSubject?.name}. Prioritize targeted exercises, revision sessions, and parent follow-ups.
                 </p>
               </div>
             </div>
 
-            {interventionLearners.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 italic text-xs">
-                No learners recorded below the 50% threshold for this examination.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[650px]">
-                  <thead className="bg-rose-50/70 text-rose-900 font-bold uppercase tracking-wider border-b border-rose-100">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Learners needing attention table"
+              className="table-wrapper overflow-x-auto rounded-2xl border border-rose-100 dark:border-[#2d1520] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+            >
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-rose-100 dark:border-[#2d1520] bg-rose-50/80 dark:bg-[#1a0e18] text-[11px] font-black uppercase tracking-wider text-rose-900 dark:text-rose-300">
+                    <th scope="col" className="p-3.5 w-36">Assessment No</th>
+                    <th scope="col" className="p-3.5">Learner Name</th>
+                    <th scope="col" className="p-3.5 w-28 text-right">Score</th>
+                    <th scope="col" className="p-3.5 w-28 text-center">Competency</th>
+                    <th scope="col" className="p-3.5 w-28 text-center">Risk Level</th>
+                    <th scope="col" className="p-3.5">Remedial Focus & Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]">
+                  {filteredRemedial.length > 0 ? (
+                    filteredRemedial.map((student: any) => (
+                      <tr key={student.studentId} className="hover:bg-rose-50/30 dark:hover:bg-rose-950/20 transition-colors">
+                        <td className="p-3.5 font-mono text-slate-600 dark:text-slate-400">
+                          {student.assessmentNumber || '—'}
+                        </td>
+                        <th scope="row" className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                          {student.studentName}
+                        </th>
+                        <td className="p-3.5 text-right font-mono font-bold text-sm text-rose-600 dark:text-rose-400">
+                          {student.marksObtained}%
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-200">
+                            {student.rubric || 'BE'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            student.riskLevel === 'HIGH'
+                              ? 'bg-red-100 dark:bg-red-950/90 text-red-800 dark:text-red-300 border border-red-300'
+                              : 'bg-amber-100 dark:bg-amber-950/90 text-amber-800 dark:text-amber-300 border border-amber-300'
+                          }`}>
+                            {student.riskLevel} Risk
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600 dark:text-slate-400">
+                          {student.remarks || 'Assign foundational topic revision and extra supervised practice.'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
                     <tr>
-                      <th className="py-3 px-4">Learner Name</th>
-                      <th className="py-3 px-3">Class</th>
-                      <th className="py-3 px-4">Struggling Subject</th>
-                      <th className="py-3 px-3 text-center">Score</th>
-                      <th className="py-3 px-3 text-center">Assessment</th>
-                      <th className="py-3 px-4">Teacher Remark</th>
+                      <td colSpan={6} className="p-8 text-center text-emerald-600 dark:text-emerald-400 font-bold">
+                        <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-80" />
+                        No learners currently scoring below expectations in {selectedSubject?.name}.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* TAB 3: CROSS-CLASS STREAM BENCHMARKS */}
+          {data?.crossClassComparison && data.crossClassComparison.length > 1 && (
+            <div
+              role="tabpanel"
+              id="panel-cross-class"
+              aria-labelledby="tab-cross-class"
+              tabIndex={0}
+              hidden={activeTab !== 'CROSS_CLASS'}
+              className="space-y-4 focus:outline-none"
+            >
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Cross-class comparison table"
+                className="table-wrapper overflow-x-auto rounded-2xl border border-sky-100 dark:border-[#162b4d] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+              >
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="sticky top-0 z-10 border-b border-sky-100 dark:border-[#162b4d] bg-slate-50/95 dark:bg-[#0c1932]/95 backdrop-blur-md text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th scope="col" className="p-3.5">Class Stream</th>
+                      <th scope="col" className="p-3.5 w-28 text-right">Class Mean</th>
+                      <th scope="col" className="p-3.5 w-28 text-right">Pass Rate</th>
+                      <th scope="col" className="p-3.5 w-28 text-right">Highest</th>
+                      <th scope="col" className="p-3.5 w-28 text-right">Lowest</th>
+                      <th scope="col" className="p-3.5 w-32 text-center">Candidacy</th>
+                      <th scope="col" className="p-3.5 w-32 text-center">Remedial Count</th>
+                      <th scope="col" className="p-3.5 w-28 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-rose-100/50">
-                    {interventionLearners
-                      .filter((row: any) => {
-                        if (classFilter === 'PRIMARY') return !row.isJunior;
-                        if (classFilter === 'JUNIOR') return row.isJunior;
-                        return true;
-                      })
-                      .map((row: any) => (
-                        <tr key={row.scoreId} className="hover:bg-rose-50/30 transition-colors">
-                          <td className="py-3 px-4 font-bold text-slate-900">
-                            {row.studentName}
-                            <span className="text-[10px] text-slate-400 font-mono block">Adm: {row.admissionNumber || '—'}</span>
+                  <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]">
+                    {data.crossClassComparison.map((cls: any) => {
+                      const isCurrent = cls.classId === selectedClassId;
+                      return (
+                        <tr
+                          key={cls.classId}
+                          className={`hover:bg-sky-50/50 dark:hover:bg-[#0e2040]/50 transition-colors ${
+                            isCurrent ? 'bg-sky-50/40 dark:bg-sky-950/20 font-bold' : ''
+                          }`}
+                        >
+                          <th scope="row" className="p-3.5 font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <span>{cls.className}</span>
+                            {isCurrent && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
+                                Active
+                              </span>
+                            )}
+                          </th>
+                          <td className="p-3.5 text-right font-mono font-bold text-sm">
+                            {cls.averageScore}%
                           </td>
-                          <td className="py-3 px-3 font-semibold text-slate-700">{row.className}</td>
-                          <td className="py-3 px-4 font-bold text-rose-800">{row.subjectName}</td>
-                          <td className="py-3 px-3 text-center font-mono font-black text-rose-700">{row.marksObtained}%</td>
-                          <td className="py-3 px-3 text-center">
-                            <span
-                              className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                                row.isJunior
-                                  ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {row.isJunior && row.points != null ? `${row.points} pts` : (row.rubric || 'BE')}
+                          <td className="p-3.5 text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                            {cls.proficiencyRate}%
+                          </td>
+                          <td className="p-3.5 text-right font-mono text-slate-700 dark:text-slate-300">
+                            {cls.highestScore}%
+                          </td>
+                          <td className="p-3.5 text-right font-mono text-rose-600 dark:text-rose-400">
+                            {cls.lowestScore}%
+                          </td>
+                          <td className="p-3.5 text-center font-mono">
+                            {cls.testedCount} / {cls.enrolledCount} ({cls.candidacyRate}%)
+                          </td>
+                          <td className="p-3.5 text-center font-mono">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              cls.remedialCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {cls.remedialCount}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-slate-600 italic">{row.remarks}</td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleClassChange(cls.classId);
+                                setActiveTab('MARKSHEET');
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-[#142647] transition-all cursor-pointer"
+                            >
+                              Switch View
+                            </button>
+                          </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: COMPETENCY DISTRIBUTION */}
+          <div
+            role="tabpanel"
+            id="panel-distribution"
+            aria-labelledby="tab-distribution"
+            tabIndex={0}
+            hidden={activeTab !== 'DISTRIBUTION'}
+            className="space-y-4 focus:outline-none"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <div className="p-4 bg-emerald-50/70 dark:bg-[#081a1a]/70 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-emerald-900 dark:text-emerald-300 text-sm">EE (75%–100%)</span>
+                  <span className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 font-black rounded-full text-[10px] font-mono">
+                    {metrics.rubricPercentages?.EE ?? 0}%
+                  </span>
+                </div>
+                <div className="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-400 mt-2">
+                  {metrics.rubricDistribution?.EE ?? 0}
+                </div>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                  Exceeding Expectations
+                </p>
+              </div>
+
+              <div className="p-4 bg-sky-50/70 dark:bg-[#07172b]/70 border border-sky-200 dark:border-sky-900/50 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-sky-900 dark:text-sky-300 text-sm">ME (50%–74%)</span>
+                  <span className="px-2 py-0.5 bg-sky-200 dark:bg-sky-900 text-sky-900 dark:text-sky-200 font-black rounded-full text-[10px] font-mono">
+                    {metrics.rubricPercentages?.ME ?? 0}%
+                  </span>
+                </div>
+                <div className="text-2xl font-black font-mono text-sky-700 dark:text-sky-400 mt-2">
+                  {metrics.rubricDistribution?.ME ?? 0}
+                </div>
+                <p className="text-[11px] text-sky-600 dark:text-sky-400 mt-1 font-medium">
+                  Meeting Expectations
+                </p>
+              </div>
+
+              <div className="p-4 bg-amber-50/70 dark:bg-[#20180a]/70 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-amber-900 dark:text-amber-300 text-sm">AE (40%–49%)</span>
+                  <span className="px-2 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 font-black rounded-full text-[10px] font-mono">
+                    {metrics.rubricPercentages?.AE ?? 0}%
+                  </span>
+                </div>
+                <div className="text-2xl font-black font-mono text-amber-700 dark:text-amber-400 mt-2">
+                  {metrics.rubricDistribution?.AE ?? 0}
+                </div>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                  Approaching Expectations
+                </p>
+              </div>
+
+              <div className="p-4 bg-rose-50/70 dark:bg-[#200c14]/70 border border-rose-200 dark:border-rose-900/50 rounded-2xl">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-rose-900 dark:text-rose-300 text-sm">BE (&lt;40%)</span>
+                  <span className="px-2 py-0.5 bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200 font-black rounded-full text-[10px] font-mono">
+                    {metrics.rubricPercentages?.BE ?? 0}%
+                  </span>
+                </div>
+                <div className="text-2xl font-black font-mono text-rose-700 dark:text-rose-400 mt-2">
+                  {metrics.rubricDistribution?.BE ?? 0}
+                </div>
+                <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1 font-medium">
+                  Below Expectations (Remedial)
+                </p>
+              </div>
+            </div>
+
+            {/* 8-to-1 Points Breakdown if Junior Secondary */}
+            {metrics.pointsDistribution && Object.values(metrics.pointsDistribution).some((v: any) => v > 0) && (
+              <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] p-4 sm:p-5 rounded-2xl">
+                <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 mb-3">
+                  Junior Secondary 8-to-1 Points Scale Distribution
+                </h4>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  {[8, 7, 6, 5, 4, 3, 2, 1].map((pt) => {
+                    const count = metrics.pointsDistribution[pt] || 0;
+                    return (
+                      <div key={pt} className="p-3 bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-slate-800 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-slate-500 block">Point {pt}</span>
+                        <span className="text-lg font-black font-mono text-slate-900 dark:text-slate-100">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
         </div>
-      )}
       </div>
     </PageLoadingWrapper>
   );
 };
-
-export default SubjectPerformanceView;
