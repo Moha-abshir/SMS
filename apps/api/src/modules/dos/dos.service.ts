@@ -126,7 +126,9 @@ export class DosService {
 
     const allowedClassIds = isLeadership
       ? null
-      : Array.from(new Set([...managedClassIds, ...allocatedClassIds]));
+      : (managedClassIds.size > 0
+          ? Array.from(managedClassIds)
+          : Array.from(allocatedClassIds));
 
     const whereConditions: any[] = [
       isNull(examScores.deletedAt),
@@ -359,7 +361,9 @@ export class DosService {
 
     const visibleClasses = isLeadership
       ? allClasses
-      : allClasses.filter((c) => managedClassIds.has(c.id) || allocatedClassIds.has(c.id));
+      : (managedClassIds.size > 0
+          ? allClasses.filter((c) => managedClassIds.has(c.id))
+          : allClasses.filter((c) => allocatedClassIds.has(c.id)));
 
     let visibleSubjects = allSubjects;
     if (!isLeadership) {
@@ -411,7 +415,9 @@ export class DosService {
     // 3. Fetch scores for this exam
     const allowedClassIds = isLeadership
       ? null
-      : Array.from(new Set([...managedClassIds, ...allocatedClassIds]));
+      : (managedClassIds.size > 0
+          ? Array.from(managedClassIds)
+          : Array.from(allocatedClassIds));
 
     const whereConditions: any[] = [
       isNull(examScores.deletedAt),
@@ -953,6 +959,11 @@ export class DosService {
           ? (rankedClassSummaries.length > 0 ? { name: rankedClassSummaries[0].className, average: rankedClassSummaries[0].classAverage } : null)
           : null,
         topStudent: topStudentOverall ? { name: topStudentOverall.studentName, average: topStudentOverall.averageScore } : null,
+        lowestStudent: allRankedStudents.length > 0 ? {
+          name: allRankedStudents[allRankedStudents.length - 1].studentName,
+          average: allRankedStudents[allRankedStudents.length - 1].averageScore,
+          rank: allRankedStudents.length,
+        } : null,
         rubricDistribution: { EE: eeTotal, ME: meTotal, AE: aeTotal, BE: beTotal },
         rubricPercentages: { EE: eeRate, ME: meRate, AE: aeRate, BE: beRate },
         proficiencyBenchmark,
@@ -1045,6 +1056,398 @@ export class DosService {
         'Share high-performing teaching methodologies from top subject teachers in next staff briefing.',
         'Schedule parent-teacher academic review sessions for learners with multiple Below Expectations marks.',
       ],
+    };
+  }
+
+  static async getSubjectPerformance(
+    examId?: string,
+    subjectId?: string,
+    classId?: string,
+    user?: AuthenticatedUser
+  ) {
+    const isLeadership = !user || ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
+    const allocatedClassSubjectPairs = new Set<string>();
+    const allocatedClassIds = new Set<string>();
+    const allocatedSubjectIds = new Set<string>();
+
+    if (!isLeadership && user) {
+      const [teacherAllocs, markingAllocs] = await Promise.all([
+        db
+          .select({
+            classId: teacherSubjectAllocations.classId,
+            subjectId: teacherSubjectAllocations.subjectId,
+          })
+          .from(teacherSubjectAllocations)
+          .where(
+            and(
+              eq(teacherSubjectAllocations.teacherId, user.id),
+              isNull(teacherSubjectAllocations.deletedAt)
+            )
+          ),
+        db
+          .select({
+            classId: markingAllocations.classId,
+            subjectId: markingAllocations.subjectId,
+          })
+          .from(markingAllocations)
+          .where(
+            and(
+              eq(markingAllocations.teacherId, user.id),
+              isNull(markingAllocations.deletedAt)
+            )
+          ),
+      ]);
+
+      for (const a of [...teacherAllocs, ...markingAllocs]) {
+        allocatedClassSubjectPairs.add(`${a.classId}:${a.subjectId}`);
+        allocatedClassIds.add(a.classId);
+        allocatedSubjectIds.add(a.subjectId);
+      }
+
+      if (allocatedClassSubjectPairs.size === 0) {
+        const forbiddenError = new Error('Access denied: You do not have any active subject allocations.');
+        (forbiddenError as any).statusCode = 403;
+        throw forbiddenError;
+      }
+    }
+
+    // 1. Resolve Target Exam
+    let targetExamId = examId;
+    if (!targetExamId || targetExamId === 'latest') {
+      const [latestExam] = await db
+        .select()
+        .from(examinations)
+        .where(isNull(examinations.deletedAt))
+        .orderBy(desc(examinations.createdAt))
+        .limit(1);
+      if (latestExam) {
+        targetExamId = latestExam.id;
+      }
+    }
+
+    const allExams = await db
+      .select({
+        exam: examinations,
+        term: academicTerms,
+      })
+      .from(examinations)
+      .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
+      .where(isNull(examinations.deletedAt))
+      .orderBy(desc(examinations.createdAt));
+
+    const selectedExamRecord = allExams.find((e) => e.exam.id === targetExamId);
+
+    // 2. Fetch all subjects and classes
+    const [allSubjects, allClasses] = await Promise.all([
+      db.select().from(subjects).where(isNull(subjects.deletedAt)).orderBy(subjects.name),
+      db.select().from(classes).where(isNull(classes.deletedAt)).orderBy(classes.numericOrder, classes.name),
+    ]);
+
+    // 3. Filter available subjects for this user
+    const availableSubjects = isLeadership
+      ? allSubjects
+      : allSubjects.filter((s) => allocatedSubjectIds.has(s.id));
+
+    // Resolve targetSubjectId
+    let targetSubjectId = subjectId;
+    if (!targetSubjectId || !availableSubjects.some((s) => s.id === targetSubjectId)) {
+      targetSubjectId = availableSubjects[0]?.id;
+    }
+    const selectedSubject = availableSubjects.find((s) => s.id === targetSubjectId) || null;
+
+    // 4. Filter available classes for this subject
+    let availableClassesForSubject: typeof allClasses = [];
+    if (isLeadership) {
+      availableClassesForSubject = allClasses.filter((c) => {
+        if (!selectedSubject) return false;
+        if (c.levelCategory === selectedSubject.levelCategory) return true;
+        if (
+          ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(c.levelCategory) &&
+          ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(selectedSubject.levelCategory)
+        ) {
+          return isJuniorSecondaryClass(c as any) === (selectedSubject.levelCategory === 'JUNIOR');
+        }
+        return false;
+      });
+    } else {
+      availableClassesForSubject = allClasses.filter((c) =>
+        targetSubjectId && allocatedClassSubjectPairs.has(`${c.id}:${targetSubjectId}`)
+      );
+    }
+
+    // Resolve targetClassId
+    let targetClassId = classId;
+    if (!targetClassId || !availableClassesForSubject.some((c) => c.id === targetClassId)) {
+      targetClassId = availableClassesForSubject[0]?.id;
+    }
+    const selectedClass = availableClassesForSubject.find((c) => c.id === targetClassId) || null;
+
+    // 5. Fetch all scores for this exam and target subject across the available classes
+    const classIdsToFetch = availableClassesForSubject.map((c) => c.id);
+    const whereConditions: any[] = [
+      isNull(examScores.deletedAt),
+      isNull(students.deletedAt),
+      isNull(subjects.deletedAt),
+      isNull(classes.deletedAt),
+    ];
+    if (targetExamId) {
+      whereConditions.push(eq(examScores.examId, targetExamId));
+    }
+    if (targetSubjectId) {
+      whereConditions.push(eq(examScores.subjectId, targetSubjectId));
+    }
+    if (classIdsToFetch.length > 0) {
+      whereConditions.push(inArray(classes.id, classIdsToFetch));
+    }
+
+    const rawSubjectScores = classIdsToFetch.length > 0
+      ? await db
+          .select({
+            score: {
+              id: examScores.id,
+              marksObtained: examScores.marksObtained,
+              cbcRubricLevel: examScores.cbcRubricLevel,
+              juniorPoints: examScores.juniorPoints,
+              maxMarks: examScores.maxMarks,
+              teacherRemarks: examScores.teacherRemarks,
+            },
+            student: {
+              id: students.id,
+              firstName: students.firstName,
+              lastName: students.lastName,
+              assessmentNumber: students.assessmentNumber,
+              admissionNumber: students.admissionNumber,
+            },
+            subject: {
+              id: subjects.id,
+              name: subjects.name,
+              code: subjects.code,
+              levelCategory: subjects.levelCategory,
+            },
+            class: {
+              id: classes.id,
+              name: classes.name,
+              levelCategory: classes.levelCategory,
+            },
+          })
+          .from(examScores)
+          .innerJoin(students, eq(examScores.studentId, students.id))
+          .innerJoin(subjects, eq(examScores.subjectId, subjects.id))
+          .innerJoin(classes, eq(students.classId, classes.id))
+          .where(and(...whereConditions))
+      : [];
+
+    // Active students to compute candidacy
+    const activeClassStudents = classIdsToFetch.length > 0
+      ? await db
+          .select({
+            id: students.id,
+            classId: students.classId,
+          })
+          .from(students)
+          .where(and(eq(students.status, 'ACTIVE'), isNull(students.deletedAt), inArray(students.classId, classIdsToFetch)))
+      : [];
+
+    // 6. Compute Cross-Class Comparison for this subject
+    const crossClassComparison = availableClassesForSubject.map((cls) => {
+      const clsScores = rawSubjectScores.filter((r) => r.class.id === cls.id);
+      const isJunior = isJuniorSecondaryClass(cls as any);
+      let marksSum = 0;
+      let highest = 0;
+      let lowest = clsScores.length > 0 ? 100 : 0;
+      let ee = 0;
+      let me = 0;
+      let ae = 0;
+      let be = 0;
+      let topStudentInClass: any = null;
+
+      clsScores.forEach((r) => {
+        const m = parseFloat(r.score.marksObtained);
+        marksSum += m;
+        if (m > highest) {
+          highest = m;
+          topStudentInClass = {
+            name: `${r.student.firstName} ${r.student.lastName}`,
+            score: m,
+            assessmentNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
+          };
+        }
+        if (m < lowest) lowest = m;
+        const rub = r.score.cbcRubricLevel || calculateCbcRubric(m, r.score.maxMarks || 100).code;
+        if (rub === 'EE') ee++;
+        else if (rub === 'ME') me++;
+        else if (rub === 'AE') ae++;
+        else be++;
+      });
+
+      const testedCount = clsScores.length;
+      const enrolledCount = activeClassStudents.filter((s) => s.classId === cls.id).length || testedCount;
+      const averageScore = testedCount > 0 ? Math.round((marksSum / testedCount) * 10) / 10 : 0;
+      const proficiencyRate = testedCount > 0 ? Math.round(((ee + me) / testedCount) * 100) : 0;
+
+      return {
+        classId: cls.id,
+        className: cls.name,
+        levelCategory: cls.levelCategory,
+        isJunior,
+        enrolledCount,
+        testedCount,
+        averageScore,
+        highestScore: highest,
+        lowestScore: clsScores.length > 0 ? lowest : 0,
+        proficiencyRate,
+        rubricCounts: { EE: ee, ME: me, AE: ae, BE: be },
+        topStudent: topStudentInClass,
+        strugglingCount: be + ae,
+      };
+    });
+
+    // 7. Compute Selected Class Detail Metrics & Marksheet
+    const currentScores = targetClassId
+      ? rawSubjectScores.filter((r) => r.class.id === targetClassId)
+      : [];
+
+    let currentMarksSum = 0;
+    let currentHighest = 0;
+    let currentLowest = currentScores.length > 0 ? 100 : 0;
+    let currentEE = 0;
+    let currentME = 0;
+    let currentAE = 0;
+    let currentBE = 0;
+    const currentPoints: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    const currentIsJunior = selectedClass ? isJuniorSecondaryClass(selectedClass as any) : false;
+
+    const mappedStudentScores = currentScores.map((r) => {
+      const marks = parseFloat(r.score.marksObtained);
+      currentMarksSum += marks;
+      if (marks > currentHighest) currentHighest = marks;
+      if (marks < currentLowest) currentLowest = marks;
+
+      const rub = r.score.cbcRubricLevel || calculateCbcRubric(marks, r.score.maxMarks || 100).code;
+      if (rub === 'EE') currentEE++;
+      else if (rub === 'ME') currentME++;
+      else if (rub === 'AE') currentAE++;
+      else currentBE++;
+
+      let ptsValue: number | null = null;
+      if (currentIsJunior) {
+        ptsValue = r.score.juniorPoints ?? calculateJuniorPoints(marks, r.score.maxMarks || 100);
+        if (ptsValue in currentPoints) {
+          currentPoints[ptsValue]++;
+        }
+      }
+
+      return {
+        studentId: r.student.id,
+        studentName: `${r.student.firstName} ${r.student.lastName}`,
+        assessmentNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
+        marksObtained: marks,
+        maxMarks: r.score.maxMarks || 100,
+        rubric: rub,
+        points: ptsValue,
+        remarks: r.score.teacherRemarks || '',
+      };
+    });
+
+    // Sort students by score descending to generate subject ranks
+    mappedStudentScores.sort((a, b) => b.marksObtained - a.marksObtained);
+    const rankedStudentsMarksheet = mappedStudentScores.map((s, idx) => ({
+      ...s,
+      rank: idx + 1,
+    }));
+
+    const totalTested = rankedStudentsMarksheet.length;
+    const enrolledInCurrentClass = targetClassId
+      ? activeClassStudents.filter((s) => s.classId === targetClassId).length || totalTested
+      : totalTested;
+    const absentInCurrentClass = Math.max(0, enrolledInCurrentClass - totalTested);
+    const currentAverage = totalTested > 0 ? Math.round((currentMarksSum / totalTested) * 10) / 10 : 0;
+    const currentProficiencyRate = totalTested > 0 ? Math.round(((currentEE + currentME) / totalTested) * 100) : 0;
+
+    // Remedial / Struggling learners for this subject (Score < 50% or BE)
+    const remedialLearners = rankedStudentsMarksheet
+      .filter((s) => s.marksObtained < 50 || s.rubric === 'BE')
+      .map((s) => ({
+        ...s,
+        riskLevel: (s.marksObtained < 35 ? 'HIGH' : 'MEDIUM') as 'HIGH' | 'MEDIUM',
+      }));
+    // Sort remedial with lowest scores first
+    remedialLearners.sort((a, b) => a.marksObtained - b.marksObtained);
+
+    const topLearner = rankedStudentsMarksheet.length > 0 ? rankedStudentsMarksheet[0] : null;
+    const lowestLearner = rankedStudentsMarksheet.length > 0 ? rankedStudentsMarksheet[rankedStudentsMarksheet.length - 1] : null;
+
+    return {
+      examsList: allExams.map((e) => ({
+        id: e.exam.id,
+        title: e.exam.title,
+        status: e.exam.status,
+        termName: `Term ${e.term.termNumber} (${e.term.year})`,
+      })),
+      selectedExam: selectedExamRecord
+        ? {
+            id: selectedExamRecord.exam.id,
+            title: selectedExamRecord.exam.title,
+            status: selectedExamRecord.exam.status,
+            termName: `Term ${selectedExamRecord.term.termNumber} (${selectedExamRecord.term.year})`,
+          }
+        : null,
+      subjectsList: availableSubjects.map((s) => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        levelCategory: s.levelCategory,
+      })),
+      selectedSubject: selectedSubject
+        ? {
+            id: selectedSubject.id,
+            name: selectedSubject.name,
+            code: selectedSubject.code,
+            levelCategory: selectedSubject.levelCategory,
+          }
+        : null,
+      classesList: availableClassesForSubject.map((c) => ({
+        id: c.id,
+        name: c.name,
+        levelCategory: c.levelCategory,
+      })),
+      selectedClass: selectedClass
+        ? {
+            id: selectedClass.id,
+            name: selectedClass.name,
+            levelCategory: selectedClass.levelCategory,
+          }
+        : null,
+      subjectMetrics: {
+        averageScore: currentAverage,
+        highestScore: currentHighest,
+        lowestScore: currentScores.length > 0 ? currentLowest : 0,
+        totalEnrolled: enrolledInCurrentClass,
+        totalSat: totalTested,
+        absentCount: absentInCurrentClass,
+        candidacyRate: enrolledInCurrentClass > 0 ? Math.round((totalTested / enrolledInCurrentClass) * 1000) / 10 : 100,
+        proficiencyRate: currentProficiencyRate,
+        rubricDistribution: { EE: currentEE, ME: currentME, AE: currentAE, BE: currentBE },
+        rubricPercentages: {
+          EE: totalTested > 0 ? Math.round((currentEE / totalTested) * 100) : 0,
+          ME: totalTested > 0 ? Math.round((currentME / totalTested) * 100) : 0,
+          AE: totalTested > 0 ? Math.round((currentAE / totalTested) * 100) : 0,
+          BE: totalTested > 0 ? Math.round((currentBE / totalTested) * 100) : 0,
+        },
+        pointsDistribution: currentPoints,
+        topLearner,
+        lowestLearner,
+        remedialCount: remedialLearners.length,
+      },
+      crossClassComparison,
+      remedialLearners,
+      studentsMarksheet: rankedStudentsMarksheet,
+      userScope: {
+        isLeadership,
+        isSubjectTeacher: true,
+        totalAllocatedSubjects: availableSubjects.length,
+        totalAllocatedClasses: availableClassesForSubject.length,
+      },
     };
   }
 }
