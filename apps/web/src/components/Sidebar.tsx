@@ -141,21 +141,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       label: 'Daily Class Register',
       icon: CalendarCheck,
       isClassTeacherFeature: true,
-      roles: ['TEACHER'],
+      roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
     {
       path: '/my-learners',
       label: 'Class Learners',
       icon: Users,
       isClassTeacherFeature: true,
-      roles: ['TEACHER'],
+      roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
     {
       path: '/class-exam-progress',
       label: 'Class Exam Progress',
       icon: Layers,
       isClassTeacherUpperFeature: true,
-      roles: ['TEACHER'],
+      roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
@@ -189,25 +189,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       if (!hasRole) return false;
     }
 
-    // 2. Specific contextual rules for TEACHER role
+    // 2. Class Teacher features (Daily Register & Class Learners) only visible if assigned as Class Teacher
+    if (item.isClassTeacherFeature && !isClassTeacher) {
+      return false;
+    }
+
+    // Class Exam Progress is exclusive to Upper Primary / Junior Secondary Class Teachers (Grades 4-9)
+    if (item.isClassTeacherUpperFeature && (!isClassTeacher || isLowerPrimaryOrPP)) {
+      return false;
+    }
+
+    // 3. Specific contextual rules for TEACHER role
     if (userRole === 'TEACHER') {
-      // Academic Results: strictly visible ONLY for active Class Teachers (or leadership)
+      // Academic Results: strictly visible ONLY for active Class Teachers
       if (item.path === '/school-results' && !isClassTeacher) {
         return false;
       }
 
-      // Subject Performance: strictly visible ONLY for teachers with active subject allocations (or leadership)
+      // Subject Performance: strictly visible ONLY for teachers with active subject allocations
       if (item.path === '/subject-performance' && !hasSubjectAllocations) {
-        return false;
-      }
-
-      // Class Teacher features (Daily Register & Class Learners) only visible if assigned as Class Teacher
-      if (item.isClassTeacherFeature && !isClassTeacher) {
-        return false;
-      }
-
-      // Class Exam Progress is exclusive to Upper Primary / Junior Secondary Class Teachers (Grades 4-9)
-      if (item.isClassTeacherUpperFeature && (!isClassTeacher || isLowerPrimaryOrPP)) {
         return false;
       }
 
