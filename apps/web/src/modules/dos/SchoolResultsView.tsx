@@ -45,7 +45,7 @@ type ActiveTab = 'CLASSES' | 'SUBJECTS' | 'HONOR_ROLL' | 'REMEDIAL' | 'DRILLDOWN
 export const SchoolResultsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('CLASSES');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('DRILLDOWN');
   const [tierFilter, setTierFilter] = useState<TierFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -242,15 +242,20 @@ export const SchoolResultsView: React.FC = () => {
         if (!selectedClassId) {
           setSelectedClassId(data.selectedClassDetail.classId);
         }
-        if (data.userScope && !data.userScope.isLeadership && activeTab === 'CLASSES') {
-          setActiveTab('DRILLDOWN');
-        }
+      }
+
+      // Default active tab based on role:
+      // If Class Teacher (non-leadership), always default to Class Broadsheet (DRILLDOWN)
+      if (data?.userScope && !data.userScope.isLeadership) {
+        setActiveTab('DRILLDOWN');
+      } else if (data?.userScope?.isLeadership && !classId) {
+        setActiveTab('CLASSES');
       }
     } catch (error: any) {
       if (error.response?.status === 403) {
         setAccessDeniedMessage(
           error.response?.data?.message ||
-            'Access denied: You do not have an active class assignment or subject allocation.'
+            'Access denied: You do not have an active class assignment.'
         );
       } else {
         toast.error(error.response?.data?.message || 'Failed to load results');
@@ -292,7 +297,7 @@ export const SchoolResultsView: React.FC = () => {
     fetchExamAnalysis(newExamId, selectedClassId || undefined);
   };
 
-  // Tier filtering for classes
+  // Tier filtering for classes (leadership only)
   const filteredClasses = useMemo(() => {
     if (!analysis?.classes) return [];
     return analysis.classes.filter((c: any) => {
@@ -308,7 +313,7 @@ export const SchoolResultsView: React.FC = () => {
     });
   }, [analysis?.classes, tierFilter, searchQuery]);
 
-  // Tier filtering for subjects
+  // Subject filtering
   const filteredSubjects = useMemo(() => {
     if (!analysis?.subjects) return [];
     return analysis.subjects.filter((s: any) => {
@@ -358,6 +363,37 @@ export const SchoolResultsView: React.FC = () => {
     });
   }, [analysis?.remedialWatchlist, tierFilter, searchQuery]);
 
+  // Filtered class drilldown students
+  const filteredClassStudents = useMemo(() => {
+    if (!analysis?.selectedClassDetail?.students) return [];
+    if (!searchQuery.trim()) return analysis.selectedClassDetail.students;
+    const q = searchQuery.toLowerCase();
+    return analysis.selectedClassDetail.students.filter(
+      (s: any) =>
+        s.studentName.toLowerCase().includes(q) ||
+        (s.assessmentNumber && s.assessmentNumber.toLowerCase().includes(q)) ||
+        (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q))
+    );
+  }, [analysis?.selectedClassDetail?.students, searchQuery]);
+
+  // Extract unique subjects for multi-subject broadsheet table
+  const broadsheetSubjects = useMemo(() => {
+    if (!analysis?.selectedClassDetail?.students) return [];
+    const map = new Map<string, { id: string; name: string; code: string }>();
+    analysis.selectedClassDetail.students.forEach((s: any) => {
+      s.subjects?.forEach((sub: any) => {
+        if (!map.has(sub.subjectId)) {
+          map.set(sub.subjectId, {
+            id: sub.subjectId,
+            name: sub.subjectName,
+            code: sub.subjectCode || sub.subjectName.slice(0, 4).toUpperCase(),
+          });
+        }
+      });
+    });
+    return Array.from(map.values());
+  }, [analysis?.selectedClassDetail?.students]);
+
   // CSV Master Broadsheet Export
   const handleExportBroadsheetCSV = () => {
     if (!analysis?.honorRoll || analysis.honorRoll.length === 0) {
@@ -381,11 +417,11 @@ export const SchoolResultsView: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Schoolwide_Broadsheet_${analysis.selectedExam?.title?.replace(/\s+/g, '_') || 'Term'}.csv`);
+    link.setAttribute('download', `Broadsheet_${analysis.selectedExam?.title?.replace(/\s+/g, '_') || 'Term'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('Master broadsheet downloaded successfully');
+    toast.success('Broadsheet downloaded successfully');
   };
 
   // CSV Remedial Watchlist Export
@@ -411,16 +447,16 @@ export const SchoolResultsView: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Remedial_Intervention_Registry_${analysis.selectedExam?.title?.replace(/\s+/g, '_') || 'Term'}.csv`);
+    link.setAttribute('download', `Remedial_Registry_${analysis.selectedExam?.title?.replace(/\s+/g, '_') || 'Term'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     toast.success('Remedial registry exported');
   };
 
-  // Print Executive Summary
+  // Print Summary
   const handlePrintSummary = () => {
-    printElement('school-results-printable-area', `Schoolwide Academic Performance - ${analysis?.selectedExam?.title || 'Eldoret Muslim Academy'}`);
+    printElement('school-results-printable-area', `Academic Performance - ${analysis?.selectedExam?.title || 'Eldoret Muslim Academy'}`);
   };
 
   const overview = analysis?.schoolOverview || {};
@@ -430,26 +466,16 @@ export const SchoolResultsView: React.FC = () => {
   const headerTitle = useMemo(() => {
     if (!userScope || userScope.isLeadership) return 'Schoolwide Results & Broadsheet Center';
     if (currentClassName) {
-      if (overview?.scopeType === 'SUBJECT') return `${currentClassName} — Subject Performance`;
       return `${currentClassName} — Class Broadsheet & Results`;
     }
-    if (userScope.role === 'CLASS_TEACHER') return 'Class Broadsheet & Academic Results';
-    if (userScope.role === 'SUBJECT_TEACHER') return 'Allocated Subject Performance & Results';
-    if (userScope.role === 'DUAL_ROLE') return 'Class Broadsheet & Subject Performance';
-    return 'Academic Results Center';
-  }, [userScope, currentClassName, overview?.scopeType]);
+    return 'Class Broadsheet & Academic Results';
+  }, [userScope, currentClassName]);
 
   const headerSubtitle = useMemo(() => {
     if (!userScope || userScope.isLeadership) {
       return 'Executive academic intelligence, class rankings, subject league tables, and CBC performance analytics';
     }
-    if (userScope.role === 'CLASS_TEACHER') {
-      return 'Multi-subject class broadsheets, learner rankings, competency rubric spreads, and student performance slide drawers';
-    }
-    if (userScope.role === 'SUBJECT_TEACHER') {
-      return 'Restricted examination analytics, subject league tables, and student performance for your allocated teaching areas';
-    }
-    return 'Class broadsheets for your assigned class stream and allocated subject performance matrices';
+    return 'Multi-subject examination broadsheet, student rankings, subject averages, and remedial watchlists';
   }, [userScope]);
 
   if (!loading && accessDeniedMessage && !analysis) {
@@ -479,9 +505,8 @@ export const SchoolResultsView: React.FC = () => {
   }
 
   return (
-    <PageLoadingWrapper isLoading={loading} subtitle="Compiling results & league tables...">
+    <PageLoadingWrapper isLoading={loading} subtitle="Compiling academic results & broadsheet...">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        {/* Printable Container wrapper with id */}
         <div id="school-results-printable-area" className="space-y-6">
           {/* 1. Global Context & Action Bar */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] p-4 sm:p-5 rounded-2xl shadow-glass dark:shadow-none">
@@ -490,17 +515,13 @@ export const SchoolResultsView: React.FC = () => {
                 <Award className="w-6 h-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                     {headerTitle}
                   </h1>
                   {userScope && !userScope.isLeadership && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                      {userScope.role === 'CLASS_TEACHER'
-                        ? 'Class Teacher Scoped'
-                        : userScope.role === 'SUBJECT_TEACHER'
-                        ? 'Subject Teacher Scoped'
-                        : 'Dual-Role Scoped'}
+                      Class Teacher · {currentClassName || 'Assigned Stream'}
                     </span>
                   )}
                 </div>
@@ -531,8 +552,8 @@ export const SchoolResultsView: React.FC = () => {
                 </div>
               )}
 
-              {/* Class Scope Selector */}
-              {analysis?.classes && analysis.classes.length > 1 && (
+              {/* Class Scope Selector: Show ONLY for Leadership or if teacher manages >1 classes */}
+              {analysis?.classes && analysis.classes.length > 1 && userScope?.isLeadership && (
                 <div className="relative">
                   <select
                     value={selectedClassId || ''}
@@ -548,16 +569,10 @@ export const SchoolResultsView: React.FC = () => {
                     }}
                     className="px-3.5 py-2 pr-9 bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 cursor-pointer shadow-xs appearance-none"
                   >
-                    {userScope?.isLeadership && (
-                      <option value="">All Classes (Schoolwide)</option>
-                    )}
+                    <option value="">All Classes (Schoolwide)</option>
                     {analysis.classes.map((cls: any) => (
                       <option key={cls.classId} value={cls.classId}>
-                        {userScope?.isLeadership
-                          ? `Class: ${cls.className}`
-                          : cls.roleInClass === 'CLASS_TEACHER'
-                          ? `Class Stream: ${cls.className}`
-                          : `Allocated Subject: ${cls.className}`}
+                        Class: {cls.className}
                       </option>
                     ))}
                   </select>
@@ -570,127 +585,138 @@ export const SchoolResultsView: React.FC = () => {
                 type="button"
                 onClick={handleExportBroadsheetCSV}
                 className="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                title="Export Master Broadsheet to CSV"
+                title="Export Broadsheet to CSV"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export Broadsheet</span>
               </button>
 
-              {/* Print Executive Summary */}
+              {/* Print Summary */}
               <button
                 type="button"
                 onClick={handlePrintSummary}
                 className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] hover:bg-slate-50 dark:hover:bg-[#142647] text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                title="Print Executive Summary Report"
+                title="Print Summary Report"
               >
                 <Printer className="w-3.5 h-3.5 text-slate-500" />
-                <span>Print Summary</span>
+                <span>Print</span>
               </button>
             </div>
           </div>
 
-          {/* 2. Top-Level Executive KPI Strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
-            {/* 1. Mean Score (Class / Subject / School Mean) */}
-            <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {overview.scopeType === 'SUBJECT' ? 'Subject Mean' : overview.isClassScoped ? 'Class Mean' : 'School Mean'}
+          {/* 2. Top-Level Compact Executive KPI Strip (No large bulky cards) */}
+          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none p-3.5 sm:p-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-[#162b4d] grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-0">
+            {/* 1. Mean Score (Class / School Mean) */}
+            <div className="sm:px-3 py-1 first:pl-0 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {overview.isClassScoped ? 'Class Mean' : 'School Mean'}
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+                  {overview.schoolAverage > 0 ? `${overview.schoolAverage}%` : '—'}
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1932] border border-sky-100 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono">
-                {overview.schoolAverage > 0 ? `${overview.schoolAverage}%` : '—'}
-              </div>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
                 {overview.schoolAverage >= 75 ? 'Level 4 · Exceeding' : overview.schoolAverage >= 50 ? 'Level 3 · Meeting' : 'Level 2 · Approaching'}
-              </p>
+              </span>
             </div>
 
             {/* 2. Assessment Candidacy */}
-            <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {overview.scopeType === 'SUBJECT' ? 'Learners Assessed' : overview.isClassScoped ? 'Class Candidacy' : 'Candidacy Sat'}
+            <div className="sm:px-3 py-1 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {overview.isClassScoped ? 'Class Candidacy' : 'Candidacy Sat'}
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+                  {overview.candidacyRate ?? 100}%
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1932] border border-sky-100 dark:border-[#162b4d] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                  <Users className="w-4 h-4" />
-                </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 font-mono">
-                {overview.candidacyRate ?? 100}%
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 {overview.totalLearnersTested ?? 0} of {overview.totalEnrolled ?? 0} Sat ({overview.absentCount ?? 0} absent)
-              </p>
+              </span>
             </div>
 
-            {/* 3. CBC Proficiency Benchmark (EE + ME) */}
-            <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {overview.isClassScoped ? 'Class Proficiency' : 'Proficiency Pass'}
+            {/* 3. CBC Proficiency Benchmark */}
+            <div className="sm:px-3 py-1 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Proficiency Pass
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                  {overview.proficiencyBenchmark ?? 0}%
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
               </div>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                {overview.proficiencyBenchmark ?? 0}%
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 {(overview.rubricDistribution?.EE ?? 0) + (overview.rubricDistribution?.ME ?? 0)} Scores EE / ME
-              </p>
+              </span>
             </div>
 
-            {/* 4. Top Performing Stream OR Top Learner in Class */}
-            <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {overview.isClassScoped ? 'Top Learner' : 'Top Stream'}
+            {/* 4. Top Learner (#1) */}
+            <div className="sm:px-3 py-1 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                #1 Top Learner
+              </span>
+              <div className="mt-0.5 truncate">
+                <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 truncate block">
+                  {overview.topStudent?.name || overview.topStream?.name || '—'}
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <Award className="w-4 h-4" />
-                </div>
               </div>
-              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 truncate">
-                {overview.isClassScoped
-                  ? (overview.topStudent?.name || '—')
-                  : (overview.topStream?.name || '—')}
-              </div>
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold font-mono mt-1">
-                {overview.isClassScoped
-                  ? (overview.topStudent ? `${overview.topStudent.average}% Average` : 'No scores')
-                  : (overview.topStream ? `${overview.topStream.average}% Class Mean` : 'No data')}
-              </p>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold font-mono">
+                {overview.topStudent ? `${overview.topStudent.average}% Average` : '—'}
+              </span>
             </div>
 
-            {/* 5. Leading Department / Learning Area */}
-            <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass dark:shadow-none hover:border-sky-200 dark:hover:border-sky-800 transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {overview.scopeType === 'SUBJECT' ? 'Learning Area' : 'Top Department'}
+            {/* 5. Lowest Learner (Last) */}
+            <div className="sm:px-3 py-1 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Lowest Learner
+              </span>
+              <div className="mt-0.5 truncate">
+                <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 truncate block">
+                  {overview.lowestStudent?.name || '—'}
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                  <BookOpen className="w-4 h-4" />
-                </div>
               </div>
-              <div className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 truncate">
-                {overview.topSubject?.name || '—'}
+              <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold font-mono">
+                {overview.lowestStudent ? `${overview.lowestStudent.average}% (#${overview.lowestStudent.rank})` : '—'}
+              </span>
+            </div>
+
+            {/* 6. Top Learning Area */}
+            <div className="sm:px-3 py-1 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Top Subject
+              </span>
+              <div className="mt-0.5 truncate">
+                <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 truncate block">
+                  {overview.topSubject?.name || '—'}
+                </span>
               </div>
-              <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold font-mono mt-1">
-                {overview.topSubject ? `${overview.topSubject.average}% Mean` : 'No data'}
-              </p>
+              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold font-mono">
+                {overview.topSubject ? `${overview.topSubject.average}% Mean` : '—'}
+              </span>
+            </div>
+
+            {/* 7. Lowest Performing Subject (Needs Attention) */}
+            <div className="sm:px-3 py-1 last:pr-0 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Needs Attention
+              </span>
+              <div className="mt-0.5 truncate">
+                <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 truncate block">
+                  {overview.lowestSubject?.name || '—'}
+                </span>
+              </div>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold font-mono">
+                {overview.lowestSubject ? `${overview.lowestSubject.average}% Mean` : '—'}
+              </span>
             </div>
           </div>
 
           {/* CBC 4-Level Performance Pyramid Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 bg-emerald-50/70 dark:bg-[#081a1a]/70 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl">
+            <div className="p-3 bg-emerald-50/70 dark:bg-[#081a1a]/70 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl">
               <div className="flex items-center justify-between">
-                <span className="font-black text-emerald-900 dark:text-emerald-300 text-xs sm:text-sm">EE (75%–100%)</span>
+                <span className="font-black text-emerald-900 dark:text-emerald-300 text-xs">EE (75%–100%)</span>
                 <span className="px-2 py-0.5 bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 font-black rounded-full text-[10px] font-mono">
                   {overview.rubricPercentages?.EE ?? 0}%
                 </span>
@@ -700,9 +726,9 @@ export const SchoolResultsView: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-3.5 bg-sky-50/70 dark:bg-[#0c1c2e]/70 border border-sky-200 dark:border-sky-900/50 rounded-2xl">
+            <div className="p-3 bg-sky-50/70 dark:bg-[#0c1c2e]/70 border border-sky-200 dark:border-sky-900/50 rounded-2xl">
               <div className="flex items-center justify-between">
-                <span className="font-black text-sky-900 dark:text-sky-300 text-xs sm:text-sm">ME (50%–74%)</span>
+                <span className="font-black text-sky-900 dark:text-sky-300 text-xs">ME (50%–74%)</span>
                 <span className="px-2 py-0.5 bg-sky-200 dark:bg-sky-900/60 text-sky-900 dark:text-sky-200 font-black rounded-full text-[10px] font-mono">
                   {overview.rubricPercentages?.ME ?? 0}%
                 </span>
@@ -712,9 +738,9 @@ export const SchoolResultsView: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-3.5 bg-amber-50/70 dark:bg-[#1f1908]/70 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
+            <div className="p-3 bg-amber-50/70 dark:bg-[#1f1908]/70 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
               <div className="flex items-center justify-between">
-                <span className="font-black text-amber-900 dark:text-amber-300 text-xs sm:text-sm">AE (40%–49%)</span>
+                <span className="font-black text-amber-900 dark:text-amber-300 text-xs">AE (40%–49%)</span>
                 <span className="px-2 py-0.5 bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-black rounded-full text-[10px] font-mono">
                   {overview.rubricPercentages?.AE ?? 0}%
                 </span>
@@ -724,9 +750,9 @@ export const SchoolResultsView: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-3.5 bg-rose-50/70 dark:bg-[#1f0d11]/70 border border-rose-200 dark:border-rose-900/50 rounded-2xl">
+            <div className="p-3 bg-rose-50/70 dark:bg-[#1f0d11]/70 border border-rose-200 dark:border-rose-900/50 rounded-2xl">
               <div className="flex items-center justify-between">
-                <span className="font-black text-rose-900 dark:text-rose-300 text-xs sm:text-sm">BE (&lt;40%)</span>
+                <span className="font-black text-rose-900 dark:text-rose-300 text-xs">BE (&lt;40%)</span>
                 <span className="px-2 py-0.5 bg-rose-200 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 font-black rounded-full text-[10px] font-mono">
                   {overview.rubricPercentages?.BE ?? 0}%
                 </span>
@@ -737,613 +763,275 @@ export const SchoolResultsView: React.FC = () => {
             </div>
           </div>
 
-          {/* 3. Deep-Dive View Tabs & Filter Bar */}
-          <div className="space-y-3.5">
-            {/* Row 1: Main Navigation Tabs with Horizontal Scrollability */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]">
-              {/* Class League Table (Leadership Only) */}
+          {/* 3. Deep-Dive View Tabs & Filter Bar (Single Row, modern-web-guidance) */}
+          <div className="border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 overflow-x-auto flex-nowrap">
+            <div
+              role="tablist"
+              aria-label="Academic results navigation tabs"
+              className="flex items-center gap-2 shrink-0"
+            >
+              {/* Leadership only: Class League Table */}
               {(!userScope || userScope.isLeadership) && (
                 <button
                   type="button"
+                  role="tab"
+                  id="tab-classes"
+                  aria-selected={activeTab === 'CLASSES'}
+                  aria-controls="panel-classes"
                   onClick={() => setActiveTab('CLASSES')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
                     activeTab === 'CLASSES'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                      ? 'text-sky-600 dark:text-sky-400 border-b-2 border-sky-600 dark:border-sky-400'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Class League Table ({filteredClasses.length})</span>
+                  Class League Table ({filteredClasses.length})
                 </button>
               )}
 
-              {/* Class Broadsheet / Subject Marksheet Tab (Primary for teachers) */}
+              {/* Class Broadsheet (Primary for Class Teachers) */}
               {analysis?.selectedClassDetail && (
                 <button
                   type="button"
+                  role="tab"
+                  id="tab-drilldown"
+                  aria-selected={activeTab === 'DRILLDOWN'}
+                  aria-controls="panel-drilldown"
                   onClick={() => setActiveTab('DRILLDOWN')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                  className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
                     activeTab === 'DRILLDOWN'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                      ? 'text-sky-600 dark:text-sky-400 border-b-2 border-sky-600 dark:border-sky-400'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
-                  <Search className="w-3.5 h-3.5" />
-                  <span>
-                    {analysis.selectedClassDetail.isClassTeacherScope
-                      ? `Class Broadsheet: ${analysis.selectedClassDetail.className}`
-                      : `Allocated Subject Marksheet: ${analysis.selectedClassDetail.className}`}
-                  </span>
+                  Class Broadsheet: {analysis.selectedClassDetail.className} ({analysis.selectedClassDetail.students?.length || 0})
                 </button>
               )}
 
+              {/* Subject Breakdown in Class */}
               <button
                 type="button"
+                role="tab"
+                id="tab-subjects"
+                aria-selected={activeTab === 'SUBJECTS'}
+                aria-controls="panel-subjects"
                 onClick={() => setActiveTab('SUBJECTS')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
                   activeTab === 'SUBJECTS'
-                    ? 'bg-sky-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                    ? 'text-sky-600 dark:text-sky-400 border-b-2 border-sky-600 dark:border-sky-400'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>
-                  {!userScope || userScope.isLeadership
-                    ? `Subject Department Matrix (${filteredSubjects.length})`
-                    : `Subject Matrix (${filteredSubjects.length})`}
-                </span>
+                Subject Performance ({filteredSubjects.length})
               </button>
 
+              {/* Class Merit List */}
               <button
                 type="button"
+                role="tab"
+                id="tab-honor-roll"
+                aria-selected={activeTab === 'HONOR_ROLL'}
+                aria-controls="panel-honor-roll"
                 onClick={() => setActiveTab('HONOR_ROLL')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer ${
                   activeTab === 'HONOR_ROLL'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                    ? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                <Star className="w-3.5 h-3.5" />
-                <span>
-                  {!userScope || userScope.isLeadership
-                    ? `Top Achievers Honor Roll (${filteredHonorRoll.length})`
-                    : `Class Merit List (${filteredHonorRoll.length})`}
-                </span>
+                Merit List ({filteredHonorRoll.length})
               </button>
 
+              {/* Remedial Watchlist */}
               <button
                 type="button"
+                role="tab"
+                id="tab-remedial"
+                aria-selected={activeTab === 'REMEDIAL'}
+                aria-controls="panel-remedial"
                 onClick={() => setActiveTab('REMEDIAL')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all shrink-0 whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-3 text-xs font-bold transition-all relative shrink-0 cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'REMEDIAL'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#142647] border border-slate-200 dark:border-[#162b4d]'
+                    ? 'text-rose-600 dark:text-rose-400 border-b-2 border-rose-600 dark:border-rose-400'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>
-                  {!userScope || userScope.isLeadership
-                    ? `Remedial Watchlist (${filteredRemedial.length})`
-                    : `Class Remedial Watchlist (${filteredRemedial.length})`}
+                <span>Remedial Watchlist</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                  filteredRemedial.length > 0
+                    ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                  {filteredRemedial.length}
                 </span>
               </button>
             </div>
 
-            {/* Row 2: Search Input & Grade Tier Filter */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-[#162b4d] pb-3.5">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={
-                    !userScope || userScope.isLeadership
-                      ? "Search learners, classes, or subjects..."
-                      : "Search learners or subjects in this class..."
-                  }
-                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-xs"
-                />
-              </div>
-
-              {/* Tier Filters: Only for Leadership */}
-              {(!userScope || userScope.isLeadership) && (
-                <div className="flex items-center overflow-x-auto bg-slate-100 dark:bg-[#0c1932] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d] text-[11px] font-bold shrink-0">
-                  {(['ALL', 'PP', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'] as TierFilter[]).map((tier) => (
-                    <button
-                      key={tier}
-                      type="button"
-                      onClick={() => setTierFilter(tier)}
-                      className={`px-3 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-                        tierFilter === tier
-                          ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      {tier === 'ALL' ? 'All Classes' : tier === 'PP' ? 'Pre-Primary' : tier === 'LOWER_PRIMARY' ? 'Lower (G1-3)' : tier === 'UPPER_PRIMARY' ? 'Upper (G4-6)' : 'Junior (G7-9)'}
-                    </button>
-                  ))}
-                </div>
-              )}
+            {/* Quick search input */}
+            <div className="relative w-48 sm:w-64 pb-2">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  !userScope || userScope.isLeadership
+                    ? "Search learners or subjects..."
+                    : `Search ${currentClassName || 'class'} learners...`
+                }
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-[#0c1932] border border-slate-200 dark:border-[#162b4d] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-xs"
+              />
             </div>
+          </div>
 
-            {/* TAB CONTENT PANELS */}
-            {/* 1. CLASS LEAGUE TABLE */}
-            {activeTab === 'CLASSES' && (
-              <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-glass dark:shadow-none">
-                <div className="p-4 border-b border-sky-50 dark:border-[#162b4d] flex items-center justify-between bg-sky-50/40 dark:bg-[#0c1932]/40">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
-                      Cross-Class Comparative League Table
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Ranks all streams by class mean score with CBC performance distributions
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-100/70 dark:bg-sky-950/70 px-2.5 py-1 rounded-xl">
-                    {filteredClasses.length} Streams Evaluated
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
-                  <table className="w-full text-left text-xs min-w-[950px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
+          {/* 4. Tab Panels */}
+          {/* TAB 1: CLASS LEAGUE TABLE (Leadership Only) */}
+          {(!userScope || userScope.isLeadership) && (
+            <div
+              role="tabpanel"
+              id="panel-classes"
+              aria-labelledby="tab-classes"
+              tabIndex={0}
+              hidden={activeTab !== 'CLASSES'}
+              className="space-y-4 focus:outline-none"
+            >
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Class league table"
+                className="table-wrapper overflow-x-auto rounded-2xl border border-sky-100 dark:border-[#162b4d] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+              >
+                <table className="w-full text-left text-xs min-w-[950px] border-collapse">
+                  <thead>
+                    <tr className="sticky top-0 z-10 border-b border-sky-100 dark:border-[#162b4d] bg-slate-50/95 dark:bg-[#0c1932]/95 backdrop-blur-md text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th scope="col" className="p-3.5 text-center">Rank</th>
+                      <th scope="col" className="p-3.5">Class & Stream</th>
+                      <th scope="col" className="p-3.5">Class Teacher</th>
+                      <th scope="col" className="p-3.5 text-center">Candidacy</th>
+                      <th scope="col" className="p-3.5 text-center">Class Mean</th>
+                      <th scope="col" className="p-3.5">CBC Spread (EE / ME / AE / BE)</th>
+                      <th scope="col" className="p-3.5">Top Learner in Class</th>
+                      <th scope="col" className="p-3.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
+                    {filteredClasses.length === 0 ? (
                       <tr>
-                        <th className="py-3 px-4 text-center">Rank</th>
-                        <th className="py-3 px-4">Class & Stream</th>
-                        <th className="py-3 px-4">Class Teacher</th>
-                        <th className="py-3 px-4 text-center">Candidacy</th>
-                        <th className="py-3 px-4 text-center">Class Mean</th>
-                        <th className="py-3 px-4">CBC Spread (EE / ME / AE / BE)</th>
-                        <th className="py-3 px-4">Top Learner in Class</th>
-                        <th className="py-3 px-4 text-center">Action</th>
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
+                          No class performance records match your filter
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
-                      {filteredClasses.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-400">
-                            No class performance records match your filter
+                    ) : (
+                      filteredClasses.map((cls: any) => (
+                        <tr key={cls.classId} className="hover:bg-sky-50/30 dark:hover:bg-[#0c1932]/60 transition-colors">
+                          <td className="p-3.5 text-center font-mono font-bold">
+                            #{cls.rank}
                           </td>
-                        </tr>
-                      ) : (
-                        filteredClasses.map((cls: any) => (
-                          <tr key={cls.classId} className="hover:bg-sky-50/30 dark:hover:bg-[#0c1932]/60 transition-colors">
-                            <td className="py-3.5 px-4 text-center">
-                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-black text-xs ${
-                                cls.rank === 1
-                                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
-                                  : cls.rank === 2
-                                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
-                                  : cls.rank === 3
-                                  ? 'bg-amber-700/10 text-amber-900 dark:text-amber-400 border border-amber-600/30'
-                                  : 'text-slate-500'
-                              }`}>
-                                {cls.rank}
+                          <th scope="row" className="p-3.5 font-bold text-slate-900 dark:text-slate-100">
+                            <div>{cls.className}</div>
+                            <span className="text-[10px] text-slate-400 uppercase font-semibold">
+                              {cls.isJunior ? 'Junior Secondary' : 'Primary'}
+                            </span>
+                          </th>
+                          <td className="p-3.5 text-slate-700 dark:text-slate-300">
+                            {cls.classTeacher}
+                          </td>
+                          <td className="p-3.5 text-center font-mono">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">{cls.testedCount}</span>
+                            <span className="text-slate-400">/{cls.enrolledCount}</span>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <span className="text-sm font-black font-mono text-sky-700 dark:text-sky-300">
+                              {cls.classAverage > 0 ? `${cls.classAverage}%` : '—'}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold">
+                                {cls.rubric?.EE ?? 0} EE
                               </span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-black text-slate-900 dark:text-slate-100">{cls.className}</div>
-                              <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                                {cls.isJunior ? 'Junior Secondary' : 'Primary'}
+                              <span className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-bold">
+                                {cls.rubric?.ME ?? 0} ME
                               </span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className="text-slate-700 dark:text-slate-300 font-semibold">{cls.classTeacher}</span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono">
-                              <span className="font-bold text-slate-900 dark:text-slate-100">{cls.testedCount}</span>
-                              <span className="text-slate-400">/{cls.enrolledCount}</span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className="text-sm font-black font-mono text-sky-700 dark:text-sky-300">
-                                {cls.classAverage > 0 ? `${cls.classAverage}%` : '—'}
+                              <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
+                                {cls.rubric?.AE ?? 0} AE
                               </span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-1.5 text-[10px] font-mono">
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold" title="EE count">
-                                  {cls.rubric?.EE ?? 0} EE
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-bold" title="ME count">
-                                  {cls.rubric?.ME ?? 0} ME
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold" title="AE count">
-                                  {cls.rubric?.AE ?? 0} AE
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold" title="BE count">
-                                  {cls.rubric?.BE ?? 0} BE
+                              <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold">
+                                {cls.rubric?.BE ?? 0} BE
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            {cls.topStudent ? (
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-900 dark:text-slate-100">{cls.topStudent.name}</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold ml-1.5">
+                                  {cls.topStudent.average}%
                                 </span>
                               </div>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              {cls.topStudent ? (
-                                <div className="text-xs">
-                                  <span className="font-bold text-slate-900 dark:text-slate-100">{cls.topStudent.name}</span>
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold ml-1.5">
-                                    {cls.topStudent.average}%
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <button
-                                type="button"
-                                onClick={() => fetchClassDrilldown(cls.classId)}
-                                disabled={Boolean(loadingClassId)}
-                                className={`px-2.5 py-1.5 rounded-lg border font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
-                                  loadingClassId === cls.classId
-                                    ? 'border-sky-300 dark:border-sky-700 bg-sky-100 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 cursor-wait'
-                                    : loadingClassId
-                                    ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-[#162b4d] bg-slate-100 dark:bg-[#0c1932] text-slate-400'
-                                    : 'border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300'
-                                }`}
-                              >
-                                {loadingClassId === cls.classId ? (
-                                  <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" />
-                                    <span>Fetching...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>Marksheet</span>
-                                    <ChevronRight className="w-3 h-3 text-sky-500" />
-                                  </>
-                                )}
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* 2. SUBJECT DEPARTMENT MATRIX */}
-            {activeTab === 'SUBJECTS' && (
-              <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-glass dark:shadow-none">
-                <div className="p-4 border-b border-sky-50 dark:border-[#162b4d] flex items-center justify-between bg-sky-50/40 dark:bg-[#0c1932]/40">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
-                      Subject Department Performance Matrix
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Evaluates learning area averages, performance variance vs school target (70%), and CBC spread
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-100/70 dark:bg-sky-950/70 px-2.5 py-1 rounded-xl">
-                    {filteredSubjects.length} Learning Areas
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
-                  <table className="w-full text-left text-xs min-w-[980px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
-                      <tr>
-                        <th className="py-3 px-4">Subject Code & Name</th>
-                        <th className="py-3 px-4">Category</th>
-                        <th className="py-3 px-4 text-center">Assessed</th>
-                        <th className="py-3 px-4 text-center">Mean Score</th>
-                        <th className="py-3 px-4 text-center">Target (70%)</th>
-                        <th className="py-3 px-4 text-center">Highest / Lowest</th>
-                        <th className="py-3 px-4">CBC Rubric Breakdown</th>
-                        <th className="py-3 px-4 text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
-                      {filteredSubjects.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-400">
-                            No subject data matches your filter
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => fetchClassDrilldown(cls.classId)}
+                              disabled={Boolean(loadingClassId)}
+                              className="px-2.5 py-1.5 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 text-sky-700 dark:text-sky-300 font-bold text-xs inline-flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                            >
+                              <span>Broadsheet</span>
+                              <ChevronRight className="w-3 h-3 text-sky-500" />
+                            </button>
                           </td>
                         </tr>
-                      ) : (
-                        filteredSubjects.map((sub: any) => (
-                          <tr key={sub.subjectId} className="hover:bg-sky-50/30 dark:hover:bg-[#0c1932]/60 transition-colors">
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span className="font-bold text-slate-900 dark:text-slate-100">{sub.subjectName}</span>
-                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
-                                {sub.subjectCode}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <span className="text-[11px] text-slate-500 uppercase font-semibold">
-                                {sub.isJunior ? 'Junior Secondary' : 'Primary'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold whitespace-nowrap">
-                              {sub.testedCount}
-                            </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              <span className="text-sm font-black font-mono text-sky-700 dark:text-sky-300">
-                                {sub.averageScore > 0 ? `${sub.averageScore}%` : '—'}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-xs whitespace-nowrap">
-                              {sub.variance >= 0 ? (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{sub.variance}% ▲</span>
-                              ) : (
-                                <span className="text-rose-600 dark:text-rose-400 font-bold">{sub.variance}% ▼</span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono text-xs whitespace-nowrap">
-                              <span className="text-emerald-600 font-bold">{sub.highestScore}%</span>
-                              <span className="text-slate-400 mx-1">/</span>
-                              <span className="text-rose-600 font-bold">{sub.lowestScore}%</span>
-                            </td>
-                            <td className="py-3.5 px-4 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5 text-[10px] font-mono">
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold">
-                                  {sub.rubric?.EE ?? 0} EE
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-bold">
-                                  {sub.rubric?.ME ?? 0} ME
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
-                                  {sub.rubric?.AE ?? 0} AE
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold">
-                                  {sub.rubric?.BE ?? 0} BE
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                sub.status === 'DISTINCTION'
-                                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                                  : sub.status === 'ON_TRACK'
-                                  ? 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-700'
-                                  : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
-                              }`}>
-                                {sub.status.replace('_', ' ')}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* 3. TOP ACHIEVERS HONOR ROLL (MERIT LIST) */}
-            {activeTab === 'HONOR_ROLL' && (
-              <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-glass dark:shadow-none">
-                <div className="p-4 border-b border-sky-50 dark:border-[#162b4d] flex items-center justify-between bg-amber-50/40 dark:bg-[#1a1506]/40">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                      Schoolwide Academic Merit List (Top 25)
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Top ranking learners across all classes evaluated in this exam series
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleExportBroadsheetCSV}
-                    className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export Merit List</span>
-                  </button>
-                </div>
+          {/* TAB 2: CLASS BROADSHEET (Full Multi-Subject Matrix) */}
+          {analysis?.selectedClassDetail && (
+            <div
+              role="tabpanel"
+              id="panel-drilldown"
+              aria-labelledby="tab-drilldown"
+              tabIndex={0}
+              hidden={activeTab !== 'DRILLDOWN'}
+              className="space-y-4 focus:outline-none"
+            >
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Class broadsheet table"
+                className="table-wrapper overflow-x-auto rounded-2xl border border-sky-100 dark:border-[#162b4d] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+              >
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="sticky top-0 z-10 border-b border-sky-100 dark:border-[#162b4d] bg-slate-50/95 dark:bg-[#0c1932]/95 backdrop-blur-md text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th scope="col" className="p-3.5 w-16 text-center">Rank</th>
+                      <th scope="col" className="p-3.5 w-36">Assessment No</th>
+                      <th scope="col" className="p-3.5 sticky left-0 z-20 bg-slate-50 dark:bg-[#0c1932]">Learner Name</th>
+                      {broadsheetSubjects.map((sub: any) => (
+                        <th key={sub.id} scope="col" className="p-3.5 text-center min-w-[70px]">
+                          {sub.code}
+                        </th>
+                      ))}
+                      <th scope="col" className="p-3.5 text-right w-24">Total</th>
+                      <th scope="col" className="p-3.5 text-right w-24">Average</th>
+                      <th scope="col" className="p-3.5 text-center w-28">Proficiency</th>
+                      <th scope="col" className="p-3.5 text-center w-28">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]">
+                    {filteredClassStudents.map((student: any) => {
+                      const isTop = student.rank === 1;
+                      const isLast = student.rank === filteredClassStudents.length;
 
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
-                  <table className="w-full text-left text-xs min-w-[850px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
-                      <tr>
-                        <th className="py-3 px-4 text-center">Rank</th>
-                        <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-4">Assessment No</th>
-                        <th className="py-3 px-4">Class</th>
-                        <th className="py-3 px-4 text-center">Subjects</th>
-                        <th className="py-3 px-4">Top Subject</th>
-                        <th className="py-3 px-4 text-center">Mean Score</th>
-                        <th className="py-3 px-4 text-center">Proficiency</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
-                      {filteredHonorRoll.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-400">
-                            No learner scores recorded for this exam
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredHonorRoll.map((student: any) => (
-                          <tr key={student.studentId} className="hover:bg-amber-50/20 dark:hover:bg-[#142647]/50 transition-colors">
-                            <td className="py-3.5 px-4 text-center">
-                              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black text-xs ${
-                                student.rank === 1
-                                  ? 'bg-amber-400 text-amber-950 shadow-sm'
-                                  : student.rank === 2
-                                  ? 'bg-slate-300 text-slate-900 shadow-sm'
-                                  : student.rank === 3
-                                  ? 'bg-amber-700 text-white shadow-sm'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                              }`}>
-                                {student.rank}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className="font-black text-slate-900 dark:text-slate-100">{student.studentName}</span>
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
-                              {student.assessmentNumber || student.admissionNumber || '—'}
-                            </td>
-                            <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                              {student.className}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono">
-                              {student.subjectsCount}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{student.topSubject || '—'}</span>
-                              {student.topScore > 0 && (
-                                <span className="ml-1 text-[11px] font-mono font-bold text-emerald-600">({student.topScore}%)</span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className="text-sm font-black font-mono text-emerald-700 dark:text-emerald-300">
-                                {student.averageScore}%
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                                {student.proficiencyLevel}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* 4. ACADEMIC INTERVENTION & REMEDIAL WATCHLIST */}
-            {activeTab === 'REMEDIAL' && (
-              <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-glass dark:shadow-none">
-                <div className="p-4 border-b border-sky-50 dark:border-[#162b4d] flex items-center justify-between bg-rose-50/40 dark:bg-[#1a080c]/40">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-rose-500" />
-                      Academic Intervention & Remedial Watchlist
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Learners scoring Below Expectations (&lt;50%) in one or more subjects requiring teacher support
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleExportRemedialCSV}
-                    className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-800 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export Remedial Registry</span>
-                  </button>
-                </div>
-
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
-                  <table className="w-full text-left text-xs min-w-[980px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
-                      <tr>
-                        <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-4">Assessment No</th>
-                        <th className="py-3 px-4">Class</th>
-                        <th className="py-3 px-4">Class Teacher</th>
-                        <th className="py-3 px-4 text-center">Failing Subjects</th>
-                        <th className="py-3 px-4">Critical Learning Areas</th>
-                        <th className="py-3 px-4 text-center">Overall Mean</th>
-                        <th className="py-3 px-4 text-center">Risk Level</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
-                      {filteredRemedial.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-400">
-                            Outstanding performance! No learners currently flagged for remedial intervention.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredRemedial.map((student: any) => (
-                          <tr key={student.studentId} className="hover:bg-rose-50/20 dark:hover:bg-[#142647]/50 transition-colors">
-                            <td className="py-3.5 px-4 font-black text-slate-900 dark:text-slate-100">
-                              {student.studentName}
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
-                              {student.assessmentNumber || student.admissionNumber || '—'}
-                            </td>
-                            <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                              {student.className}
-                            </td>
-                            <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                              {student.classTeacher}
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-rose-600">
-                              {student.failingCount}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="flex flex-wrap gap-1">
-                                {student.failingSubjects.map((sub: any, i: number) => (
-                                  <span key={i} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold">
-                                    {sub.subjectName} ({sub.marksObtained}%)
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-800 dark:text-slate-200">
-                              {student.overallAverage}%
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                student.riskLevel === 'HIGH'
-                                  ? 'bg-rose-600 text-white'
-                                  : student.riskLevel === 'MEDIUM'
-                                  ? 'bg-amber-500 text-white'
-                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
-                              }`}>
-                                {student.riskLevel}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* 5. CLASS MARKSHEET DRILL-DOWN */}
-            {activeTab === 'DRILLDOWN' && analysis?.selectedClassDetail && (
-              <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-glass dark:shadow-none">
-                <div className="p-4 border-b border-sky-50 dark:border-[#162b4d] flex items-center justify-between bg-indigo-50/40 dark:bg-[#0c1228]/40">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4 text-indigo-600" />
-                      {analysis.selectedClassDetail.isClassTeacherScope
-                        ? `Class Broadsheet: ${analysis.selectedClassDetail.className}`
-                        : `Allocated Subject Performance: ${analysis.selectedClassDetail.className}`}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {analysis.selectedClassDetail.isClassTeacherScope
-                        ? 'Full multi-subject examination broadsheet for your assigned class stream · Click "View Subjects" or any row to open performance slide drawer'
-                        : 'Restricted examination marksheet for your allocated teaching areas · Learning areas outside your teaching allocation are filtered'}
-                    </p>
-                  </div>
-                  {(!userScope || userScope.isLeadership) && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('CLASSES')}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1932] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer"
-                    >
-                      Back to League Table
-                    </button>
-                  )}
-                </div>
-
-                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d] pb-2">
-                  <table className="w-full text-left text-xs min-w-[850px]">
-                    <thead className="bg-slate-50 dark:bg-[#0c1932] border-b border-slate-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap">
-                      <tr>
-                        <th className="py-3 px-4 text-center">Rank</th>
-                        <th className="py-3 px-4">Learner Name</th>
-                        <th className="py-3 px-4">Assessment No</th>
-                        <th className="py-3 px-4">Subject Performance</th>
-                        <th className="py-3 px-4 text-center">Total Marks</th>
-                        <th className="py-3 px-4 text-center">Average (%)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
-                      {analysis.selectedClassDetail.students?.map((student: any) => (
+                      return (
                         <tr
                           key={student.studentId}
                           onClick={() => setSelectedStudentForDrawer({
@@ -1351,18 +1039,71 @@ export const SchoolResultsView: React.FC = () => {
                             className: analysis.selectedClassDetail.className,
                             isJunior: analysis.selectedClassDetail.isJunior,
                           })}
-                          className="hover:bg-indigo-50/30 dark:hover:bg-[#142647]/50 transition-colors cursor-pointer group"
+                          className={`hover:bg-sky-50/50 dark:hover:bg-[#0e2040]/50 transition-colors cursor-pointer group ${
+                            isTop ? 'bg-amber-50/30 dark:bg-amber-950/20' : isLast ? 'bg-rose-50/20 dark:bg-rose-950/20' : ''
+                          }`}
                         >
-                          <td className="py-3.5 px-4 text-center font-bold font-mono">
-                            #{student.rank}
+                          <td className="p-3.5 text-center font-mono font-bold">
+                            {isTop ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-black text-[10px]">
+                                #1
+                              </span>
+                            ) : isLast ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[10px]">
+                                #{student.rank}
+                              </span>
+                            ) : (
+                              `#${student.rank}`
+                            )}
                           </td>
-                          <td className="py-3.5 px-4 font-black text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                            {student.studentName}
-                          </td>
-                          <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
+                          <td className="p-3.5 font-mono text-slate-600 dark:text-slate-400">
                             {student.assessmentNumber || student.admissionNumber || '—'}
                           </td>
-                          <td className="py-3.5 px-4">
+                          <th scope="row" className="p-3.5 font-bold text-slate-900 dark:text-slate-100 sticky left-0 z-10 bg-white/95 dark:bg-[#091326]/95 group-hover:bg-sky-50/95 dark:group-hover:bg-[#0e2040]/95 transition-colors whitespace-nowrap">
+                            {student.studentName}
+                          </th>
+                          {broadsheetSubjects.map((sub: any) => {
+                            const subScore = student.subjects?.find((s: any) => s.subjectId === sub.id);
+                            if (!subScore) return <td key={sub.id} className="p-3.5 text-center text-slate-400 font-mono">—</td>;
+                            const scoreVal = subScore.score;
+                            const rub = subScore.rubric;
+                            const isFailing = scoreVal < 50 || rub === 'BE';
+                            return (
+                              <td key={sub.id} className="p-3.5 text-center font-mono">
+                                <span className={`font-bold ${isFailing ? 'text-rose-600 dark:text-rose-400' : scoreVal >= 75 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                                  {scoreVal}
+                                </span>
+                                <span className={`ml-1 text-[9px] px-1 py-0.2 rounded font-mono ${
+                                  rub === 'EE' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                                  rub === 'ME' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' :
+                                  rub === 'AE' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                                  'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                                }`}>
+                                  {rub}
+                                </span>
+                              </td>
+                            );
+                          })}
+                          <td className="p-3.5 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                            {student.totalMarks}
+                          </td>
+                          <td className="p-3.5 text-right font-mono font-black text-sm text-sky-700 dark:text-sky-300">
+                            {student.average}%
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              student.average >= 75
+                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                : student.average >= 50
+                                ? 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                                : student.average >= 40
+                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                            }`}>
+                              {student.average >= 75 ? 'EE' : student.average >= 50 ? 'ME' : student.average >= 40 ? 'AE' : 'BE'}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-center">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1373,26 +1114,294 @@ export const SchoolResultsView: React.FC = () => {
                                   isJunior: analysis.selectedClassDetail.isJunior,
                                 });
                               }}
-                              className="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer group/btn"
+                              className="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 text-sky-700 dark:text-sky-300 text-xs font-bold transition-all shadow-xs cursor-pointer"
                             >
-                              <BookOpen className="w-3.5 h-3.5 text-sky-500 group-hover/btn:scale-110 transition-transform" />
-                              <span>View {student.subjects?.length ?? 0} {student.subjects?.length === 1 ? 'Subject' : 'Subjects'}</span>
-                              <ChevronRight className="w-3 h-3 text-sky-400 group-hover/btn:translate-x-0.5 transition-transform" />
+                              Slide View
                             </button>
                           </td>
-                          <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
-                            {student.totalMarks}
-                          </td>
-                          <td className="py-3.5 px-4 text-center font-mono font-black text-sky-700 dark:text-sky-300">
-                            {student.average}%
-                          </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* TAB 3: SUBJECT BREAKDOWN IN CLASS */}
+          <div
+            role="tabpanel"
+            id="panel-subjects"
+            aria-labelledby="tab-subjects"
+            tabIndex={0}
+            hidden={activeTab !== 'SUBJECTS'}
+            className="space-y-4 focus:outline-none"
+          >
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Subject performance matrix table"
+              className="table-wrapper overflow-x-auto rounded-2xl border border-sky-100 dark:border-[#162b4d] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+            >
+              <table className="w-full text-left text-xs min-w-[980px] border-collapse">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-sky-100 dark:border-[#162b4d] bg-slate-50/95 dark:bg-[#0c1932]/95 backdrop-blur-md text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th scope="col" className="p-3.5">Subject Code & Name</th>
+                    <th scope="col" className="p-3.5 text-center">Assessed</th>
+                    <th scope="col" className="p-3.5 text-center">Mean Score</th>
+                    <th scope="col" className="p-3.5 text-center">Target (70%)</th>
+                    <th scope="col" className="p-3.5 text-center">Highest / Lowest</th>
+                    <th scope="col" className="p-3.5">CBC Rubric Breakdown</th>
+                    <th scope="col" className="p-3.5 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
+                  {filteredSubjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-400">
+                        No subject data matches your filter
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSubjects.map((sub: any) => (
+                      <tr key={sub.subjectId} className="hover:bg-sky-50/30 dark:hover:bg-[#0c1932]/60 transition-colors">
+                        <th scope="row" className="p-3.5 whitespace-nowrap font-bold text-slate-900 dark:text-slate-100">
+                          <span>{sub.subjectName}</span>
+                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
+                            {sub.subjectCode}
+                          </span>
+                        </th>
+                        <td className="p-3.5 text-center font-mono font-bold whitespace-nowrap">
+                          {sub.testedCount}
+                        </td>
+                        <td className="p-3.5 text-center whitespace-nowrap">
+                          <span className="text-sm font-black font-mono text-sky-700 dark:text-sky-300">
+                            {sub.averageScore > 0 ? `${sub.averageScore}%` : '—'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center font-mono text-xs whitespace-nowrap">
+                          {sub.variance >= 0 ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{sub.variance}% ▲</span>
+                          ) : (
+                            <span className="text-rose-600 dark:text-rose-400 font-bold">{sub.variance}% ▼</span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-center font-mono text-xs whitespace-nowrap">
+                          <span className="text-emerald-600 font-bold">{sub.highestScore}%</span>
+                          <span className="text-slate-400 mx-1">/</span>
+                          <span className="text-rose-600 font-bold">{sub.lowestScore}%</span>
+                        </td>
+                        <td className="p-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold">
+                              {sub.rubric?.EE ?? 0} EE
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-bold">
+                              {sub.rubric?.ME ?? 0} ME
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-bold">
+                              {sub.rubric?.AE ?? 0} AE
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold">
+                              {sub.rubric?.BE ?? 0} BE
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-center whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            sub.status === 'DISTINCTION'
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                              : sub.status === 'ON_TRACK'
+                              ? 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-700'
+                              : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                          }`}>
+                            {sub.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* TAB 4: MERIT LIST (Honor Roll) */}
+          <div
+            role="tabpanel"
+            id="panel-honor-roll"
+            aria-labelledby="tab-honor-roll"
+            tabIndex={0}
+            hidden={activeTab !== 'HONOR_ROLL'}
+            className="space-y-4 focus:outline-none"
+          >
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Merit list table"
+              className="table-wrapper overflow-x-auto rounded-2xl border border-amber-100 dark:border-[#2d2208] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+            >
+              <table className="w-full text-left text-xs min-w-[850px] border-collapse">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-amber-100 dark:border-[#2d2208] bg-amber-50/90 dark:bg-[#1a1306] text-[11px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    <th scope="col" className="p-3.5 text-center">Rank</th>
+                    <th scope="col" className="p-3.5">Learner Name</th>
+                    <th scope="col" className="p-3.5">Assessment No</th>
+                    <th scope="col" className="p-3.5">Class</th>
+                    <th scope="col" className="p-3.5 text-center">Subjects</th>
+                    <th scope="col" className="p-3.5">Top Subject</th>
+                    <th scope="col" className="p-3.5 text-center">Mean Score</th>
+                    <th scope="col" className="p-3.5 text-center">Proficiency</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
+                  {filteredHonorRoll.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400">
+                        No learner scores recorded for this exam
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredHonorRoll.map((student: any) => (
+                      <tr key={student.studentId} className="hover:bg-amber-50/20 dark:hover:bg-[#142647]/50 transition-colors">
+                        <td className="p-3.5 text-center font-mono font-bold">
+                          <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-black text-xs ${
+                            student.rank === 1
+                              ? 'bg-amber-400 text-amber-950 shadow-xs'
+                              : student.rank === 2
+                              ? 'bg-slate-300 text-slate-900 shadow-xs'
+                              : student.rank === 3
+                              ? 'bg-amber-700 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {student.rank}
+                          </span>
+                        </td>
+                        <th scope="row" className="p-3.5 font-black text-slate-900 dark:text-slate-100">
+                          {student.studentName}
+                        </th>
+                        <td className="p-3.5 font-mono text-slate-500 dark:text-slate-400">
+                          {student.assessmentNumber || student.admissionNumber || '—'}
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-800 dark:text-slate-200">
+                          {student.className}
+                        </td>
+                        <td className="p-3.5 text-center font-mono">
+                          {student.subjectsCount}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{student.topSubject || '—'}</span>
+                          {student.topScore > 0 && (
+                            <span className="ml-1 text-[11px] font-mono font-bold text-emerald-600">({student.topScore}%)</span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className="text-sm font-black font-mono text-emerald-700 dark:text-emerald-300">
+                            {student.averageScore}%
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                            {student.proficiencyLevel}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* TAB 5: REMEDIAL WATCHLIST */}
+          <div
+            role="tabpanel"
+            id="panel-remedial"
+            aria-labelledby="tab-remedial"
+            tabIndex={0}
+            hidden={activeTab !== 'REMEDIAL'}
+            className="space-y-4 focus:outline-none"
+          >
+            <div className="bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 p-4 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-black text-rose-900 dark:text-rose-300">
+                  Targeted Academic Remedial Intervention Registry
+                </h4>
+                <p className="text-[11px] text-rose-800/80 dark:text-rose-400/80 mt-0.5">
+                  The following learners scored below 50% or were assessed as Below Expectations in specific subjects. Coordinate with respective subject teachers to deliver targeted remedial homework and support sessions.
+                </p>
+              </div>
+            </div>
+
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Remedial intervention table"
+              className="table-wrapper overflow-x-auto rounded-2xl border border-rose-100 dark:border-[#2d1217] bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md shadow-glass dark:shadow-none"
+            >
+              <table className="w-full text-left text-xs min-w-[980px] border-collapse">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-rose-100 dark:border-[#2d1217] bg-rose-50/90 dark:bg-[#1a0a0f] text-[11px] font-black uppercase tracking-wider text-rose-900 dark:text-rose-300">
+                    <th scope="col" className="p-3.5">Learner Name</th>
+                    <th scope="col" className="p-3.5">Assessment No</th>
+                    <th scope="col" className="p-3.5">Class</th>
+                    <th scope="col" className="p-3.5 text-center">Failing Subjects</th>
+                    <th scope="col" className="p-3.5">Critical Learning Areas & Scores</th>
+                    <th scope="col" className="p-3.5 text-center">Overall Mean</th>
+                    <th scope="col" className="p-3.5 text-center">Risk Level</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium text-slate-700 dark:text-slate-300">
+                  {filteredRemedial.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-emerald-600 dark:text-emerald-400 font-bold">
+                        <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-80" />
+                        Outstanding! No learners in this stream currently scoring below expectations.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRemedial.map((student: any) => (
+                      <tr key={student.studentId} className="hover:bg-rose-50/20 dark:hover:bg-[#142647]/50 transition-colors">
+                        <th scope="row" className="p-3.5 font-black text-slate-900 dark:text-slate-100">
+                          {student.studentName}
+                        </th>
+                        <td className="p-3.5 font-mono text-slate-500 dark:text-slate-400">
+                          {student.assessmentNumber || student.admissionNumber || '—'}
+                        </td>
+                        <td className="p-3.5 font-semibold text-slate-800 dark:text-slate-200">
+                          {student.className}
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold text-rose-600">
+                          {student.failingCount}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {student.failingSubjects.map((sub: any, i: number) => (
+                              <span key={i} className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-900">
+                                {sub.subjectName} ({sub.marksObtained}%)
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-center font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {student.overallAverage}%
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            student.riskLevel === 'HIGH'
+                              ? 'bg-rose-600 text-white'
+                              : 'bg-amber-500 text-white'
+                          }`}>
+                            {student.riskLevel}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -1429,7 +1438,6 @@ export const SchoolResultsView: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       {/* Learner Identity & Avatar */}
                       <div className="flex items-center gap-3.5 min-w-0">
-                        {/* Avatar with rank medal ring */}
                         <div className="relative shrink-0">
                           <div
                             className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shadow-sm ${
@@ -1465,7 +1473,6 @@ export const SchoolResultsView: React.FC = () => {
                           </div>
 
                           <div id="learner-drawer-desc" className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2 mt-1">
-                            {/* Copyable Assessment Number */}
                             <button
                               type="button"
                               onClick={() => handleCopyAssessmentNumber(selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '')}
@@ -1482,7 +1489,6 @@ export const SchoolResultsView: React.FC = () => {
 
                             <span>•</span>
 
-                            {/* Standing Rubric Badge */}
                             <span
                               className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${
                                 selectedStudentForDrawer.average >= 75
@@ -1506,9 +1512,8 @@ export const SchoolResultsView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Header Actions: Student Navigator, Print Slip, and Close */}
+                      {/* Header Actions */}
                       <div className="flex items-center gap-2 self-end sm:self-center">
-                        {/* Student Next/Prev Navigator */}
                         {classStudents.length > 1 && (
                           <div className="flex items-center bg-slate-100 dark:bg-[#0f1d37] p-1 rounded-xl border border-slate-200 dark:border-[#162b4d]">
                             <button
@@ -1516,7 +1521,7 @@ export const SchoolResultsView: React.FC = () => {
                               onClick={handlePrevStudent}
                               disabled={currentStudentIndex <= 0}
                               className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-[#1a335a] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              title="Previous Student in Class (ArrowLeft)"
+                              title="Previous Student (ArrowLeft)"
                             >
                               <ChevronLeft className="w-4 h-4" />
                             </button>
@@ -1528,25 +1533,23 @@ export const SchoolResultsView: React.FC = () => {
                               onClick={handleNextStudent}
                               disabled={currentStudentIndex >= classStudents.length - 1}
                               className="p-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-[#1a335a] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                              title="Next Student in Class (ArrowRight)"
+                              title="Next Student (ArrowRight)"
                             >
                               <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
                         )}
 
-                        {/* Print Individual Learner Mark Slip */}
                         <button
                           type="button"
                           onClick={handlePrintStudentSlip}
                           className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0f1d37] hover:bg-slate-100 dark:hover:bg-[#1a335a] text-slate-700 dark:text-slate-300 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                          title="Print Official Learner Assessment Mark Slip"
+                          title="Print Assessment Mark Slip"
                         >
                           <Printer className="w-3.5 h-3.5 text-slate-500" />
                           <span className="hidden sm:inline">Print Slip</span>
                         </button>
 
-                        {/* Close Drawer Button */}
                         <button
                           type="button"
                           onClick={() => setSelectedStudentForDrawer(null)}
@@ -1561,9 +1564,8 @@ export const SchoolResultsView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Compact Metric Summary Bar (No large cards) */}
+                    {/* Compact Metric Summary Bar */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-[#162b4d] border-t border-slate-200 dark:border-[#162b4d] pt-3 mt-1">
-                      {/* 1. Class Standing */}
                       <div className="sm:pr-4 py-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class Standing</span>
                         <div className="flex items-baseline gap-1 mt-0.5">
@@ -1574,7 +1576,6 @@ export const SchoolResultsView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* 2. Mean Average */}
                       <div className="sm:px-4 py-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mean Average</span>
                         <div className="flex items-baseline gap-1 mt-0.5">
@@ -1587,416 +1588,137 @@ export const SchoolResultsView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* 3. Aggregate Total */}
                       <div className="sm:px-4 py-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Aggregate Total</span>
                         <div className="flex items-baseline gap-1 mt-0.5">
                           <span className="text-base sm:text-lg font-black font-mono text-slate-900 dark:text-slate-100">
                             {selectedStudentForDrawer.totalMarks}
                           </span>
-                          <span className="text-slate-400 text-xs font-medium">/ {selectedStudentForDrawer.subjects?.length ?? 0} {selectedStudentForDrawer.subjects?.length === 1 ? 'subject' : 'subjects'}</span>
+                          <span className="text-slate-400 text-xs font-medium">/ {selectedStudentForDrawer.subjects?.length ?? 0} subjects</span>
                         </div>
                       </div>
 
-                      {/* 4. Competency Spread */}
                       <div className="sm:pl-4 py-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Competency Spread</span>
                         <div className="flex items-center gap-1.5 mt-1 font-mono text-xs font-bold">
-                          <button
-                            type="button"
-                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'EE' ? 'ALL' : 'EE')}
-                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
-                              drawerSubjectFilter === 'EE'
-                                ? 'ring-2 ring-emerald-500 bg-emerald-200 dark:bg-emerald-900 text-emerald-950 dark:text-emerald-100 font-black'
-                                : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
-                            }`}
-                            title="Filter Exceeding Expectations"
-                          >
-                            {studentRubricCounts.EE} EE
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'ME' ? 'ALL' : 'ME')}
-                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
-                              drawerSubjectFilter === 'ME'
-                                ? 'ring-2 ring-sky-500 bg-sky-200 dark:bg-sky-900 text-sky-950 dark:text-sky-100 font-black'
-                                : 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300'
-                            }`}
-                            title="Filter Meeting Expectations"
-                          >
-                            {studentRubricCounts.ME} ME
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'AE' ? 'ALL' : 'AE')}
-                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
-                              drawerSubjectFilter === 'AE'
-                                ? 'ring-2 ring-amber-500 bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 font-black'
-                                : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
-                            }`}
-                            title="Filter Approaching Expectations"
-                          >
-                            {studentRubricCounts.AE} AE
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDrawerSubjectFilter(drawerSubjectFilter === 'BE' ? 'ALL' : 'BE')}
-                            className={`px-1.5 py-0.5 rounded cursor-pointer transition-all ${
-                              drawerSubjectFilter === 'BE'
-                                ? 'ring-2 ring-rose-500 bg-rose-200 dark:bg-rose-900 text-rose-950 dark:text-rose-100 font-black'
-                                : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300'
-                            }`}
-                            title="Filter Below Expectations"
-                          >
-                            {studentRubricCounts.BE} BE
-                          </button>
+                          <span className="text-emerald-600 dark:text-emerald-400" title="EE count">{studentRubricCounts.EE} EE</span>
+                          <span className="text-slate-300 dark:text-slate-600">·</span>
+                          <span className="text-sky-600 dark:text-sky-400" title="ME count">{studentRubricCounts.ME} ME</span>
+                          <span className="text-slate-300 dark:text-slate-600">·</span>
+                          <span className="text-amber-600 dark:text-amber-400" title="AE count">{studentRubricCounts.AE} AE</span>
+                          <span className="text-slate-300 dark:text-slate-600">·</span>
+                          <span className="text-rose-600 dark:text-rose-400" title="BE count">{studentRubricCounts.BE} BE</span>
                         </div>
                       </div>
                     </div>
                   </header>
 
-                  {/* Filter & Sort Bar */}
-                  <div className="px-4 sm:px-6 py-2.5 bg-slate-100/90 dark:bg-[#091325]/90 border-b border-slate-200 dark:border-[#162b4d] flex flex-wrap items-center justify-between gap-2.5 shrink-0">
-                    {/* Rubric Tabs */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold scrollbar-none">
-                      <button
-                        type="button"
-                        onClick={() => setDrawerSubjectFilter('ALL')}
-                        className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                          drawerSubjectFilter === 'ALL'
-                            ? 'bg-white dark:bg-[#142647] text-sky-600 dark:text-sky-300 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        All Learning Areas ({selectedStudentForDrawer.subjects?.length ?? 0})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDrawerSubjectFilter('EE')}
-                        className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                          drawerSubjectFilter === 'EE'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
-                        }`}
-                      >
-                        Exceeding ({studentRubricCounts.EE})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDrawerSubjectFilter('ME')}
-                        className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                          drawerSubjectFilter === 'ME'
-                            ? 'bg-sky-600 text-white shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-sky-600'
-                        }`}
-                      >
-                        Meeting ({studentRubricCounts.ME})
-                      </button>
-                      {(studentRubricCounts.AE > 0 || studentRubricCounts.BE > 0) && (
-                        <button
-                          type="button"
-                          onClick={() => setDrawerSubjectFilter(studentRubricCounts.BE > 0 ? 'BE' : 'AE')}
-                          className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                            drawerSubjectFilter === 'BE' || drawerSubjectFilter === 'AE'
-                              ? 'bg-rose-600 text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-rose-600'
-                          }`}
-                        >
-                          Requires Support ({studentRubricCounts.AE + studentRubricCounts.BE})
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Sort Order Selector */}
-                    <div className="flex items-center gap-2 text-xs font-bold">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-                      <select
-                        value={drawerSortOrder}
-                        onChange={(e) => setDrawerSortOrder(e.target.value as any)}
-                        className="bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-lg px-2.5 py-1 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer shadow-xs focus:outline-none focus:ring-1 focus:ring-sky-500"
-                      >
-                        <option value="DEFAULT">Curriculum Order</option>
-                        <option value="HIGHEST">Highest Score First</option>
-                        <option value="LOWEST">Lowest Score First</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Body: Full Semantic <article> Subject Cards with Overscroll Containment */}
-                  <main
-                    className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-sky-200 dark:scrollbar-thumb-[#162b4d]"
-                    style={{ overscrollBehavior: 'contain' }}
-                  >
-                    {drawerFilteredSubjects.length === 0 ? (
-                      <div className="py-16 text-center text-slate-400 text-xs">
-                        No learning areas found matching filter: <span className="font-bold">{drawerSubjectFilter}</span>
-                        <div className="mt-3">
+                  {/* Drawer Body */}
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                    {/* Controls Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#091326] p-3 rounded-2xl border border-slate-200 dark:border-[#162b4d] shadow-xs">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">Filter:</span>
+                        {(['ALL', 'EE', 'ME', 'AE', 'BE'] as const).map((filter) => (
                           <button
+                            key={filter}
                             type="button"
-                            onClick={() => setDrawerSubjectFilter('ALL')}
-                            className="text-sky-600 hover:underline font-bold"
+                            onClick={() => setDrawerSubjectFilter(filter)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                              drawerSubjectFilter === filter
+                                ? 'bg-sky-600 text-white shadow-xs'
+                                : 'bg-slate-100 dark:bg-[#0f1d37] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#162b4d]'
+                            }`}
                           >
-                            Clear Filter
+                            {filter === 'ALL' ? 'All Subjects' : filter}
                           </button>
-                        </div>
+                        ))}
                       </div>
-                    ) : (
-                      drawerFilteredSubjects.map((sub: any, idx: number) => {
-                        const score = Number(sub.score) || 0;
-                        const maxMarks = Number(sub.maxMarks) || 100;
-                        const percentage = Math.min(100, Math.round((score / maxMarks) * 100));
 
-                        const isExceeding = percentage >= 75;
-                        const isMeeting = percentage >= 50 && percentage < 75;
-                        const isApproaching = percentage >= 40 && percentage < 50;
-
-                        const categoryInfo = getSubjectIconAndColor(sub.subjectName, sub.subjectCode);
-                        const SubjectIcon = categoryInfo.icon;
-
-                        const rubricBadgeColor = isExceeding
-                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 shadow-emerald-500/10'
-                          : isMeeting
-                          ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-300 dark:border-sky-700 shadow-sky-500/10'
-                          : isApproaching
-                          ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-amber-500/10'
-                          : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 shadow-rose-500/10';
-
-                        const progressGradient = isExceeding
-                          ? 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                          : isMeeting
-                          ? 'bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 shadow-[0_0_10px_rgba(14,165,233,0.3)]'
-                          : isApproaching
-                          ? 'bg-gradient-to-r from-amber-500 via-orange-400 to-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
-                          : 'bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 shadow-[0_0_10px_rgba(244,63,94,0.3)]';
-
-                        return (
-                          <article
-                            key={sub.subjectId || idx}
-                            className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0c1830] border border-slate-200/80 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-800 transition-all shadow-xs space-y-3.5"
-                          >
-                            {/* Card Header: Subject Info + Score & Rubric */}
-                            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                              {/* Subject Title & Category Icon */}
-                              <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${categoryInfo.bg}`}>
-                                  <SubjectIcon className="w-5 h-5" />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="font-black text-slate-900 dark:text-slate-100 text-sm sm:text-base">
-                                      {sub.subjectName}
-                                    </h3>
-                                    {sub.subjectCode && (
-                                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-slate-100 dark:bg-[#122340] text-slate-600 dark:text-slate-400 font-bold border border-slate-200 dark:border-[#1a335a]">
-                                        {sub.subjectCode}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    {isExceeding
-                                      ? 'Exceeding Expectations · Grade Distinction'
-                                      : isMeeting
-                                      ? 'Meeting Expectations · Proficient Mastery'
-                                      : isApproaching
-                                      ? 'Approaching Expectations · Needs Reinforcement'
-                                      : 'Below Expectations · Remedial Support Required'}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Score & Rubric Pill */}
-                              <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
-                                <div className="text-right">
-                                  <div className="font-black font-mono text-base sm:text-lg text-slate-900 dark:text-slate-100">
-                                    {score}
-                                    <span className="text-xs text-slate-400 font-normal">/{maxMarks}</span>
-                                  </div>
-                                  <div className="text-[10px] font-mono font-bold text-sky-600 dark:text-sky-400">
-                                    {percentage}%
-                                  </div>
-                                </div>
-
-                                <span className={`px-2.5 py-1 rounded-xl text-xs font-black border uppercase tracking-wider shadow-xs ${rubricBadgeColor}`}>
-                                  {sub.rubric || (isExceeding ? 'EE' : isMeeting ? 'ME' : isApproaching ? 'AE' : 'BE')}
-                                </span>
-
-                                {sub.points != null && (
-                                  <span className="px-2 py-1 rounded-xl text-xs font-mono font-black bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-xs">
-                                    {sub.points} pts
-                                  </span>
-                                )}
-                              </div>
-                            </header>
-
-                            {/* Dual-Track Visual Performance Gauge with CBC Benchmark Markers */}
-                            <div className="space-y-1.5">
-                              <div className="relative w-full bg-slate-100 dark:bg-[#070e1e] h-3 rounded-full overflow-hidden border border-slate-200/60 dark:border-[#162b4d]">
-                                {/* Benchmark tick at 50% (ME Pass line) */}
-                                <div
-                                  className="absolute top-0 bottom-0 w-[1.5px] bg-sky-400/50 dark:bg-sky-500/40 z-10"
-                                  style={{ left: '50%' }}
-                                  title="50% National Competency Benchmark (ME)"
-                                />
-                                {/* Benchmark tick at 75% (EE Distinction line) */}
-                                <div
-                                  className="absolute top-0 bottom-0 w-[1.5px] bg-emerald-400/50 dark:bg-emerald-500/40 z-10"
-                                  style={{ left: '75%' }}
-                                  title="75% Distinction Benchmark (EE)"
-                                />
-                                {/* Animated Gradient Fill */}
-                                <div
-                                  className={`h-full rounded-full transition-all duration-700 ease-out ${progressGradient}`}
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-
-                              {/* Gauge Scale Labels */}
-                              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-400 px-0.5">
-                                <span>0%</span>
-                                <span className="text-sky-600 dark:text-sky-400 font-semibold">50% Pass</span>
-                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">75% Distinction</span>
-                                <span>100%</span>
-                              </div>
-                            </div>
-
-                            {/* Teacher Observation & Remarks Speech Bubble */}
-                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070e1e] border border-slate-200/70 dark:border-[#162b4d] flex items-start gap-2.5">
-                              <Quote className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
-                                  Teacher Observation & Competency Feedback
-                                </span>
-                                <p className="text-xs text-slate-700 dark:text-slate-200 italic font-medium leading-relaxed">
-                                  "{sub.remarks || 'Consistently demonstrates proficiency across learning outcomes and core CBC competency indicators.'}"
-                                </p>
-                              </div>
-                            </div>
-                          </article>
-                        );
-                      })
-                    )}
-                  </main>
-
-                  {/* Drawer Footer Actions */}
-                  <footer className="p-4 sm:p-5 border-t border-slate-200 dark:border-[#162b4d] bg-white/95 dark:bg-[#0a1428]/95 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium text-center sm:text-left">
-                      Keyboard shortcuts: <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#122340] border font-mono text-[10px]">←</kbd> Prev, <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#122340] border font-mono text-[10px]">→</kbd> Next, <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#122340] border font-mono text-[10px]">Esc</kbd> Close
+                      <div className="flex items-center gap-1.5 self-end sm:self-center">
+                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Sort:</span>
+                        <select
+                          value={drawerSortOrder}
+                          onChange={(e: any) => setDrawerSortOrder(e.target.value)}
+                          className="px-2.5 py-1 bg-slate-50 dark:bg-[#0f1d37] border border-slate-200 dark:border-[#162b4d] rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+                        >
+                          <option value="DEFAULT">Default Order</option>
+                          <option value="HIGHEST">Highest Score First</option>
+                          <option value="LOWEST">Lowest Score First</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
-                      <button
-                        type="button"
-                        onClick={handlePrintStudentSlip}
-                        className="px-4 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>Print Assessment Slip</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStudentForDrawer(null)}
-                        className="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#142647] cursor-pointer shadow-xs transition-colors"
-                      >
-                        Close Panel
-                      </button>
-                    </div>
-                  </footer>
-                </motion.div>
-              </div>
-
-              {/* Hidden Dedicated Printable Assessment Slip for this Learner */}
-              <div id="learner-performance-slip-printable" className="hidden">
-                <div style={{ fontFamily: 'sans-serif', padding: '24px', color: '#1e293b' }}>
-                  <div style={{ textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: '16px', marginBottom: '20px' }}>
-                    <h1 style={{ fontSize: '20px', fontWeight: '900', margin: '0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Eldoret Muslim Academy
-                    </h1>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0', fontWeight: 'bold' }}>
-                      Directorate of Studies · Official Learner Competency & Assessment Slip
-                    </p>
-                    <p style={{ fontSize: '12px', color: '#0284c7', margin: '2px 0 0 0', fontWeight: 'bold' }}>
-                      {analysis?.selectedExam?.title || 'Continuous Assessment Series'} · {analysis?.selectedExam?.termName || 'Term Evaluation'}
-                    </p>
-                  </div>
-
-                  {/* Student Credentials Strip */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0', fontSize: '12px' }}>
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Learner Name</span>
-                      <strong style={{ fontSize: '14px' }}>{selectedStudentForDrawer.studentName}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Assessment Number</span>
-                      <strong>{selectedStudentForDrawer.assessmentNumber || selectedStudentForDrawer.admissionNumber || '—'}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Class & Stream</span>
-                      <strong>{selectedStudentForDrawer.className}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: '#64748b', display: 'block', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }}>Class Rank</span>
-                      <strong style={{ color: '#0284c7', fontSize: '14px' }}>#{selectedStudentForDrawer.rank} of {classStudents.length}</strong>
-                    </div>
-                  </div>
-
-                  {/* Learning Areas Performance Table */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '24px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#0f172a', color: '#ffffff', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a' }}>Learning Area (Subject)</th>
-                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>Subject Code</th>
-                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>Score / Max</th>
-                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>Percentage</th>
-                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a', textAlign: 'center' }}>CBC Rubric Level</th>
-                        <th style={{ padding: '8px 12px', border: '1px solid #0f172a' }}>Teacher Remarks & Observation</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedStudentForDrawer.subjects?.map((sub: any, i: number) => {
+                    {/* Subject Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {drawerFilteredSubjects.map((sub: any, idx: number) => {
                         const score = Number(sub.score) || 0;
                         const maxMarks = Number(sub.maxMarks) || 100;
                         const pct = Math.round((score / maxMarks) * 100);
-                        const isExceeding = pct >= 75;
-                        const isMeeting = pct >= 50 && pct < 75;
+                        const rubric = sub.rubric || (pct >= 75 ? 'EE' : pct >= 50 ? 'ME' : pct >= 40 ? 'AE' : 'BE');
+                        const iconData = getSubjectIconAndColor(sub.subjectName, sub.subjectCode);
+                        const Icon = iconData.icon;
+
                         return (
-                          <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>{sub.subjectName}</td>
-                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontFamily: 'monospace' }}>{sub.subjectCode || '—'}</td>
-                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}>{score} / {maxMarks}</td>
-                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold', color: isExceeding ? '#047857' : isMeeting ? '#0369a1' : '#b91c1c' }}>{pct}%</td>
-                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}>{sub.rubric || (isExceeding ? 'EE' : isMeeting ? 'ME' : 'AE')}</td>
-                            <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', fontStyle: 'italic', color: '#475569' }}>{sub.remarks || 'Proficient progress observed.'}</td>
-                          </tr>
+                          <div
+                            key={sub.subjectId || idx}
+                            className="p-4 rounded-2xl bg-white dark:bg-[#0a1428] border border-slate-200 dark:border-[#162b4d] shadow-xs flex flex-col justify-between hover:border-sky-300 dark:hover:border-sky-800 transition-colors"
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 ${iconData.bg}`}>
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                                      {sub.subjectName}
+                                    </h4>
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      {sub.subjectCode || 'CBC AREA'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <span
+                                  className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border shrink-0 ${
+                                    rubric === 'EE'
+                                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-200'
+                                      : rubric === 'ME'
+                                      ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border-sky-200'
+                                      : rubric === 'AE'
+                                      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-200'
+                                      : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-200'
+                                  }`}
+                                >
+                                  {rubric}
+                                </span>
+                              </div>
+
+                              <div className="flex items-baseline justify-between mt-3">
+                                <div>
+                                  <span className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
+                                    {score}
+                                  </span>
+                                  <span className="text-xs text-slate-400 font-mono ml-1">/ {maxMarks}</span>
+                                </div>
+                                <span className={`text-xs font-bold font-mono ${pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-sky-600' : 'text-rose-600'}`}>
+                                  {pct}%
+                                </span>
+                              </div>
+                            </div>
+
+                            {sub.remarks && (
+                              <p className="mt-2.5 pt-2 border-t border-slate-100 dark:border-[#142647] text-[11px] text-slate-500 dark:text-slate-400 italic">
+                                "{sub.remarks}"
+                              </p>
+                            )}
+                          </div>
                         );
                       })}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ backgroundColor: '#e2e8f0', fontWeight: 'bold' }}>
-                        <td colSpan={2} style={{ padding: '8px 12px', border: '1px solid #cbd5e1' }}>OVERALL AGGREGATE TOTALS</td>
-                        <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center' }}>{selectedStudentForDrawer.totalMarks} Marks</td>
-                        <td style={{ padding: '8px 12px', border: '1px solid #cbd5e1', textAlign: 'center', color: '#0369a1', fontSize: '13px' }}>{selectedStudentForDrawer.average}% Mean</td>
-                        <td colSpan={2} style={{ padding: '8px 12px', border: '1px solid #cbd5e1' }}>Proficiency: {selectedStudentForDrawer.average >= 75 ? 'Level 4 · Exceeding Expectations' : selectedStudentForDrawer.average >= 50 ? 'Level 3 · Meeting Expectations' : 'Level 2 · Approaching'}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-
-                  {/* Sign-off & Stamp Section */}
-                  <div style={{ marginTop: '36px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', textAlign: 'center', fontSize: '11px', color: '#475569' }}>
-                    <div>
-                      <div style={{ borderBottom: '1px solid #94a3b8', height: '36px', marginBottom: '6px' }} />
-                      <strong>Class Teacher Signature</strong>
-                    </div>
-                    <div>
-                      <div style={{ borderBottom: '1px solid #94a3b8', height: '36px', marginBottom: '6px' }} />
-                      <strong>Director of Studies (DoS)</strong>
-                    </div>
-                    <div>
-                      <div style={{ borderBottom: '1px solid #94a3b8', height: '36px', marginBottom: '6px' }} />
-                      <strong>Official Stamp & Date</strong>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
             </div>
           )}
