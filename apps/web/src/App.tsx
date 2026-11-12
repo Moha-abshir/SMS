@@ -211,7 +211,7 @@ const AppContent: React.FC = () => {
             path="/subject-performance"
             element={
               <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER']} user={currentUser}>
-                <SchoolResultsView />
+                <SubjectPerformanceView />
               </RoleGuard>
             }
           />

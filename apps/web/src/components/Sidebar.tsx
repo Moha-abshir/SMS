@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   Settings, FileText, Package, Clock, LogOut,
-  Menu, X, School, ClipboardCheck, Calendar, Layers, Award
+  Menu, X, School, ClipboardCheck, Calendar, Layers, Award, BarChart3
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { ThemeToggle } from './ThemeToggle';
@@ -167,6 +167,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       icon: Award,
       roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER'],
     },
+    {
+      path: '/subject-performance',
+      label: 'Subject Performance',
+      icon: BarChart3,
+      roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER'],
+    },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 
@@ -185,8 +191,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
     // 2. Specific contextual rules for TEACHER role
     if (userRole === 'TEACHER') {
-      // Academic Results visible only if teacher has active class assignment or subject allocations
-      if (item.path === '/school-results' && !isClassTeacher && !hasSubjectAllocations) {
+      // Academic Results: strictly visible ONLY for active Class Teachers (or leadership)
+      if (item.path === '/school-results' && !isClassTeacher) {
+        return false;
+      }
+
+      // Subject Performance: strictly visible ONLY for teachers with active subject allocations (or leadership)
+      if (item.path === '/subject-performance' && !hasSubjectAllocations) {
         return false;
       }
 
