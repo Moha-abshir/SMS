@@ -31,6 +31,7 @@ import { MarksheetEntryView } from './modules/marks/MarksheetEntryView';
 import { ClassExamProgressView } from './modules/marks/ClassExamProgressView';
 import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
 import { SchoolResultsView } from './modules/dos/SchoolResultsView';
+import { ClassPerformanceView } from './modules/class-performance/ClassPerformanceView';
 import { ExamTimetableView } from './modules/exams/ExamTimetableView';
 import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
 import { TimetableManagementView } from './modules/timetable/TimetableManagementView';
@@ -200,9 +201,25 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
+            path="/class-performance"
+            element={
+              <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+                <ClassPerformanceView />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/class-performance/:classId"
+            element={
+              <RoleGuard allowedRoles={['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+                <ClassPerformanceView />
+              </RoleGuard>
+            }
+          />
+          <Route
             path="/school-results"
             element={
-              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER']} user={currentUser}>
+              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
                 <SchoolResultsView />
               </RoleGuard>
             }

@@ -162,16 +162,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DOS'] },
     { path: '/marks-entry', label: 'Marksheet Entry', icon: BookOpen, roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     {
-      path: '/school-results',
-      label: userRole === 'TEACHER' ? 'Academic Results' : 'Schoolwide Results',
+      path: '/class-performance',
+      label: 'Class Performance',
       icon: Award,
-      roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER'],
+      roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
+    },
+    {
+      path: '/school-results',
+      label: 'Schoolwide Results',
+      icon: Award,
+      roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
     {
       path: '/subject-performance',
       label: 'Subject Performance',
       icon: BarChart3,
-      roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS', 'TEACHER'],
+      roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS', 'TEACHER'],
     },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
@@ -201,8 +207,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
     // 3. Specific contextual rules for TEACHER role
     if (userRole === 'TEACHER') {
-      // Academic Results: strictly visible ONLY for active Class Teachers
-      if (item.path === '/school-results' && !isClassTeacher) {
+      // Class Performance: strictly visible ONLY for active Class Teachers
+      if (item.path === '/class-performance' && !isClassTeacher) {
         return false;
       }
 
@@ -334,7 +340,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
                 <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-sky-500 dark:text-slate-500 dark:group-hover:text-sky-400'}`} />
                 <div className={`flex items-center justify-between gap-1.5 flex-1 min-w-0 ${collapsed ? 'flex lg:hidden' : 'flex'}`}>
                   <span className="truncate">{item.label}</span>
-                  {(item.isClassTeacherFeature || item.isClassTeacherUpperFeature) && assignedClassName && (
+                  {(item.isClassTeacherFeature || item.isClassTeacherUpperFeature || item.path === '/class-performance') && assignedClassName && (
                     <span
                       className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase shrink-0 ${
                         isActive
