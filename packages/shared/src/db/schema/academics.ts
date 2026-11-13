@@ -184,3 +184,21 @@ export const reportUnlockRequests = pgTable('report_unlock_requests', {
   index('report_unlock_requests_class_term_idx').on(table.classId, table.termId),
   index('report_unlock_requests_status_idx').on(table.status),
 ]);
+
+export const reportCardRemarks = pgTable('report_card_remarks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  termId: uuid('term_id').notNull().references(() => academicTerms.id),
+  classId: uuid('class_id').notNull().references(() => classes.id),
+  studentId: uuid('student_id').notNull().references(() => students.id),
+  examId: uuid('exam_id').references(() => examinations.id),
+  classTeacherRemark: text('class_teacher_remark').notNull(),
+  enteredById: uuid('entered_by_id').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('report_card_remarks_term_student_uq').on(table.termId, table.studentId),
+  index('report_card_remarks_class_term_idx').on(table.classId, table.termId),
+  index('report_card_remarks_student_idx').on(table.studentId),
+]);
+
