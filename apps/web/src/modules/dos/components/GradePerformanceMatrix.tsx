@@ -232,7 +232,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
                 );
               })()
             ) : (
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Baseline</span>
+              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">— (First Exam)</span>
             )}
           </td>
 
@@ -244,7 +244,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
             />
           </td>
 
-          {/* 6. Subject Bottleneck (Needs Attention) */}
+          {/* 6. Needs Attention (Lowest Subject) */}
           <td className="px-3 py-3 hidden lg:table-cell max-w-[200px]">
             {row.weakestSubject ? (
               <div className="truncate">
@@ -297,7 +297,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800">
                   <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Bottleneck Subject</span>
+                    <span className="text-[10px] font-bold text-amber-500 uppercase block">Needs Attention (Lowest)</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200 truncate block">
                       {row.weakestSubject ? `${row.weakestSubject.name} (${row.weakestSubject.meanPct}%)` : '—'}
                     </span>
@@ -334,9 +334,9 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
               <th className="px-4 py-3">Grade & Teacher</th>
               <th className="px-3 py-3 text-center">Candidacy</th>
               <th className="px-3 py-3">Mean & Scale</th>
-              <th className="px-3 py-3">vs Baseline</th>
-              <th className="px-3 py-3 hidden md:table-cell">Distribution</th>
-              <th className="px-3 py-3 hidden lg:table-cell">Subject Bottleneck</th>
+              <th className="px-3 py-3" title="Comparison with immediately preceding examination">vs Prev Exam</th>
+              <th className="px-3 py-3 hidden md:table-cell" title="Spread of learners across CBC Rubric bands (EE / ME / AE / BE)">Score Spread (CBC)</th>
+              <th className="px-3 py-3 hidden lg:table-cell" title="Lowest-scoring Learning Area in this grade requiring academic intervention">Needs Attention (Lowest)</th>
               <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>

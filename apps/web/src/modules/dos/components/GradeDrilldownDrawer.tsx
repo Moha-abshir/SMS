@@ -287,8 +287,8 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
                         <th className="px-3 py-3 text-center">Sat</th>
                         <th className="px-3 py-3">Mean %</th>
                         <th className="px-3 py-3">Scale / Rubric</th>
-                        <th className="px-3 py-3">vs Baseline</th>
-                        <th className="px-3 py-3">Spread (Micro-bar)</th>
+                        <th className="px-3 py-3">vs Prev Exam</th>
+                        <th className="px-3 py-3">Score Spread (CBC)</th>
                         <th className="px-3 py-3 text-center">BE Count</th>
                       </tr>
                     </thead>
@@ -333,7 +333,7 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
                                 {sub.deltaPct}%
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-400">Baseline</span>
+                              <span className="text-[10px] text-slate-400">— (First Exam)</span>
                             )}
                           </td>
                           <td className="px-3 py-3">
@@ -422,7 +422,7 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
                           </th>
                           <th className="px-3 py-2.5 text-center">Mean %</th>
                           <th className="px-3 py-2.5 text-center">Scale / Rubric</th>
-                          <th className="px-3 py-2.5 text-center">Delta</th>
+                          <th className="px-3 py-2.5 text-center">vs Prev Exam</th>
                           {/* Dynamic Subject Columns */}
                           {data?.subjects?.map((sub) => (
                             <th

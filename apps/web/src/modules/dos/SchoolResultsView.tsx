@@ -175,10 +175,10 @@ export const SchoolResultsView: React.FC = () => {
               className="appearance-none text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 py-2 cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
             >
               <option value="auto">
-                vs Baseline: Auto (Preceding Exam)
+                Compare: Auto (Preceding Exam)
                 {compareExam ? ` [${compareExam.title}]` : ''}
               </option>
-              <option value="none">No Comparison (Hide Deltas)</option>
+              <option value="none">Single Exam (No Comparison)</option>
               {availableExams
                 .filter((e) => e.id !== selectedExamId)
                 .map((exam) => (
