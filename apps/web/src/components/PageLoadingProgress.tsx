@@ -1,6 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Sparkles, CheckCircle2 } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { GraduationCap } from 'lucide-react';
+
+export interface PageLoadingWrapperProps {
+  isLoading: boolean;
+  title?: string;
+  subtitle?: string;
+  icon?: React.ElementType;
+  skeleton?: React.ReactNode;
+  variant?: 'table' | 'dashboard' | 'timetable' | 'form' | 'register' | 'cards';
+  statCount?: number;
+  rowCount?: number;
+  children: React.ReactNode;
+}
 
 export interface PageLoadingProgressProps {
   isLoading: boolean;
@@ -10,188 +22,369 @@ export interface PageLoadingProgressProps {
   icon?: React.ElementType;
 }
 
-export const PageLoadingProgress: React.FC<PageLoadingProgressProps> = ({
-  isLoading,
-  title = 'Eldoret Muslim Academy',
+/**
+ * Standard Table Page Skeleton (matches Admissions, Staff, Learners, Finance, Leave, etc.)
+ */
+export const TablePageSkeleton: React.FC<{
+  title?: string;
+  subtitle?: string;
+  icon?: React.ElementType;
+  statCount?: number;
+  rowCount?: number;
+}> = ({
+  title,
   subtitle,
-  onComplete,
   icon: IconComponent = GraduationCap,
+  statCount = 4,
+  rowCount = 8,
 }) => {
-  const [progress, setProgress] = useState(12);
-  const [stageText, setStageText] = useState('Initializing workstation session...');
-  const isCompleteRef = useRef(false);
-
-  useEffect(() => {
-    isCompleteRef.current = false;
-    let timer: ReturnType<typeof setInterval>;
-
-    const updateStage = (val: number) => {
-      if (val >= 100) {
-        setStageText('Data loaded! Launching view...');
-      } else if (val >= 75) {
-        setStageText('Finalizing workspace records & metrics...');
-      } else if (val >= 50) {
-        setStageText('Verifying allocations & examination data...');
-      } else if (val >= 25) {
-        setStageText('Retrieving academic stream records...');
-      } else {
-        setStageText('Initializing workstation session...');
-      }
-    };
-
-    if (isLoading) {
-      // Gradually tick upwards towards 88-92% while waiting for network
-      timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) return prev;
-          // Step smaller as we get higher
-          const remaining = 90 - prev;
-          const step = Math.max(1, Math.floor(remaining * 0.15));
-          const nextVal = Math.min(90, prev + step);
-          updateStage(nextVal);
-          return nextVal;
-        });
-      }, 120);
-    } else {
-      // Network call finished! Rapidly accelerate to 100%
-      timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(timer);
-            if (!isCompleteRef.current) {
-              isCompleteRef.current = true;
-              updateStage(100);
-              // Slight delay so user visually perceives 100% completion
-              setTimeout(() => {
-                onComplete?.();
-              }, 180);
-            }
-            return 100;
-          }
-          const jump = Math.max(6, Math.floor((100 - prev) * 0.45));
-          const nextVal = Math.min(100, prev + jump);
-          updateStage(nextVal);
-          return nextVal;
-        });
-      }, 35);
-    }
-
-    return () => clearInterval(timer);
-  }, [isLoading, onComplete]);
+  const gridColsClass =
+    statCount === 1
+      ? 'md:grid-cols-1'
+      : statCount === 2
+      ? 'md:grid-cols-2'
+      : statCount === 3
+      ? 'md:grid-cols-3'
+      : statCount === 5
+      ? 'md:grid-cols-5'
+      : 'md:grid-cols-4';
 
   return (
-    <div className="min-h-[420px] sm:min-h-[480px] w-full flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
-      <div className="max-w-md w-full bg-white/90 dark:bg-[#091326]/90 backdrop-blur-2xl rounded-3xl p-6 sm:p-8 border border-sky-100 dark:border-[#162b4d] shadow-2xl dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-center space-y-5 relative overflow-hidden">
-        {/* Subtle background glow effect */}
-        <div className="absolute -top-24 -left-24 w-48 h-48 bg-sky-400/15 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/15 dark:bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Pulsing Branded Icon */}
-        <div className="relative mx-auto w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-sky-400/20 dark:bg-sky-500/20 animate-ping opacity-60 pointer-events-none" />
-          <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-sky-400 via-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-sky-500/25">
-            {progress >= 100 ? (
-              <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-in zoom-in-50 duration-200" />
-            ) : (
-              <IconComponent className="w-7 h-7 sm:w-8 sm:h-8 animate-pulse text-white" />
-            )}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-4 animate-in fade-in duration-200">
+      {/* 1. Header Banner & Action Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-wider mb-1">
+            {IconComponent && <IconComponent className="w-4 h-4 text-sky-500 shrink-0" />}
+            <span>{title || 'Loading Module...'}</span>
           </div>
-        </div>
-
-        {/* Title & Subtitle */}
-        <div className="space-y-1">
-          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 tracking-tight">
-            {title}
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-            {subtitle || stageText}
+          <div className="h-6 w-56 sm:w-72 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse mb-1.5" />
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium max-w-xl truncate">
+            {subtitle || 'Synchronizing workspace records and operational metrics...'}
           </p>
         </div>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="h-9 w-24 sm:w-28 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+          <div className="h-9 w-28 sm:w-32 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+        </div>
+      </div>
 
-        {/* Progress Metric & Percentage */}
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between text-xs font-bold px-1">
-            <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-sky-500 animate-spin" style={{ animationDuration: '4s' }} />
-              {progress >= 100 ? 'Loaded' : 'Synchronizing'}
-            </span>
-            <span className="text-sm font-black font-mono text-sky-600 dark:text-sky-400">
-              {progress}%
-            </span>
-          </div>
-
-          {/* Progress Bar Track */}
-          <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-[#0c1830] p-0.5 border border-sky-100 dark:border-[#162b4d] overflow-hidden relative shadow-inner">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-indigo-500 transition-all duration-150 relative shadow-sm"
-              style={{ width: `${progress}%` }}
-            >
-              {/* Shimmer effect */}
-              <div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_1.5s_infinite]"
-                style={{
-                  backgroundSize: '200% 100%',
-                }}
-              />
+      {/* 2. Metric / Summary Ribbon Shimmer */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800/80 dark:bg-[#111827] shadow-xs">
+        <div className={`grid grid-cols-2 ${gridColsClass} gap-3 lg:divide-x divide-slate-100 dark:divide-slate-800/80`}>
+          {Array.from({ length: statCount }).map((_, i) => (
+            <div key={i} className="animate-pulse space-y-2 px-2 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-800/80 shrink-0" />
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <div className="h-2.5 w-16 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800/80 rounded" />
+              </div>
             </div>
-          </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Search & Filter Bar Shimmer */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="h-10 w-full sm:w-80 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-20 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse" />
+          <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse" />
+          <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse" />
+        </div>
+      </div>
+
+      {/* 4. Main Data Table Shimmer (Matches exact column count & layout) */}
+      <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-[#111827] shadow-xs overflow-hidden">
+        {/* Table Header */}
+        <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60 flex items-center justify-between">
+          <div className="h-3 w-32 bg-slate-200 dark:bg-slate-800/80 rounded animate-pulse" />
+          <div className="h-3 w-20 bg-slate-200 dark:bg-slate-800/80 rounded animate-pulse hidden sm:block" />
+          <div className="h-3 w-24 bg-slate-200 dark:bg-slate-800/80 rounded animate-pulse hidden md:block" />
+          <div className="h-3 w-20 bg-slate-200 dark:bg-slate-800/80 rounded animate-pulse hidden lg:block" />
+          <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800/80 rounded animate-pulse" />
         </div>
 
-        {/* Footer info pill */}
-        <div className="pt-1">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/60 text-[11px] font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-            {stageText}
-          </span>
+        {/* Table Shimmer Rows */}
+        <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          {Array.from({ length: rowCount }).map((_, i) => (
+            <div key={i} className="px-4 py-3.5 flex items-center justify-between gap-4 animate-pulse">
+              {/* Entity info with avatar */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800/80 shrink-0" />
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="h-3.5 w-32 sm:w-48 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                  <div className="h-2.5 w-24 sm:w-32 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                </div>
+              </div>
+
+              {/* Status / Category Badges */}
+              <div className="h-5 w-20 bg-slate-200 dark:bg-slate-800/80 rounded-full hidden sm:block shrink-0" />
+              <div className="h-3.5 w-24 bg-slate-200 dark:bg-slate-800/80 rounded hidden md:block shrink-0" />
+              <div className="h-5 w-16 bg-slate-200 dark:bg-slate-800/80 rounded-full hidden lg:block shrink-0" />
+
+              {/* Action Button */}
+              <div className="h-7 w-20 bg-slate-200 dark:bg-slate-800/80 rounded-lg shrink-0" />
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 };
 
-export interface PageLoadingWrapperProps {
-  isLoading: boolean;
+/**
+ * Dashboard Page Skeleton (matches Executive, Teacher, Deputy, DoS Dashboards)
+ */
+export const DashboardPageSkeleton: React.FC<{
   title?: string;
   subtitle?: string;
   icon?: React.ElementType;
-  children: React.ReactNode;
-}
+}> = ({ title, subtitle, icon: IconComponent = GraduationCap }) => {
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-200">
+      {/* Welcome Banner */}
+      <div className="p-6 rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-wider mb-1">
+            {IconComponent && <IconComponent className="w-4 h-4 text-sky-500 shrink-0" />}
+            <span>{title || 'Dashboard'}</span>
+          </div>
+          <div className="h-7 w-64 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse mb-1.5" />
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg">
+            {subtitle || 'Real-time overview of academic progress, census, and operations...'}
+          </p>
+        </div>
+        <div className="h-10 w-36 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse shrink-0" />
+      </div>
 
+      {/* 4 Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-3 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800/80" />
+              <div className="h-5 w-14 rounded-full bg-slate-200 dark:bg-slate-800/80" />
+            </div>
+            <div className="space-y-1">
+              <div className="h-7 w-20 bg-slate-200 dark:bg-slate-800/80 rounded-lg" />
+              <div className="h-3 w-28 bg-slate-200 dark:bg-slate-800/80 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 2-Column Split Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4 animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="h-5 w-36 bg-slate-200 dark:bg-slate-800/80 rounded" />
+            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800/80 rounded" />
+          </div>
+          <div className="h-56 w-full bg-slate-200 dark:bg-slate-800/80 rounded-xl" />
+        </div>
+        <div className="p-6 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4 animate-pulse">
+          <div className="h-5 w-32 bg-slate-200 dark:bg-slate-800/80 rounded" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((j) => (
+              <div key={j} className="h-12 w-full bg-slate-200 dark:bg-slate-800/80 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Timetable Calendar Grid Skeleton
+ */
+export const TimetablePageSkeleton: React.FC<{
+  title?: string;
+  subtitle?: string;
+  icon?: React.ElementType;
+}> = ({ title, subtitle, icon: IconComponent = GraduationCap }) => {
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-4 animate-in fade-in duration-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-wider mb-1">
+            {IconComponent && <IconComponent className="w-4 h-4 text-sky-500 shrink-0" />}
+            <span>{title || 'School Timetable'}</span>
+          </div>
+          <div className="h-6 w-60 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse mb-1.5" />
+          <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle || 'Loading teaching schedules...'}</p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-32 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+          <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+        </div>
+      </div>
+
+      {/* Timetable Weekly Grid (5 columns, 7 period rows) */}
+      <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-[#111827] shadow-xs overflow-hidden p-4 space-y-3">
+        <div className="grid grid-cols-5 gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day) => (
+            <div key={day} className="h-6 bg-slate-200 dark:bg-slate-800/80 rounded animate-pulse" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5, 6].map((period) => (
+            <div key={period} className="grid grid-cols-5 gap-3">
+              {[1, 2, 3, 4, 5].map((d) => (
+                <div key={d} className="h-16 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse p-2 space-y-1.5">
+                  <div className="h-3 w-16 bg-slate-300 dark:bg-slate-700/80 rounded" />
+                  <div className="h-2.5 w-12 bg-slate-300 dark:bg-slate-700/80 rounded" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Settings & Form Page Skeleton
+ */
+export const FormPageSkeleton: React.FC<{
+  title?: string;
+  subtitle?: string;
+  icon?: React.ElementType;
+}> = ({ title, subtitle, icon: IconComponent = GraduationCap }) => {
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-200">
+      <div className="flex items-center justify-between p-4 sm:p-6 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs">
+        <div>
+          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-wider mb-1">
+            {IconComponent && <IconComponent className="w-4 h-4 text-sky-500 shrink-0" />}
+            <span>{title || 'Settings'}</span>
+          </div>
+          <div className="h-6 w-48 bg-slate-200 dark:bg-slate-800/80 rounded-lg animate-pulse mb-1.5" />
+          <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle || 'Configure system preferences...'}</p>
+        </div>
+        <div className="h-9 w-28 bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+      </div>
+
+      <div className="space-y-4">
+        {[1, 2, 3].map((s) => (
+          <div key={s} className="p-6 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4 animate-pulse">
+            <div className="h-5 w-40 bg-slate-200 dark:bg-slate-800/80 rounded" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <div className="h-3 w-20 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                <div className="h-10 w-full bg-slate-200 dark:bg-slate-800/80 rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="h-3 w-24 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                <div className="h-10 w-full bg-slate-200 dark:bg-slate-800/80 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Universal PageLoadingWrapper
+ * Replaces the old centered popup "SYNCHRONIZING" animation with layout-preserving
+ * skeletons matching the exact page UI structure.
+ */
 export const PageLoadingWrapper: React.FC<PageLoadingWrapperProps> = ({
   isLoading,
   title,
   subtitle,
   icon,
+  skeleton,
+  variant,
+  statCount = 4,
+  rowCount = 8,
   children,
 }) => {
-  const [animationComplete, setAnimationComplete] = useState(false);
-
-  // If loading becomes false and progress bar reaches 100%, animationComplete is set to true
-  useEffect(() => {
-    if (!isLoading && animationComplete) {
-      // already complete
+  if (isLoading) {
+    if (skeleton) {
+      return <>{skeleton}</>;
     }
-  }, [isLoading, animationComplete]);
 
-  if (!animationComplete) {
+    const t = (title || '').toLowerCase();
+
+    // Auto-detect layout variant from title if not explicitly set
+    const effectiveVariant =
+      variant ||
+      (t.includes('dashboard') || t.includes('workstation') || t.includes('overview')
+        ? 'dashboard'
+        : t.includes('timetable')
+        ? 'timetable'
+        : t.includes('setting') || t.includes('profile')
+        ? 'form'
+        : 'table');
+
+    if (effectiveVariant === 'dashboard') {
+      return <DashboardPageSkeleton title={title} subtitle={subtitle} icon={icon} />;
+    }
+
+    if (effectiveVariant === 'timetable') {
+      return <TimetablePageSkeleton title={title} subtitle={subtitle} icon={icon} />;
+    }
+
+    if (effectiveVariant === 'form') {
+      return <FormPageSkeleton title={title} subtitle={subtitle} icon={icon} />;
+    }
+
     return (
-      <PageLoadingProgress
-        isLoading={isLoading}
+      <TablePageSkeleton
         title={title}
         subtitle={subtitle}
         icon={icon}
-        onComplete={() => setAnimationComplete(true)}
+        statCount={statCount}
+        rowCount={rowCount}
       />
     );
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
     >
       {children}
     </motion.div>
+  );
+};
+
+/**
+ * Deprecated component alias:
+ * If any modal or legacy component still imports PageLoadingProgress directly,
+ * immediately render a fast skeleton placeholder without the blocking popup card.
+ */
+export const PageLoadingProgress: React.FC<PageLoadingProgressProps> = ({
+  isLoading,
+  title,
+  subtitle,
+  onComplete,
+  icon: IconComponent = GraduationCap,
+}) => {
+  useEffect(() => {
+    if (!isLoading) {
+      onComplete?.();
+    }
+  }, [isLoading, onComplete]);
+
+  return (
+    <div className="w-full p-4 space-y-3 animate-in fade-in duration-150">
+      <div className="flex items-center gap-2 mb-2">
+        {IconComponent && <IconComponent className="w-4 h-4 text-sky-500 animate-pulse" />}
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{title || 'Loading...'}</span>
+      </div>
+      <div className="space-y-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-10 w-full bg-slate-200 dark:bg-slate-800/80 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    </div>
   );
 };
