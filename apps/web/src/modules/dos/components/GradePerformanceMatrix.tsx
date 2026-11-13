@@ -11,7 +11,7 @@ import {
   BookOpen,
   UserCheck,
 } from 'lucide-react';
-import { DistributionMicroBar, PrimaryDistribution, JuniorDistribution } from './DistributionMicroBar';
+import { PrimaryDistribution, JuniorDistribution } from './DistributionMicroBar';
 
 export interface GradeRowData {
   classId: string;
@@ -91,8 +91,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
               <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded hidden sm:block" />
               <div className="h-3.5 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
               <div className="h-3 w-14 bg-slate-200 dark:bg-slate-800 rounded hidden md:block" />
-              <div className="h-2 w-32 bg-slate-200 dark:bg-slate-800 rounded hidden lg:block" />
-              <div className="h-3 w-28 bg-slate-200 dark:bg-slate-800 rounded hidden xl:block" />
+              <div className="h-3 w-28 bg-slate-200 dark:bg-slate-800 rounded hidden lg:block" />
               <div className="h-7 w-24 bg-slate-200 dark:bg-slate-800 rounded" />
             </div>
           ))}
@@ -236,16 +235,8 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
             )}
           </td>
 
-          {/* 5. Distribution Micro-Bar */}
-          <td className="px-3 py-3 hidden md:table-cell">
-            <DistributionMicroBar
-              isJunior={row.isJunior}
-              distribution={row.isJunior ? row.pointCounts : row.rubricCounts}
-            />
-          </td>
-
-          {/* 6. Needs Attention (Lowest Subject) */}
-          <td className="px-3 py-3 hidden lg:table-cell max-w-[200px]">
+          {/* 5. Needs Attention (Lowest Subject) */}
+          <td className="px-3 py-3 max-w-[220px]">
             {row.weakestSubject ? (
               <div className="truncate">
                 <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
@@ -261,7 +252,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
             )}
           </td>
 
-          {/* 7. Action */}
+          {/* 6. Action */}
           <td className="px-4 py-3 text-right whitespace-nowrap">
             <button
               type="button"
@@ -280,7 +271,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
         {/* Inline Expand Row */}
         {isExpanded && (
           <tr className="bg-slate-50/60 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
-            <td colSpan={7} className="px-6 py-3">
+            <td colSpan={6} className="px-6 py-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 {/* Strongest Subject */}
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#111827] border border-slate-200/80 dark:border-slate-800">
@@ -335,8 +326,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
               <th className="px-3 py-3 text-center">Candidacy</th>
               <th className="px-3 py-3">Mean & Scale</th>
               <th className="px-3 py-3" title="Comparison with immediately preceding examination">vs Prev Exam</th>
-              <th className="px-3 py-3 hidden md:table-cell" title="Spread of learners across CBC Rubric bands (EE / ME / AE / BE)">Score Spread (CBC)</th>
-              <th className="px-3 py-3 hidden lg:table-cell" title="Lowest-scoring Learning Area in this grade requiring academic intervention">Needs Attention (Lowest)</th>
+              <th className="px-3 py-3" title="Lowest-scoring Learning Area in this grade requiring academic intervention">Needs Attention (Lowest)</th>
               <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
@@ -346,7 +336,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
               <>
                 <tr className="bg-slate-100/70 dark:bg-slate-900/90">
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400"
                   >
                     Section A: Pre-Primary & Primary Levels (4-Tier Rubric: PP1 – Grade 6)
@@ -361,7 +351,7 @@ export const GradePerformanceMatrix: React.FC<GradePerformanceMatrixProps> = ({
               <>
                 <tr className="bg-slate-100/70 dark:bg-slate-900/90">
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-4 py-2 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400"
                   >
                     Section B: Junior Secondary Levels (8-Point Scale: Grade 7 – Grade 9)
