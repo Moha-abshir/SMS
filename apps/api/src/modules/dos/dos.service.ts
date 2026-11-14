@@ -10,6 +10,9 @@ import {
   users,
   teacherSubjectAllocations,
   markingAllocations,
+  catAssessments,
+  catScores,
+  markSubmissions,
   calculateCbcRubric,
   calculateJuniorPoints,
   isJuniorSecondaryClass,
@@ -1063,12 +1066,28 @@ export class DosService {
     examId?: string,
     subjectId?: string,
     classId?: string,
-    user?: AuthenticatedUser
+    user?: AuthenticatedUser,
+    compareExamId?: string
   ) {
     const isLeadership = !user || ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
-    const allocatedClassSubjectPairs = new Set<string>();
-    const allocatedClassIds = new Set<string>();
-    const allocatedSubjectIds = new Set<string>();
+
+    // 1. Fetch all subjects and classes
+    const [allSubjects, allClasses] = await Promise.all([
+      db.select().from(subjects).where(isNull(subjects.deletedAt)).orderBy(subjects.name),
+      db.select().from(classes).where(isNull(classes.deletedAt)).orderBy(classes.numericOrder, classes.name),
+    ]);
+
+    const classMap = new Map(allClasses.map((c) => [c.id, c]));
+    const subjectMap = new Map(allSubjects.map((s) => [s.id, s]));
+
+    // Helper: strip level prefixes UP-, LP-, JSS-, PPE-
+    const cleanSubjectCode = (code?: string | null, name?: string | null): string => {
+      const raw = code || name || 'SUBJ';
+      return raw.replace(/^(UP-|LP-|JSS-|PPE-)/i, '').trim() || raw;
+    };
+
+    // 2. Resolve teacher's allocations (Source of Truth: teacher_subject_allocations & marking_allocations)
+    let userAllocations: Array<{ classId: string; subjectId: string }> = [];
 
     if (!isLeadership && user) {
       const [teacherAllocs, markingAllocs] = await Promise.all([
@@ -1098,33 +1117,54 @@ export class DosService {
           ),
       ]);
 
+      const pairSet = new Set<string>();
       for (const a of [...teacherAllocs, ...markingAllocs]) {
-        allocatedClassSubjectPairs.add(`${a.classId}:${a.subjectId}`);
-        allocatedClassIds.add(a.classId);
-        allocatedSubjectIds.add(a.subjectId);
+        const key = `${a.classId}:${a.subjectId}`;
+        if (!pairSet.has(key) && classMap.has(a.classId) && subjectMap.has(a.subjectId)) {
+          pairSet.add(key);
+          userAllocations.push({ classId: a.classId, subjectId: a.subjectId });
+        }
       }
 
-      if (allocatedClassSubjectPairs.size === 0) {
+      if (userAllocations.length === 0) {
         const forbiddenError = new Error('Access denied: You do not have any active subject allocations.');
         (forbiddenError as any).statusCode = 403;
         throw forbiddenError;
       }
-    }
+    } else {
+      // Leadership oversight: If a subject is selected, provide all classes in that subject's tier;
+      // otherwise, select all classes that have matching tier for the target subject
+      const defaultSubj = (subjectId ? subjectMap.get(subjectId) : null) || allSubjects[0];
+      const targetSubjId = defaultSubj?.id;
 
-    // 1. Resolve Target Exam
-    let targetExamId = examId;
-    if (!targetExamId || targetExamId === 'latest') {
-      const [latestExam] = await db
-        .select()
-        .from(examinations)
-        .where(isNull(examinations.deletedAt))
-        .orderBy(desc(examinations.createdAt))
-        .limit(1);
-      if (latestExam) {
-        targetExamId = latestExam.id;
+      if (targetSubjId) {
+        for (const cls of allClasses) {
+          const isJunior = isJuniorSecondaryClass(cls as any);
+          const subjIsJunior = defaultSubj.levelCategory === 'JUNIOR';
+          const matchTier = isJunior === subjIsJunior;
+          if (matchTier) {
+            userAllocations.push({ classId: cls.id, subjectId: targetSubjId });
+          }
+        }
+      }
+      if (userAllocations.length === 0 && allClasses.length > 0 && allSubjects.length > 0) {
+        userAllocations.push({ classId: allClasses[0].id, subjectId: allSubjects[0].id });
       }
     }
 
+    // Sort allocations by class numeric order ascending, then subject name
+    userAllocations.sort((a, b) => {
+      const clsA = classMap.get(a.classId);
+      const clsB = classMap.get(b.classId);
+      const ordA = clsA?.numericOrder ?? 99;
+      const ordB = clsB?.numericOrder ?? 99;
+      if (ordA !== ordB) return ordA - ordB;
+      const subA = subjectMap.get(a.subjectId)?.name || '';
+      const subB = subjectMap.get(b.subjectId)?.name || '';
+      return subA.localeCompare(subB);
+    });
+
+    // 3. Resolve Target Exam & Baseline Exam
     const allExams = await db
       .select({
         exam: examinations,
@@ -1135,247 +1175,446 @@ export class DosService {
       .where(isNull(examinations.deletedAt))
       .orderBy(desc(examinations.createdAt));
 
-    const selectedExamRecord = allExams.find((e) => e.exam.id === targetExamId);
+    let selectedExamRecord = (examId && examId !== 'latest')
+      ? allExams.find((e) => e.exam.id === examId)
+      : allExams[0];
 
-    // 2. Fetch all subjects and classes
-    const [allSubjects, allClasses] = await Promise.all([
-      db.select().from(subjects).where(isNull(subjects.deletedAt)).orderBy(subjects.name),
-      db.select().from(classes).where(isNull(classes.deletedAt)).orderBy(classes.numericOrder, classes.name),
-    ]);
-
-    // 3. Filter available subjects for this user
-    const availableSubjects = isLeadership
-      ? allSubjects
-      : allSubjects.filter((s) => allocatedSubjectIds.has(s.id));
-
-    // Resolve targetSubjectId
-    let targetSubjectId = subjectId;
-    if (!targetSubjectId || !availableSubjects.some((s) => s.id === targetSubjectId)) {
-      targetSubjectId = availableSubjects[0]?.id;
-    }
-    const selectedSubject = availableSubjects.find((s) => s.id === targetSubjectId) || null;
-
-    // 4. Filter available classes for this subject
-    let availableClassesForSubject: typeof allClasses = [];
-    if (isLeadership) {
-      availableClassesForSubject = allClasses.filter((c) => {
-        if (!selectedSubject) return false;
-        if (c.levelCategory === selectedSubject.levelCategory) return true;
-        if (
-          ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(c.levelCategory) &&
-          ['PRIMARY', 'LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(selectedSubject.levelCategory)
-        ) {
-          return isJuniorSecondaryClass(c as any) === (selectedSubject.levelCategory === 'JUNIOR');
-        }
-        return false;
-      });
-    } else {
-      availableClassesForSubject = allClasses.filter((c) =>
-        targetSubjectId && allocatedClassSubjectPairs.has(`${c.id}:${targetSubjectId}`)
-      );
+    if (!selectedExamRecord && allExams.length > 0) {
+      selectedExamRecord = allExams[0];
     }
 
-    // Resolve targetClassId
-    let targetClassId = classId;
-    if (!targetClassId || !availableClassesForSubject.some((c) => c.id === targetClassId)) {
-      targetClassId = availableClassesForSubject[0]?.id;
-    }
-    const selectedClass = availableClassesForSubject.find((c) => c.id === targetClassId) || null;
+    const selectedExam = selectedExamRecord?.exam || null;
+    const selectedTerm = selectedExamRecord?.term || null;
 
-    // 5. Fetch all scores for this exam and target subject across the available classes
-    const classIdsToFetch = availableClassesForSubject.map((c) => c.id);
-    const whereConditions: any[] = [
-      isNull(examScores.deletedAt),
-      isNull(students.deletedAt),
-      isNull(subjects.deletedAt),
-      isNull(classes.deletedAt),
-    ];
-    if (targetExamId) {
-      whereConditions.push(eq(examScores.examId, targetExamId));
-    }
-    if (targetSubjectId) {
-      whereConditions.push(eq(examScores.subjectId, targetSubjectId));
-    }
-    if (classIdsToFetch.length > 0) {
-      whereConditions.push(inArray(classes.id, classIdsToFetch));
+    // Resolve compareExam (Baseline Exam)
+    let compareExam: typeof selectedExam = null;
+    let compareExamRecord: (typeof allExams)[0] | null = null;
+    if (selectedExam) {
+      const currIdx = allExams.findIndex((e) => e.exam.id === selectedExam.id);
+      if (compareExamId && compareExamId !== 'auto' && compareExamId !== 'none') {
+        compareExamRecord = allExams.find((e) => e.exam.id === compareExamId) || null;
+        compareExam = compareExamRecord?.exam || null;
+      } else if (compareExamId !== 'none' && currIdx >= 0 && currIdx + 1 < allExams.length) {
+        compareExamRecord = allExams[currIdx + 1];
+        compareExam = compareExamRecord.exam;
+      }
     }
 
-    const rawSubjectScores = classIdsToFetch.length > 0
-      ? await db
-          .select({
-            score: {
-              id: examScores.id,
-              marksObtained: examScores.marksObtained,
-              cbcRubricLevel: examScores.cbcRubricLevel,
-              juniorPoints: examScores.juniorPoints,
-              maxMarks: examScores.maxMarks,
-              teacherRemarks: examScores.teacherRemarks,
-            },
-            student: {
-              id: students.id,
-              firstName: students.firstName,
-              lastName: students.lastName,
-              assessmentNumber: students.assessmentNumber,
-              admissionNumber: students.admissionNumber,
-            },
-            subject: {
-              id: subjects.id,
-              name: subjects.name,
-              code: subjects.code,
-              levelCategory: subjects.levelCategory,
-            },
-            class: {
-              id: classes.id,
-              name: classes.name,
-              levelCategory: classes.levelCategory,
-            },
-          })
-          .from(examScores)
-          .innerJoin(students, eq(examScores.studentId, students.id))
-          .innerJoin(subjects, eq(examScores.subjectId, subjects.id))
-          .innerJoin(classes, eq(students.classId, classes.id))
-          .where(and(...whereConditions))
-      : [];
+    // 4. Resolve Active Selected Allocation
+    let selectedAlloc = userAllocations[0];
+    if (classId && subjectId) {
+      const found = userAllocations.find((a) => a.classId === classId && a.subjectId === subjectId);
+      if (found) selectedAlloc = found;
+    } else if (classId) {
+      const found = userAllocations.find((a) => a.classId === classId);
+      if (found) selectedAlloc = found;
+    } else if (subjectId) {
+      const found = userAllocations.find((a) => a.subjectId === subjectId);
+      if (found) selectedAlloc = found;
+    }
 
-    // Active students to compute candidacy
-    const activeClassStudents = classIdsToFetch.length > 0
+    const selectedClass = classMap.get(selectedAlloc.classId) || allClasses[0];
+    const selectedSubject = subjectMap.get(selectedAlloc.subjectId) || allSubjects[0];
+    const isJunior = isJuniorSecondaryClass(selectedClass as any);
+
+    // 5. Batch Fetch Data for All Allocations (Enrolled Students, Current Scores, Baseline Scores)
+    const allocatedClassIds = [...new Set(userAllocations.map((a) => a.classId))];
+    const allocatedSubjectIds = [...new Set(userAllocations.map((a) => a.subjectId))];
+
+    const activeStudents = allocatedClassIds.length > 0
       ? await db
           .select({
             id: students.id,
             classId: students.classId,
+            firstName: students.firstName,
+            lastName: students.lastName,
+            admissionNumber: students.admissionNumber,
+            assessmentNumber: students.assessmentNumber,
           })
           .from(students)
-          .where(and(eq(students.status, 'ACTIVE'), isNull(students.deletedAt), inArray(students.classId, classIdsToFetch)))
+          .where(
+            and(
+              eq(students.status, 'ACTIVE'),
+              isNull(students.deletedAt),
+              inArray(students.classId, allocatedClassIds)
+            )
+          )
+          .orderBy(students.admissionNumber)
       : [];
 
-    // 6. Compute Cross-Class Comparison for this subject
-    const crossClassComparison = availableClassesForSubject.map((cls) => {
-      const clsScores = rawSubjectScores.filter((r) => r.class.id === cls.id);
-      const isJunior = isJuniorSecondaryClass(cls as any);
+    const examScoreRows = (selectedExam && allocatedSubjectIds.length > 0 && allocatedClassIds.length > 0)
+      ? await db
+          .select({
+            id: examScores.id,
+            studentId: examScores.studentId,
+            subjectId: examScores.subjectId,
+            marksObtained: examScores.marksObtained,
+            cbcRubricLevel: examScores.cbcRubricLevel,
+            juniorPoints: examScores.juniorPoints,
+            teacherRemarks: examScores.teacherRemarks,
+          })
+          .from(examScores)
+          .innerJoin(students, eq(examScores.studentId, students.id))
+          .where(
+            and(
+              eq(examScores.examId, selectedExam.id),
+              inArray(examScores.subjectId, allocatedSubjectIds),
+              inArray(students.classId, allocatedClassIds),
+              isNull(examScores.deletedAt)
+            )
+          )
+      : [];
+
+    const baselineScoreRows = (compareExam && allocatedSubjectIds.length > 0 && allocatedClassIds.length > 0)
+      ? await db
+          .select({
+            id: examScores.id,
+            studentId: examScores.studentId,
+            subjectId: examScores.subjectId,
+            marksObtained: examScores.marksObtained,
+            juniorPoints: examScores.juniorPoints,
+          })
+          .from(examScores)
+          .innerJoin(students, eq(examScores.studentId, students.id))
+          .where(
+            and(
+              eq(examScores.examId, compareExam.id),
+              inArray(examScores.subjectId, allocatedSubjectIds),
+              inArray(students.classId, allocatedClassIds),
+              isNull(examScores.deletedAt)
+            )
+          )
+      : [];
+
+    // 6. Compute Teacher Allocations (Interactive Switcher & Benchmark Strip)
+    const teacherAllocations = userAllocations.map((alloc) => {
+      const cls = classMap.get(alloc.classId)!;
+      const subj = subjectMap.get(alloc.subjectId)!;
+      const allocIsJunior = isJuniorSecondaryClass(cls as any);
+      const clsStudents = activeStudents.filter((s) => s.classId === alloc.classId);
+      const clsStudentIds = new Set(clsStudents.map((s) => s.id));
+      const clsScores = examScoreRows.filter((r) => r.subjectId === alloc.subjectId && clsStudentIds.has(r.studentId));
+      const clsBaseScores = baselineScoreRows.filter((r) => r.subjectId === alloc.subjectId && clsStudentIds.has(r.studentId));
+
+      const totalEnrolled = clsStudents.length;
+      const totalSat = clsScores.length;
       let marksSum = 0;
-      let highest = 0;
-      let lowest = clsScores.length > 0 ? 100 : 0;
-      let ee = 0;
-      let me = 0;
-      let ae = 0;
-      let be = 0;
-      let topStudentInClass: any = null;
+      let pointsSum = 0;
+      let eeCount = 0;
+      let meCount = 0;
+      let juniorPassCount = 0;
 
-      clsScores.forEach((r) => {
-        const m = parseFloat(r.score.marksObtained);
+      for (const sc of clsScores) {
+        const m = parseFloat(sc.marksObtained as any) || 0;
         marksSum += m;
-        if (m > highest) {
-          highest = m;
-          topStudentInClass = {
-            name: `${r.student.firstName} ${r.student.lastName}`,
-            score: m,
-            assessmentNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
-          };
-        }
-        if (m < lowest) lowest = m;
-        const rub = r.score.cbcRubricLevel || calculateCbcRubric(m, r.score.maxMarks || 100).code;
-        if (rub === 'EE') ee++;
-        else if (rub === 'ME') me++;
-        else if (rub === 'AE') ae++;
-        else be++;
-      });
+        const rub = calculateCbcRubric(m, 100);
+        if (rub.code === 'EE') eeCount++;
+        else if (rub.code === 'ME') meCount++;
 
-      const testedCount = clsScores.length;
-      const enrolledCount = activeClassStudents.filter((s) => s.classId === cls.id).length || testedCount;
-      const averageScore = testedCount > 0 ? Math.round((marksSum / testedCount) * 10) / 10 : 0;
-      const proficiencyRate = testedCount > 0 ? Math.round(((ee + me) / testedCount) * 100) : 0;
+        const pts = sc.juniorPoints ?? calculateJuniorPoints(m, 100);
+        pointsSum += pts;
+        if (pts >= 5) juniorPassCount++;
+      }
 
-      return {
-        classId: cls.id,
-        className: cls.name,
-        levelCategory: cls.levelCategory,
-        isJunior,
-        enrolledCount,
-        testedCount,
-        averageScore,
-        highestScore: highest,
-        lowestScore: clsScores.length > 0 ? lowest : 0,
-        proficiencyRate,
-        rubricCounts: { EE: ee, ME: me, AE: ae, BE: be },
-        topStudent: topStudentInClass,
-        strugglingCount: be + ae,
-      };
-    });
+      const averageScore = totalSat > 0 ? Math.round((marksSum / totalSat) * 10) / 10 : 0;
+      const juniorPointsAvg = totalSat > 0 ? Math.round((pointsSum / totalSat) * 10) / 10 : 0;
 
-    // 7. Compute Selected Class Detail Metrics & Marksheet
-    const currentScores = targetClassId
-      ? rawSubjectScores.filter((r) => r.class.id === targetClassId)
-      : [];
+      // Base comparison
+      let baseAvg: number | null = null;
+      if (clsBaseScores.length > 0) {
+        const baseSum = clsBaseScores.reduce((acc, r) => acc + (parseFloat(r.marksObtained as any) || 0), 0);
+        baseAvg = Math.round((baseSum / clsBaseScores.length) * 10) / 10;
+      }
+      const deltaScore = (totalSat > 0 && baseAvg !== null) ? +(averageScore - baseAvg).toFixed(1) : null;
 
-    let currentMarksSum = 0;
-    let currentHighest = 0;
-    let currentLowest = currentScores.length > 0 ? 100 : 0;
-    let currentEE = 0;
-    let currentME = 0;
-    let currentAE = 0;
-    let currentBE = 0;
-    const currentPoints: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-    const currentIsJunior = selectedClass ? isJuniorSecondaryClass(selectedClass as any) : false;
+      let rubricOrPointsLabel = 'No marks';
+      let proficiencyRate = 0;
 
-    const mappedStudentScores = currentScores.map((r) => {
-      const marks = parseFloat(r.score.marksObtained);
-      currentMarksSum += marks;
-      if (marks > currentHighest) currentHighest = marks;
-      if (marks < currentLowest) currentLowest = marks;
-
-      const rub = r.score.cbcRubricLevel || calculateCbcRubric(marks, r.score.maxMarks || 100).code;
-      if (rub === 'EE') currentEE++;
-      else if (rub === 'ME') currentME++;
-      else if (rub === 'AE') currentAE++;
-      else currentBE++;
-
-      let ptsValue: number | null = null;
-      if (currentIsJunior) {
-        ptsValue = r.score.juniorPoints ?? calculateJuniorPoints(marks, r.score.maxMarks || 100);
-        if (ptsValue in currentPoints) {
-          currentPoints[ptsValue]++;
+      if (totalSat > 0) {
+        if (allocIsJunior) {
+          const ptRubric = juniorPointsAvg >= 7 ? 'EE' : juniorPointsAvg >= 5 ? 'ME' : juniorPointsAvg >= 3 ? 'AE' : 'BE';
+          rubricOrPointsLabel = `${juniorPointsAvg} pts (${ptRubric})`;
+          proficiencyRate = Math.round((juniorPassCount / totalSat) * 100);
+        } else {
+          const rub = calculateCbcRubric(averageScore, 100).code;
+          rubricOrPointsLabel = `${averageScore}% (${rub})`;
+          proficiencyRate = Math.round(((eeCount + meCount) / totalSat) * 100);
         }
       }
 
       return {
-        studentId: r.student.id,
-        studentName: `${r.student.firstName} ${r.student.lastName}`,
-        assessmentNumber: r.student.assessmentNumber || r.student.admissionNumber || '—',
-        marksObtained: marks,
-        maxMarks: r.score.maxMarks || 100,
-        rubric: rub,
-        points: ptsValue,
-        remarks: r.score.teacherRemarks || '',
+        allocationId: `${alloc.classId}:${alloc.subjectId}`,
+        classId: alloc.classId,
+        className: cls.name,
+        levelCategory: cls.levelCategory,
+        isJunior: allocIsJunior,
+        numericOrder: cls.numericOrder ?? 99,
+        subjectId: alloc.subjectId,
+        subjectName: subj.name,
+        subjectCode: cleanSubjectCode(subj.code, subj.name),
+        fullSubjectCode: subj.code || subj.name,
+        totalEnrolled,
+        totalSat,
+        hasMarks: totalSat > 0,
+        averageScore,
+        juniorPointsAvg,
+        deltaScore,
+        proficiencyRate,
+        rubricOrPointsLabel,
       };
     });
 
-    // Sort students by score descending to generate subject ranks
-    mappedStudentScores.sort((a, b) => b.marksObtained - a.marksObtained);
-    const rankedStudentsMarksheet = mappedStudentScores.map((s, idx) => ({
-      ...s,
-      rank: idx + 1,
-    }));
+    // 7. Compute Selected Allocation Marksheet & Detailed Diagnostics
+    const selectedClassStudents = activeStudents.filter((s) => s.classId === selectedAlloc.classId);
+    const selectedStudentIds = new Set(selectedClassStudents.map((s) => s.id));
+    const currentClassScores = examScoreRows.filter((r) => r.subjectId === selectedAlloc.subjectId && selectedStudentIds.has(r.studentId));
+    const baselineClassScores = baselineScoreRows.filter((r) => r.subjectId === selectedAlloc.subjectId && selectedStudentIds.has(r.studentId));
 
-    const totalTested = rankedStudentsMarksheet.length;
-    const enrolledInCurrentClass = targetClassId
-      ? activeClassStudents.filter((s) => s.classId === targetClassId).length || totalTested
-      : totalTested;
-    const absentInCurrentClass = Math.max(0, enrolledInCurrentClass - totalTested);
-    const currentAverage = totalTested > 0 ? Math.round((currentMarksSum / totalTested) * 10) / 10 : 0;
-    const currentProficiencyRate = totalTested > 0 ? Math.round(((currentEE + currentME) / totalTested) * 100) : 0;
+    // Baseline ranking map
+    const baseRankMap = new Map<string, { rank: number; marks: number }>();
+    if (baselineClassScores.length > 0) {
+      const sortedBase = [...baselineClassScores].sort((a, b) => (parseFloat(b.marksObtained as any) || 0) - (parseFloat(a.marksObtained as any) || 0));
+      sortedBase.forEach((r, idx) => {
+        baseRankMap.set(r.studentId, {
+          rank: idx + 1,
+          marks: parseFloat(r.marksObtained as any) || 0,
+        });
+      });
+    }
 
-    // Remedial / Struggling learners for this subject (Score < 50% or BE)
-    const remedialLearners = rankedStudentsMarksheet
-      .filter((s) => s.marksObtained < 50 || s.rubric === 'BE')
-      .map((s) => ({
-        ...s,
-        riskLevel: (s.marksObtained < 35 ? 'HIGH' : 'MEDIUM') as 'HIGH' | 'MEDIUM',
-      }));
-    // Sort remedial with lowest scores first
-    remedialLearners.sort((a, b) => a.marksObtained - b.marksObtained);
+    // CAT assessments and scores for this class & subject in the selected term
+    let overallCatAverage: number | null = null;
+    const studentCatMap = new Map<string, number>();
 
-    const topLearner = rankedStudentsMarksheet.length > 0 ? rankedStudentsMarksheet[0] : null;
-    const lowestLearner = rankedStudentsMarksheet.length > 0 ? rankedStudentsMarksheet[rankedStudentsMarksheet.length - 1] : null;
+    if (selectedExam && selectedTerm) {
+      const termCats = await db
+        .select({
+          id: catAssessments.id,
+          catNumber: catAssessments.catNumber,
+          maxMarks: catAssessments.maxMarks,
+        })
+        .from(catAssessments)
+        .where(
+          and(
+            eq(catAssessments.termId, selectedExam.termId),
+            eq(catAssessments.classId, selectedAlloc.classId),
+            eq(catAssessments.subjectId, selectedAlloc.subjectId),
+            isNull(catAssessments.deletedAt)
+          )
+        );
+
+      const catIds = termCats.map((c) => c.id);
+      if (catIds.length > 0 && selectedClassStudents.length > 0) {
+        const catScoresList = await db
+          .select({
+            catId: catScores.catId,
+            studentId: catScores.studentId,
+            marksObtained: catScores.marksObtained,
+          })
+          .from(catScores)
+          .where(
+            and(
+              inArray(catScores.catId, catIds),
+              inArray(catScores.studentId, [...selectedStudentIds]),
+              isNull(catScores.deletedAt)
+            )
+          );
+
+        const catAssessmentMap = new Map(termCats.map((c) => [c.id, c]));
+        const studentCatListMap = new Map<string, number[]>();
+        let catMarksSum = 0;
+        let catMarksCount = 0;
+
+        for (const cs of catScoresList) {
+          const cat = catAssessmentMap.get(cs.catId);
+          if (!cat) continue;
+          const marks = typeof cs.marksObtained === 'number' ? cs.marksObtained : parseFloat(cs.marksObtained as any) || 0;
+          const normalizedPct = cat.maxMarks > 0 ? (marks / cat.maxMarks) * 100 : marks;
+
+          if (!studentCatListMap.has(cs.studentId)) studentCatListMap.set(cs.studentId, []);
+          studentCatListMap.get(cs.studentId)!.push(normalizedPct);
+
+          catMarksSum += normalizedPct;
+          catMarksCount++;
+        }
+
+        if (catMarksCount > 0) {
+          overallCatAverage = Math.round((catMarksSum / catMarksCount) * 10) / 10;
+        }
+
+        for (const [sId, list] of studentCatListMap.entries()) {
+          if (list.length > 0) {
+            const avg = list.reduce((a, b) => a + b, 0) / list.length;
+            studentCatMap.set(sId, Math.round(avg * 10) / 10);
+          }
+        }
+      }
+    }
+
+    // Submission Status
+    let submissionStatus: 'SUBMITTED' | 'DRAFT' | 'PENDING' = 'PENDING';
+    if (selectedExam) {
+      const [submission] = await db
+        .select({
+          status: markSubmissions.status,
+        })
+        .from(markSubmissions)
+        .where(
+          and(
+            eq(markSubmissions.examId, selectedExam.id),
+            eq(markSubmissions.classId, selectedAlloc.classId),
+            eq(markSubmissions.subjectId, selectedAlloc.subjectId),
+            isNull(markSubmissions.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (submission?.status === 'APPROVED' || submission?.status === 'SUBMITTED') {
+        submissionStatus = 'SUBMITTED';
+      } else if (currentClassScores.length > 0) {
+        submissionStatus = 'DRAFT';
+      }
+    }
+
+    // Calculate class subject mean
+    const scoreByStudentId = new Map(currentClassScores.map((s) => [s.studentId, s]));
+    let totalMarksSum = 0;
+    let totalPointsSum = 0;
+    let highestScore = 0;
+    let lowestScore = currentClassScores.length > 0 ? 100 : 0;
+    let eeCount = 0;
+    let meCount = 0;
+    let aeCount = 0;
+    let beCount = 0;
+    const pointsSpread: Record<number, number> = { 8: 0, 7: 0, 6: 0, 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+    for (const sc of currentClassScores) {
+      const marks = parseFloat(sc.marksObtained as any) || 0;
+      totalMarksSum += marks;
+      if (marks > highestScore) highestScore = marks;
+      if (marks < lowestScore) lowestScore = marks;
+
+      const rub = calculateCbcRubric(marks, 100);
+      if (rub.code === 'EE') eeCount++;
+      else if (rub.code === 'ME') meCount++;
+      else if (rub.code === 'AE') aeCount++;
+      else beCount++;
+
+      const pts = sc.juniorPoints ?? calculateJuniorPoints(marks, 100);
+      totalPointsSum += pts;
+      if (pts in pointsSpread) pointsSpread[pts]++;
+    }
+
+    const totalSat = currentClassScores.length;
+    const totalEnrolled = selectedClassStudents.length;
+    const absentCount = Math.max(0, totalEnrolled - totalSat);
+    const averageScore = totalSat > 0 ? Math.round((totalMarksSum / totalSat) * 10) / 10 : 0;
+    const juniorPointsAvg = totalSat > 0 ? Math.round((totalPointsSum / totalSat) * 10) / 10 : 0;
+    const proficiencyRate = totalSat > 0
+      ? isJunior
+        ? Math.round(((pointsSpread[8] + pointsSpread[7] + pointsSpread[6] + pointsSpread[5]) / totalSat) * 100)
+        : Math.round(((eeCount + meCount) / totalSat) * 100)
+      : 0;
+
+    // Delta vs baseline exam for selected class
+    let baseClassAvg: number | null = null;
+    if (baselineClassScores.length > 0) {
+      const baseSum = baselineClassScores.reduce((acc, r) => acc + (parseFloat(r.marksObtained as any) || 0), 0);
+      baseClassAvg = Math.round((baseSum / baselineClassScores.length) * 10) / 10;
+    }
+    const deltaScore = (totalSat > 0 && baseClassAvg !== null) ? +(averageScore - baseClassAvg).toFixed(1) : null;
+    const catGap = (overallCatAverage !== null && totalSat > 0) ? +(averageScore - overallCatAverage).toFixed(1) : null;
+
+    // Build Marksheet Rows
+    const marksheetRows = selectedClassStudents.map((stu) => {
+      const sc = scoreByStudentId.get(stu.id);
+      const baseInfo = baseRankMap.get(stu.id) || null;
+      const catAvg = studentCatMap.has(stu.id) ? studentCatMap.get(stu.id)! : null;
+
+      if (!sc) {
+        return {
+          studentId: stu.id,
+          studentName: `${stu.firstName} ${stu.lastName}`,
+          admissionNumber: stu.admissionNumber,
+          assessmentNumber: stu.assessmentNumber || '—',
+          marksObtained: null,
+          maxMarks: 100,
+          catAverage: catAvg,
+          prevMarks: baseInfo ? baseInfo.marks : null,
+          deltaMarks: null,
+          deltaRank: null,
+          rubric: null,
+          rubricLabel: null,
+          points: null,
+          pointsLabel: null,
+          diffFromClassMean: null,
+          remarks: 'Absent / Pending marks',
+          isAbsent: true,
+          rank: null as number | null,
+        };
+      }
+
+      const marks = parseFloat(sc.marksObtained as any) || 0;
+      const prevMarks = baseInfo ? baseInfo.marks : null;
+      const deltaMarks = prevMarks !== null ? +(marks - prevMarks).toFixed(1) : null;
+      const diffFromClassMean = +(marks - averageScore).toFixed(1);
+
+      const rub = calculateCbcRubric(marks, 100);
+      const pts = sc.juniorPoints ?? calculateJuniorPoints(marks, 100);
+      const ptsLabel = isJunior
+        ? `${pts} pts · ${pts >= 7 ? 'EE' : pts >= 5 ? 'ME' : pts >= 3 ? 'AE' : 'BE'}${pts % 2 === 0 ? '1' : '2'}`
+        : null;
+
+      return {
+        studentId: stu.id,
+        studentName: `${stu.firstName} ${stu.lastName}`,
+        admissionNumber: stu.admissionNumber,
+        assessmentNumber: stu.assessmentNumber || '—',
+        marksObtained: marks,
+        maxMarks: 100,
+        catAverage: catAvg,
+        prevMarks,
+        deltaMarks,
+        deltaRank: null as number | null,
+        rubric: rub.code,
+        rubricLabel: rub.label,
+        points: isJunior ? pts : null,
+        pointsLabel: ptsLabel,
+        diffFromClassMean,
+        remarks: sc.teacherRemarks || '',
+        isAbsent: false,
+        rank: null as number | null,
+      };
+    });
+
+    // Rank tested students descending by marksObtained
+    const testedRows = marksheetRows.filter((r) => !r.isAbsent && r.marksObtained !== null);
+    testedRows.sort((a, b) => (b.marksObtained ?? 0) - (a.marksObtained ?? 0));
+    testedRows.forEach((r, idx) => {
+      r.rank = idx + 1;
+      const baseInfo = baseRankMap.get(r.studentId);
+      if (baseInfo?.rank) {
+        // Delta rank: positive means moved up in ranking (e.g. was #4 now #2 -> +2)
+        r.deltaRank = baseInfo.rank - r.rank;
+      }
+    });
+
+    const absentRows = marksheetRows.filter((r) => r.isAbsent || r.marksObtained === null);
+    const finalMarksheet = [...testedRows, ...absentRows];
+
+    // Filter categories
+    const remedialLearners = testedRows.filter((r) => {
+      if (isJunior) return (r.points ?? 0) <= 4 || (r.marksObtained ?? 0) < 50;
+      return (r.marksObtained ?? 0) < 50 || r.rubric === 'BE';
+    });
+    const topPerformers = testedRows.filter((r) => {
+      if (isJunior) return (r.points ?? 0) >= 7 || (r.marksObtained ?? 0) >= 75;
+      return (r.marksObtained ?? 0) >= 75 || r.rubric === 'EE';
+    });
+    const droppedLearners = testedRows.filter((r) => r.deltaMarks !== null && r.deltaMarks <= -3);
+
+    const topLearner = testedRows.length > 0 ? testedRows[0] : null;
+    const lowestLearner = testedRows.length > 0 ? testedRows[testedRows.length - 1] : null;
 
     return {
       examsList: allExams.map((e) => ({
@@ -1384,69 +1623,76 @@ export class DosService {
         status: e.exam.status,
         termName: `Term ${e.term.termNumber} (${e.term.year})`,
       })),
-      selectedExam: selectedExamRecord
+      selectedExam: selectedExam
         ? {
-            id: selectedExamRecord.exam.id,
-            title: selectedExamRecord.exam.title,
-            status: selectedExamRecord.exam.status,
-            termName: `Term ${selectedExamRecord.term.termNumber} (${selectedExamRecord.term.year})`,
+            id: selectedExam.id,
+            title: selectedExam.title,
+            status: selectedExam.status,
+            termName: selectedTerm ? `Term ${selectedTerm.termNumber} (${selectedTerm.year})` : '',
           }
         : null,
-      subjectsList: availableSubjects.map((s) => ({
+      compareExam: compareExam
+        ? {
+            id: compareExam.id,
+            title: compareExam.title,
+            status: compareExam.status,
+            termName: compareExamRecord?.term ? `Term ${compareExamRecord.term.termNumber} (${compareExamRecord.term.year})` : '',
+          }
+        : null,
+      subjectsList: (isLeadership ? allSubjects : allSubjects.filter((s) => userAllocations.some((a) => a.subjectId === s.id))).map((s) => ({
         id: s.id,
         name: s.name,
         code: s.code,
         levelCategory: s.levelCategory,
       })),
-      selectedSubject: selectedSubject
-        ? {
-            id: selectedSubject.id,
-            name: selectedSubject.name,
-            code: selectedSubject.code,
-            levelCategory: selectedSubject.levelCategory,
-          }
-        : null,
-      classesList: availableClassesForSubject.map((c) => ({
-        id: c.id,
-        name: c.name,
-        levelCategory: c.levelCategory,
-      })),
-      selectedClass: selectedClass
-        ? {
-            id: selectedClass.id,
-            name: selectedClass.name,
-            levelCategory: selectedClass.levelCategory,
-          }
-        : null,
+      selectedSubject: {
+        id: selectedSubject.id,
+        name: selectedSubject.name,
+        code: selectedSubject.code,
+        cleanCode: cleanSubjectCode(selectedSubject.code, selectedSubject.name),
+        levelCategory: selectedSubject.levelCategory,
+      },
+      selectedClass: {
+        id: selectedClass.id,
+        name: selectedClass.name,
+        levelCategory: selectedClass.levelCategory,
+        isJunior,
+      },
+      teacherAllocations,
       subjectMetrics: {
-        averageScore: currentAverage,
-        highestScore: currentHighest,
-        lowestScore: currentScores.length > 0 ? currentLowest : 0,
-        totalEnrolled: enrolledInCurrentClass,
-        totalSat: totalTested,
-        absentCount: absentInCurrentClass,
-        candidacyRate: enrolledInCurrentClass > 0 ? Math.round((totalTested / enrolledInCurrentClass) * 1000) / 10 : 100,
-        proficiencyRate: currentProficiencyRate,
-        rubricDistribution: { EE: currentEE, ME: currentME, AE: currentAE, BE: currentBE },
+        averageScore,
+        juniorPointsAvg,
+        highestScore: totalSat > 0 ? highestScore : 0,
+        lowestScore: totalSat > 0 ? lowestScore : 0,
+        totalEnrolled,
+        totalSat,
+        absentCount,
+        candidacyRate: totalEnrolled > 0 ? Math.round((totalSat / totalEnrolled) * 1000) / 10 : 100,
+        proficiencyRate,
+        deltaScore,
+        catAverage: overallCatAverage,
+        catGap,
+        submissionStatus,
+        rubricDistribution: { EE: eeCount, ME: meCount, AE: aeCount, BE: beCount },
         rubricPercentages: {
-          EE: totalTested > 0 ? Math.round((currentEE / totalTested) * 100) : 0,
-          ME: totalTested > 0 ? Math.round((currentME / totalTested) * 100) : 0,
-          AE: totalTested > 0 ? Math.round((currentAE / totalTested) * 100) : 0,
-          BE: totalTested > 0 ? Math.round((currentBE / totalTested) * 100) : 0,
+          EE: totalSat > 0 ? Math.round((eeCount / totalSat) * 100) : 0,
+          ME: totalSat > 0 ? Math.round((meCount / totalSat) * 100) : 0,
+          AE: totalSat > 0 ? Math.round((aeCount / totalSat) * 100) : 0,
+          BE: totalSat > 0 ? Math.round((beCount / totalSat) * 100) : 0,
         },
-        pointsDistribution: currentPoints,
+        pointsDistribution: pointsSpread,
         topLearner,
         lowestLearner,
         remedialCount: remedialLearners.length,
       },
-      crossClassComparison,
       remedialLearners,
-      studentsMarksheet: rankedStudentsMarksheet,
+      topPerformers,
+      droppedLearners,
+      studentsMarksheet: finalMarksheet,
       userScope: {
         isLeadership,
         isSubjectTeacher: true,
-        totalAllocatedSubjects: availableSubjects.length,
-        totalAllocatedClasses: availableClassesForSubject.length,
+        totalAllocations: teacherAllocations.length,
       },
     };
   }

@@ -40,7 +40,8 @@ export class DosController {
       const examId = req.query.examId as string | undefined;
       const subjectId = req.query.subjectId as string | undefined;
       const classId = req.query.classId as string | undefined;
-      const data = await DosService.getSubjectPerformance(examId, subjectId, classId, req.user);
+      const compareExamId = req.query.compareExamId as string | undefined;
+      const data = await DosService.getSubjectPerformance(examId, subjectId, classId, req.user, compareExamId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
