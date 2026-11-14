@@ -202,3 +202,20 @@ export const reportCardRemarks = pgTable('report_card_remarks', {
   index('report_card_remarks_student_idx').on(table.studentId),
 ]);
 
+export const classExamTargets = pgTable('class_exam_targets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
+  classId: uuid('class_id').notNull().references(() => classes.id, { onDelete: 'cascade' }),
+  targetMeanPercentage: decimal('target_mean_percentage', { precision: 5, scale: 2 }).notNull(),
+  targetMeanPoints: decimal('target_mean_points', { precision: 4, scale: 2 }),
+  setById: uuid('set_by_id').notNull().references(() => users.id),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('class_exam_target_uq').on(table.examId, table.classId),
+  index('class_exam_targets_exam_class_idx').on(table.examId, table.classId),
+]);
+
+
