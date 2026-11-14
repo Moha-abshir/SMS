@@ -15,4 +15,7 @@ router.get('/:classId/learners/:studentId', ClassWorkspaceController.getLearnerD
 // 3. POST /api/examinations/class-workspace/:classId/learners/:studentId/remark
 router.post('/:classId/learners/:studentId/remark', ClassWorkspaceController.saveLearnerRemark);
 
+// 4. POST /api/examinations/class-workspace/:classId/target-mean
+router.post('/:classId/target-mean', ClassWorkspaceController.setTargetMean);
+
 export default router;

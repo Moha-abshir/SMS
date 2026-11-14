@@ -14,6 +14,7 @@ import {
   reportCardLocks,
   reportUnlockRequests,
   reportCardRemarks,
+  classExamTargets,
   attendanceRegisters,
   attendanceRecords,
   teacherLeaveRequests,
@@ -746,6 +747,35 @@ export class ClassWorkspaceService {
       beLearnerCount = rubricFreq.BE || 0;
     }
 
+    // G. Fetch Class Target Mean for this exam
+    const targetRows = await db
+      .select({
+        id: classExamTargets.id,
+        targetMeanPercentage: classExamTargets.targetMeanPercentage,
+        targetMeanPoints: classExamTargets.targetMeanPoints,
+        notes: classExamTargets.notes,
+        setById: classExamTargets.setById,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+      })
+      .from(classExamTargets)
+      .leftJoin(users, eq(classExamTargets.setById, users.id))
+      .where(
+        and(
+          eq(classExamTargets.examId, selectedExam.id),
+          eq(classExamTargets.classId, classId),
+          isNull(classExamTargets.deletedAt)
+        )
+      )
+      .limit(1);
+
+    const targetRow = targetRows[0] || null;
+    const targetMeanPct = targetRow ? parseFloat(targetRow.targetMeanPercentage as any) : null;
+    const targetPoints = targetRow && targetRow.targetMeanPoints ? parseFloat(targetRow.targetMeanPoints as any) : null;
+    const diffFromTargetPct = targetMeanPct !== null ? +(classMeanPct - targetMeanPct).toFixed(1) : null;
+    const isTargetMet = targetMeanPct !== null ? classMeanPct >= targetMeanPct : null;
+    const setByTeacherName = targetRow && targetRow.teacherFirstName ? `${targetRow.teacherFirstName} ${targetRow.teacherLastName}` : null;
+
     return {
       availableExams,
       availableClasses: allDbClasses,
@@ -788,6 +818,14 @@ export class ClassWorkspaceService {
         deltaPoints: classDeltaPoints,
         masteryRatePct,
         beLearnerCount,
+      },
+      targetMean: {
+        targetMeanPercentage: targetMeanPct,
+        targetMeanPoints: targetPoints,
+        isMet: isTargetMet,
+        diffFromTarget: diffFromTargetPct,
+        setByTeacherName,
+        notes: targetRow?.notes || null,
       },
       trajectoryCounts: {
         improvedCount,
@@ -1242,6 +1280,76 @@ export class ClassWorkspaceService {
       success: true,
       message: 'Remark saved successfully.',
       remark: remarkText,
+    };
+  }
+
+  /**
+   * Sets or updates Class Target Mean for an examination
+   */
+  static async setTargetMean(
+    classId: string,
+    body: {
+      examId: string;
+      targetMeanPercentage: number;
+      targetMeanPoints?: number;
+      notes?: string;
+    },
+    user?: AuthenticatedUser
+  ) {
+    if (!user) {
+      const err: any = new Error('Authentication required');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    const userScope = await this.resolveUserScope(user, classId);
+    if (!userScope.isLeadership && !userScope.isAssignedClassTeacher) {
+      const err: any = new Error('Access denied: Only assigned Class Teachers or leadership can set class target expectations.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (!body.examId || body.targetMeanPercentage === undefined || isNaN(Number(body.targetMeanPercentage))) {
+      const err: any = new Error('Valid Exam ID and Target Mean Percentage are required.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const targetPct = Number(body.targetMeanPercentage);
+    if (targetPct < 0 || targetPct > 100) {
+      const err: any = new Error('Target Mean Percentage must be between 0 and 100.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    await db
+      .insert(classExamTargets)
+      .values({
+        examId: body.examId,
+        classId,
+        targetMeanPercentage: String(targetPct),
+        targetMeanPoints: body.targetMeanPoints ? String(body.targetMeanPoints) : null,
+        setById: user.id,
+        notes: body.notes || null,
+      })
+      .onConflictDoUpdate({
+        target: [classExamTargets.examId, classExamTargets.classId],
+        set: {
+          targetMeanPercentage: String(targetPct),
+          targetMeanPoints: body.targetMeanPoints ? String(body.targetMeanPoints) : null,
+          setById: user.id,
+          notes: body.notes || null,
+          updatedAt: new Date(),
+        },
+      });
+
+    return {
+      success: true,
+      message: 'Class target mean expectation saved successfully.',
+      targetMean: {
+        targetMeanPercentage: targetPct,
+        targetMeanPoints: body.targetMeanPoints || null,
+      },
     };
   }
 }

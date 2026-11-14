@@ -80,4 +80,29 @@ export class ClassWorkspaceController {
       });
     }
   }
+
+  static async setTargetMean(req: Request, res: Response) {
+    try {
+      const { classId } = req.params;
+      const body = req.body;
+
+      if (!classId) {
+        return res.status(400).json({ success: false, message: 'Class ID is required.' });
+      }
+
+      const result = await ClassWorkspaceService.setTargetMean(
+        classId,
+        body,
+        req.user
+      );
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'Failed to save class target expectation',
+      });
+    }
+  }
 }
