@@ -18,7 +18,7 @@ export function calculateCbcRubric(marks: number, totalMarks = 100): CbcRubricRe
     return { code: 'EE', level: 4, label: 'Exceeding Expectations' };
   } else if (percentage >= 50) {
     return { code: 'ME', level: 3, label: 'Meeting Expectations' };
-  } else if (percentage >= 25) {
+  } else if (percentage >= 40) {
     return { code: 'AE', level: 2, label: 'Approaching Expectations' };
   } else {
     return { code: 'BE', level: 1, label: 'Below Expectations' };
