@@ -13,6 +13,7 @@ import {
   catAssessments,
   catScores,
   markSubmissions,
+  subjectExamTargets,
   calculateCbcRubric,
   calculateJuniorPoints,
   isJuniorSecondaryClass,
@@ -22,6 +23,7 @@ import {
   desc,
   sql,
   inArray,
+  count,
 } from '@school/shared';
 import { AuthenticatedUser } from '../../middleware/auth.js';
 import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
@@ -1173,21 +1175,42 @@ export class DosService {
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
       .where(isNull(examinations.deletedAt))
-      .orderBy(desc(examinations.createdAt));
+      .orderBy(desc(academicTerms.year), desc(academicTerms.termNumber), desc(examinations.createdAt));
+
+    // Query which exams have recorded scores
+    const scoreCounts = await db
+      .select({
+        examId: examScores.examId,
+        scoreCount: count(examScores.id),
+      })
+      .from(examScores)
+      .where(isNull(examScores.deletedAt))
+      .groupBy(examScores.examId);
+
+    const scoreCountMap = new Map(scoreCounts.map((s) => [s.examId, Number(s.scoreCount)]));
 
     let selectedExamRecord = (examId && examId !== 'latest')
       ? allExams.find((e) => e.exam.id === examId)
-      : allExams[0];
+      : null;
 
     if (!selectedExamRecord && allExams.length > 0) {
-      selectedExamRecord = allExams[0];
+      // Default to the latest examination that has calculated results / terminated
+      selectedExamRecord = allExams.find((e) => (scoreCountMap.get(e.exam.id) || 0) > 0)
+        || allExams.find((e) => e.exam.status !== 'DRAFT')
+        || allExams[0];
     }
 
     const selectedExam = selectedExamRecord?.exam || null;
     const selectedTerm = selectedExamRecord?.term || null;
 
+    if (!selectedExam) {
+      const err: any = new Error('No examinations found in the system.');
+      err.statusCode = 404;
+      throw err;
+    }
+
     // Resolve compareExam (Baseline Exam)
-    let compareExam: typeof selectedExam = null;
+    let compareExam: (typeof selectedExam) | null = null;
     let compareExamRecord: (typeof allExams)[0] | null = null;
     if (selectedExam) {
       const currIdx = allExams.findIndex((e) => e.exam.id === selectedExam.id);
@@ -1508,8 +1531,8 @@ export class DosService {
     const totalSat = currentClassScores.length;
     const totalEnrolled = selectedClassStudents.length;
     const absentCount = Math.max(0, totalEnrolled - totalSat);
-    const averageScore = totalSat > 0 ? Math.round((totalMarksSum / totalSat) * 10) / 10 : 0;
-    const juniorPointsAvg = totalSat > 0 ? Math.round((totalPointsSum / totalSat) * 10) / 10 : 0;
+    const averageScore = totalSat > 0 ? Math.round((totalMarksSum / totalSat) * 10) / 10 : null;
+    const juniorPointsAvg = totalSat > 0 ? Math.round((totalPointsSum / totalSat) * 10) / 10 : null;
     const proficiencyRate = totalSat > 0
       ? isJunior
         ? Math.round(((pointsSpread[8] + pointsSpread[7] + pointsSpread[6] + pointsSpread[5]) / totalSat) * 100)
@@ -1522,10 +1545,11 @@ export class DosService {
       const baseSum = baselineClassScores.reduce((acc, r) => acc + (parseFloat(r.marksObtained as any) || 0), 0);
       baseClassAvg = Math.round((baseSum / baselineClassScores.length) * 10) / 10;
     }
-    const deltaScore = (totalSat > 0 && baseClassAvg !== null) ? +(averageScore - baseClassAvg).toFixed(1) : null;
-    const catGap = (overallCatAverage !== null && totalSat > 0) ? +(averageScore - overallCatAverage).toFixed(1) : null;
+    const deltaScore = (totalSat > 0 && averageScore !== null && baseClassAvg !== null) ? +(averageScore - baseClassAvg).toFixed(1) : null;
+    const catGap = (overallCatAverage !== null && totalSat > 0 && averageScore !== null) ? +(averageScore - overallCatAverage).toFixed(1) : null;
 
     // Build Marksheet Rows
+    const isExamPending = totalSat === 0;
     const marksheetRows = selectedClassStudents.map((stu) => {
       const sc = scoreByStudentId.get(stu.id);
       const baseInfo = baseRankMap.get(stu.id) || null;
@@ -1548,8 +1572,9 @@ export class DosService {
           points: null,
           pointsLabel: null,
           diffFromClassMean: null,
-          remarks: 'Absent / Pending marks',
-          isAbsent: true,
+          remarks: isExamPending ? '—' : 'Absent',
+          isAbsent: !isExamPending,
+          isPending: isExamPending,
           rank: null as number | null,
         };
       }
@@ -1557,7 +1582,7 @@ export class DosService {
       const marks = parseFloat(sc.marksObtained as any) || 0;
       const prevMarks = baseInfo ? baseInfo.marks : null;
       const deltaMarks = prevMarks !== null ? +(marks - prevMarks).toFixed(1) : null;
-      const diffFromClassMean = +(marks - averageScore).toFixed(1);
+      const diffFromClassMean = averageScore !== null ? +(marks - averageScore).toFixed(1) : null;
 
       const rub = calculateCbcRubric(marks, 100);
       const pts = sc.juniorPoints ?? calculateJuniorPoints(marks, 100);
@@ -1583,12 +1608,13 @@ export class DosService {
         diffFromClassMean,
         remarks: sc.teacherRemarks || '',
         isAbsent: false,
+        isPending: false,
         rank: null as number | null,
       };
     });
 
     // Rank tested students descending by marksObtained
-    const testedRows = marksheetRows.filter((r) => !r.isAbsent && r.marksObtained !== null);
+    const testedRows = marksheetRows.filter((r) => !r.isAbsent && !r.isPending && r.marksObtained !== null);
     testedRows.sort((a, b) => (b.marksObtained ?? 0) - (a.marksObtained ?? 0));
     testedRows.forEach((r, idx) => {
       r.rank = idx + 1;
@@ -1599,36 +1625,140 @@ export class DosService {
       }
     });
 
-    const absentRows = marksheetRows.filter((r) => r.isAbsent || r.marksObtained === null);
+    const absentRows = marksheetRows.filter((r) => r.isAbsent || r.isPending || r.marksObtained === null);
     const finalMarksheet = [...testedRows, ...absentRows];
 
     // Filter categories
-    const remedialLearners = testedRows.filter((r) => {
+    const remedialLearners = totalSat > 0 ? testedRows.filter((r) => {
       if (isJunior) return (r.points ?? 0) <= 4 || (r.marksObtained ?? 0) < 50;
       return (r.marksObtained ?? 0) < 50 || r.rubric === 'BE';
-    });
-    const topPerformers = testedRows.filter((r) => {
+    }) : [];
+
+    const topPerformers = totalSat > 0 ? testedRows.filter((r) => {
       if (isJunior) return (r.points ?? 0) >= 7 || (r.marksObtained ?? 0) >= 75;
       return (r.marksObtained ?? 0) >= 75 || r.rubric === 'EE';
-    });
-    const droppedLearners = testedRows.filter((r) => r.deltaMarks !== null && r.deltaMarks <= -3);
+    }) : [];
+
+    const droppedLearners = totalSat > 0 ? testedRows.filter((r) => r.deltaMarks !== null && r.deltaMarks <= -3) : [];
 
     const topLearner = testedRows.length > 0 ? testedRows[0] : null;
     const lowestLearner = testedRows.length > 0 ? testedRows[testedRows.length - 1] : null;
 
+    // 8. Fetch Subject Target Mean for this exam, class, and subject
+    const targetRows = await db
+      .select({
+        id: subjectExamTargets.id,
+        targetMeanPercentage: subjectExamTargets.targetMeanPercentage,
+        targetMeanPoints: subjectExamTargets.targetMeanPoints,
+        notes: subjectExamTargets.notes,
+        setById: subjectExamTargets.setById,
+        createdAt: subjectExamTargets.createdAt,
+        teacherFirstName: users.firstName,
+        teacherLastName: users.lastName,
+      })
+      .from(subjectExamTargets)
+      .leftJoin(users, eq(subjectExamTargets.setById, users.id))
+      .where(
+        and(
+          eq(subjectExamTargets.examId, selectedExam.id),
+          eq(subjectExamTargets.classId, selectedAlloc.classId),
+          eq(subjectExamTargets.subjectId, selectedAlloc.subjectId),
+          isNull(subjectExamTargets.deletedAt)
+        )
+      )
+      .limit(1);
+
+    const targetRow = targetRows[0] || null;
+    const rawTargetPct = targetRow ? parseFloat(targetRow.targetMeanPercentage as any) : null;
+    const rawTargetPoints = targetRow && targetRow.targetMeanPoints ? parseFloat(targetRow.targetMeanPoints as any) : null;
+
+    const now = new Date();
+    const selectedStartDate = selectedExam.startDate ? new Date(selectedExam.startDate) : null;
+    const selectedExamHasStarted = selectedStartDate ? selectedStartDate <= now : (selectedExam.status !== 'DRAFT');
+
+    let wasSetBeforeExamStarted = false;
+    if (targetRow) {
+      if (selectedStartDate) {
+        const examStartCutoff = new Date(selectedStartDate).setHours(23, 59, 59, 999);
+        wasSetBeforeExamStarted = new Date(targetRow.createdAt).getTime() <= examStartCutoff;
+      } else {
+        wasSetBeforeExamStarted = true;
+      }
+    }
+
+    const targetMeanPct = wasSetBeforeExamStarted ? rawTargetPct : null;
+    const targetPoints = wasSetBeforeExamStarted ? rawTargetPoints : null;
+    const diffFromTargetPct = (targetMeanPct !== null && averageScore !== null) ? +(averageScore - targetMeanPct).toFixed(1) : null;
+    const isTargetMet = (targetMeanPct !== null && averageScore !== null) ? averageScore >= targetMeanPct : null;
+    const setByTeacherName = targetRow && targetRow.teacherFirstName ? `${targetRow.teacherFirstName} ${targetRow.teacherLastName}` : null;
+
+    // Identify next upcoming examination (not yet started)
+    const upcomingExams = allExams.filter((e) => {
+      if (e.exam.id === selectedExam.id) return false;
+      const sDate = e.exam.startDate ? new Date(e.exam.startDate) : null;
+      if (sDate && sDate > now) return true;
+      if (e.exam.status === 'DRAFT') return true;
+      return false;
+    });
+
+    upcomingExams.sort((a, b) => {
+      if (a.exam.startDate && b.exam.startDate) return new Date(a.exam.startDate).getTime() - new Date(b.exam.startDate).getTime();
+      return new Date(a.exam.createdAt).getTime() - new Date(b.exam.createdAt).getTime();
+    });
+
+    const nextExamRecord = upcomingExams[0] || null;
+    let nextExamTarget: any = null;
+
+    if (nextExamRecord) {
+      const [nt] = await db
+        .select({
+          id: subjectExamTargets.id,
+          targetMeanPercentage: subjectExamTargets.targetMeanPercentage,
+          targetMeanPoints: subjectExamTargets.targetMeanPoints,
+          notes: subjectExamTargets.notes,
+        })
+        .from(subjectExamTargets)
+        .where(
+          and(
+            eq(subjectExamTargets.examId, nextExamRecord.exam.id),
+            eq(subjectExamTargets.classId, selectedAlloc.classId),
+            eq(subjectExamTargets.subjectId, selectedAlloc.subjectId),
+            isNull(subjectExamTargets.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (nt) {
+        nextExamTarget = {
+          id: nt.id,
+          targetMeanPercentage: parseFloat(nt.targetMeanPercentage as any),
+          targetMeanPoints: nt.targetMeanPoints ? parseFloat(nt.targetMeanPoints as any) : null,
+          notes: nt.notes || null,
+        };
+      }
+    }
+
     return {
-      examsList: allExams.map((e) => ({
-        id: e.exam.id,
-        title: e.exam.title,
-        status: e.exam.status,
-        termName: `Term ${e.term.termNumber} (${e.term.year})`,
-      })),
+      examsList: allExams.map((e) => {
+        const hasScores = (scoreCountMap.get(e.exam.id) || 0) > 0;
+        return {
+          id: e.exam.id,
+          title: e.exam.title,
+          status: e.exam.status,
+          hasScores,
+          startDate: e.exam.startDate,
+          termName: `Term ${e.term.termNumber} (${e.term.year})`,
+          label: `${e.exam.title} (Term ${e.term.termNumber} ${e.term.year})${!hasScores ? ' [Pending Marks]' : ''}`,
+        };
+      }),
       selectedExam: selectedExam
         ? {
             id: selectedExam.id,
             title: selectedExam.title,
             status: selectedExam.status,
+            startDate: selectedExam.startDate,
             termName: selectedTerm ? `Term ${selectedTerm.termNumber} (${selectedTerm.year})` : '',
+            hasStarted: selectedExamHasStarted,
           }
         : null,
       compareExam: compareExam
@@ -1639,6 +1769,28 @@ export class DosService {
             termName: compareExamRecord?.term ? `Term ${compareExamRecord.term.termNumber} (${compareExamRecord.term.year})` : '',
           }
         : null,
+      targetMean: {
+        targetMeanPercentage: targetMeanPct,
+        rawTargetPercentage: rawTargetPct,
+        targetMeanPoints: targetPoints,
+        isMet: isTargetMet,
+        diffFromTarget: diffFromTargetPct,
+        setByTeacherName,
+        notes: targetRow?.notes || null,
+        wasSetBeforeExamStarted,
+        hasExamStarted: selectedExamHasStarted,
+      },
+      nextExam: nextExamRecord
+        ? {
+            id: nextExamRecord.exam.id,
+            title: nextExamRecord.exam.title,
+            status: nextExamRecord.exam.status,
+            startDate: nextExamRecord.exam.startDate,
+            termName: `Term ${nextExamRecord.term.termNumber} (${nextExamRecord.term.year})`,
+            hasStarted: false,
+          }
+        : null,
+      nextExamTarget,
       subjectsList: (isLeadership ? allSubjects : allSubjects.filter((s) => userAllocations.some((a) => a.subjectId === s.id))).map((s) => ({
         id: s.id,
         name: s.name,
@@ -1693,6 +1845,121 @@ export class DosService {
         isLeadership,
         isSubjectTeacher: true,
         totalAllocations: teacherAllocations.length,
+      },
+    };
+  }
+
+  /**
+   * Sets or updates Subject Target Mean for an examination
+   */
+  static async setSubjectTargetMean(
+    classId: string,
+    subjectId: string,
+    body: {
+      examId: string;
+      targetMeanPercentage: number;
+      targetMeanPoints?: number;
+      notes?: string;
+    },
+    user?: AuthenticatedUser
+  ) {
+    if (!user) {
+      const err: any = new Error('Authentication required');
+      err.statusCode = 401;
+      throw err;
+    }
+
+    const isLeadership = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
+    if (!isLeadership) {
+      const [alloc] = await db
+        .select()
+        .from(teacherSubjectAllocations)
+        .where(
+          and(
+            eq(teacherSubjectAllocations.teacherId, user.id),
+            eq(teacherSubjectAllocations.classId, classId),
+            eq(teacherSubjectAllocations.subjectId, subjectId),
+            isNull(teacherSubjectAllocations.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (!alloc) {
+        const err: any = new Error('Access denied: You are not assigned as the Subject Teacher for this class.');
+        err.statusCode = 403;
+        throw err;
+      }
+    }
+
+    if (!body.examId || body.targetMeanPercentage === undefined || isNaN(Number(body.targetMeanPercentage))) {
+      const err: any = new Error('Valid Exam ID and Target Mean Percentage are required.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const [targetExam] = await db
+      .select({
+        id: examinations.id,
+        title: examinations.title,
+        startDate: examinations.startDate,
+        status: examinations.status,
+      })
+      .from(examinations)
+      .where(and(eq(examinations.id, body.examId), isNull(examinations.deletedAt)));
+
+    if (!targetExam) {
+      const err: any = new Error('Specified examination was not found.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const now = new Date();
+    const examStart = targetExam.startDate ? new Date(targetExam.startDate) : null;
+    const hasStarted = examStart ? examStart <= now : targetExam.status !== 'DRAFT';
+
+    if (hasStarted) {
+      const err: any = new Error(
+        `This examination (${targetExam.title}) has already started. Target expectations can only be set or modified before an examination commences.`
+      );
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const targetPct = Number(body.targetMeanPercentage);
+    if (targetPct < 0 || targetPct > 100) {
+      const err: any = new Error('Target Mean Percentage must be between 0 and 100.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    await db
+      .insert(subjectExamTargets)
+      .values({
+        examId: body.examId,
+        classId,
+        subjectId,
+        targetMeanPercentage: String(targetPct),
+        targetMeanPoints: body.targetMeanPoints ? String(body.targetMeanPoints) : null,
+        setById: user.id,
+        notes: body.notes || null,
+      })
+      .onConflictDoUpdate({
+        target: [subjectExamTargets.examId, subjectExamTargets.classId, subjectExamTargets.subjectId],
+        set: {
+          targetMeanPercentage: String(targetPct),
+          targetMeanPoints: body.targetMeanPoints ? String(body.targetMeanPoints) : null,
+          setById: user.id,
+          notes: body.notes || null,
+          updatedAt: new Date(),
+        },
+      });
+
+    return {
+      success: true,
+      message: 'Subject target mean expectation saved successfully.',
+      targetMean: {
+        targetMeanPercentage: targetPct,
+        targetMeanPoints: body.targetMeanPoints || null,
       },
     };
   }

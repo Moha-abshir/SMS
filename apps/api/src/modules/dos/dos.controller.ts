@@ -48,5 +48,16 @@ export class DosController {
       return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch subject performance' });
     }
   }
+
+  static async setSubjectTargetMean(req: Request, res: Response) {
+    try {
+      const { classId, subjectId } = req.params;
+      const data = await DosService.setSubjectTargetMean(classId, subjectId, req.body, req.user);
+      return res.status(200).json(data);
+    } catch (error: any) {
+      const statusCode = error.statusCode || 500;
+      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to save subject target mean' });
+    }
+  }
 }
 

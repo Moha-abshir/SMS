@@ -10,5 +10,6 @@ router.get('/subject-analytics', DosController.getSubjectAnalytics);
 router.get('/exam-analysis', DosController.getExamAnalysis);
 router.get('/insights', DosController.getAcademicInsights);
 router.get('/subject-performance', DosController.getSubjectPerformance);
+router.post('/subject-performance/:classId/:subjectId/target-mean', DosController.setSubjectTargetMean);
 
 export default router;
