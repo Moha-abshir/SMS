@@ -218,4 +218,21 @@ export const classExamTargets = pgTable('class_exam_targets', {
   index('class_exam_targets_exam_class_idx').on(table.examId, table.classId),
 ]);
 
+export const subjectExamTargets = pgTable('subject_exam_targets', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  examId: uuid('exam_id').notNull().references(() => examinations.id, { onDelete: 'cascade' }),
+  classId: uuid('class_id').notNull().references(() => classes.id, { onDelete: 'cascade' }),
+  subjectId: uuid('subject_id').notNull().references(() => subjects.id, { onDelete: 'cascade' }),
+  targetMeanPercentage: decimal('target_mean_percentage', { precision: 5, scale: 2 }).notNull(),
+  targetMeanPoints: decimal('target_mean_points', { precision: 4, scale: 2 }),
+  setById: uuid('set_by_id').notNull().references(() => users.id),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().$onUpdateFn(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+}, (table) => [
+  unique('subject_exam_target_uq').on(table.examId, table.classId, table.subjectId),
+  index('subject_exam_targets_exam_class_subject_idx').on(table.examId, table.classId, table.subjectId),
+]);
+
 
