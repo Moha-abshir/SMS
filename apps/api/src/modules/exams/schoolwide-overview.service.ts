@@ -13,6 +13,7 @@ import {
   isNull,
   desc,
   inArray,
+  count,
 } from '@school/shared';
 
 export interface PrimaryRubricCounts {
@@ -93,12 +94,27 @@ export class SchoolwideOverviewService {
       };
     }
 
+    // Query which examinations have calculated/recorded marks
+    const scoreCounts = await db
+      .select({
+        examId: examScores.examId,
+        scoreCount: count(examScores.id),
+      })
+      .from(examScores)
+      .where(isNull(examScores.deletedAt))
+      .groupBy(examScores.examId);
+
+    const scoreCountMap = new Map(scoreCounts.map((s) => [s.examId, Number(s.scoreCount)]));
+
     let selectedExam = allExams[0];
     if (examId && examId !== 'latest') {
       const found = allExams.find((e) => e.id === examId);
       if (found) selectedExam = found;
     } else {
-      const activeExam = allExams.find((e) => e.isCurrent && e.status !== 'DRAFT')
+      // Default to the latest examination that has calculated results / terminated
+      const examWithResults = allExams.find((e) => (scoreCountMap.get(e.id) || 0) > 0);
+      const activeExam = examWithResults
+        || allExams.find((e) => e.isCurrent && e.status !== 'DRAFT')
         || allExams.find((e) => e.status !== 'DRAFT')
         || allExams[0];
       selectedExam = activeExam;
@@ -118,16 +134,20 @@ export class SchoolwideOverviewService {
       }
     }
 
-    const availableExams = allExams.map((e) => ({
-      id: e.id,
-      title: e.title,
-      termNumber: e.termNumber,
-      year: e.year,
-      startDate: e.startDate,
-      endDate: e.endDate,
-      status: e.status,
-      label: `${e.title} (Term ${e.termNumber} ${e.year})`,
-    }));
+    const availableExams = allExams.map((e) => {
+      const hasScores = (scoreCountMap.get(e.id) || 0) > 0;
+      return {
+        id: e.id,
+        title: e.title,
+        termNumber: e.termNumber,
+        year: e.year,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        status: e.status,
+        hasScores,
+        label: `${e.title} (Term ${e.termNumber} ${e.year})${!hasScores ? ' [Pending Marks]' : ''}`,
+      };
+    });
 
     return {
       selectedExam,
