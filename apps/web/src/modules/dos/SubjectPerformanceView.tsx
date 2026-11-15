@@ -1,19 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Download,
   Printer,
   Search,
   ChevronDown,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  CheckCircle2,
-  AlertCircle,
+  Loader2,
   ShieldAlert,
-  ArrowUpRight,
-  ArrowDownRight,
-  Layers,
-  GraduationCap,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -24,6 +16,7 @@ type QuickFilter = 'ALL' | 'NEEDS_ATTENTION' | 'TOP_PERFORMERS' | 'DROPPED';
 
 export const SubjectPerformanceView: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [loadingAllocationId, setLoadingAllocationId] = useState<string | null>(null);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,12 +28,21 @@ export const SubjectPerformanceView: React.FC = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedClassId, setSelectedClassId] = useState<string>('');
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const fetchPerformance = async (
     examId?: string,
     subjectId?: string,
     classId?: string,
     compareId?: string
   ) => {
+    // Abort previous in-flight request if any to prevent race conditions
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setLoading(true);
       setAccessDeniedMessage(null);
@@ -50,7 +52,9 @@ export const SubjectPerformanceView: React.FC = () => {
       if (classId) params.append('classId', classId);
       if (compareId) params.append('compareExamId', compareId);
 
-      const res = await apiClient.get(`/api/dos/subject-performance?${params.toString()}`);
+      const res = await apiClient.get(`/api/dos/subject-performance?${params.toString()}`, {
+        signal: controller.signal,
+      });
       const payload = res.data.data;
       setData(payload);
 
@@ -64,6 +68,9 @@ export const SubjectPerformanceView: React.FC = () => {
         setSelectedClassId(payload.selectedClass.id);
       }
     } catch (error: any) {
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        return; // Ignore intentionally cancelled requests
+      }
       if (error.response?.status === 403) {
         setAccessDeniedMessage(
           error.response?.data?.message ||
@@ -73,33 +80,48 @@ export const SubjectPerformanceView: React.FC = () => {
         toast.error(error.response?.data?.message || 'Failed to load subject performance');
       }
     } finally {
-      setLoading(false);
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+        setLoadingAllocationId(null);
+      }
     }
   };
 
   useEffect(() => {
     fetchPerformance(undefined, undefined, undefined, 'auto');
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   const handleExamChange = (examId: string) => {
+    if (loading) return;
     setSelectedExamId(examId);
     fetchPerformance(examId, selectedSubjectId || undefined, selectedClassId || undefined, compareExamId);
   };
 
   const handleCompareChange = (compareId: string) => {
+    if (loading) return;
     setCompareExamId(compareId);
     fetchPerformance(selectedExamId || undefined, selectedSubjectId || undefined, selectedClassId || undefined, compareId);
   };
 
   const handleSubjectChange = (subjectId: string) => {
+    if (loading) return;
     setSelectedSubjectId(subjectId);
     setSelectedClassId('');
     fetchPerformance(selectedExamId || undefined, subjectId, undefined, compareExamId);
   };
 
   const handleAllocationSelect = (classId: string, subjectId: string) => {
+    if (loading) return;
+    if (classId === selectedClassId && subjectId === selectedSubjectId) return;
+
     setSelectedClassId(classId);
     setSelectedSubjectId(subjectId);
+    setLoadingAllocationId(`${classId}:${subjectId}`);
     fetchPerformance(selectedExamId || undefined, subjectId, classId, compareExamId);
   };
 
@@ -108,6 +130,14 @@ export const SubjectPerformanceView: React.FC = () => {
   const selectedClass = data?.selectedClass;
   const userScope = data?.userScope;
   const isJunior = selectedClass?.isJunior ?? false;
+
+  // Active allocation name for header
+  const activeAllocInfo = useMemo(() => {
+    if (!data?.teacherAllocations) return null;
+    return data.teacherAllocations.find(
+      (a: any) => a.classId === selectedClassId && a.subjectId === selectedSubjectId
+    );
+  }, [data?.teacherAllocations, selectedClassId, selectedSubjectId]);
 
   // Filtered marksheet students
   const filteredMarksheet = useMemo(() => {
@@ -251,16 +281,19 @@ export const SubjectPerformanceView: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
           {/* Left Title, Allocation Pill & Scale Badge */}
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100 whitespace-nowrap">
-              Subject Performance
+            <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100 whitespace-nowrap flex items-center gap-2">
+              <span>Subject Performance</span>
+              {loading && (
+                <Loader2 className="w-4 h-4 animate-spin text-sky-500 inline-block shrink-0" />
+              )}
             </h1>
 
             {/* Active Allocation Pill */}
-            {selectedSubject && selectedClass && (
+            {(activeAllocInfo || (selectedSubject && selectedClass)) && (
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 whitespace-nowrap">
-                <span>{selectedSubject.name}</span>
+                <span>{activeAllocInfo?.subjectName || selectedSubject?.name}</span>
                 <span className="opacity-60">·</span>
-                <span>{selectedClass.name}</span>
+                <span>{activeAllocInfo?.className || selectedClass?.name}</span>
               </span>
             )}
 
@@ -273,9 +306,12 @@ export const SubjectPerformanceView: React.FC = () => {
             {userScope?.isLeadership && data?.subjectsList && data.subjectsList.length > 1 && (
               <div className="relative ml-1">
                 <select
+                  disabled={loading}
                   value={selectedSubjectId}
                   onChange={(e) => handleSubjectChange(e.target.value)}
-                  className="h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer appearance-none"
+                  className={`h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
+                    loading ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                  }`}
                   title="Switch Subject"
                 >
                   {data.subjectsList.map((sub: any) => (
@@ -295,9 +331,12 @@ export const SubjectPerformanceView: React.FC = () => {
             {data?.examsList && data.examsList.length > 0 && (
               <div className="relative">
                 <select
+                  disabled={loading}
                   value={selectedExamId}
                   onChange={(e) => handleExamChange(e.target.value)}
-                  className="h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer appearance-none"
+                  className={`h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
+                    loading ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                  }`}
                 >
                   {data.examsList.map((exam: any) => (
                     <option key={exam.id} value={exam.id}>
@@ -313,9 +352,12 @@ export const SubjectPerformanceView: React.FC = () => {
             {data?.examsList && (
               <div className="relative">
                 <select
+                  disabled={loading}
                   value={compareExamId}
                   onChange={(e) => handleCompareChange(e.target.value)}
-                  className="h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer appearance-none"
+                  className={`h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
+                    loading ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                  }`}
                 >
                   <option value="auto">
                     vs Baseline: Auto (Preceding Exam)
@@ -363,18 +405,27 @@ export const SubjectPerformanceView: React.FC = () => {
             {data.teacherAllocations.map((alloc: any) => {
               const isActive =
                 alloc.classId === selectedClassId && alloc.subjectId === selectedSubjectId;
+              const isPillLoading =
+                loading && (loadingAllocationId === alloc.allocationId || (isActive && loadingAllocationId === null));
 
               return (
                 <button
                   key={alloc.allocationId}
                   type="button"
+                  disabled={loading}
                   onClick={() => handleAllocationSelect(alloc.classId, alloc.subjectId)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-all cursor-pointer shadow-xs ${
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-all shadow-xs ${
+                    loading ? 'cursor-wait' : 'cursor-pointer'
+                  } ${
                     isActive
                       ? 'border-sky-500 bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/30 font-semibold'
                       : 'border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 font-medium'
                   }`}
                 >
+                  {isPillLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400 shrink-0" />
+                  ) : null}
+
                   <span className="font-bold text-slate-900 dark:text-slate-100">
                     {alloc.className} · {alloc.subjectCode}
                   </span>
@@ -412,157 +463,169 @@ export const SubjectPerformanceView: React.FC = () => {
         )}
 
         {/* Step 3: Sleek Single-Line Summary & Spread Ribbon (Max Height: ~44px) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
-          {/* Slot 1: Candidacy & Submission Status */}
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Candidacy
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 dark:text-slate-100">
-                {metrics.totalSat ?? 0}/{metrics.totalEnrolled ?? 0} Sat
-              </span>
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-                  metrics.submissionStatus === 'SUBMITTED'
-                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                    : metrics.submissionStatus === 'DRAFT'
-                    ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
-                    : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                }`}
-              >
-                {metrics.submissionStatus || 'PENDING'}
-              </span>
-            </div>
+        {loading ? (
+          /* Lazy Loading Skeleton for the Ribbon */
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs animate-pulse">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between px-3">
+                <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800/80 rounded" />
+              </div>
+            ))}
           </div>
-
-          {/* Slot 2: Subject Mean & Delta */}
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Subject Mean
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
-                {isJunior
-                  ? `${metrics.juniorPointsAvg ?? 0} pts`
-                  : `${metrics.averageScore ?? 0}%`}
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
+            {/* Slot 1: Candidacy & Submission Status */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Candidacy
               </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                {isJunior
-                  ? metrics.juniorPointsAvg >= 7
-                    ? 'EE'
-                    : metrics.juniorPointsAvg >= 5
-                    ? 'ME'
-                    : metrics.juniorPointsAvg >= 3
-                    ? 'AE'
-                    : 'BE'
-                  : metrics.averageScore >= 75
-                  ? 'EE'
-                  : metrics.averageScore >= 50
-                  ? 'ME'
-                  : metrics.averageScore >= 40
-                  ? 'AE'
-                  : 'BE'}
-              </span>
-              {metrics.deltaScore !== null && (
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  {metrics.totalSat ?? 0}/{metrics.totalEnrolled ?? 0} Sat
+                </span>
                 <span
-                  className={`text-[11px] font-bold ${
-                    metrics.deltaScore >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                    metrics.submissionStatus === 'SUBMITTED'
+                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                      : metrics.submissionStatus === 'DRAFT'
+                      ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                   }`}
                 >
-                  {metrics.deltaScore >= 0 ? '+' : ''}
-                  {metrics.deltaScore}%
+                  {metrics.submissionStatus || 'PENDING'}
                 </span>
-              )}
+              </div>
             </div>
-          </div>
 
-          {/* Slot 3: CAT vs Exam Gap */}
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              CAT vs Exam
-            </span>
-            <div className="flex items-center gap-1 text-[11px]">
-              {metrics.catAverage !== null ? (
-                <>
-                  <span className="text-slate-500 dark:text-slate-400">
-                    CAT: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{metrics.catAverage}%</span>
-                  </span>
-                  <span className="text-slate-400">→</span>
+            {/* Slot 2: Subject Mean & Delta */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Subject Mean
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  {isJunior
+                    ? `${metrics.juniorPointsAvg ?? 0} pts`
+                    : `${metrics.averageScore ?? 0}%`}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  {isJunior
+                    ? metrics.juniorPointsAvg >= 7
+                      ? 'EE'
+                      : metrics.juniorPointsAvg >= 5
+                      ? 'ME'
+                      : metrics.juniorPointsAvg >= 3
+                      ? 'AE'
+                      : 'BE'
+                    : metrics.averageScore >= 75
+                    ? 'EE'
+                    : metrics.averageScore >= 50
+                    ? 'ME'
+                    : metrics.averageScore >= 40
+                    ? 'AE'
+                    : 'BE'}
+                </span>
+                {metrics.deltaScore !== null && (
                   <span
-                    className={`font-bold ${
-                      (metrics.catGap ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                    className={`text-[11px] font-bold ${
+                      metrics.deltaScore >= 0 ? 'text-emerald-500' : 'text-rose-500'
                     }`}
                   >
-                    Gap: {(metrics.catGap ?? 0) >= 0 ? '+' : ''}
-                    {metrics.catGap}%
+                    {metrics.deltaScore >= 0 ? '+' : ''}
+                    {metrics.deltaScore}%
                   </span>
-                </>
-              ) : (
-                <span className="text-slate-400 italic">No CATs</span>
-              )}
-            </div>
-          </div>
-
-          {/* Slot 4: Proficiency Mastery */}
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Proficiency
-            </span>
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="font-bold text-emerald-500">
-                {metrics.proficiencyRate ?? 0}% {isJunior ? '5+ pts' : 'EE/ME'}
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">·</span>
-              <span className="text-[11px] text-amber-500">
-                {metrics.remedialCount ?? 0} &lt;50%
-              </span>
-            </div>
-          </div>
-
-          {/* Slot 5: Inline Rubric / Points Spread Micro-Bar */}
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Spread
-            </span>
-            <div className="flex items-center gap-2 flex-1 max-w-[130px] ml-2">
-              {/* Stacked Micro-Progress Bar */}
-              <div
-                className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
-                title={
-                  isJunior
-                    ? Object.entries(metrics.pointsDistribution || {})
-                        .map(([p, c]) => `${p}pts: ${c}`)
-                        .join(' | ')
-                    : `EE: ${metrics.rubricDistribution?.EE || 0} | ME: ${metrics.rubricDistribution?.ME || 0} | AE: ${metrics.rubricDistribution?.AE || 0} | BE: ${metrics.rubricDistribution?.BE || 0}`
-                }
-              >
-                {isJunior ? (
-                  <>
-                    <div style={{ width: `${((metrics.pointsDistribution?.[8] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-500" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[7] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-400" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[6] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-500" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[5] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-400" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[4] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-400" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[3] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-500" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[2] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-400" />
-                    <div style={{ width: `${((metrics.pointsDistribution?.[1] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-500" />
-                  </>
-                ) : (
-                  <>
-                    <div style={{ width: `${metrics.rubricPercentages?.EE || 0}%` }} className="bg-emerald-500" />
-                    <div style={{ width: `${metrics.rubricPercentages?.ME || 0}%` }} className="bg-sky-500" />
-                    <div style={{ width: `${metrics.rubricPercentages?.AE || 0}%` }} className="bg-amber-500" />
-                    <div style={{ width: `${metrics.rubricPercentages?.BE || 0}%` }} className="bg-rose-500" />
-                  </>
                 )}
               </div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                {metrics.totalSat ?? 0}
+            </div>
+
+            {/* Slot 3: CAT vs Exam Gap */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                CAT vs Exam
               </span>
+              <div className="flex items-center gap-1 text-[11px]">
+                {metrics.catAverage !== null ? (
+                  <>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      CAT: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{metrics.catAverage}%</span>
+                    </span>
+                    <span className="text-slate-400">→</span>
+                    <span
+                      className={`font-bold ${
+                        (metrics.catGap ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                      }`}
+                    >
+                      Gap: {(metrics.catGap ?? 0) >= 0 ? '+' : ''}
+                      {metrics.catGap}%
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 italic">No CATs</span>
+                )}
+              </div>
+            </div>
+
+            {/* Slot 4: Proficiency Mastery */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Proficiency
+              </span>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-bold text-emerald-500">
+                  {metrics.proficiencyRate ?? 0}% {isJunior ? '5+ pts' : 'EE/ME'}
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">·</span>
+                <span className="text-[11px] text-amber-500">
+                  {metrics.remedialCount ?? 0} &lt;50%
+                </span>
+              </div>
+            </div>
+
+            {/* Slot 5: Inline Rubric / Points Spread Micro-Bar */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Spread
+              </span>
+              <div className="flex items-center gap-2 flex-1 max-w-[130px] ml-2">
+                {/* Stacked Micro-Progress Bar */}
+                <div
+                  className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
+                  title={
+                    isJunior
+                      ? Object.entries(metrics.pointsDistribution || {})
+                          .map(([p, c]) => `${p}pts: ${c}`)
+                          .join(' | ')
+                      : `EE: ${metrics.rubricDistribution?.EE || 0} | ME: ${metrics.rubricDistribution?.ME || 0} | AE: ${metrics.rubricDistribution?.AE || 0} | BE: ${metrics.rubricDistribution?.BE || 0}`
+                  }
+                >
+                  {isJunior ? (
+                    <>
+                      <div style={{ width: `${((metrics.pointsDistribution?.[8] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-500" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[7] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-400" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[6] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-500" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[5] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-400" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[4] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-400" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[3] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-500" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[2] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-400" />
+                      <div style={{ width: `${((metrics.pointsDistribution?.[1] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-500" />
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ width: `${metrics.rubricPercentages?.EE || 0}%` }} className="bg-emerald-500" />
+                      <div style={{ width: `${metrics.rubricPercentages?.ME || 0}%` }} className="bg-sky-500" />
+                      <div style={{ width: `${metrics.rubricPercentages?.AE || 0}%` }} className="bg-amber-500" />
+                      <div style={{ width: `${metrics.rubricPercentages?.BE || 0}%` }} className="bg-rose-500" />
+                    </>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  {metrics.totalSat ?? 0}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Step 4: Single-Row Controls Bar (Max Height: ~36px) */}
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -646,7 +709,40 @@ export const SubjectPerformanceView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {filteredMarksheet.length === 0 ? (
+                {loading ? (
+                  /* Lazy Loading Skeleton Rows for the Table */
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="h-4 w-6 mx-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="space-y-1">
+                          <div className="h-3.5 w-32 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                          <div className="h-2.5 w-20 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="h-3.5 w-10 mx-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="h-4 w-12 mx-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <div className="h-3.5 w-10 mx-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="h-4 w-36 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="h-3.5 w-14 ml-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="h-3.5 w-40 bg-slate-200 dark:bg-slate-800/80 rounded" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredMarksheet.length === 0 ? (
                   <tr>
                     <td
                       colSpan={8}
