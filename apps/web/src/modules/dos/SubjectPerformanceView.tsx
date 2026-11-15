@@ -6,6 +6,12 @@ import {
   ChevronDown,
   Loader2,
   ShieldAlert,
+  Target,
+  Lock,
+  Calendar,
+  X,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -27,6 +33,13 @@ export const SubjectPerformanceView: React.FC = () => {
   const [compareExamId, setCompareExamId] = useState<string>('auto');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [selectedClassId, setSelectedClassId] = useState<string>('');
+
+  // Target Mean Modal State
+  const [showTargetModal, setShowTargetModal] = useState<boolean>(false);
+  const [targetModalExamId, setTargetModalExamId] = useState<string | null>(null);
+  const [targetPercentageInput, setTargetPercentageInput] = useState<string>('');
+  const [targetNotesInput, setTargetNotesInput] = useState<string>('');
+  const [isSavingTarget, setIsSavingTarget] = useState<boolean>(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -130,6 +143,98 @@ export const SubjectPerformanceView: React.FC = () => {
   const selectedClass = data?.selectedClass;
   const userScope = data?.userScope;
   const isJunior = selectedClass?.isJunior ?? false;
+  const upcomingExam = data?.nextExam || null;
+
+  // Open Target Mean Modal
+  const handleOpenTargetModal = (examId?: string) => {
+    if (!data) return;
+    const targetExamId = examId || data.nextExam?.id || data.selectedExam?.id;
+    setTargetModalExamId(targetExamId);
+
+    const isNext = Boolean(data.nextExam && targetExamId === data.nextExam.id);
+    if (isNext) {
+      if (data.nextExamTarget?.targetMeanPercentage !== null && data.nextExamTarget?.targetMeanPercentage !== undefined) {
+        setTargetPercentageInput(String(data.nextExamTarget.targetMeanPercentage));
+        setTargetNotesInput(data.nextExamTarget.notes || '');
+      } else {
+        // Smart recommendation: current subject average or 65.0
+        const defaultTarget = metrics.averageScore
+          ? Math.min(100, Math.round(metrics.averageScore + 2))
+          : 65;
+        setTargetPercentageInput(String(defaultTarget));
+        setTargetNotesInput('');
+      }
+    } else {
+      const existing = data.targetMean?.rawTargetPercentage ?? data.targetMean?.targetMeanPercentage;
+      setTargetPercentageInput(existing !== null && existing !== undefined ? String(existing) : '');
+      setTargetNotesInput(data.targetMean?.notes || '');
+    }
+
+    setShowTargetModal(true);
+  };
+
+  // Save Target Mean
+  const handleSaveTargetMean = async () => {
+    if (!selectedClassId || !selectedSubjectId || !targetModalExamId || !data) return;
+    const targetVal = parseFloat(targetPercentageInput);
+    if (isNaN(targetVal) || targetVal < 0 || targetVal > 100) {
+      toast.error('Please enter a valid target mean percentage between 0 and 100');
+      return;
+    }
+
+    setIsSavingTarget(true);
+    try {
+      const res = await apiClient.post(
+        `/api/dos/subject-performance/${selectedClassId}/${selectedSubjectId}/target-mean`,
+        {
+          examId: targetModalExamId,
+          targetMeanPercentage: targetVal,
+          notes: targetNotesInput || undefined,
+        }
+      );
+
+      if (res.data?.success) {
+        const isNext = Boolean(data.nextExam && targetModalExamId === data.nextExam.id);
+        toast.success(
+          `Subject Target Mean for ${isNext ? data.nextExam.title : data.selectedExam.title} saved successfully!`
+        );
+        setShowTargetModal(false);
+
+        // Optimistically update subject performance state
+        setData((prev: any) => {
+          if (!prev) return prev;
+          if (isNext) {
+            return {
+              ...prev,
+              nextExamTarget: {
+                targetMeanPercentage: targetVal,
+                targetMeanPoints: null,
+                notes: targetNotesInput || null,
+              },
+            };
+          } else {
+            const avg = prev.subjectMetrics?.averageScore ?? 0;
+            return {
+              ...prev,
+              targetMean: {
+                ...prev.targetMean,
+                targetMeanPercentage: targetVal,
+                rawTargetPercentage: targetVal,
+                targetMeanPoints: null,
+                isMet: avg >= targetVal,
+                diffFromTarget: +(avg - targetVal).toFixed(1),
+                notes: targetNotesInput || null,
+              },
+            };
+          }
+        });
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save subject target mean');
+    } finally {
+      setIsSavingTarget(false);
+    }
+  };
 
   // Active allocation name for header
   const activeAllocInfo = useMemo(() => {
@@ -146,18 +251,18 @@ export const SubjectPerformanceView: React.FC = () => {
 
     if (quickFilter === 'NEEDS_ATTENTION') {
       list = list.filter((s: any) => {
-        if (s.isAbsent) return false;
+        if (s.isAbsent || s.isPending) return false;
         if (isJunior) return (s.points ?? 0) <= 4 || (s.marksObtained ?? 0) < 50;
         return (s.marksObtained ?? 0) < 50 || s.rubric === 'BE';
       });
     } else if (quickFilter === 'TOP_PERFORMERS') {
       list = list.filter((s: any) => {
-        if (s.isAbsent) return false;
+        if (s.isAbsent || s.isPending) return false;
         if (isJunior) return (s.points ?? 0) >= 7 || (s.marksObtained ?? 0) >= 75;
         return (s.marksObtained ?? 0) >= 75 || s.rubric === 'EE';
       });
     } else if (quickFilter === 'DROPPED') {
-      list = list.filter((s: any) => !s.isAbsent && s.deltaMarks !== null && s.deltaMarks <= -3);
+      list = list.filter((s: any) => !s.isAbsent && !s.isPending && s.deltaMarks !== null && s.deltaMarks <= -3);
     }
 
     if (!searchQuery.trim()) return list;
@@ -175,16 +280,16 @@ export const SubjectPerformanceView: React.FC = () => {
     if (!data?.studentsMarksheet) return { all: 0, remedial: 0, top: 0, dropped: 0 };
     const list = data.studentsMarksheet;
     const remedial = list.filter((s: any) => {
-      if (s.isAbsent) return false;
+      if (s.isAbsent || s.isPending) return false;
       if (isJunior) return (s.points ?? 0) <= 4 || (s.marksObtained ?? 0) < 50;
       return (s.marksObtained ?? 0) < 50 || s.rubric === 'BE';
     }).length;
     const top = list.filter((s: any) => {
-      if (s.isAbsent) return false;
+      if (s.isAbsent || s.isPending) return false;
       if (isJunior) return (s.points ?? 0) >= 7 || (s.marksObtained ?? 0) >= 75;
       return (s.marksObtained ?? 0) >= 75 || s.rubric === 'EE';
     }).length;
-    const dropped = list.filter((s: any) => !s.isAbsent && s.deltaMarks !== null && s.deltaMarks <= -3).length;
+    const dropped = list.filter((s: any) => !s.isAbsent && !s.isPending && s.deltaMarks !== null && s.deltaMarks <= -3).length;
     return { all: list.length, remedial, top, dropped };
   }, [data?.studentsMarksheet, isJunior]);
 
@@ -302,6 +407,14 @@ export const SubjectPerformanceView: React.FC = () => {
               {isJunior ? 'Junior Secondary · 8-Point Scale' : 'Upper Primary · 4-Tier Rubric'}
             </span>
 
+            {/* Locked Exam Badge */}
+            {data?.selectedExam?.status === 'LOCKED' && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap">
+                <Lock className="w-3 h-3" />
+                <span>Exam Concluded</span>
+              </span>
+            )}
+
             {/* For Leadership: Compact Subject Picker */}
             {userScope?.isLeadership && data?.subjectsList && data.subjectsList.length > 1 && (
               <div className="relative ml-1">
@@ -327,6 +440,36 @@ export const SubjectPerformanceView: React.FC = () => {
 
           {/* Right Controls: Exam, Baseline Compare, Export, Print */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Target Mean CTA - Targets upcoming exam */}
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => handleOpenTargetModal(upcomingExam ? upcomingExam.id : data?.selectedExam?.id)}
+              className={`h-8 px-2.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
+                upcomingExam && data?.nextExamTarget?.targetMeanPercentage !== null && data?.nextExamTarget?.targetMeanPercentage !== undefined
+                  ? 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20'
+                  : 'border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:border-sky-500 hover:text-sky-500 dark:hover:text-sky-400'
+              }`}
+              title={upcomingExam ? `Set target mean expectation for next exam: ${upcomingExam.title}` : 'Set subject target mean'}
+            >
+              <Target className="w-3.5 h-3.5 shrink-0" />
+              {upcomingExam ? (
+                data?.nextExamTarget?.targetMeanPercentage !== null && data?.nextExamTarget?.targetMeanPercentage !== undefined ? (
+                  <span>
+                    Target Next: <strong>{data.nextExamTarget.targetMeanPercentage}%</strong>
+                  </span>
+                ) : (
+                  <span>+ Set Target (Next Exam)</span>
+                )
+              ) : data?.targetMean?.targetMeanPercentage !== null && data?.targetMean?.targetMeanPercentage !== undefined && data?.targetMean?.wasSetBeforeExamStarted ? (
+                <span>
+                  Target: <strong>{data.targetMean.targetMeanPercentage}%</strong>
+                </span>
+              ) : (
+                <span>+ Set Target Mean</span>
+              )}
+            </button>
+
             {/* Exam Selector */}
             {data?.examsList && data.examsList.length > 0 && (
               <div className="relative">
@@ -475,7 +618,110 @@ export const SubjectPerformanceView: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
-            {/* Slot 1: Candidacy & Submission Status */}
+            {/* Slot 1: Target Mean (Conditions: set before exam started; Met/Missed when marks entered) */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Target Mean
+              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                {data?.targetMean?.targetMeanPercentage !== null &&
+                data?.targetMean?.targetMeanPercentage !== undefined &&
+                data?.targetMean?.wasSetBeforeExamStarted ? (
+                  <>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono whitespace-nowrap">
+                      {isJunior
+                        ? `${data.targetMean.targetMeanPoints || '—'} pts`
+                        : `${data.targetMean.targetMeanPercentage}%`}
+                    </span>
+                    {(metrics.totalSat ?? 0) > 0 && data.targetMean.isMet !== null && (
+                      <span
+                        className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                          data.targetMean.isMet
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300'
+                        }`}
+                      >
+                        {data.targetMean.isMet ? 'Met' : 'Missed'}
+                      </span>
+                    )}
+                    {(metrics.totalSat ?? 0) > 0 && data.targetMean.diffFromTarget !== null && (
+                      <span
+                        className={`text-[10px] font-bold ${
+                          data.targetMean.diffFromTarget >= 0
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {data.targetMean.diffFromTarget >= 0
+                          ? `+${data.targetMean.diffFromTarget}%`
+                          : `${data.targetMean.diffFromTarget}%`}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span
+                    className="text-slate-400 text-[11px] italic"
+                    title="Target was not recorded prior to examination start date"
+                  >
+                    Not set
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Slot 2: Subject Mean & Delta */}
+            <div className="flex items-center justify-between px-3">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Subject Mean
+              </span>
+              <div className="flex items-center gap-1.5">
+                {metrics.averageScore !== null && (metrics.totalSat ?? 0) > 0 ? (
+                  <>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
+                      {isJunior
+                        ? `${metrics.juniorPointsAvg ?? 0} pts`
+                        : `${metrics.averageScore}%`}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      {isJunior
+                        ? metrics.juniorPointsAvg >= 7
+                          ? 'EE'
+                          : metrics.juniorPointsAvg >= 5
+                          ? 'ME'
+                          : metrics.juniorPointsAvg >= 3
+                          ? 'AE'
+                          : 'BE'
+                        : metrics.averageScore >= 75
+                        ? 'EE'
+                        : metrics.averageScore >= 50
+                        ? 'ME'
+                        : metrics.averageScore >= 40
+                        ? 'AE'
+                        : 'BE'}
+                    </span>
+                    {metrics.deltaScore !== null && (
+                      <span
+                        className={`text-[11px] font-bold ${
+                          metrics.deltaScore >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                        }`}
+                      >
+                        {metrics.deltaScore >= 0 ? '+' : ''}
+                        {metrics.deltaScore}%
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span
+                    className="text-slate-400 text-[11px] italic"
+                    title="No marks submitted yet for this examination"
+                  >
+                    Awaiting marks
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Slot 3: Candidacy & Submission Status */}
             <div className="flex items-center justify-between px-3">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Candidacy
@@ -486,83 +732,17 @@ export const SubjectPerformanceView: React.FC = () => {
                 </span>
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-                    metrics.submissionStatus === 'SUBMITTED'
+                    (metrics.totalSat ?? 0) === 0
+                      ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                      : metrics.submissionStatus === 'SUBMITTED' || metrics.submissionStatus === 'LOCKED'
                       ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                       : metrics.submissionStatus === 'DRAFT'
                       ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                       : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                   }`}
                 >
-                  {metrics.submissionStatus || 'PENDING'}
+                  {(metrics.totalSat ?? 0) === 0 ? 'PENDING' : metrics.submissionStatus || 'PENDING'}
                 </span>
-              </div>
-            </div>
-
-            {/* Slot 2: Subject Mean & Delta */}
-            <div className="flex items-center justify-between px-3">
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Subject Mean
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">
-                  {isJunior
-                    ? `${metrics.juniorPointsAvg ?? 0} pts`
-                    : `${metrics.averageScore ?? 0}%`}
-                </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  {isJunior
-                    ? metrics.juniorPointsAvg >= 7
-                      ? 'EE'
-                      : metrics.juniorPointsAvg >= 5
-                      ? 'ME'
-                      : metrics.juniorPointsAvg >= 3
-                      ? 'AE'
-                      : 'BE'
-                    : metrics.averageScore >= 75
-                    ? 'EE'
-                    : metrics.averageScore >= 50
-                    ? 'ME'
-                    : metrics.averageScore >= 40
-                    ? 'AE'
-                    : 'BE'}
-                </span>
-                {metrics.deltaScore !== null && (
-                  <span
-                    className={`text-[11px] font-bold ${
-                      metrics.deltaScore >= 0 ? 'text-emerald-500' : 'text-rose-500'
-                    }`}
-                  >
-                    {metrics.deltaScore >= 0 ? '+' : ''}
-                    {metrics.deltaScore}%
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Slot 3: CAT vs Exam Gap */}
-            <div className="flex items-center justify-between px-3">
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                CAT vs Exam
-              </span>
-              <div className="flex items-center gap-1 text-[11px]">
-                {metrics.catAverage !== null ? (
-                  <>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      CAT: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{metrics.catAverage}%</span>
-                    </span>
-                    <span className="text-slate-400">→</span>
-                    <span
-                      className={`font-bold ${
-                        (metrics.catGap ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'
-                      }`}
-                    >
-                      Gap: {(metrics.catGap ?? 0) >= 0 ? '+' : ''}
-                      {metrics.catGap}%
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-slate-400 italic">No CATs</span>
-                )}
               </div>
             </div>
 
@@ -572,57 +752,66 @@ export const SubjectPerformanceView: React.FC = () => {
                 Proficiency
               </span>
               <div className="flex items-center gap-1.5 text-xs">
-                <span className="font-bold text-emerald-500">
-                  {metrics.proficiencyRate ?? 0}% {isJunior ? '5+ pts' : 'EE/ME'}
-                </span>
-                <span className="text-slate-300 dark:text-slate-700">·</span>
-                <span className="text-[11px] text-amber-500">
-                  {metrics.remedialCount ?? 0} &lt;50%
-                </span>
+                {(metrics.totalSat ?? 0) > 0 ? (
+                  <>
+                    <span className="font-bold text-emerald-500">
+                      {metrics.proficiencyRate ?? 0}% {isJunior ? '5+ pts' : 'EE/ME'}
+                    </span>
+                    <span className="text-slate-300 dark:text-slate-700">·</span>
+                    <span className="text-[11px] text-amber-500">
+                      {metrics.remedialCount ?? 0} &lt;50%
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 text-[11px] italic">Awaiting marks</span>
+                )}
               </div>
             </div>
 
-            {/* Slot 5: Inline Rubric / Points Spread Micro-Bar */}
+            {/* Slot 5: Spread Micro-Bar / CAT Gap */}
             <div className="flex items-center justify-between px-3">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Spread
               </span>
-              <div className="flex items-center gap-2 flex-1 max-w-[130px] ml-2">
-                {/* Stacked Micro-Progress Bar */}
-                <div
-                  className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
-                  title={
-                    isJunior
-                      ? Object.entries(metrics.pointsDistribution || {})
-                          .map(([p, c]) => `${p}pts: ${c}`)
-                          .join(' | ')
-                      : `EE: ${metrics.rubricDistribution?.EE || 0} | ME: ${metrics.rubricDistribution?.ME || 0} | AE: ${metrics.rubricDistribution?.AE || 0} | BE: ${metrics.rubricDistribution?.BE || 0}`
-                  }
-                >
-                  {isJunior ? (
-                    <>
-                      <div style={{ width: `${((metrics.pointsDistribution?.[8] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-500" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[7] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-400" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[6] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-500" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[5] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-400" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[4] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-400" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[3] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-500" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[2] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-400" />
-                      <div style={{ width: `${((metrics.pointsDistribution?.[1] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-500" />
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ width: `${metrics.rubricPercentages?.EE || 0}%` }} className="bg-emerald-500" />
-                      <div style={{ width: `${metrics.rubricPercentages?.ME || 0}%` }} className="bg-sky-500" />
-                      <div style={{ width: `${metrics.rubricPercentages?.AE || 0}%` }} className="bg-amber-500" />
-                      <div style={{ width: `${metrics.rubricPercentages?.BE || 0}%` }} className="bg-rose-500" />
-                    </>
-                  )}
+              {(metrics.totalSat ?? 0) > 0 ? (
+                <div className="flex items-center gap-2 flex-1 max-w-[130px] ml-2">
+                  <div
+                    className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
+                    title={
+                      isJunior
+                        ? Object.entries(metrics.pointsDistribution || {})
+                            .map(([p, c]) => `${p}pts: ${c}`)
+                            .join(' | ')
+                        : `EE: ${metrics.rubricDistribution?.EE || 0} | ME: ${metrics.rubricDistribution?.ME || 0} | AE: ${metrics.rubricDistribution?.AE || 0} | BE: ${metrics.rubricDistribution?.BE || 0}`
+                    }
+                  >
+                    {isJunior ? (
+                      <>
+                        <div style={{ width: `${((metrics.pointsDistribution?.[8] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-500" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[7] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-emerald-400" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[6] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-500" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[5] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-sky-400" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[4] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-400" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[3] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-amber-500" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[2] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-400" />
+                        <div style={{ width: `${((metrics.pointsDistribution?.[1] || 0) / (metrics.totalSat || 1)) * 100}%` }} className="bg-rose-500" />
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ width: `${metrics.rubricPercentages?.EE || 0}%` }} className="bg-emerald-500" />
+                        <div style={{ width: `${metrics.rubricPercentages?.ME || 0}%` }} className="bg-sky-500" />
+                        <div style={{ width: `${metrics.rubricPercentages?.AE || 0}%` }} className="bg-amber-500" />
+                        <div style={{ width: `${metrics.rubricPercentages?.BE || 0}%` }} className="bg-rose-500" />
+                      </>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    {metrics.totalSat}
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  {metrics.totalSat ?? 0}
-                </span>
-              </div>
+              ) : (
+                <span className="text-slate-400 text-[11px] italic">Awaiting marks</span>
+              )}
             </div>
           </div>
         )}
@@ -768,7 +957,7 @@ export const SubjectPerformanceView: React.FC = () => {
                       >
                         {/* 1. Rank & Movement */}
                         <td className="py-2 px-3 text-center font-mono whitespace-nowrap">
-                          {student.isAbsent ? (
+                          {student.isPending || student.isAbsent ? (
                             <span className="text-slate-400">—</span>
                           ) : (
                             <div className="inline-flex items-center justify-center gap-1 font-bold text-slate-900 dark:text-slate-100">
@@ -810,7 +999,14 @@ export const SubjectPerformanceView: React.FC = () => {
 
                         {/* 4. Exam Score */}
                         <td className="py-2 px-3 text-center whitespace-nowrap">
-                          {student.isAbsent ? (
+                          {student.isPending ? (
+                            <span
+                              className="border border-dashed border-slate-300 dark:border-slate-700 px-1.5 py-0.5 rounded text-[10px] text-slate-400 font-mono"
+                              title="Awaiting marks entry"
+                            >
+                              —
+                            </span>
+                          ) : student.isAbsent ? (
                             <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-400 font-medium">
                               Absent
                             </span>
@@ -823,7 +1019,7 @@ export const SubjectPerformanceView: React.FC = () => {
 
                         {/* 5. vs Previous Exam Delta */}
                         <td className="py-2 px-3 text-center whitespace-nowrap">
-                          {student.deltaMarks !== null ? (
+                          {!student.isPending && !student.isAbsent && student.deltaMarks !== null ? (
                             <span
                               className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
                                 student.deltaMarks > 0
@@ -843,7 +1039,7 @@ export const SubjectPerformanceView: React.FC = () => {
 
                         {/* 6. CBC Rating (Merged Column) */}
                         <td className="py-2 px-3 whitespace-nowrap">
-                          {student.isAbsent ? (
+                          {student.isPending || student.isAbsent ? (
                             <span className="text-slate-400">—</span>
                           ) : isJunior ? (
                             <div className="inline-flex items-center gap-1.5">
@@ -878,7 +1074,7 @@ export const SubjectPerformanceView: React.FC = () => {
 
                         {/* 7. vs Class Mean */}
                         <td className="py-2 px-3 text-right whitespace-nowrap font-mono">
-                          {student.diffFromClassMean !== null ? (
+                          {!student.isPending && !student.isAbsent && student.diffFromClassMean !== null ? (
                             <span
                               className={`text-[11px] font-semibold ${
                                 student.diffFromClassMean >= 0
@@ -896,12 +1092,16 @@ export const SubjectPerformanceView: React.FC = () => {
 
                         {/* 8. Teacher Remarks */}
                         <td className="py-2 px-3 text-slate-500 dark:text-slate-400">
-                          <div
-                            className="max-w-xs truncate"
-                            title={student.remarks || 'No remarks recorded'}
-                          >
-                            {student.remarks || '—'}
-                          </div>
+                          {student.isPending ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <div
+                              className="max-w-xs truncate"
+                              title={student.remarks || 'No remarks recorded'}
+                            >
+                              {student.remarks || '—'}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -912,6 +1112,162 @@ export const SubjectPerformanceView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Step 6: Subject Target Mean Modal */}
+      {showTargetModal && (() => {
+        const isNext = Boolean(data?.nextExam && targetModalExamId === data.nextExam.id);
+        const modalExam = isNext ? data.nextExam! : data?.selectedExam;
+        const isExamStarted = Boolean(modalExam?.hasStarted);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-sky-500" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Subject Target Mean Expectation
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTargetModal(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Exam Switcher Tab if both nextExam and selectedExam exist */}
+              {data?.nextExam && (
+                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTargetModal(data.nextExam!.id)}
+                    className={`flex-1 py-1 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      isNext
+                        ? 'bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Next ({data.nextExam.title.replace(' Examination', '')})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTargetModal(data.selectedExam.id)}
+                    className={`flex-1 py-1 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      !isNext
+                        ? 'bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Current ({data.selectedExam.title.replace(' Examination', '')})
+                  </button>
+                </div>
+              )}
+
+              {/* Status Banner */}
+              {isExamStarted ? (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Examination Has Started (Locked)</p>
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                      This examination ({modalExam?.title}) started on {modalExam?.startDate || 'an earlier date'}. Target mean expectations can only be set or modified before an examination commences.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 text-xs">
+                  <Calendar className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span>
+                    Setting target for upcoming: <strong>{modalExam?.title}</strong>{' '}
+                    {modalExam?.startDate ? `(Starts ${modalExam.startDate})` : ''}
+                  </span>
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Target benchmark percentage for <strong className="text-slate-800 dark:text-slate-200">{data?.selectedSubject?.name}</strong> in <strong className="text-slate-800 dark:text-slate-200">{data?.selectedClass?.name}</strong> to gauge whether your learners meet CBC academic milestones.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Target Mean Percentage (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    disabled={isExamStarted}
+                    value={targetPercentageInput}
+                    onChange={(e) => setTargetPercentageInput(e.target.value)}
+                    placeholder="e.g. 68.0"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1120] text-sm font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Quick Preset Chips (only when editable) */}
+                {!isExamStarted && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {[60, 65, 70, 75].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setTargetPercentageInput(String(preset))}
+                        className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-950/60 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                      >
+                        {preset}% ({preset >= 75 ? 'EE' : 'ME'})
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Target Notes / Strategy (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    disabled={isExamStarted}
+                    value={targetNotesInput}
+                    onChange={(e) => setTargetNotesInput(e.target.value)}
+                    placeholder="e.g. Focus on improving learner performance in composition and reading fluency..."
+                    className="w-full p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1120] text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowTargetModal(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  {isExamStarted ? 'Close' : 'Cancel'}
+                </button>
+                {!isExamStarted && (
+                  <button
+                    type="button"
+                    onClick={handleSaveTargetMean}
+                    disabled={isSavingTarget}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingTarget ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>Save Target</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
