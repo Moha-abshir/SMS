@@ -500,12 +500,12 @@ export class ClassWorkspaceService {
       admissionNo: string;
       fullName: string;
       gender: string | null;
-      rank: number;
+      rank: number | null;
       previousRank: number | null;
       rankDelta: number | null;
       totalMarks: number;
       maxMarks: number;
-      meanPct: number;
+      meanPct: number | null;
       deltaPct: number | null;
       overallRubricOrPoints: string;
       points: number;
@@ -568,19 +568,23 @@ export class ClassWorkspaceService {
         }
       }
 
-      // Mean calculations
-      const meanPct = satCount > 0 ? +(totalMarks / satCount).toFixed(1) : 0;
+      // Mean calculations: only if learner sat at least one subject
+      const hasSatAny = satCount > 0;
+      const meanPct = hasSatAny ? +(totalMarks / satCount).toFixed(1) : null;
       const maxMarks = classSubjects.length * 100;
-      const rubric = getPrimaryRubric(meanPct);
-      const jScale = getJuniorPointScale(meanPct);
-      const overallRubricOrPoints = isJunior ? `${jScale.points} pts (${jScale.label})` : rubric;
+      const rubric = hasSatAny ? getPrimaryRubric(meanPct!) : '—';
+      const jScale = hasSatAny ? getJuniorPointScale(meanPct!) : null;
+      const overallRubricOrPoints = hasSatAny
+        ? (isJunior ? `${jScale!.points} pts (${jScale!.label})` : rubric)
+        : '—';
+      const points = jScale ? jScale.points : 0;
 
       // Personal bottleneck determination
-      if (satCount > 0) {
+      if (hasSatAny) {
         for (const sub of classSubjects) {
           if (sScores.has(sub.id)) {
             const m = sScores.get(sub.id)!;
-            const diff = m - meanPct;
+            const diff = m - meanPct!;
             if (diff < minDiff) {
               minDiff = diff;
               bottleneck = {
@@ -596,10 +600,10 @@ export class ClassWorkspaceService {
         }
       }
 
-      // Baseline delta
+      // Baseline delta: only compute if learner has marks in this exam!
       const bStat = baselineRankMap.get(student.id);
-      const deltaPct = bStat ? +(meanPct - bStat.meanPct).toFixed(1) : null;
-      const deltaPoints = bStat && isJunior ? +(jScale.points - bStat.points).toFixed(1) : null;
+      const deltaPct = (hasSatAny && bStat) ? +(meanPct! - bStat.meanPct).toFixed(1) : null;
+      const deltaPoints = (hasSatAny && bStat && isJunior && jScale) ? +(jScale.points - bStat.points).toFixed(1) : null;
 
       unrankedLearners.push({
         studentId: student.id,
@@ -612,7 +616,7 @@ export class ClassWorkspaceService {
         meanPct,
         deltaPct,
         overallRubricOrPoints,
-        points: jScale.points,
+        points,
         deltaPoints,
         missingSubjectsCount: classSubjects.length - satCount,
         personalBottleneckSubject: bottleneck,
@@ -620,15 +624,21 @@ export class ClassWorkspaceService {
       });
     }
 
-    // Sort by mean percentage descending, then total marks descending
+    // Sort learners: those with scores first (meanPct descending, totalMarks descending), then unentered by name
     unrankedLearners.sort((a, b) => {
-      if (b.meanPct !== a.meanPct) return b.meanPct - a.meanPct;
-      return b.totalMarks - a.totalMarks;
+      if (a.meanPct !== null && b.meanPct !== null) {
+        if (b.meanPct !== a.meanPct) return b.meanPct - a.meanPct;
+        return b.totalMarks - a.totalMarks;
+      }
+      if (a.meanPct !== null && b.meanPct === null) return -1;
+      if (a.meanPct === null && b.meanPct !== null) return 1;
+      return a.fullName.localeCompare(b.fullName);
     });
 
     const learners: LearnerRow[] = unrankedLearners.map((lr, idx) => {
-      const rank = idx + 1;
-      const rankDelta = lr.previousRank !== null ? lr.previousRank - rank : null;
+      const hasMarks = lr.meanPct !== null;
+      const rank = hasMarks ? idx + 1 : null;
+      const rankDelta = (hasMarks && lr.previousRank !== null) ? lr.previousRank - rank! : null;
       return {
         ...lr,
         rank,
@@ -643,7 +653,7 @@ export class ClassWorkspaceService {
       subjectCode: string;
       teacherName: string;
       submissionState: 'SUBMITTED' | 'PENDING';
-      examMeanPct: number;
+      examMeanPct: number | null;
       examDeltaPct: number | null;
       examMeanPointsOrRubric: string;
       catMeanPct: number | null;
@@ -692,16 +702,19 @@ export class ClassWorkspaceService {
         }
       }
 
-      const examMeanPct = subScores.length > 0
+      const hasSubScores = subScores.length > 0;
+      const examMeanPct = hasSubScores
         ? +(subScores.reduce((a, b) => a + b, 0) / subScores.length).toFixed(1)
-        : 0;
+        : null;
 
       const baseMean = baselineSubjectMeans.get(sub.id);
-      const examDeltaPct = baseMean !== undefined ? +(examMeanPct - baseMean).toFixed(1) : null;
+      const examDeltaPct = (hasSubScores && baseMean !== undefined) ? +(examMeanPct! - baseMean).toFixed(1) : null;
 
-      const examMeanPointsOrRubric = isJunior
-        ? `${getJuniorPointScale(examMeanPct).points} pts (${getJuniorPointScale(examMeanPct).label})`
-        : getPrimaryRubric(examMeanPct);
+      const examMeanPointsOrRubric = hasSubScores
+        ? (isJunior
+          ? `${getJuniorPointScale(examMeanPct!).points} pts (${getJuniorPointScale(examMeanPct!).label})`
+          : getPrimaryRubric(examMeanPct!))
+        : '—';
 
       // CAT average
       const catMarks = subjectCatMap.get(sub.id) || [];
@@ -709,7 +722,7 @@ export class ClassWorkspaceService {
         ? +(catMarks.reduce((a, b) => a + b, 0) / catMarks.length).toFixed(1)
         : null;
 
-      const catToExamVariancePct = catMeanPct !== null ? +(examMeanPct - catMeanPct).toFixed(1) : null;
+      const catToExamVariancePct = (hasSubScores && catMeanPct !== null) ? +(examMeanPct! - catMeanPct).toFixed(1) : null;
 
       const subState = submissionMap.get(sub.id);
       const isSubSubmitted = subState && ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'LOCKED'].includes(subState.status);
@@ -731,10 +744,10 @@ export class ClassWorkspaceService {
     }
 
     // F. Overall Class Academic Summary
-    const satLearners = learners.filter((l) => l.totalMarks > 0);
+    const satLearners = learners.filter((l) => l.meanPct !== null && l.totalMarks > 0);
     const classMeanPct = satLearners.length > 0
-      ? +(satLearners.reduce((acc, l) => acc + l.meanPct, 0) / satLearners.length).toFixed(1)
-      : 0;
+      ? +(satLearners.reduce((acc, l) => acc + l.meanPct!, 0) / satLearners.length).toFixed(1)
+      : null;
 
     let baselineClassMean: number | null = null;
     if (baselineLearnerStats.length > 0) {
@@ -742,18 +755,22 @@ export class ClassWorkspaceService {
         baselineLearnerStats.reduce((acc, l) => acc + l.meanPct, 0) / baselineLearnerStats.length
       ).toFixed(1);
     }
-    const classDeltaPct = baselineClassMean !== null ? +(classMeanPct - baselineClassMean).toFixed(1) : null;
+    const classDeltaPct = (classMeanPct !== null && baselineClassMean !== null)
+      ? +(classMeanPct - baselineClassMean).toFixed(1)
+      : null;
 
-    // Trajectory counts
+    // Trajectory counts (only count learners who sat this exam)
     let improvedCount = 0;
     let stableCount = 0;
     let droppedCount = 0;
 
-    for (const l of learners) {
-      if (l.deltaPct !== null) {
-        if (l.deltaPct >= 2.0) improvedCount++;
-        else if (l.deltaPct <= -2.0) droppedCount++;
-        else stableCount++;
+    if (satLearners.length > 0) {
+      for (const l of satLearners) {
+        if (l.deltaPct !== null) {
+          if (l.deltaPct >= 2.0) improvedCount++;
+          else if (l.deltaPct <= -2.0) droppedCount++;
+          else stableCount++;
+        }
       }
     }
 
@@ -764,38 +781,40 @@ export class ClassWorkspaceService {
     let masteryRatePct = 0;
     let beLearnerCount = 0;
 
-    if (isJunior) {
-      const totalPoints = satLearners.reduce((acc, l) => acc + l.points, 0);
-      classMeanPoints = satLearners.length > 0 ? +(totalPoints / satLearners.length).toFixed(1) : 0;
+    if (satLearners.length > 0) {
+      if (isJunior) {
+        const totalPoints = satLearners.reduce((acc, l) => acc + (l.points || 0), 0);
+        classMeanPoints = +(totalPoints / satLearners.length).toFixed(1);
 
-      if (baselineLearnerStats.length > 0) {
-        const baseTotalPoints = baselineLearnerStats.reduce((acc, l) => acc + l.points, 0);
-        const baseMeanPoints = +(baseTotalPoints / baselineLearnerStats.length).toFixed(1);
-        classDeltaPoints = +(classMeanPoints - baseMeanPoints).toFixed(1);
-      }
-
-      // Mastery: 5-8 pts (ME1, EE2, EE1)
-      const masteryCount = satLearners.filter((l) => l.points >= 5).length;
-      masteryRatePct = satLearners.length > 0 ? Math.round((masteryCount / satLearners.length) * 100) : 0;
-      beLearnerCount = satLearners.filter((l) => l.points <= 2).length;
-    } else {
-      const rubricFreq: Record<string, number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
-      for (const l of satLearners) {
-        const r = getPrimaryRubric(l.meanPct);
-        rubricFreq[r] = (rubricFreq[r] || 0) + 1;
-      }
-      let highestCount = -1;
-      for (const [r, count] of Object.entries(rubricFreq)) {
-        if (count > highestCount) {
-          highestCount = count;
-          modeRubric = r as any;
+        if (baselineLearnerStats.length > 0) {
+          const baseTotalPoints = baselineLearnerStats.reduce((acc, l) => acc + l.points, 0);
+          const baseMeanPoints = +(baseTotalPoints / baselineLearnerStats.length).toFixed(1);
+          classDeltaPoints = +(classMeanPoints - baseMeanPoints).toFixed(1);
         }
-      }
 
-      // Mastery: EE + ME
-      const masteryCount = (rubricFreq.EE || 0) + (rubricFreq.ME || 0);
-      masteryRatePct = satLearners.length > 0 ? Math.round((masteryCount / satLearners.length) * 100) : 0;
-      beLearnerCount = rubricFreq.BE || 0;
+        // Mastery: 5-8 pts (ME1, EE2, EE1)
+        const masteryCount = satLearners.filter((l) => (l.points || 0) >= 5).length;
+        masteryRatePct = Math.round((masteryCount / satLearners.length) * 100);
+        beLearnerCount = satLearners.filter((l) => (l.points || 0) <= 2).length;
+      } else {
+        const rubricFreq: Record<string, number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
+        for (const l of satLearners) {
+          const r = getPrimaryRubric(l.meanPct!);
+          rubricFreq[r] = (rubricFreq[r] || 0) + 1;
+        }
+        let highestCount = -1;
+        for (const [r, count] of Object.entries(rubricFreq)) {
+          if (count > highestCount) {
+            highestCount = count;
+            modeRubric = r as any;
+          }
+        }
+
+        // Mastery: EE + ME
+        const masteryCount = (rubricFreq.EE || 0) + (rubricFreq.ME || 0);
+        masteryRatePct = Math.round((masteryCount / satLearners.length) * 100);
+        beLearnerCount = rubricFreq.BE || 0;
+      }
     }
 
     // G. Fetch Class Target Mean for this exam
@@ -838,8 +857,8 @@ export class ClassWorkspaceService {
 
     const targetMeanPct = wasSetBeforeExamStarted ? rawTargetPct : null;
     const targetPoints = wasSetBeforeExamStarted ? rawTargetPoints : null;
-    const diffFromTargetPct = targetMeanPct !== null ? +(classMeanPct - targetMeanPct).toFixed(1) : null;
-    const isTargetMet = targetMeanPct !== null ? classMeanPct >= targetMeanPct : null;
+    const diffFromTargetPct = (targetMeanPct !== null && classMeanPct !== null) ? +(classMeanPct - targetMeanPct).toFixed(1) : null;
+    const isTargetMet = (targetMeanPct !== null && classMeanPct !== null) ? classMeanPct >= targetMeanPct : null;
     const setByTeacherName = targetRow && targetRow.teacherFirstName ? `${targetRow.teacherFirstName} ${targetRow.teacherLastName}` : null;
 
     // Calculate Schoolwide Curriculum-Tier Mean for this exam
@@ -1022,7 +1041,7 @@ export class ClassWorkspaceService {
       termName: string;
       meanPct: number;
       rubricOrPoints: string;
-      rank: number;
+      rank: number | null;
     }> = [];
 
     for (const ex of pastExams.reverse()) {
@@ -1069,7 +1088,7 @@ export class ClassWorkspaceService {
       teacherName: string;
       learnerExamMarks: number | null;
       learnerRubricOrPoints: string | null;
-      classSubjectMeanPct: number;
+      classSubjectMeanPct: number | null;
       varianceFromClassMean: number | null;
       learnerCatAvgPct: number | null;
       catToExamGap: number | null;
@@ -1158,7 +1177,7 @@ export class ClassWorkspaceService {
       const examMark = scoreEntry && scoreEntry.marks !== null ? scoreEntry.marks : null;
       const rubricOrPts = scoreEntry && scoreEntry.marks !== null ? scoreEntry.rubricOrPoints : null;
       const classMean = sub.examMeanPct;
-      const varianceFromClass = examMark !== null ? +(examMark - classMean).toFixed(1) : null;
+      const varianceFromClass = (examMark !== null && classMean !== null) ? +(examMark - classMean).toFixed(1) : null;
       const catAvg = studentSubjectCatAvg.has(sub.subjectId) ? studentSubjectCatAvg.get(sub.subjectId)! : null;
       const catGap = examMark !== null && catAvg !== null ? +(examMark - catAvg).toFixed(1) : null;
       const prevMark = prevMarksMap.has(sub.subjectId) ? prevMarksMap.get(sub.subjectId)! : null;

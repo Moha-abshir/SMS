@@ -17,7 +17,7 @@ export interface SubjectAnalysisItem {
   subjectCode: string;
   teacherName: string;
   submissionState: 'SUBMITTED' | 'PENDING';
-  examMeanPct: number;
+  examMeanPct: number | null;
   examDeltaPct: number | null;
   examMeanPointsOrRubric: string;
   catMeanPct: number | null;
@@ -122,14 +122,20 @@ export const ClassSubjectAnalysis: React.FC<ClassSubjectAnalysisProps> = ({
 
                   {/* 4. Main Exam Mean */}
                   <td className="px-3.5 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="font-black text-xs text-slate-900 dark:text-slate-100">
-                        {sub.examMeanPct}%
+                    {sub.examMeanPct !== null ? (
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="font-black text-xs text-slate-900 dark:text-slate-100">
+                          {sub.examMeanPct}%
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {sub.examMeanPointsOrRubric}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                        Awaiting marks
                       </span>
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {sub.examMeanPointsOrRubric}
-                      </span>
-                    </div>
+                    )}
                   </td>
 
                   {/* 5. Exam vs CAT Variance */}

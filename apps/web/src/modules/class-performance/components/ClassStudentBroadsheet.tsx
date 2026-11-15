@@ -11,12 +11,12 @@ export interface BroadsheetLearner {
   admissionNo: string;
   fullName: string;
   gender: string | null;
-  rank: number;
+  rank: number | null;
   previousRank: number | null;
   rankDelta: number | null;
   totalMarks: number;
   maxMarks: number;
-  meanPct: number;
+  meanPct: number | null;
   deltaPct: number | null;
   overallRubricOrPoints: string;
   points: number;
@@ -93,14 +93,14 @@ export const ClassStudentBroadsheet: React.FC<ClassStudentBroadsheetProps> = ({
       let valB: any = 0;
 
       if (sortField === 'rank') {
-        valA = a.rank;
-        valB = b.rank;
+        valA = a.rank ?? 999999;
+        valB = b.rank ?? 999999;
       } else if (sortField === 'name') {
         valA = a.fullName.toLowerCase();
         valB = b.fullName.toLowerCase();
       } else if (sortField === 'mean') {
-        valA = a.meanPct;
-        valB = b.meanPct;
+        valA = a.meanPct ?? -1;
+        valB = b.meanPct ?? -1;
       } else if (sortField === 'delta') {
         valA = a.deltaPct ?? -999;
         valB = b.deltaPct ?? -999;
@@ -244,25 +244,31 @@ export const ClassStudentBroadsheet: React.FC<ClassStudentBroadsheetProps> = ({
                   {/* Sticky 1: Rank & Movement */}
                   <td className="sticky left-0 z-10 bg-white group-hover:bg-sky-50/60 dark:bg-[#111827] dark:group-hover:bg-[#132038] px-2 py-2 text-center shadow-[1px_0_0_0_rgba(0,0,0,0.06)] dark:shadow-[1px_0_0_0_rgba(255,255,255,0.05)]">
                     <div className="flex items-center justify-center gap-1">
-                      <span className={`font-black text-xs ${
-                        rank <= 3
-                          ? 'text-sky-600 dark:text-sky-400'
-                          : 'text-slate-800 dark:text-slate-200'
-                      }`}>
-                        #{rank}
-                      </span>
-                      {rankDelta !== null && rankDelta !== 0 ? (
-                        rankDelta > 0 ? (
-                          <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center" title={`Moved up ${rankDelta} places`}>
-                            ▲{rankDelta}
+                      {rank !== null ? (
+                        <>
+                          <span className={`font-black text-xs ${
+                            rank <= 3
+                              ? 'text-sky-600 dark:text-sky-400'
+                              : 'text-slate-800 dark:text-slate-200'
+                          }`}>
+                            #{rank}
                           </span>
-                        ) : (
-                          <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 flex items-center" title={`Dropped ${Math.abs(rankDelta)} places`}>
-                            ▼{Math.abs(rankDelta)}
-                          </span>
-                        )
+                          {rankDelta !== null && rankDelta !== 0 ? (
+                            rankDelta > 0 ? (
+                              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center" title={`Moved up ${rankDelta} places`}>
+                                ▲{rankDelta}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 flex items-center" title={`Dropped ${Math.abs(rankDelta)} places`}>
+                                ▼{Math.abs(rankDelta)}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 text-[10px]">—</span>
+                          )}
+                        </>
                       ) : (
-                        <span className="text-slate-300 dark:text-slate-600 text-[10px]">—</span>
+                        <span className="text-slate-400 text-xs font-mono">—</span>
                       )}
                     </div>
                   </td>
@@ -320,39 +326,55 @@ export const ClassStudentBroadsheet: React.FC<ClassStudentBroadsheetProps> = ({
                   {/* Sticky Right 1: Consolidated MEAN & RUBRIC */}
                   <td className="sticky right-[180px] z-10 bg-white group-hover:bg-sky-50/60 dark:bg-[#111827] dark:group-hover:bg-[#132038] px-3 py-2 text-right border-l border-slate-200 dark:border-slate-800 shadow-[-1px_0_0_0_rgba(0,0,0,0.06)] dark:shadow-[-1px_0_0_0_rgba(255,255,255,0.05)]">
                     <div className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <span className="font-black text-xs text-slate-900 dark:text-slate-100">
-                          {meanPct}%
-                        </span>
-                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
-                          isJuniorSecondary
-                            ? learner.points >= 7
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                              : learner.points >= 5
-                              ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300'
-                              : learner.points >= 3
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
-                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
-                            : overallRubricOrPoints === 'EE'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                            : overallRubricOrPoints === 'ME'
-                            ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300'
-                            : overallRubricOrPoints === 'AE'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
-                        }`}>
-                          {isJuniorSecondary ? `${learner.points} pts` : overallRubricOrPoints}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        {totalMarks} / {maxMarks}
-                      </p>
+                      {meanPct !== null ? (
+                        <>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="font-black text-xs text-slate-900 dark:text-slate-100">
+                              {meanPct}%
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                              isJuniorSecondary
+                                ? learner.points >= 7
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                  : learner.points >= 5
+                                  ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300'
+                                  : learner.points >= 3
+                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                                : overallRubricOrPoints === 'EE'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                                : overallRubricOrPoints === 'ME'
+                                ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300'
+                                : overallRubricOrPoints === 'AE'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                            }`}>
+                              {isJuniorSecondary ? `${learner.points} pts` : overallRubricOrPoints}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            {totalMarks} / {maxMarks}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="font-bold text-xs text-slate-400 font-mono">—</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                              Pending
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            — / {maxMarks}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </td>
 
                   {/* Sticky Right 2: VS PREV */}
                   <td className="sticky right-[110px] z-10 bg-white group-hover:bg-sky-50/60 dark:bg-[#111827] dark:group-hover:bg-[#132038] px-2 py-2 text-center min-w-[70px]">
-                    {deltaPct !== null ? (
+                    {meanPct !== null && deltaPct !== null ? (
                       <span className={`inline-flex items-center gap-0.5 text-xs font-black ${deltaLoading ? 'animate-pulse' : ''} ${
                         deltaPct > 0
                           ? 'text-emerald-600 dark:text-emerald-400'

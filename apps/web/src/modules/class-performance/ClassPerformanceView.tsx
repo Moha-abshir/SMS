@@ -242,6 +242,7 @@ export const ClassPerformanceView: React.FC = () => {
 
   // Helper to determine if a learner needs remedial support
   const isRemedialLearner = (l: any, isJunior: boolean) => {
+    if (l.meanPct === null || l.totalMarks === 0) return false;
     if (isJunior) {
       if (l.points <= 2) return true;
     } else {
@@ -331,14 +332,14 @@ export const ClassPerformanceView: React.FC = () => {
     ];
 
     const rows = learners.map((l: any) => [
-      l.rank,
+      l.rank !== null ? l.rank : '—',
       l.admissionNo,
       `"${l.fullName}"`,
       l.gender || '—',
       ...subjects.map((s: any) => l.scoresBySubject[s.subjectId]?.marks ?? '—'),
       l.totalMarks,
       l.maxMarks,
-      l.meanPct,
+      l.meanPct !== null ? l.meanPct : '—',
       `"${l.overallRubricOrPoints}"`,
       l.deltaPct !== null ? `${l.deltaPct}%` : '—',
       `"${l.personalBottleneckSubject ? l.personalBottleneckSubject.name : '—'}"`,

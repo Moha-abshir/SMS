@@ -19,10 +19,10 @@ export interface ClassWorkspaceRibbonProps {
     satCount: number;
   };
   academicSummary: {
-    meanPct: number;
+    meanPct: number | null;
     deltaPct: number | null;
     modeRubric?: 'EE' | 'ME' | 'AE' | 'BE';
-    meanPoints?: number;
+    meanPoints?: number | null;
     deltaPoints?: number | null;
     masteryRatePct: number;
     beLearnerCount: number;
@@ -292,15 +292,17 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
                 <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                   {isJuniorSecondary ? `${targetMean.targetMeanPoints || '—'} pts` : `${targetMean.targetMeanPercentage}%`}
                 </span>
-                <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                    targetMean.isMet
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
-                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300'
-                  }`}
-                >
-                  {targetMean.isMet ? 'Met' : 'Missed'}
-                </span>
+                {targetMean.isMet !== null && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                      targetMean.isMet
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300'
+                    }`}
+                  >
+                    {targetMean.isMet ? 'Met' : 'Missed'}
+                  </span>
+                )}
                 {targetMean.diffFromTarget !== null && (
                   <span
                     className={`text-[10px] font-bold ${
@@ -332,33 +334,41 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
               : 'Class Mean:'}
           </span>
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-              {isJuniorSecondary ? `${meanPoints !== undefined ? meanPoints : '—'} pts` : `${meanPct}%`}
-            </span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300">
-              {isJuniorSecondary ? `${meanPct}%` : modeRubric || 'ME'}
-            </span>
-            {academicSummary.schoolMeanPct !== undefined && academicSummary.schoolMeanPct !== null && (
-              <span
-                className="text-[10px] text-slate-400 font-medium whitespace-nowrap"
-                title={`Curriculum Tier School Mean: ${academicSummary.schoolMeanPct}%`}
-              >
-                (Sch: {academicSummary.schoolMeanPct}%)
+            {meanPct !== null && meanPct !== undefined ? (
+              <>
+                <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                  {isJuniorSecondary ? `${meanPoints !== undefined && meanPoints !== null ? meanPoints : '—'} pts` : `${meanPct}%`}
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300">
+                  {isJuniorSecondary ? `${meanPct}%` : modeRubric || 'ME'}
+                </span>
+                {academicSummary.schoolMeanPct !== undefined && academicSummary.schoolMeanPct !== null && (
+                  <span
+                    className="text-[10px] text-slate-400 font-medium whitespace-nowrap"
+                    title={`Curriculum Tier School Mean: ${academicSummary.schoolMeanPct}%`}
+                  >
+                    (Sch: {academicSummary.schoolMeanPct}%)
+                  </span>
+                )}
+                {hasPriorExam ? (
+                  <span
+                    className={`text-[10px] font-bold ${deltaLoading ? 'animate-pulse' : ''} ${
+                      deltaPct! > 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : deltaPct! < 0
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {deltaPct! > 0 ? `+${deltaPct}%` : `${deltaPct}%`}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span className="text-slate-400 text-[11px] italic" title="No marks submitted yet for this exam">
+                Awaiting marks
               </span>
             )}
-            {hasPriorExam ? (
-              <span
-                className={`text-[10px] font-bold ${deltaLoading ? 'animate-pulse' : ''} ${
-                  deltaPct! > 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : deltaPct! < 0
-                    ? 'text-rose-600 dark:text-rose-400'
-                    : 'text-slate-400'
-                }`}
-              >
-                {deltaPct! > 0 ? `+${deltaPct}%` : `${deltaPct}%`}
-              </span>
-            ) : null}
           </div>
         </div>
 
@@ -386,20 +396,26 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         <div className="flex items-center justify-between px-2.5 min-w-0">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Mastery:</span>
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-              {masteryRatePct}% {isJuniorSecondary ? '5-8 pts' : 'EE/ME'}
-            </span>
-            <span className="text-slate-300 dark:text-slate-700">·</span>
-            {beLearnerCount > 0 ? (
-              <button
-                type="button"
-                onClick={onFilterRemedial}
-                className="text-rose-600 dark:text-rose-400 hover:underline font-bold cursor-pointer"
-              >
-                {beLearnerCount} BE
-              </button>
+            {meanPct !== null && meanPct !== undefined ? (
+              <>
+                <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                  {masteryRatePct}% {isJuniorSecondary ? '5-8 pts' : 'EE/ME'}
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">·</span>
+                {beLearnerCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={onFilterRemedial}
+                    className="text-rose-600 dark:text-rose-400 hover:underline font-bold cursor-pointer"
+                  >
+                    {beLearnerCount} BE
+                  </button>
+                ) : (
+                  <span className="text-slate-400 font-medium">0 BE</span>
+                )}
+              </>
             ) : (
-              <span className="text-slate-400 font-medium">0 BE</span>
+              <span className="text-slate-400 text-[11px] italic">Awaiting marks</span>
             )}
           </div>
         </div>
@@ -407,7 +423,7 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         {/* Slot 5: Momentum */}
         <div className="flex items-center justify-between px-2.5 min-w-0">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Momentum:</span>
-          {hasPriorExam ? (
+          {meanPct !== null && meanPct !== undefined && hasPriorExam ? (
             <div className="flex items-center gap-1.5 font-bold text-xs">
               <span className="text-emerald-600 dark:text-emerald-400" title="Improved">↑{improvedCount}</span>
               <span className="text-slate-300 dark:text-slate-700">·</span>
@@ -416,7 +432,9 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
               <span className="text-rose-600 dark:text-rose-400" title="Dropped">↓{droppedCount}</span>
             </div>
           ) : (
-            <span className="text-slate-400 text-[11px] italic">No prior exam</span>
+            <span className="text-slate-400 text-[11px] italic">
+              {meanPct === null || meanPct === undefined ? 'Awaiting marks' : 'No prior exam'}
+            </span>
           )}
         </div>
 
