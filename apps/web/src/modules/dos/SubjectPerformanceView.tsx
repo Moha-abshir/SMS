@@ -404,7 +404,13 @@ export const SubjectPerformanceView: React.FC = () => {
 
             {/* Curriculum Scale Tag */}
             <span className="text-[10px] text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-800 whitespace-nowrap">
-              {isJunior ? 'Junior Secondary · 8-Point Scale' : 'Upper Primary · 4-Tier Rubric'}
+              {isJunior
+                ? 'Junior Secondary · 8-Point Scale'
+                : selectedClass?.levelCategory === 'PPE'
+                ? 'Pre-Primary · 4-Tier Rubric'
+                : selectedClass?.levelCategory === 'LOWER_PRIMARY'
+                ? 'Lower Primary · 4-Tier Rubric'
+                : 'Upper Primary · 4-Tier Rubric'}
             </span>
 
             {/* Locked Exam Badge */}
@@ -427,11 +433,52 @@ export const SubjectPerformanceView: React.FC = () => {
                   }`}
                   title="Switch Subject"
                 >
-                  {data.subjectsList.map((sub: any) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name} {sub.code ? `(${sub.code})` : ''}
-                    </option>
-                  ))}
+                  {(() => {
+                    const categories = [
+                      { key: 'PPE', label: 'Pre-Primary (Playgroup - PP2)' },
+                      { key: 'LOWER_PRIMARY', label: 'Lower Primary (Grades 1 - 3)' },
+                      { key: 'UPPER_PRIMARY', label: 'Upper Primary (Grades 4 - 6)' },
+                      { key: 'JUNIOR', label: 'Junior Secondary (Grades 7 - 9)' },
+                    ];
+                    const handledIds = new Set<string>();
+                    const groups = categories
+                      .map((cat) => {
+                        const items = data.subjectsList.filter((s: any) => {
+                          const matches =
+                            s.levelCategory === cat.key ||
+                            (cat.key === 'JUNIOR' && s.levelCategory === 'JUNIOR_SECONDARY');
+                          if (matches) handledIds.add(s.id);
+                          return matches;
+                        });
+                        return { ...cat, items };
+                      })
+                      .filter((g) => g.items.length > 0);
+
+                    const otherItems = data.subjectsList.filter((s: any) => !handledIds.has(s.id));
+
+                    return (
+                      <>
+                        {groups.map((g) => (
+                          <optgroup key={g.key} label={g.label}>
+                            {g.items.map((sub: any) => (
+                              <option key={sub.id} value={sub.id}>
+                                {sub.name} {sub.code ? `(${sub.code})` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        {otherItems.length > 0 && (
+                          <optgroup label="Other Subjects">
+                            {otherItems.map((sub: any) => (
+                              <option key={sub.id} value={sub.id}>
+                                {sub.name} {sub.code ? `(${sub.code})` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    );
+                  })()}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>

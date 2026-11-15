@@ -1134,16 +1134,56 @@ export class DosService {
         throw forbiddenError;
       }
     } else {
-      // Leadership oversight: If a subject is selected, provide all classes in that subject's tier;
-      // otherwise, select all classes that have matching tier for the target subject
-      const defaultSubj = (subjectId ? subjectMap.get(subjectId) : null) || allSubjects[0];
+      // Leadership oversight (HEAD_TEACHER, DEPUTY_HEAD, DOS)
+      // 1. Check if the leadership user has personal allocations to default to when no subjectId is passed
+      let userOwnAllocSubjId: string | null = null;
+      if (user) {
+        const [teacherAllocs, markingAllocs] = await Promise.all([
+          db
+            .select({ subjectId: teacherSubjectAllocations.subjectId })
+            .from(teacherSubjectAllocations)
+            .where(
+              and(
+                eq(teacherSubjectAllocations.teacherId, user.id),
+                isNull(teacherSubjectAllocations.deletedAt)
+              )
+            )
+            .limit(1),
+          db
+            .select({ subjectId: markingAllocations.subjectId })
+            .from(markingAllocations)
+            .where(
+              and(
+                eq(markingAllocations.teacherId, user.id),
+                isNull(markingAllocations.deletedAt)
+              )
+            )
+            .limit(1),
+        ]);
+        userOwnAllocSubjId = teacherAllocs[0]?.subjectId || markingAllocs[0]?.subjectId || null;
+      }
+
+      // Default subject resolution:
+      // Priority 1: Explicit subjectId passed in query
+      // Priority 2: User's own assigned teaching allocation subject (if applicable)
+      // Priority 3: First subject in allSubjects
+      let defaultSubj = (subjectId ? subjectMap.get(subjectId) : null) || null;
+      if (!defaultSubj && userOwnAllocSubjId) {
+        defaultSubj = subjectMap.get(userOwnAllocSubjId) || null;
+      }
+      if (!defaultSubj) {
+        defaultSubj = allSubjects[0];
+      }
       const targetSubjId = defaultSubj?.id;
 
-      if (targetSubjId) {
+      if (targetSubjId && defaultSubj) {
         for (const cls of allClasses) {
-          const isJunior = isJuniorSecondaryClass(cls as any);
-          const subjIsJunior = defaultSubj.levelCategory === 'JUNIOR';
-          const matchTier = isJunior === subjIsJunior;
+          // Strictly match classes belonging to this subject's curriculum tier
+          const matchTier =
+            cls.levelCategory === defaultSubj.levelCategory ||
+            (defaultSubj.levelCategory === 'PRIMARY' &&
+              (cls.levelCategory === 'LOWER_PRIMARY' || cls.levelCategory === 'UPPER_PRIMARY'));
+
           if (matchTier) {
             userAllocations.push({ classId: cls.id, subjectId: targetSubjId });
           }
