@@ -141,8 +141,6 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
     setSearchQuery('');
   }, [classId]);
 
-  if (!isOpen) return null;
-
   const header = data?.gradeHeader;
   const isJunior = header?.isJunior ?? false;
 
@@ -366,8 +364,9 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-hidden">
-        {/* Backdrop */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1199,6 +1198,7 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
           </motion.div>
         </div>
       </div>
+      )}
     </AnimatePresence>
   );
 };
