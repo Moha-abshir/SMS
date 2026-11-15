@@ -9,6 +9,7 @@ import {
   Loader2,
   X,
   CheckCircle2,
+  Calendar,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -39,6 +40,7 @@ export const ClassPerformanceView: React.FC = () => {
 
   // Target Mean Modal State
   const [showTargetModal, setShowTargetModal] = useState<boolean>(false);
+  const [targetModalExamId, setTargetModalExamId] = useState<string | null>(null);
   const [targetPercentageInput, setTargetPercentageInput] = useState<string>('');
   const [targetNotesInput, setTargetNotesInput] = useState<string>('');
   const [isSavingTarget, setIsSavingTarget] = useState<boolean>(false);
@@ -152,9 +154,37 @@ export const ClassPerformanceView: React.FC = () => {
     setSelectedClassId(newClassId);
   };
 
+  // Open Target Mean Modal
+  const handleOpenTargetModal = (examId?: string) => {
+    if (!workspace) return;
+    const targetExamId = examId || workspace.nextExam?.id || workspace.selectedExam.id;
+    setTargetModalExamId(targetExamId);
+
+    const isNext = Boolean(workspace.nextExam && targetExamId === workspace.nextExam.id);
+    if (isNext) {
+      if (workspace.nextExamTarget?.targetMeanPercentage !== null && workspace.nextExamTarget?.targetMeanPercentage !== undefined) {
+        setTargetPercentageInput(String(workspace.nextExamTarget.targetMeanPercentage));
+        setTargetNotesInput(workspace.nextExamTarget.notes || '');
+      } else {
+        // Smart recommendation: current class mean rounded or 65.0, never blank!
+        const defaultTarget = workspace.academicSummary?.meanPct
+          ? Math.min(100, Math.round(workspace.academicSummary.meanPct + 2))
+          : 65;
+        setTargetPercentageInput(String(defaultTarget));
+        setTargetNotesInput('');
+      }
+    } else {
+      const existing = workspace.targetMean?.rawTargetPercentage ?? workspace.targetMean?.targetMeanPercentage;
+      setTargetPercentageInput(existing !== null && existing !== undefined ? String(existing) : '');
+      setTargetNotesInput(workspace.targetMean?.notes || '');
+    }
+
+    setShowTargetModal(true);
+  };
+
   // Save Target Mean
   const handleSaveTargetMean = async () => {
-    if (!selectedClassId || !selectedExamId) return;
+    if (!selectedClassId || !targetModalExamId || !workspace) return;
     const targetVal = parseFloat(targetPercentageInput);
     if (isNaN(targetVal) || targetVal < 0 || targetVal > 100) {
       toast.error('Please enter a valid target mean percentage between 0 and 100');
@@ -164,28 +194,43 @@ export const ClassPerformanceView: React.FC = () => {
     setIsSavingTarget(true);
     try {
       const res = await apiClient.post(`/api/examinations/class-workspace/${selectedClassId}/target-mean`, {
-        examId: selectedExamId,
+        examId: targetModalExamId,
         targetMeanPercentage: targetVal,
         notes: targetNotesInput || undefined,
       });
 
       if (res.data?.success) {
-        toast.success('Class Target Mean saved successfully!');
+        const isNext = Boolean(workspace.nextExam && targetModalExamId === workspace.nextExam.id);
+        toast.success(`Class Target Mean for ${isNext ? workspace.nextExam.title : workspace.selectedExam.title} saved successfully!`);
         setShowTargetModal(false);
+
         // Optimistically update workspace state
         setWorkspace((prev: any) => {
           if (!prev) return prev;
-          const classMean = prev.academicSummary?.meanPct ?? 0;
-          return {
-            ...prev,
-            targetMean: {
-              targetMeanPercentage: targetVal,
-              targetMeanPoints: null,
-              isMet: classMean >= targetVal,
-              diffFromTarget: +(classMean - targetVal).toFixed(1),
-              notes: targetNotesInput || null,
-            },
-          };
+          if (isNext) {
+            return {
+              ...prev,
+              nextExamTarget: {
+                targetMeanPercentage: targetVal,
+                targetMeanPoints: null,
+                notes: targetNotesInput || null,
+              },
+            };
+          } else {
+            const classMean = prev.academicSummary?.meanPct ?? 0;
+            return {
+              ...prev,
+              targetMean: {
+                ...prev.targetMean,
+                targetMeanPercentage: targetVal,
+                rawTargetPercentage: targetVal,
+                targetMeanPoints: null,
+                isMet: classMean >= targetVal,
+                diffFromTarget: +(classMean - targetVal).toFixed(1),
+                notes: targetNotesInput || null,
+              },
+            };
+          }
         });
       }
     } catch (err: any) {
@@ -195,6 +240,43 @@ export const ClassPerformanceView: React.FC = () => {
     }
   };
 
+  // Helper to determine if a learner needs remedial support
+  const isRemedialLearner = (l: any, isJunior: boolean) => {
+    if (isJunior) {
+      if (l.points <= 2) return true;
+    } else {
+      if (l.overallRubricOrPoints === 'BE') return true;
+    }
+    let beSubjectCount = 0;
+    for (const sub of Object.values((l.scoresBySubject as Record<string, any>) || {})) {
+      if (sub?.isBelowExpectations) beSubjectCount++;
+    }
+    return beSubjectCount >= 2;
+  };
+
+  const remedialCount = useMemo(() => {
+    if (!workspace?.learners) return 0;
+    return workspace.learners.filter((l: any) =>
+      isRemedialLearner(l, Boolean(workspace.classInfo?.isJuniorSecondary))
+    ).length;
+  }, [workspace?.learners, workspace?.classInfo?.isJuniorSecondary]);
+
+  const incompleteCount = useMemo(() => {
+    if (!workspace?.learners) return 0;
+    return workspace.learners.filter((l: any) => l.missingSubjectsCount > 0).length;
+  }, [workspace?.learners]);
+
+  const hasPriorExam = Boolean(
+    compareExamId !== 'none' &&
+    workspace?.academicSummary?.deltaPct !== null &&
+    (workspace?.trajectoryCounts?.improvedCount > 0 ||
+      workspace?.trajectoryCounts?.stableCount > 0 ||
+      workspace?.trajectoryCounts?.droppedCount > 0)
+  );
+
+  const showDropsPill = hasPriorExam && (workspace?.trajectoryCounts?.droppedCount ?? 0) > 0;
+  const showIncompletePill = incompleteCount > 0;
+
   // Filter learners for Broadsheet view
   const filteredLearners = useMemo(() => {
     if (!workspace?.learners) return [];
@@ -202,19 +284,9 @@ export const ClassPerformanceView: React.FC = () => {
 
     // Apply quick filters
     if (quickFilter === 'remedial') {
-      list = list.filter((l: any) => {
-        if (workspace.classInfo.isJuniorSecondary) {
-          if (l.points <= 2) return true;
-        } else {
-          if (l.overallRubricOrPoints === 'BE') return true;
-        }
-        // Count subjects in BE
-        let beSubjectCount = 0;
-        for (const sub of Object.values(l.scoresBySubject as Record<string, any>)) {
-          if (sub.isBelowExpectations) beSubjectCount++;
-        }
-        return beSubjectCount >= 2;
-      });
+      list = list.filter((l: any) =>
+        isRemedialLearner(l, Boolean(workspace.classInfo?.isJuniorSecondary))
+      );
     } else if (quickFilter === 'drops') {
       list = list.filter((l: any) => {
         if (workspace.classInfo.isJuniorSecondary) {
@@ -316,6 +388,9 @@ export const ClassPerformanceView: React.FC = () => {
         classInfo={workspace.classInfo}
         academicSummary={workspace.academicSummary}
         targetMean={workspace.targetMean}
+        selectedExam={workspace.selectedExam}
+        nextExam={workspace.nextExam}
+        nextExamTarget={workspace.nextExamTarget}
         submissionStatus={workspace.submissionStatus}
         trajectoryCounts={workspace.trajectoryCounts}
         reportLockStatus={workspace.reportLockStatus}
@@ -334,7 +409,7 @@ export const ClassPerformanceView: React.FC = () => {
           setActiveTab('broadsheet');
           setQuickFilter('remedial');
         }}
-        onOpenTargetModal={() => setShowTargetModal(true)}
+        onOpenTargetModal={handleOpenTargetModal}
         deltaLoading={deltaLoading}
       />
 
@@ -394,32 +469,36 @@ export const ClassPerformanceView: React.FC = () => {
                     : 'text-slate-500 dark:text-slate-400'
                 }`}
               >
-                BE / Remedial ({workspace.academicSummary.beLearnerCount})
+                Remedial ({remedialCount})
               </button>
 
-              <button
-                type="button"
-                onClick={() => setQuickFilter('drops')}
-                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                  quickFilter === 'drops'
-                    ? 'bg-amber-50 text-amber-700 shadow-2xs dark:bg-amber-950/80 dark:text-amber-300 font-bold'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                Drops ({workspace.trajectoryCounts.droppedCount})
-              </button>
+              {showDropsPill && (
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter('drops')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                    quickFilter === 'drops'
+                      ? 'bg-amber-50 text-amber-700 shadow-2xs dark:bg-amber-950/80 dark:text-amber-300 font-bold'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Drops ({workspace.trajectoryCounts.droppedCount})
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setQuickFilter('incomplete')}
-                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                  quickFilter === 'incomplete'
-                    ? 'bg-sky-50 text-sky-700 shadow-2xs dark:bg-sky-950/80 dark:text-sky-300 font-bold'
-                    : 'text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                Incomplete
-              </button>
+              {showIncompletePill && (
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter('incomplete')}
+                  className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                    quickFilter === 'incomplete'
+                      ? 'bg-sky-50 text-sky-700 shadow-2xs dark:bg-sky-950/80 dark:text-sky-300 font-bold'
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  Incomplete ({incompleteCount})
+                </button>
+              )}
             </div>
 
             {/* Compact Search Input */}
@@ -486,95 +565,156 @@ export const ClassPerformanceView: React.FC = () => {
       />
 
       {/* 5. Target Mean Expectation Modal */}
-      {showTargetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-sky-500" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  Set Class Mean Expectation
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowTargetModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {showTargetModal && (() => {
+        const isNext = Boolean(workspace.nextExam && targetModalExamId === workspace.nextExam.id);
+        const modalExam = isNext ? workspace.nextExam! : workspace.selectedExam;
+        const isExamStarted = Boolean(modalExam?.hasStarted);
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Set the benchmark target mean percentage for <strong className="text-slate-800 dark:text-slate-200">{workspace.classInfo.name}</strong> for <strong className="text-slate-800 dark:text-slate-200">{workspace.selectedExam.title}</strong> to track whether your class is meeting expectations.
-            </p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Target Mean Percentage (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={targetPercentageInput}
-                  onChange={(e) => setTargetPercentageInput(e.target.value)}
-                  placeholder="e.g. 68.0"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1120] text-sm font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
-                />
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-sky-500" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Class Target Mean Expectation
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTargetModal(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* Quick Preset Chips */}
-              <div className="flex flex-wrap gap-1.5">
-                {[60, 65, 70, 75].map((preset) => (
+              {/* Exam Switcher Tab if both nextExam and selectedExam exist */}
+              {workspace.nextExam && (
+                <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 text-xs font-medium">
                   <button
-                    key={preset}
                     type="button"
-                    onClick={() => setTargetPercentageInput(String(preset))}
-                    className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-950/60 dark:hover:text-sky-400 transition-colors"
+                    onClick={() => handleOpenTargetModal(workspace.nextExam!.id)}
+                    className={`flex-1 py-1 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      isNext
+                        ? 'bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
                   >
-                    {preset}% ({preset >= 75 ? 'EE' : 'ME'})
+                    Next ({workspace.nextExam.title.replace(' Examination', '')})
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTargetModal(workspace.selectedExam.id)}
+                    className={`flex-1 py-1 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      !isNext
+                        ? 'bg-white dark:bg-[#111827] text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Current ({workspace.selectedExam.title.replace(' Examination', '')})
+                  </button>
+                </div>
+              )}
+
+              {/* Status Banner */}
+              {isExamStarted ? (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Examination Has Started (Locked)</p>
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                      This examination ({modalExam.title}) started on {modalExam.startDate || 'an earlier date'}. Target mean expectations can only be set or modified before an examination commences.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-300 text-xs">
+                  <Calendar className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span>
+                    Setting target for upcoming: <strong>{modalExam.title}</strong>{' '}
+                    {modalExam.startDate ? `(Starts ${modalExam.startDate})` : ''}
+                  </span>
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Target benchmark percentage for <strong className="text-slate-800 dark:text-slate-200">{workspace.classInfo.name}</strong> to gauge whether your class meets CBC academic milestones.
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Target Mean Percentage (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    disabled={isExamStarted}
+                    value={targetPercentageInput}
+                    onChange={(e) => setTargetPercentageInput(e.target.value)}
+                    placeholder="e.g. 68.0"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1120] text-sm font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Quick Preset Chips (only when editable) */}
+                {!isExamStarted && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {[60, 65, 70, 75].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setTargetPercentageInput(String(preset))}
+                        className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-950/60 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                      >
+                        {preset}% ({preset >= 75 ? 'EE' : 'ME'})
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Target Notes / Strategy (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    disabled={isExamStarted}
+                    value={targetNotesInput}
+                    onChange={(e) => setTargetNotesInput(e.target.value)}
+                    placeholder="e.g. Focus on improving remedial support in Mathematics and Arabic..."
+                    className="w-full p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1120] text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Target Notes / Strategy (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={targetNotesInput}
-                  onChange={(e) => setTargetNotesInput(e.target.value)}
-                  placeholder="e.g. Focus on improving remedial support in Mathematics and Arabic..."
-                  className="w-full p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b1120] text-xs text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-sky-500 focus:outline-hidden resize-none"
-                />
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowTargetModal(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  {isExamStarted ? 'Close' : 'Cancel'}
+                </button>
+                {!isExamStarted && (
+                  <button
+                    type="button"
+                    onClick={handleSaveTargetMean}
+                    disabled={isSavingTarget}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingTarget ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    <span>Save Target</span>
+                  </button>
+                )}
               </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setShowTargetModal(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveTargetMean}
-                disabled={isSavingTarget}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-              >
-                {isSavingTarget ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                <span>Save Target</span>
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );

@@ -70,11 +70,14 @@ export class SchoolwideOverviewService {
       .select({
         id: examinations.id,
         title: examinations.title,
+        startDate: examinations.startDate,
+        endDate: examinations.endDate,
         status: examinations.status,
         createdAt: examinations.createdAt,
         termId: examinations.termId,
         termNumber: academicTerms.termNumber,
         year: academicTerms.year,
+        isCurrent: academicTerms.isCurrent,
       })
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
@@ -86,6 +89,7 @@ export class SchoolwideOverviewService {
         selectedExam: null,
         compareExam: null,
         availableExams: [],
+        allExams: [],
       };
     }
 
@@ -93,6 +97,11 @@ export class SchoolwideOverviewService {
     if (examId && examId !== 'latest') {
       const found = allExams.find((e) => e.id === examId);
       if (found) selectedExam = found;
+    } else {
+      const activeExam = allExams.find((e) => e.isCurrent && e.status !== 'DRAFT')
+        || allExams.find((e) => e.status !== 'DRAFT')
+        || allExams[0];
+      selectedExam = activeExam;
     }
 
     const currentIndex = allExams.findIndex((e) => e.id === selectedExam.id);
@@ -114,6 +123,9 @@ export class SchoolwideOverviewService {
       title: e.title,
       termNumber: e.termNumber,
       year: e.year,
+      startDate: e.startDate,
+      endDate: e.endDate,
+      status: e.status,
       label: `${e.title} (Term ${e.termNumber} ${e.year})`,
     }));
 
@@ -121,6 +133,7 @@ export class SchoolwideOverviewService {
       selectedExam,
       compareExam,
       availableExams,
+      allExams,
     };
   }
 

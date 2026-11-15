@@ -100,7 +100,7 @@ export class ClassWorkspaceService {
     }
 
     // 2. Resolve exam chronology
-    const { selectedExam, compareExam, availableExams } = await SchoolwideOverviewService.resolveExams(
+    const { selectedExam, compareExam, availableExams, allExams } = await SchoolwideOverviewService.resolveExams(
       examId,
       compareExamId
     );
@@ -109,6 +109,57 @@ export class ClassWorkspaceService {
       const err: any = new Error('No examinations found in the system.');
       err.statusCode = 404;
       throw err;
+    }
+
+    const now = new Date();
+    const selectedStartDate = selectedExam.startDate ? new Date(selectedExam.startDate) : null;
+    const selectedExamHasStarted = selectedStartDate ? selectedStartDate <= now : (selectedExam.status !== 'DRAFT');
+
+    // Identify next upcoming examination (not yet started)
+    const upcomingExams = ((allExams as any[]) || []).filter((e: any) => {
+      if (e.id === selectedExam.id) return false;
+      const sDate = e.startDate ? new Date(e.startDate) : null;
+      if (sDate && sDate > now) return true;
+      if (e.status === 'DRAFT') return true;
+      return false;
+    });
+
+    upcomingExams.sort((a: any, b: any) => {
+      if (a.startDate && b.startDate) return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const nextExam = upcomingExams[0] || null;
+    let nextExamTarget: any = null;
+
+    if (nextExam) {
+      const nextTargetRows = await db
+        .select({
+          id: classExamTargets.id,
+          targetMeanPercentage: classExamTargets.targetMeanPercentage,
+          targetMeanPoints: classExamTargets.targetMeanPoints,
+          notes: classExamTargets.notes,
+          createdAt: classExamTargets.createdAt,
+        })
+        .from(classExamTargets)
+        .where(
+          and(
+            eq(classExamTargets.examId, nextExam.id),
+            eq(classExamTargets.classId, classId),
+            isNull(classExamTargets.deletedAt)
+          )
+        )
+        .limit(1);
+
+      if (nextTargetRows.length > 0) {
+        const nt = nextTargetRows[0];
+        nextExamTarget = {
+          id: nt.id,
+          targetMeanPercentage: parseFloat(nt.targetMeanPercentage as any),
+          targetMeanPoints: nt.targetMeanPoints ? parseFloat(nt.targetMeanPoints as any) : null,
+          notes: nt.notes || null,
+        };
+      }
     }
 
     // 3. Resolve target class
@@ -755,6 +806,7 @@ export class ClassWorkspaceService {
         targetMeanPoints: classExamTargets.targetMeanPoints,
         notes: classExamTargets.notes,
         setById: classExamTargets.setById,
+        createdAt: classExamTargets.createdAt,
         teacherFirstName: users.firstName,
         teacherLastName: users.lastName,
       })
@@ -770,11 +822,68 @@ export class ClassWorkspaceService {
       .limit(1);
 
     const targetRow = targetRows[0] || null;
-    const targetMeanPct = targetRow ? parseFloat(targetRow.targetMeanPercentage as any) : null;
-    const targetPoints = targetRow && targetRow.targetMeanPoints ? parseFloat(targetRow.targetMeanPoints as any) : null;
+    const rawTargetPct = targetRow ? parseFloat(targetRow.targetMeanPercentage as any) : null;
+    const rawTargetPoints = targetRow && targetRow.targetMeanPoints ? parseFloat(targetRow.targetMeanPoints as any) : null;
+
+    // Condition: The target mean shown should be the one set before the exams started
+    let wasSetBeforeExamStarted = false;
+    if (targetRow) {
+      if (selectedStartDate) {
+        const examStartCutoff = new Date(selectedStartDate).setHours(23, 59, 59, 999);
+        wasSetBeforeExamStarted = new Date(targetRow.createdAt).getTime() <= examStartCutoff;
+      } else {
+        wasSetBeforeExamStarted = true;
+      }
+    }
+
+    const targetMeanPct = wasSetBeforeExamStarted ? rawTargetPct : null;
+    const targetPoints = wasSetBeforeExamStarted ? rawTargetPoints : null;
     const diffFromTargetPct = targetMeanPct !== null ? +(classMeanPct - targetMeanPct).toFixed(1) : null;
     const isTargetMet = targetMeanPct !== null ? classMeanPct >= targetMeanPct : null;
     const setByTeacherName = targetRow && targetRow.teacherFirstName ? `${targetRow.teacherFirstName} ${targetRow.teacherLastName}` : null;
+
+    // Calculate Schoolwide Curriculum-Tier Mean for this exam
+    let schoolMeanPct: number | null = null;
+    let schoolModeRubric: string | null = null;
+    let schoolMeanPoints: number | null = null;
+
+    try {
+      const tierClasses = allDbClasses.filter((c) =>
+        isJunior ? c.levelCategory === 'JUNIOR' : c.levelCategory !== 'JUNIOR'
+      );
+      const tierClassIds = tierClasses.map((c) => c.id);
+
+      if (tierClassIds.length > 0) {
+        const tierScores = await db
+          .select({
+            marksObtained: examScores.marksObtained,
+            juniorPoints: examScores.juniorPoints,
+          })
+          .from(examScores)
+          .innerJoin(students, eq(examScores.studentId, students.id))
+          .where(
+            and(
+              eq(examScores.examId, selectedExam.id),
+              inArray(students.classId, tierClassIds),
+              isNull(examScores.deletedAt),
+              isNull(students.deletedAt)
+            )
+          );
+
+        if (tierScores.length > 0) {
+          const sumMarks = tierScores.reduce((acc, s) => acc + parseFloat(s.marksObtained as any || '0'), 0);
+          schoolMeanPct = +(sumMarks / tierScores.length).toFixed(1);
+          if (!isJunior) {
+            schoolModeRubric = getPrimaryRubric(schoolMeanPct);
+          } else {
+            const sumPts = tierScores.reduce((acc, s) => acc + (s.juniorPoints ? Number(s.juniorPoints) : 0), 0);
+            schoolMeanPoints = +(sumPts / tierScores.length).toFixed(1);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to calculate schoolMeanPct:', e);
+    }
 
     return {
       availableExams,
@@ -784,7 +893,24 @@ export class ClassWorkspaceService {
         title: selectedExam.title,
         termNumber: selectedExam.termNumber,
         year: selectedExam.year,
+        startDate: selectedExam.startDate,
+        endDate: selectedExam.endDate,
+        status: selectedExam.status,
+        hasStarted: selectedExamHasStarted,
       },
+      nextExam: nextExam
+        ? {
+            id: nextExam.id,
+            title: nextExam.title,
+            termNumber: nextExam.termNumber,
+            year: nextExam.year,
+            startDate: nextExam.startDate,
+            endDate: nextExam.endDate,
+            status: nextExam.status,
+            hasStarted: false,
+          }
+        : null,
+      nextExamTarget,
       compareExam: compareExam
         ? {
             id: compareExam.id,
@@ -818,14 +944,20 @@ export class ClassWorkspaceService {
         deltaPoints: classDeltaPoints,
         masteryRatePct,
         beLearnerCount,
+        schoolMeanPct,
+        schoolModeRubric,
+        schoolMeanPoints,
       },
       targetMean: {
         targetMeanPercentage: targetMeanPct,
+        rawTargetPercentage: rawTargetPct,
         targetMeanPoints: targetPoints,
         isMet: isTargetMet,
         diffFromTarget: diffFromTargetPct,
         setByTeacherName,
         notes: targetRow?.notes || null,
+        wasSetBeforeExamStarted,
+        hasExamStarted: selectedExamHasStarted,
       },
       trajectoryCounts: {
         improvedCount,
@@ -1311,6 +1443,35 @@ export class ClassWorkspaceService {
 
     if (!body.examId || body.targetMeanPercentage === undefined || isNaN(Number(body.targetMeanPercentage))) {
       const err: any = new Error('Valid Exam ID and Target Mean Percentage are required.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // Verify examination exists and has not started yet
+    const [targetExam] = await db
+      .select({
+        id: examinations.id,
+        title: examinations.title,
+        startDate: examinations.startDate,
+        status: examinations.status,
+      })
+      .from(examinations)
+      .where(and(eq(examinations.id, body.examId), isNull(examinations.deletedAt)));
+
+    if (!targetExam) {
+      const err: any = new Error('Specified examination was not found.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const now = new Date();
+    const examStart = targetExam.startDate ? new Date(targetExam.startDate) : null;
+    const hasStarted = examStart ? examStart <= now : targetExam.status !== 'DRAFT';
+
+    if (hasStarted) {
+      const err: any = new Error(
+        `This examination (${targetExam.title}) has already started. Target expectations can only be set or modified before an examination commences.`
+      );
       err.statusCode = 400;
       throw err;
     }

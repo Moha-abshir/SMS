@@ -26,13 +26,46 @@ export interface ClassWorkspaceRibbonProps {
     deltaPoints?: number | null;
     masteryRatePct: number;
     beLearnerCount: number;
+    schoolMeanPct?: number | null;
+    schoolModeRubric?: string | null;
+    schoolMeanPoints?: number | null;
   };
   targetMean?: {
     targetMeanPercentage: number | null;
+    rawTargetPercentage?: number | null;
     targetMeanPoints: number | null;
     isMet: boolean | null;
     diffFromTarget: number | null;
     setByTeacherName: string | null;
+    notes?: string | null;
+    wasSetBeforeExamStarted?: boolean;
+    hasExamStarted?: boolean;
+  } | null;
+  selectedExam: {
+    id: string;
+    title: string;
+    termNumber: number;
+    year: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    status?: string;
+    hasStarted?: boolean;
+  };
+  nextExam?: {
+    id: string;
+    title: string;
+    termNumber: number;
+    year: number;
+    startDate?: string | null;
+    endDate?: string | null;
+    status?: string;
+    hasStarted?: boolean;
+  } | null;
+  nextExamTarget?: {
+    id?: string;
+    targetMeanPercentage: number;
+    targetMeanPoints: number | null;
+    notes?: string | null;
   } | null;
   submissionStatus: {
     submittedSubjectsCount: number;
@@ -50,7 +83,7 @@ export interface ClassWorkspaceRibbonProps {
     remarksCompletedCount: number;
     totalLearnersCount: number;
   };
-  availableExams: Array<{ id: string; title: string; termNumber: number; year: number; label: string }>;
+  availableExams: Array<{ id: string; title: string; termNumber: number; year: number; label: string; startDate?: string | null; status?: string }>;
   selectedExamId: string;
   onSelectExam: (examId: string) => void;
   availableClasses?: Array<{ id: string; name: string; levelCategory: string }>;
@@ -62,7 +95,7 @@ export interface ClassWorkspaceRibbonProps {
   onExportCsv: () => void;
   onPrint: () => void;
   onFilterRemedial?: () => void;
-  onOpenTargetModal?: () => void;
+  onOpenTargetModal?: (examId?: string) => void;
   deltaLoading?: boolean;
 }
 
@@ -70,6 +103,9 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
   classInfo,
   academicSummary,
   targetMean,
+  selectedExam,
+  nextExam,
+  nextExamTarget,
   submissionStatus,
   trajectoryCounts,
   reportLockStatus,
@@ -102,6 +138,9 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
   const levelLabel = isJuniorSecondary
     ? 'Junior Secondary · 8-Point Scale'
     : `${levelCategory.replace('_', ' ')} · 4-Tier Rubric`;
+
+  // Determine if next exam exists for target button
+  const upcomingExam = nextExam || null;
 
   return (
     <div className="space-y-2.5">
@@ -152,28 +191,29 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
 
         {/* Right side */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {/* Target Mean CTA */}
+          {/* Target Mean CTA - Targets upcoming exam */}
           <button
             type="button"
-            onClick={onOpenTargetModal}
+            onClick={() => onOpenTargetModal?.(upcomingExam ? upcomingExam.id : selectedExam.id)}
             className={`h-8 px-2.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer ${
-              targetMean?.targetMeanPercentage !== null && targetMean?.targetMeanPercentage !== undefined
-                ? targetMean.isMet
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
-                  : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
+              upcomingExam && nextExamTarget?.targetMeanPercentage !== null && nextExamTarget?.targetMeanPercentage !== undefined
+                ? 'border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20'
                 : 'border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:border-sky-500 hover:text-sky-500 dark:hover:text-sky-400'
             }`}
-            title="Set or view target class mean for this examination"
+            title={upcomingExam ? `Set target mean expectation for next exam: ${upcomingExam.title}` : 'Set class target mean'}
           >
             <Target className="w-3.5 h-3.5 shrink-0" />
-            {targetMean?.targetMeanPercentage !== null && targetMean?.targetMeanPercentage !== undefined ? (
+            {upcomingExam ? (
+              nextExamTarget?.targetMeanPercentage !== null && nextExamTarget?.targetMeanPercentage !== undefined ? (
+                <span>
+                  Target Next: <strong>{nextExamTarget.targetMeanPercentage}%</strong>
+                </span>
+              ) : (
+                <span>+ Set Target (Next Exam)</span>
+              )
+            ) : targetMean?.targetMeanPercentage !== null && targetMean?.targetMeanPercentage !== undefined && targetMean?.wasSetBeforeExamStarted ? (
               <span>
                 Target: <strong>{targetMean.targetMeanPercentage}%</strong>
-                {targetMean.diffFromTarget !== null && (
-                  <span className="ml-1 text-[10px] font-bold">
-                    ({targetMean.diffFromTarget >= 0 ? `+${targetMean.diffFromTarget}%` : `${targetMean.diffFromTarget}%`})
-                  </span>
-                )}
               </span>
             ) : (
               <span>+ Set Target Mean</span>
@@ -240,15 +280,94 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
       </div>
 
-      {/* 2. Sleek Single-Line Ticker Ribbon (Max Height: 44px, 4 Slots) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
+      {/* 2. Sleek Single-Line Ticker Ribbon (Max Height: 44px, 5 Slots) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
         
-        {/* Slot 1: Readiness */}
+        {/* Slot 1: Target Mean */}
         <div className="flex items-center justify-between px-2.5 min-w-0">
-          <span className="text-slate-500 dark:text-slate-400 font-medium">Readiness:</span>
+          <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Target Mean:</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {targetMean?.targetMeanPercentage !== null && targetMean?.targetMeanPercentage !== undefined && targetMean?.wasSetBeforeExamStarted ? (
+              <>
+                <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                  {isJuniorSecondary ? `${targetMean.targetMeanPoints || '—'} pts` : `${targetMean.targetMeanPercentage}%`}
+                </span>
+                <span
+                  className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                    targetMean.isMet
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300'
+                  }`}
+                >
+                  {targetMean.isMet ? 'Met' : 'Missed'}
+                </span>
+                {targetMean.diffFromTarget !== null && (
+                  <span
+                    className={`text-[10px] font-bold ${
+                      targetMean.diffFromTarget >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {targetMean.diffFromTarget >= 0 ? `+${targetMean.diffFromTarget}%` : `${targetMean.diffFromTarget}%`}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span
+                className="text-slate-400 text-[11px] italic"
+                title="Target was not recorded prior to examination start date"
+              >
+                Not set
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Slot 2: School Mean & Class Mean */}
+        <div className="flex items-center justify-between px-2.5 min-w-0">
+          <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
+            {academicSummary.schoolMeanPct !== undefined && academicSummary.schoolMeanPct !== null
+              ? 'Class / Sch Mean:'
+              : 'Class Mean:'}
+          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+              {isJuniorSecondary ? `${meanPoints !== undefined ? meanPoints : '—'} pts` : `${meanPct}%`}
+            </span>
+            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300">
+              {isJuniorSecondary ? `${meanPct}%` : modeRubric || 'ME'}
+            </span>
+            {academicSummary.schoolMeanPct !== undefined && academicSummary.schoolMeanPct !== null && (
+              <span
+                className="text-[10px] text-slate-400 font-medium whitespace-nowrap"
+                title={`Curriculum Tier School Mean: ${academicSummary.schoolMeanPct}%`}
+              >
+                (Sch: {academicSummary.schoolMeanPct}%)
+              </span>
+            )}
+            {hasPriorExam ? (
+              <span
+                className={`text-[10px] font-bold ${deltaLoading ? 'animate-pulse' : ''} ${
+                  deltaPct! > 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : deltaPct! < 0
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : 'text-slate-400'
+                }`}
+              >
+                {deltaPct! > 0 ? `+${deltaPct}%` : `${deltaPct}%`}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Slot 3: Readiness */}
+        <div className="flex items-center justify-between px-2.5 min-w-0">
+          <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Readiness:</span>
           <div className="flex items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${isAllSubmitted ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            <span className="font-bold text-slate-900 dark:text-slate-100">
+            <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
               {submittedSubjectsCount}/{totalSubjectsCount} Ready
             </span>
             {!isAllSubmitted && (
@@ -263,35 +382,11 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
           </div>
         </div>
 
-        {/* Slot 2: Class Mean */}
+        {/* Slot 4: Mastery */}
         <div className="flex items-center justify-between px-2.5 min-w-0">
-          <span className="text-slate-500 dark:text-slate-400 font-medium">Class Mean:</span>
+          <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Mastery:</span>
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-900 dark:text-slate-100">
-              {isJuniorSecondary ? `${meanPoints !== undefined ? meanPoints : '—'} pts` : `${meanPct}%`}
-            </span>
-            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950/80 dark:text-sky-300">
-              {isJuniorSecondary ? `${meanPct}%` : modeRubric || 'ME'}
-            </span>
-            {hasPriorExam ? (
-              <span className={`text-[10px] font-bold ${deltaLoading ? 'animate-pulse' : ''} ${
-                deltaPct! > 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : deltaPct! < 0
-                  ? 'text-rose-600 dark:text-rose-400'
-                  : 'text-slate-400'
-              }`}>
-                {deltaPct! > 0 ? `+${deltaPct}%` : `${deltaPct}%`}
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Slot 3: Mastery */}
-        <div className="flex items-center justify-between px-2.5 min-w-0">
-          <span className="text-slate-500 dark:text-slate-400 font-medium">Mastery:</span>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-slate-900 dark:text-slate-100">
+            <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
               {masteryRatePct}% {isJuniorSecondary ? '5-8 pts' : 'EE/ME'}
             </span>
             <span className="text-slate-300 dark:text-slate-700">·</span>
@@ -309,9 +404,9 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
           </div>
         </div>
 
-        {/* Slot 4: Momentum */}
+        {/* Slot 5: Momentum */}
         <div className="flex items-center justify-between px-2.5 min-w-0">
-          <span className="text-slate-500 dark:text-slate-400 font-medium">Momentum:</span>
+          <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Momentum:</span>
           {hasPriorExam ? (
             <div className="flex items-center gap-1.5 font-bold text-xs">
               <span className="text-emerald-600 dark:text-emerald-400" title="Improved">↑{improvedCount}</span>

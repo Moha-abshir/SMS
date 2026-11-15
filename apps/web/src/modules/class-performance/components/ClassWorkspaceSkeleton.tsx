@@ -21,9 +21,9 @@ export const ClassWorkspaceSkeleton: React.FC<{
         </div>
       </div>
 
-      {/* 2. Sleek Single-Line Ticker Ribbon Skeleton (Max Height: ~44px, 4 Slots) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 shadow-xs">
-        {[1, 2, 3, 4].map((i) => (
+      {/* 2. Sleek Single-Line Ticker Ribbon Skeleton (Max Height: ~44px, 5 Slots) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 shadow-xs">
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex items-center justify-between px-3 animate-pulse">
             <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800/80 rounded" />
             <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800/80 rounded" />
