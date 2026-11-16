@@ -56,7 +56,17 @@ export class CatsController {
       });
     } catch (error: any) {
       console.error('[CatsController] createCat error:', error);
-      const status = error.message?.includes('restricted') || error.message?.includes('not found') ? 400 : 500;
+      let status = 500;
+      if (
+        error.message?.includes('restricted') ||
+        error.message?.includes('not found') ||
+        error.message?.includes('required') ||
+        error.message?.includes('invalid')
+      ) {
+        status = 400;
+      } else if (error.message?.includes('already exists')) {
+        status = 409;
+      }
       return res.status(status).json({
         success: false,
         message: error.message || 'Failed to create CAT assessment',
