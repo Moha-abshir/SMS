@@ -87,3 +87,29 @@ export function isSubjectTeacherClass(classInfo?: { levelCategory?: string | nul
   if (!classInfo) return false;
   return !isSelfContainedClass(classInfo);
 }
+
+/**
+ * National Examination Transition Cohorts (Grades 3, 6, and 9)
+ * - Grade 3: KEYA / MLP (Monitoring Learner Progress)
+ * - Grade 6: KPSEA (Kenya Primary School Education Assessment)
+ * - Grade 9: KJSEA (Kenya Junior School Education Assessment)
+ * These are the designated cohorts that undergo continuous assessment tests (CATs).
+ */
+export function isNationalExamClass(classInfo?: { levelCategory?: string | null; numericOrder?: number | null; name?: string | null } | null): boolean {
+  if (!classInfo) return false;
+  if (classInfo.numericOrder !== undefined && classInfo.numericOrder !== null) {
+    // In standard 12-level system: Grade 3 = 6, Grade 6 = 9, Grade 9 = 12
+    if (classInfo.numericOrder === 6 || classInfo.numericOrder === 9 || classInfo.numericOrder === 12) {
+      return true;
+    }
+  }
+  if (classInfo.name) {
+    const match = classInfo.name.match(/\b(?:Grade|Class)\s*([0-9]+)\b/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      return num === 3 || num === 6 || num === 9;
+    }
+  }
+  return false;
+}
+
