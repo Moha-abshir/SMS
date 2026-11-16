@@ -149,39 +149,6 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
     ? data.subjectBreakdown.find((s) => s.subjectId === selectedSubjectId) || null
     : null;
 
-  // Helper: compute competency mastery breakdown for a subject
-  const getSubjectMastery = (dist: PrimaryDistribution | JuniorDistribution, isJuniorGrade: boolean, satCount: number) => {
-    if (isJuniorGrade) {
-      const d = (dist || {}) as JuniorDistribution;
-      const c8 = d[8] || 0;
-      const c7 = d[7] || 0;
-      const c6 = d[6] || 0;
-      const c5 = d[5] || 0;
-      const c4 = d[4] || 0;
-      const c3 = d[3] || 0;
-      const c2 = d[2] || 0;
-      const c1 = d[1] || 0;
-      const total = satCount || (c8 + c7 + c6 + c5 + c4 + c3 + c2 + c1);
-      const masteryCount = c8 + c7 + c6 + c5;
-      const aeCount = c4 + c3;
-      const beCount = c2 + c1;
-      const masteryPct = total > 0 ? Math.round((masteryCount / total) * 100) : 0;
-      return { masteryCount, aeCount, beCount, total, masteryPct, label: '5+ pts' };
-    } else {
-      const d = (dist || {}) as PrimaryDistribution;
-      const ee = d.EE || 0;
-      const me = d.ME || 0;
-      const ae = d.AE || 0;
-      const be = d.BE || 0;
-      const total = satCount || (ee + me + ae + be);
-      const masteryCount = ee + me;
-      const aeCount = ae;
-      const beCount = be;
-      const masteryPct = total > 0 ? Math.round((masteryCount / total) * 100) : 0;
-      return { masteryCount, aeCount, beCount, total, masteryPct, label: 'EE/ME' };
-    }
-  };
-
   // Build focused subject learner rows sorted by subject marks descending
   const subjectLearners = useMemo(() => {
     if (!activeSubject || !data?.broadsheet) return [];
@@ -515,15 +482,12 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
                           <th className="px-3 py-3">Mean %</th>
                           <th className="px-3 py-3">Scale / Rubric</th>
                           <th className="px-3 py-3">vs Prev Exam</th>
-                          <th className="px-3 py-3 min-w-[160px]">Competency Mastery</th>
                           <th className="px-3 py-3 text-center">Remedial (BE)</th>
                           <th className="px-3 py-3 text-right">Drilldown</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                         {data?.subjectBreakdown.map((sub) => {
-                          const mastery = getSubjectMastery(sub.distribution, isJunior, sub.satCount);
-
                           return (
                             <tr
                               key={sub.subjectId}
@@ -581,49 +545,6 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
                                 ) : (
                                   <span className="text-[10px] text-slate-400">— (First Exam)</span>
                                 )}
-                              </td>
-
-                              {/* Replaced Score Spread: Clear Competency Mastery Rate */}
-                              <td className="px-3 py-3">
-                                <div className="space-y-1 min-w-[140px]">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span
-                                      className={`font-black ${
-                                        mastery.masteryPct >= 80
-                                          ? 'text-emerald-600 dark:text-emerald-400'
-                                          : mastery.masteryPct >= 60
-                                          ? 'text-sky-600 dark:text-sky-400'
-                                          : mastery.masteryPct >= 50
-                                          ? 'text-amber-600 dark:text-amber-400'
-                                          : 'text-rose-600 dark:text-rose-400'
-                                      }`}
-                                    >
-                                      {mastery.masteryPct}% {mastery.label}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 font-mono">
-                                      {mastery.masteryCount}/{mastery.total}
-                                    </span>
-                                  </div>
-
-                                  {/* High-Contrast Progress Bar: Green (Mastery), Amber (Approaching), Rose (Below) */}
-                                  <div
-                                    className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden border border-slate-200/60 dark:border-slate-700/60"
-                                    title={`Mastery (${mastery.label}): ${mastery.masteryCount} (${mastery.masteryPct}%) | Approaching: ${mastery.aeCount} | Below: ${mastery.beCount}`}
-                                  >
-                                    <div
-                                      style={{ width: `${(mastery.masteryCount / (mastery.total || 1)) * 100}%` }}
-                                      className="bg-emerald-500 h-full"
-                                    />
-                                    <div
-                                      style={{ width: `${(mastery.aeCount / (mastery.total || 1)) * 100}%` }}
-                                      className="bg-amber-400 h-full"
-                                    />
-                                    <div
-                                      style={{ width: `${(mastery.beCount / (mastery.total || 1)) * 100}%` }}
-                                      className="bg-rose-500 h-full"
-                                    />
-                                  </div>
-                                </div>
                               </td>
 
                               {/* Remedial BE Count */}

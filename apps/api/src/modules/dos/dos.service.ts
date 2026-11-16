@@ -1091,7 +1091,7 @@ export class DosService {
     // 2. Resolve teacher's allocations (Source of Truth: teacher_subject_allocations & marking_allocations)
     let userAllocations: Array<{ classId: string; subjectId: string }> = [];
 
-    if (!isLeadership && user) {
+    if (user) {
       const [teacherAllocs, markingAllocs] = await Promise.all([
         db
           .select({
@@ -1127,70 +1127,27 @@ export class DosService {
           userAllocations.push({ classId: a.classId, subjectId: a.subjectId });
         }
       }
+    }
 
-      if (userAllocations.length === 0) {
+    if (userAllocations.length === 0) {
+      if (isLeadership) {
+        // Fallback for leadership without direct subject allocations:
+        // Use first subject with active allocations in the school
+        const [anyAlloc] = await db
+          .select({ classId: teacherSubjectAllocations.classId, subjectId: teacherSubjectAllocations.subjectId })
+          .from(teacherSubjectAllocations)
+          .where(isNull(teacherSubjectAllocations.deletedAt))
+          .limit(1);
+
+        if (anyAlloc && classMap.has(anyAlloc.classId) && subjectMap.has(anyAlloc.subjectId)) {
+          userAllocations.push({ classId: anyAlloc.classId, subjectId: anyAlloc.subjectId });
+        } else if (allClasses.length > 0 && allSubjects.length > 0) {
+          userAllocations.push({ classId: allClasses[0].id, subjectId: allSubjects[0].id });
+        }
+      } else {
         const forbiddenError = new Error('Access denied: You do not have any active subject allocations.');
         (forbiddenError as any).statusCode = 403;
         throw forbiddenError;
-      }
-    } else {
-      // Leadership oversight (HEAD_TEACHER, DEPUTY_HEAD, DOS)
-      // 1. Check if the leadership user has personal allocations to default to when no subjectId is passed
-      let userOwnAllocSubjId: string | null = null;
-      if (user) {
-        const [teacherAllocs, markingAllocs] = await Promise.all([
-          db
-            .select({ subjectId: teacherSubjectAllocations.subjectId })
-            .from(teacherSubjectAllocations)
-            .where(
-              and(
-                eq(teacherSubjectAllocations.teacherId, user.id),
-                isNull(teacherSubjectAllocations.deletedAt)
-              )
-            )
-            .limit(1),
-          db
-            .select({ subjectId: markingAllocations.subjectId })
-            .from(markingAllocations)
-            .where(
-              and(
-                eq(markingAllocations.teacherId, user.id),
-                isNull(markingAllocations.deletedAt)
-              )
-            )
-            .limit(1),
-        ]);
-        userOwnAllocSubjId = teacherAllocs[0]?.subjectId || markingAllocs[0]?.subjectId || null;
-      }
-
-      // Default subject resolution:
-      // Priority 1: Explicit subjectId passed in query
-      // Priority 2: User's own assigned teaching allocation subject (if applicable)
-      // Priority 3: First subject in allSubjects
-      let defaultSubj = (subjectId ? subjectMap.get(subjectId) : null) || null;
-      if (!defaultSubj && userOwnAllocSubjId) {
-        defaultSubj = subjectMap.get(userOwnAllocSubjId) || null;
-      }
-      if (!defaultSubj) {
-        defaultSubj = allSubjects[0];
-      }
-      const targetSubjId = defaultSubj?.id;
-
-      if (targetSubjId && defaultSubj) {
-        for (const cls of allClasses) {
-          // Strictly match classes belonging to this subject's curriculum tier
-          const matchTier =
-            cls.levelCategory === defaultSubj.levelCategory ||
-            (defaultSubj.levelCategory === 'PRIMARY' &&
-              (cls.levelCategory === 'LOWER_PRIMARY' || cls.levelCategory === 'UPPER_PRIMARY'));
-
-          if (matchTier) {
-            userAllocations.push({ classId: cls.id, subjectId: targetSubjId });
-          }
-        }
-      }
-      if (userAllocations.length === 0 && allClasses.length > 0 && allSubjects.length > 0) {
-        userAllocations.push({ classId: allClasses[0].id, subjectId: allSubjects[0].id });
       }
     }
 
@@ -1831,7 +1788,9 @@ export class DosService {
           }
         : null,
       nextExamTarget,
-      subjectsList: (isLeadership ? allSubjects : allSubjects.filter((s) => userAllocations.some((a) => a.subjectId === s.id))).map((s) => ({
+      subjectsList: allSubjects
+        .filter((s) => userAllocations.some((a) => a.subjectId === s.id))
+        .map((s) => ({
         id: s.id,
         name: s.name,
         code: s.code,

@@ -121,13 +121,6 @@ export const SubjectPerformanceView: React.FC = () => {
     fetchPerformance(selectedExamId || undefined, selectedSubjectId || undefined, selectedClassId || undefined, compareId);
   };
 
-  const handleSubjectChange = (subjectId: string) => {
-    if (loading) return;
-    setSelectedSubjectId(subjectId);
-    setSelectedClassId('');
-    fetchPerformance(selectedExamId || undefined, subjectId, undefined, compareExamId);
-  };
-
   const handleAllocationSelect = (classId: string, subjectId: string) => {
     if (loading) return;
     if (classId === selectedClassId && subjectId === selectedSubjectId) return;
@@ -305,11 +298,9 @@ export const SubjectPerformanceView: React.FC = () => {
       'Admission No',
       'Assessment Number',
       'Student Name',
-      'CAT Avg (%)',
       'Exam Score (%)',
       'vs Prev Exam (%)',
       isJunior ? 'Points Scale' : 'CBC Rubric',
-      'vs Class Mean (%)',
       'Teacher Remarks',
     ];
     const rows = data.studentsMarksheet.map((s: any) => [
@@ -317,11 +308,9 @@ export const SubjectPerformanceView: React.FC = () => {
       `"${s.admissionNumber || '—'}"`,
       `"${s.assessmentNumber || '—'}"`,
       `"${s.studentName}"`,
-      s.catAverage !== null ? `${s.catAverage}%` : '—',
       s.marksObtained !== null ? `${s.marksObtained}%` : 'Absent',
       s.deltaMarks !== null ? `${s.deltaMarks > 0 ? '+' : ''}${s.deltaMarks}%` : '—',
       isJunior ? (s.pointsLabel || '—') : (s.rubric ? `${s.rubric} (${s.rubricLabel})` : '—'),
-      s.diffFromClassMean !== null ? `${s.diffFromClassMean > 0 ? '+' : ''}${s.diffFromClassMean}%` : '—',
       `"${s.remarks || '—'}"`,
     ]);
 
@@ -419,69 +408,6 @@ export const SubjectPerformanceView: React.FC = () => {
                 <Lock className="w-3 h-3" />
                 <span>Exam Concluded</span>
               </span>
-            )}
-
-            {/* For Leadership: Compact Subject Picker */}
-            {userScope?.isLeadership && data?.subjectsList && data.subjectsList.length > 1 && (
-              <div className="relative ml-1">
-                <select
-                  disabled={loading}
-                  value={selectedSubjectId}
-                  onChange={(e) => handleSubjectChange(e.target.value)}
-                  className={`h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
-                    loading ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
-                  }`}
-                  title="Switch Subject"
-                >
-                  {(() => {
-                    const categories = [
-                      { key: 'PPE', label: 'Pre-Primary (Playgroup - PP2)' },
-                      { key: 'LOWER_PRIMARY', label: 'Lower Primary (Grades 1 - 3)' },
-                      { key: 'UPPER_PRIMARY', label: 'Upper Primary (Grades 4 - 6)' },
-                      { key: 'JUNIOR', label: 'Junior Secondary (Grades 7 - 9)' },
-                    ];
-                    const handledIds = new Set<string>();
-                    const groups = categories
-                      .map((cat) => {
-                        const items = data.subjectsList.filter((s: any) => {
-                          const matches =
-                            s.levelCategory === cat.key ||
-                            (cat.key === 'JUNIOR' && s.levelCategory === 'JUNIOR_SECONDARY');
-                          if (matches) handledIds.add(s.id);
-                          return matches;
-                        });
-                        return { ...cat, items };
-                      })
-                      .filter((g) => g.items.length > 0);
-
-                    const otherItems = data.subjectsList.filter((s: any) => !handledIds.has(s.id));
-
-                    return (
-                      <>
-                        {groups.map((g) => (
-                          <optgroup key={g.key} label={g.label}>
-                            {g.items.map((sub: any) => (
-                              <option key={sub.id} value={sub.id}>
-                                {sub.name} {sub.code ? `(${sub.code})` : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                        {otherItems.length > 0 && (
-                          <optgroup label="Other Subjects">
-                            {otherItems.map((sub: any) => (
-                              <option key={sub.id} value={sub.id}>
-                                {sub.name} {sub.code ? `(${sub.code})` : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </>
-                    );
-                  })()}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
             )}
           </div>
 
@@ -936,11 +862,9 @@ export const SubjectPerformanceView: React.FC = () => {
                 <tr className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   <th className="py-2.5 px-3 w-16 text-center">Rank</th>
                   <th className="py-2.5 px-3 min-w-[200px]">Learner</th>
-                  <th className="py-2.5 px-3 text-center">CAT Avg</th>
                   <th className="py-2.5 px-3 text-center">Exam Score</th>
                   <th className="py-2.5 px-3 text-center">vs Prev</th>
                   <th className="py-2.5 px-3">CBC Rating</th>
-                  <th className="py-2.5 px-3 text-right">vs Class Mean</th>
                   <th className="py-2.5 px-3 min-w-[180px]">Teacher Remarks</th>
                 </tr>
               </thead>
@@ -959,9 +883,6 @@ export const SubjectPerformanceView: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        <div className="h-3.5 w-10 mx-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
                         <div className="h-4 w-12 mx-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
                       </td>
                       <td className="py-2.5 px-3 text-center">
@@ -969,9 +890,6 @@ export const SubjectPerformanceView: React.FC = () => {
                       </td>
                       <td className="py-2.5 px-3">
                         <div className="h-4 w-36 bg-slate-200 dark:bg-slate-800/80 rounded" />
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <div className="h-3.5 w-14 ml-auto bg-slate-200 dark:bg-slate-800/80 rounded" />
                       </td>
                       <td className="py-2.5 px-3">
                         <div className="h-3.5 w-40 bg-slate-200 dark:bg-slate-800/80 rounded" />
@@ -981,7 +899,7 @@ export const SubjectPerformanceView: React.FC = () => {
                 ) : filteredMarksheet.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={6}
                       className="py-8 text-center text-slate-400 text-xs italic"
                     >
                       No learners match the selected filter criteria.
@@ -1039,12 +957,7 @@ export const SubjectPerformanceView: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* 3. CAT Average Score */}
-                        <td className="py-2 px-3 text-center font-mono text-slate-600 dark:text-slate-300">
-                          {student.catAverage !== null ? `${student.catAverage}%` : '—'}
-                        </td>
-
-                        {/* 4. Exam Score */}
+                        {/* 3. Exam Score */}
                         <td className="py-2 px-3 text-center whitespace-nowrap">
                           {student.isPending ? (
                             <span
@@ -1119,25 +1032,7 @@ export const SubjectPerformanceView: React.FC = () => {
                           )}
                         </td>
 
-                        {/* 7. vs Class Mean */}
-                        <td className="py-2 px-3 text-right whitespace-nowrap font-mono">
-                          {!student.isPending && !student.isAbsent && student.diffFromClassMean !== null ? (
-                            <span
-                              className={`text-[11px] font-semibold ${
-                                student.diffFromClassMean >= 0
-                                  ? 'text-emerald-500'
-                                  : 'text-rose-500'
-                              }`}
-                            >
-                              {student.diffFromClassMean >= 0 ? '+' : ''}
-                              {student.diffFromClassMean}%
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-
-                        {/* 8. Teacher Remarks */}
+                        {/* 6. Teacher Remarks */}
                         <td className="py-2 px-3 text-slate-500 dark:text-slate-400">
                           {student.isPending ? (
                             <span className="text-slate-400">—</span>
