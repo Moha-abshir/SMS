@@ -531,6 +531,8 @@ export const ClassPerformanceView: React.FC = () => {
         <ClassSubjectAnalysis
           subjects={workspace.subjects}
           isJuniorSecondary={workspace.classInfo.isJuniorSecondary}
+          classId={selectedClassId}
+          className={workspace.classInfo.name}
           onFilterStrugglingSubject={(subjectId) => {
             setActiveTab('broadsheet');
             setQuickFilter('all');
