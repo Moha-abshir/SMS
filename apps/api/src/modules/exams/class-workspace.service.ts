@@ -657,6 +657,14 @@ export class ClassWorkspaceService {
       examDeltaPct: number | null;
       examMeanPointsOrRubric: string;
       catMeanPct: number | null;
+      catsList?: Array<{
+        id: string;
+        catNumber: number;
+        maxMarks: number;
+        meanPct: number | null;
+        scoredCount: number;
+        totalCount: number;
+      }>;
       catToExamVariancePct: number | null;
       distributionCounts: Record<string, number>;
       beCount: number;
@@ -716,6 +724,25 @@ export class ClassWorkspaceService {
           : getPrimaryRubric(examMeanPct!))
         : '—';
 
+      // CAT assessments breakdown for this subject
+      const subCats = termCats.filter((c) => c.subjectId === sub.id);
+      const catsList = subCats.map((c) => {
+        const scores = catScoresList.filter((cs) => cs.catId === c.id);
+        const pcts = scores.map((cs) => {
+          const m = typeof cs.marksObtained === 'number' ? cs.marksObtained : parseFloat(cs.marksObtained as any) || 0;
+          return c.maxMarks > 0 ? (m / c.maxMarks) * 100 : m;
+        });
+        const mPct = pcts.length > 0 ? +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1) : null;
+        return {
+          id: c.id,
+          catNumber: c.catNumber,
+          maxMarks: c.maxMarks,
+          meanPct: mPct,
+          scoredCount: pcts.length,
+          totalCount: studentIds.length,
+        };
+      });
+
       // CAT average
       const catMarks = subjectCatMap.get(sub.id) || [];
       const catMeanPct = catMarks.length > 0
@@ -737,6 +764,7 @@ export class ClassWorkspaceService {
         examDeltaPct,
         examMeanPointsOrRubric,
         catMeanPct,
+        catsList,
         catToExamVariancePct,
         distributionCounts,
         beCount,
