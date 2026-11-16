@@ -75,6 +75,15 @@ interface MarksheetEntrySlideOverProps {
   onSubmitted?: () => void;
   schoolSettings?: any;
   isClassTeacherOversight?: boolean;
+  initialTaskInfo?: {
+    className?: string;
+    subjectName?: string;
+    subjectCode?: string;
+    examTitle?: string;
+    totalStudents?: number;
+    status?: string;
+    levelCategory?: string;
+  } | null;
 }
 
 interface LocalDraftData {
@@ -157,6 +166,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   onSubmitted,
   schoolSettings,
   isClassTeacherOversight = false,
+  initialTaskInfo,
 }) => {
   const [loading, setLoading] = useState(false);
   const [readyToShow, setReadyToShow] = useState(false);
@@ -580,26 +590,28 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 truncate">
-                        {readyToShow && sheetData?.class?.name && sheetData?.subject?.name
+                        {sheetData?.class?.name && sheetData?.subject?.name
                           ? `${sheetData.class.name} • ${sheetData.subject.name}`
+                          : initialTaskInfo?.className && initialTaskInfo?.subjectName
+                          ? `${initialTaskInfo.className} • ${initialTaskInfo.subjectName}`
                           : 'Subject Marksheet'}
                       </h2>
-                      {readyToShow && sheetData?.subject?.code && (
+                      {(sheetData?.subject?.code || initialTaskInfo?.subjectCode) && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shrink-0">
-                          {sheetData.subject.code}
+                          {sheetData?.subject?.code || initialTaskInfo?.subjectCode}
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
-                      {readyToShow ? (
-                        <>
-                          <span>{sheetData?.examination?.title || 'Examination'}</span>
-                          <span>•</span>
-                          <span>{studentRows.length} Enrolled Learners</span>
-                        </>
-                      ) : (
-                        <span>Loading marksheet learners and assessment criteria...</span>
-                      )}
+                      <span>{sheetData?.examination?.title || initialTaskInfo?.examTitle || 'Examination'}</span>
+                      <span>•</span>
+                      <span>
+                        {studentRows.length > 0
+                          ? `${studentRows.length} Enrolled Learners`
+                          : initialTaskInfo?.totalStudents
+                          ? `${initialTaskInfo.totalStudents} Enrolled Learners`
+                          : 'Loading learners...'}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -614,108 +626,145 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                 </div>
               </div>
 
-              {/* Status and Method Banner & Search Bar: Only show when readyToShow */}
-              {readyToShow && (
-                <>
-                  <div className="mt-3 flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-[#112038]">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Grading badge */}
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                        {isJunior ? 'CBC 8-Point Scale (1–8 pts)' : 'CBC 4-Level Rubrics (EE, ME, AE, BE)'}
-                      </span>
+              {/* Status and Method Banner & Search Bar */}
+              <div className="mt-3 flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-slate-100 dark:border-[#112038]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Grading badge */}
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                    {isJunior ? 'CBC 8-Point Scale (1–8 pts)' : 'CBC 4-Level Rubrics (EE, ME, AE, BE)'}
+                  </span>
 
-                      {/* Submission status badge */}
-                      {status === 'LOCKED' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                          Permanently Locked
-                        </span>
-                      ) : status === 'APPROVED' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Approved & Finalized
-                        </span>
-                      ) : status === 'SUBMITTED' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                          <Lock className="w-3.5 h-3.5 text-sky-600" />
-                          Submitted (Pending Review)
-                        </span>
-                      ) : status === 'CORRECTION_REQUESTED' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                          <Clock className="w-3.5 h-3.5 text-amber-600" />
-                          Unlock Requested
-                        </span>
-                      ) : status === 'DRAFT' && sheetData?.correctionReason ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                          Fix Required
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                          <FileText className="w-3.5 h-3.5 text-slate-500" />
-                          {status === 'DRAFT' ? 'Draft (In Progress)' : 'Not Started'}
-                        </span>
-                      )}
-                    </div>
+                  {/* Submission status badge */}
+                  {status === 'LOCKED' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      Permanently Locked
+                    </span>
+                  ) : status === 'APPROVED' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Approved & Finalized
+                    </span>
+                  ) : status === 'SUBMITTED' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                      <Lock className="w-3.5 h-3.5 text-sky-600" />
+                      Submitted (Pending Review)
+                    </span>
+                  ) : status === 'CORRECTION_REQUESTED' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      Unlock Requested
+                    </span>
+                  ) : status === 'DRAFT' && sheetData?.correctionReason ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                      Fix Required
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <FileText className="w-3.5 h-3.5 text-slate-500" />
+                      {status === 'DRAFT' ? 'Draft (In Progress)' : 'Not Started'}
+                    </span>
+                  )}
+                </div>
 
-                    {status === 'SUBMITTED' && !isClassTeacherOversight && (
-                      <button
-                        type="button"
-                        onClick={handleRequestCorrection}
-                        disabled={requestingCorrection}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {requestingCorrection ? (
-                          <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0" />
-                        ) : (
-                          <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                        )}
-                        Request Correction
-                      </button>
+                {status === 'SUBMITTED' && !isClassTeacherOversight && (
+                  <button
+                    type="button"
+                    onClick={handleRequestCorrection}
+                    disabled={requestingCorrection}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {requestingCorrection ? (
+                      <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
                     )}
-                  </div>
+                    Request Correction
+                  </button>
+                )}
+              </div>
 
-                  {/* Search bar inside drawer */}
-                  <div className="mt-3 relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      placeholder="Search student name or assessment number..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 outline-none transition-colors"
-                    />
-                  </div>
-                </>
-              )}
+              {/* Search bar inside drawer */}
+              <div className="mt-3 relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search student name or assessment number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 outline-none transition-colors"
+                />
+              </div>
             </div>
 
             {/* Scrollable drawer body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               {!readyToShow ? (
-                <div className="h-full min-h-[380px] flex items-center justify-center">
-                  <PageLoadingProgress
-                    isLoading={loading}
-                    title={sheetData?.subject?.name ? `${sheetData.subject.name} Marksheet` : 'Subject Marksheet'}
-                    subtitle="Retrieving enrolled learners, assessment scores, and rubric criteria..."
-                    icon={Award}
-                    onComplete={() => setReadyToShow(true)}
-                  />
+                /* Structured Table Skeleton instead of generic loading box */
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-sky-50 dark:bg-[#0c1830]">
+                        <tr className="border-b border-sky-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
+                          <th className="py-2.5 px-3 w-10 text-center">#</th>
+                          <th className="py-2.5 px-3 min-w-[160px]">Learner Name</th>
+                          <th className="py-2.5 px-3 w-28 text-center">Marks / 100</th>
+                          <th className="py-2.5 px-3 w-32 text-center">
+                            {isJunior ? 'Points (1–8)' : 'CBC Rubric'}
+                          </th>
+                          <th className="py-2.5 px-3 min-w-[200px]">Teacher Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-[#112038]">
+                        {Array.from({ length: Math.min(10, initialTaskInfo?.totalStudents || 8) }).map((_, idx) => (
+                          <tr key={idx} className="animate-pulse">
+                            <td className="py-2.5 px-3 text-center text-slate-400 font-medium text-[11px]">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="h-3.5 bg-slate-200 dark:bg-slate-800 rounded-md w-36 mb-1" />
+                              <div className="h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-md w-20" />
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="h-7 w-16 bg-slate-100 dark:bg-slate-800 rounded-md mx-auto" />
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="h-5 w-14 bg-slate-100 dark:bg-slate-800 rounded-full mx-auto" />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="h-7 bg-slate-100 dark:bg-slate-800 rounded-md w-full" />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
                 <>
                   {/* Subject teacher permanently locked banner */}
                   {!isClassTeacherOversight && status === 'LOCKED' && (
-                    <div className="p-3.5 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2.5">
-                      <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                      <div className="text-xs">
-                        <span className="font-bold text-emerald-950 dark:text-emerald-100">
-                          Marksheet Permanently Locked:
-                        </span>
-                        <p className="text-emerald-800 dark:text-emerald-300 mt-0.5 leading-relaxed font-medium">
-                          This marksheet has been submitted by the Class Teacher to the Deputy Head and is under permanent lock. All learner scores are final, archived, and correction requests can no longer be sent.
-                        </p>
+                    <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <div>
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            Marksheet Permanently Locked:
+                          </span>{' '}
+                          <span className="text-slate-600 dark:text-slate-300">
+                            Submitted to the Deputy Head. All scores are final and archived.
+                          </span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleRequestCorrection}
+                        disabled={requestingCorrection}
+                        className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer disabled:opacity-50"
+                      >
+                        {requestingCorrection ? 'Requesting...' : 'Need a correction? Request Unlock'}
+                      </button>
                     </div>
                   )}
 
@@ -908,25 +957,32 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
                                 )}
                               </td>
 
-                              {/* Score Input */}
+                              {/* Score Input / Locked Text Badge */}
                               <td className="py-2.5 px-3 text-center">
-                                <input
-                                  ref={(el) => (inputRefs.current[visibleIdx] = el)}
-                                  type="number"
-                                  min="0"
-                                  max={row.maxMarks || 100}
-                                  step="any"
-                                  disabled={!isEditable}
-                                  value={
-                                    row.marksObtained !== null && row.marksObtained !== undefined
+                                {!isEditable ? (
+                                  <span className="inline-flex items-center justify-center min-w-[40px] px-2.5 py-1 rounded-lg text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700">
+                                    {row.marksObtained !== null && row.marksObtained !== undefined
                                       ? row.marksObtained
-                                      : ''
-                                  }
-                                  onChange={(e) => handleScoreChange(originalIndex, e.target.value)}
-                                  onKeyDown={(e) => handleKeyDown(e, visibleIdx)}
-                                  placeholder="0-100"
-                                  className="w-20 text-center bg-slate-50 dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 focus:ring-1 focus:ring-sky-400 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                                />
+                                      : '—'}
+                                  </span>
+                                ) : (
+                                  <input
+                                    ref={(el) => (inputRefs.current[visibleIdx] = el)}
+                                    type="number"
+                                    min="0"
+                                    max={row.maxMarks || 100}
+                                    step="any"
+                                    value={
+                                      row.marksObtained !== null && row.marksObtained !== undefined
+                                        ? row.marksObtained
+                                        : ''
+                                    }
+                                    onChange={(e) => handleScoreChange(originalIndex, e.target.value)}
+                                    onKeyDown={(e) => handleKeyDown(e, visibleIdx)}
+                                    placeholder="0-100"
+                                    className="w-20 text-center bg-slate-50 dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-500 focus:ring-1 focus:ring-sky-400 outline-none transition-all"
+                                  />
+                                )}
                               </td>
 
                               {/* Assessment Outcome Column */}
@@ -974,14 +1030,19 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
                               {/* Remarks */}
                               <td className="py-2.5 px-3">
-                                <input
-                                  type="text"
-                                  disabled={!isEditable}
-                                  value={row.teacherRemarks || ''}
-                                  onChange={(e) => handleRemarkChange(originalIndex, e.target.value)}
-                                  placeholder="Remarks (e.g. Good progress)..."
-                                  className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-400 outline-none transition-all disabled:opacity-60"
-                                />
+                                {!isEditable ? (
+                                  <span className="text-xs text-slate-700 dark:text-slate-300 truncate block max-w-xs">
+                                    {row.teacherRemarks || '—'}
+                                  </span>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={row.teacherRemarks || ''}
+                                    onChange={(e) => handleRemarkChange(originalIndex, e.target.value)}
+                                    placeholder="Remarks (e.g. Good progress)..."
+                                    className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:bg-white dark:focus:bg-[#091326] focus:border-sky-400 outline-none transition-all"
+                                  />
+                                )}
                               </td>
                             </tr>
                           ))}

@@ -220,8 +220,9 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
 
   // Calculate live summary stats from scoresState
   const liveStats = React.useMemo(() => {
-    if (!data) return { scored: 0, total: 0, mean: null, rubricBreakdown: { EE: 0, ME: 0, AE: 0, BE: 0 } };
+    if (!data) return { scored: 0, total: 0, mean: null, rawMean: null, rubricBreakdown: { EE: 0, ME: 0, AE: 0, BE: 0 } };
     let scored = 0;
+    let sumRaw = 0;
     let sumPct = 0;
     const breakdown = { EE: 0, ME: 0, AE: 0, BE: 0 };
 
@@ -231,17 +232,20 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
         const mark = Number(entry.marksObtained);
         const pct = data.cat.maxMarks > 0 ? (mark / data.cat.maxMarks) * 100 : mark;
         scored++;
+        sumRaw += mark;
         sumPct += pct;
         const rub = calculateCbcRubric(pct).code;
         breakdown[rub]++;
       }
     }
 
+    const rawMean = scored > 0 ? +(sumRaw / scored).toFixed(1) : null;
     const mean = scored > 0 ? +(sumPct / scored).toFixed(1) : null;
     return {
       scored,
       total: data.learners.length,
       mean,
+      rawMean,
       rubricBreakdown: breakdown,
     };
   }, [data, scoresState]);
@@ -317,45 +321,35 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
             </div>
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-[#162b4d]">
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-slate-100 dark:border-[#162b4d]">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                Completion Rate
+          {/* Sleek Single-Line Metrics & Keyboard Hint Ribbon */}
+          <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-800/60 px-4 py-2 rounded-lg text-xs mt-3 flex-wrap gap-2 text-slate-600 dark:text-slate-300">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <span>
+                Completion:{' '}
+                <strong className="text-slate-900 dark:text-slate-100">
+                  {liveStats.scored}/{liveStats.total} ({liveStats.total > 0 ? Math.round((liveStats.scored / liveStats.total) * 100) : 0}%)
+                </strong>
               </span>
-              <span className="text-sm font-black text-slate-800 dark:text-slate-200">
-                {liveStats.scored} / {liveStats.total} ({liveStats.total > 0 ? Math.round((liveStats.scored / liveStats.total) * 100) : 0}%)
+              <span>•</span>
+              <span>
+                CAT Mean:{' '}
+                <strong className="text-sky-600 dark:text-sky-400">
+                  {liveStats.rawMean !== null
+                    ? `${liveStats.rawMean} / ${data?.cat.maxMarks || 100} (${liveStats.mean}%)`
+                    : 'Pending'}
+                </strong>
+              </span>
+              <span>•</span>
+              <span>
+                Rubric Spread:{' '}
+                <strong className="text-emerald-600 dark:text-emerald-400">{liveStats.rubricBreakdown.EE} EE</strong> ·{' '}
+                <strong className="text-sky-600 dark:text-sky-400">{liveStats.rubricBreakdown.ME} ME</strong> ·{' '}
+                <strong className="text-amber-600 dark:text-amber-400">{liveStats.rubricBreakdown.AE} AE</strong> ·{' '}
+                <strong className="text-rose-600 dark:text-rose-400">{liveStats.rubricBreakdown.BE} BE</strong>
               </span>
             </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-slate-100 dark:border-[#162b4d]">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                CAT Mean Score
-              </span>
-              <span className="text-sm font-black text-sky-600 dark:text-sky-400">
-                {liveStats.mean !== null ? `${liveStats.mean}%` : 'Pending'}
-              </span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-slate-100 dark:border-[#162b4d]">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                Rubric Breakdown
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5 text-xs font-bold">
-                <span className="text-emerald-500">{liveStats.rubricBreakdown.EE} EE</span>
-                <span className="text-sky-500">{liveStats.rubricBreakdown.ME} ME</span>
-                <span className="text-amber-500">{liveStats.rubricBreakdown.AE} AE</span>
-                <span className="text-rose-500">{liveStats.rubricBreakdown.BE} BE</span>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-slate-100 dark:border-[#162b4d]">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                Keyboard Navigation
-              </span>
-              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                Press <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono">Enter</kbd> to move down
-              </span>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
+              Tip: Press <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-700 text-[10px] font-mono border border-slate-200 dark:border-slate-600">Enter</kbd> to move down
             </div>
           </div>
         </div>
@@ -408,24 +402,24 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
         </div>
 
         {/* Learner Scores Table Body */}
-        <div className="flex-1 overflow-y-auto p-5" ref={printRef}>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4" ref={printRef}>
           {loading ? (
             <div className="p-12 text-center">
               <PageLoadingProgress isLoading={true} />
             </div>
           ) : (
-            <div className="border border-slate-200 dark:border-[#162b4d] rounded-2xl overflow-hidden shadow-xs">
+            <div className="border border-slate-200 dark:border-[#162b4d] rounded-xl overflow-hidden shadow-xs">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-[#162b4d] bg-slate-50 dark:bg-[#0c1830] text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                    <th className="px-3.5 py-3 w-12 text-center">#</th>
-                    <th className="px-4 py-3 min-w-[180px]">LEARNER NAME & ADM NO</th>
-                    <th className="px-3.5 py-3 w-32 text-center">
+                    <th className="px-3 py-2 w-12 text-center">#</th>
+                    <th className="px-3 py-2 min-w-[180px]">LEARNER NAME & ADM NO</th>
+                    <th className="px-3 py-2 w-32 text-center">
                       SCORE (/{data?.cat.maxMarks || 100})
                     </th>
-                    <th className="px-3.5 py-3 w-28 text-center">NORMALIZED %</th>
-                    <th className="px-3.5 py-3 w-28 text-center">CBC RUBRIC</th>
-                    <th className="px-4 py-3 min-w-[200px]">TEACHER REMARKS</th>
+                    <th className="px-3 py-2 w-28 text-center">NORMALIZED %</th>
+                    <th className="px-3 py-2 w-28 text-center">CBC RUBRIC</th>
+                    <th className="px-3 py-2 min-w-[180px]">TEACHER REMARKS</th>
                   </tr>
                 </thead>
 
@@ -453,23 +447,23 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
                           className="hover:bg-sky-50/40 dark:hover:bg-slate-800/30 transition-colors"
                         >
                           {/* Index */}
-                          <td className="px-3.5 py-3 text-center text-[11px] text-slate-400 font-bold">
+                          <td className="px-3 py-1.5 text-center text-[11px] text-slate-400 font-bold">
                             {idx + 1}
                           </td>
 
                           {/* Learner Info */}
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-1.5">
                             <p className="font-bold text-slate-800 dark:text-slate-100 text-xs">
                               {learner.fullName}
                             </p>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
                               {learner.admissionNumber && <span>Adm: {learner.admissionNumber}</span>}
                               {learner.assessmentNumber && <span>• Assess: {learner.assessmentNumber}</span>}
                             </div>
                           </td>
 
                           {/* Raw Mark Input */}
-                          <td className="px-3.5 py-2.5 text-center">
+                          <td className="px-3 py-1 text-center">
                             <input
                               ref={(el) => (inputRefs.current[learner.studentId] = el)}
                               type="number"
@@ -487,21 +481,21 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
                                 }
                               }}
                               placeholder="—"
-                              className={`w-20 h-9 px-2 text-center text-xs font-black rounded-xl border transition-all ${
+                              className={`w-20 h-8 px-2 text-center text-xs font-bold rounded-lg border transition-all ${
                                 hasVal
                                   ? 'border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/30 text-sky-900 dark:text-sky-100'
                                   : 'border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#081024] text-slate-800 dark:text-slate-200'
-                              } focus:outline-hidden focus:ring-2 focus:ring-sky-500`}
+                              } focus:outline-hidden focus:ring-1 focus:ring-sky-500`}
                             />
                           </td>
 
                           {/* Normalized % */}
-                          <td className="px-3.5 py-3 text-center font-bold text-xs text-slate-700 dark:text-slate-300">
+                          <td className="px-3 py-1.5 text-center font-bold text-xs text-slate-700 dark:text-slate-300">
                             {pct !== null ? `${pct}%` : '—'}
                           </td>
 
                           {/* CBC Rubric or Junior Scale */}
-                          <td className="px-3.5 py-3 text-center">
+                          <td className="px-3 py-1.5 text-center">
                             {rubric ? (
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
@@ -522,16 +516,14 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
                           </td>
 
                           {/* Teacher Remarks */}
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="text"
-                                value={entry.remarks}
-                                onChange={(e) => handleRemarkChange(learner.studentId, e.target.value)}
-                                placeholder="Add optional remarks..."
-                                className="w-full h-8 px-2.5 text-xs rounded-lg border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#081024] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-sky-500"
-                              />
-                            </div>
+                          <td className="px-3 py-1.5">
+                            <input
+                              type="text"
+                              value={entry.remarks}
+                              onChange={(e) => handleRemarkChange(learner.studentId, e.target.value)}
+                              placeholder="Add optional remarks..."
+                              className="w-full h-7 px-2.5 text-xs rounded-md border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#081024] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-sky-500"
+                            />
                           </td>
                         </tr>
                       );

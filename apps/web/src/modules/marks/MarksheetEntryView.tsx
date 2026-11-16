@@ -5,15 +5,8 @@ import {
   BookOpen,
   CheckCircle2,
   AlertCircle,
-  Save,
-  Send,
-  Printer,
   FileText,
-  Sparkles,
-  ChevronRight,
   Lock,
-  RotateCcw,
-  CheckCheck,
   ArrowRight,
   Calendar,
   Search,
@@ -245,6 +238,26 @@ export const MarksheetEntryView: React.FC = () => {
 
   const activeExam = exams.find((e) => e.id === selectedExamId);
 
+  // Active selected task for instant drawer skeleton & header caching
+  const activeTask = useMemo(() => {
+    if (!activeExamIdParam || !activeClassIdParam || !activeSubjectIdParam) return null;
+    return (
+      allocatedTasks.find(
+        (t) =>
+          t.examId === activeExamIdParam &&
+          t.classId === activeClassIdParam &&
+          t.subjectId === activeSubjectIdParam
+      ) ||
+      (workstation?.markEntryTasks || []).find(
+        (t: any) =>
+          t.examId === activeExamIdParam &&
+          t.classId === activeClassIdParam &&
+          t.subjectId === activeSubjectIdParam
+      ) ||
+      null
+    );
+  }, [allocatedTasks, workstation, activeExamIdParam, activeClassIdParam, activeSubjectIdParam]);
+
   // Milestone text helper for transition grades
   const getMilestoneTag = (className: string) => {
     if (/Grade\s*3/i.test(className)) {
@@ -266,164 +279,128 @@ export const MarksheetEntryView: React.FC = () => {
       subtitle="Loading assigned subject papers, CBC rubrics, and marking targets..."
       icon={Award}
     >
-      <div className="space-y-6 max-w-6xl mx-auto pb-12">
-        {/* Top Header Card */}
-        <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-glass">
-          {/* Assessment Mode Segmented Control */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 dark:bg-[#0c1830] rounded-2xl border border-sky-100 dark:border-[#162b4d] w-fit mb-5">
-            <button
-              type="button"
-              onClick={() => setAssessmentMode('summative')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                assessmentMode === 'summative'
-                  ? 'bg-white dark:bg-[#162b4d] text-sky-600 dark:text-sky-300 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <Award className="w-4 h-4 text-sky-500" />
-              <span>Summative Examinations</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAssessmentMode('cat');
-                if (!catData) fetchCatAllocations(true);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                assessmentMode === 'cat'
-                  ? 'bg-white dark:bg-[#162b4d] text-sky-600 dark:text-sky-300 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-4 h-4 text-indigo-500" />
-              <span>Continuous Assessments (CAT)</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-black">
-                Grades 3, 6, 9
-              </span>
-            </button>
+      <div className="space-y-4 max-w-6xl mx-auto pb-12">
+        {/* Single Flat Header Row (Max Height: 48px) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-3">
+          {/* Left: Title + Subtitle/Context */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight whitespace-nowrap">
+              Subject Marksheet Entry
+            </h1>
+            <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">·</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">
+              {assessmentMode === 'summative'
+                ? 'Record CBC marks for assigned papers'
+                : 'Formative tracking for national milestone cohorts (Grades 3, 6, 9)'}
+            </p>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
-                {assessmentMode === 'summative' ? (
-                  <>
-                    <Award className="w-4 h-4 text-sky-500" />
-                    Academic Marksheet Entry • Grades 4 – 9
-                  </>
-                ) : (
-                  <>
-                    <Layers className="w-4 h-4 text-indigo-500" />
-                    Continuous Assessment Tests (CATs) • National Milestone Cohorts
-                  </>
-                )}
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                {assessmentMode === 'summative'
-                  ? 'Subject Marksheet Entry'
-                  : 'Continuous Assessment Tests (CATs)'}
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl leading-relaxed">
-                {assessmentMode === 'summative'
-                  ? 'Record CBC marks for your assigned learning areas. Click on any paper to enter scores, assign rubrics, and submit to the Class Teacher for verification.'
-                  : 'Create, administer, and grade Continuous Assessment Tests (CATs) for Grades 3, 6, and 9. CATs are managed asynchronously by subject teachers to track national examination readiness.'}
-              </p>
+          {/* Right: Controls (Segmented Tab Switcher + Compact Exam Filter Selector / New CAT Action) */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Segmented Tab Switcher */}
+            <div className="flex items-center p-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setAssessmentMode('summative')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  assessmentMode === 'summative'
+                    ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <Award className="w-3.5 h-3.5 text-sky-500" />
+                <span>Summative Examinations</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssessmentMode('cat');
+                  if (!catData) fetchCatAllocations(true);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  assessmentMode === 'cat'
+                    ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Continuous Assessments (CATs)</span>
+              </button>
             </div>
 
-            {/* Right Status Pill */}
+            {/* Mode-specific Compact Filter Selector or Action */}
             {assessmentMode === 'summative' ? (
-              <div className="flex items-center gap-3 p-3 sm:px-4 sm:py-2.5 bg-sky-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-2xl shrink-0 shadow-xs">
-                <div className="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center font-black text-sm shrink-0">
-                  <Calendar className="w-4 h-4" />
+              exams.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs">
+                  <span className="font-medium text-slate-400 dark:text-slate-500 shrink-0">Exam:</span>
+                  <select
+                    value={selectedExamId}
+                    onChange={(e) => setSelectedExamId(e.target.value)}
+                    className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer pr-1"
+                  >
+                    {exams.map((ex) => (
+                      <option key={ex.id} value={ex.id} className="bg-white dark:bg-[#091326]">
+                        {ex.title}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight">
-                    {activeExam?.title || 'Academic Examination'}
-                  </span>
-                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider block mt-0.5">
-                    Year {typeof activeExam?.academicYear === 'object' ? 2026 : activeExam?.academicYear || 2026} • Term {typeof activeExam?.term === 'object' ? (activeExam.term?.termNumber || 1) : activeExam?.term || 1}
-                  </span>
-                </div>
-              </div>
+              )
             ) : (
-              <div className="flex items-center gap-3 p-3 sm:px-4 sm:py-2.5 bg-indigo-50/70 dark:bg-[#0c1830] border border-indigo-100 dark:border-[#162b4d] rounded-2xl shrink-0 shadow-xs">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500 text-white flex items-center justify-center font-black text-sm shrink-0">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight">
-                    Term {catData?.activeTerm?.termNumber || 1} Continuous Assessments
-                  </span>
-                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block mt-0.5">
-                    Year {catData?.activeTerm?.year || 2026} • Formative Tracking
-                  </span>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAllocForCreate(null);
+                  setIsCreateCatModalOpen(true);
+                }}
+                className="h-8 px-3 text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ New CAT</span>
+              </button>
             )}
           </div>
-
-          {/* Standby Banner when Examination Period is Inactive (Summative Mode Only) */}
-          {assessmentMode === 'summative' && !hasActiveExams && (
-            <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-xs">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-amber-950 dark:text-amber-100">
-                  Examination Score Entry Closed
-                </h4>
-                <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                  There is currently no active examination period in session. Continuous Assessment Tests (CATs) or classroom teaching is in progress.{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAssessmentMode('cat');
-                      if (!catData) fetchCatAllocations(true);
-                    }}
-                    className="underline font-bold text-amber-950 dark:text-amber-100 hover:text-sky-600 cursor-pointer"
-                  >
-                    Click here to enter Continuous Assessment Tests (CATs)
-                  </button>
-                  .
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Examination Selector Tabs (Summative Mode Only) */}
-          {assessmentMode === 'summative' && exams.length > 1 && (
-            <div className="mt-5 pt-4 border-t border-sky-100 dark:border-[#162b4d] flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0 mr-1">
-                Examination:
-              </span>
-              {exams.map((ex) => (
-                <button
-                  key={ex.id}
-                  onClick={() => setSelectedExamId(ex.id)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                    selectedExamId === ex.id
-                      ? 'bg-sky-500 text-white shadow-xs'
-                      : 'bg-white dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border border-sky-100 dark:border-[#162b4d] hover:bg-sky-50 dark:hover:bg-[#122444]'
-                  }`}
-                >
-                  {ex.title}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
+
+        {/* Standby Banner when Examination Period is Inactive (Summative Mode Only) */}
+        {assessmentMode === 'summative' && !hasActiveExams && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-xs">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-xs text-amber-950 dark:text-amber-100">
+                Examination Score Entry Closed
+              </h4>
+              <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                There is currently no active examination period in session.{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssessmentMode('cat');
+                    if (!catData) fetchCatAllocations(true);
+                  }}
+                  className="underline font-bold text-amber-950 dark:text-amber-100 hover:text-sky-600 cursor-pointer"
+                >
+                  Click here to manage Continuous Assessments (CATs)
+                </button>
+                .
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* MODE 1: SUMMATIVE EXAMINATIONS                                            */}
         {/* ========================================================================= */}
         {assessmentMode === 'summative' && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Section Header with Search Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
                   My Assigned Examination Papers ({allocatedTasks.length})
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Listed from Grade 4 to Grade 9. Click any paper to open the mark entry sheet.
                 </p>
               </div>
@@ -435,15 +412,15 @@ export const MarksheetEntryView: React.FC = () => {
                   placeholder="Search grade or subject..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
             </div>
 
             {/* Papers List */}
             {filteredTasks.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
+              <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#091326] rounded-xl border border-slate-200 dark:border-[#162b4d] space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
                   <BookOpen className="w-6 h-6" />
                 </div>
                 <div className="max-w-md mx-auto">
@@ -456,31 +433,41 @@ export const MarksheetEntryView: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {filteredTasks.map((task) => {
                   const percent =
                     task.totalStudents > 0
                       ? Math.round((task.scoredStudents / task.totalStudents) * 100)
                       : 0;
 
+                  // Derive prefix tag, e.g. UP-, JSS-, LP-
+                  const prefix =
+                    task.subjectCode && task.subjectCode.includes('-')
+                      ? task.subjectCode.split('-')[0] + '-'
+                      : task.levelCategory === 'JUNIOR_SECONDARY' || /Grade\s*[789]/i.test(task.className)
+                      ? 'JSS-'
+                      : task.levelCategory === 'UPPER_PRIMARY' || /Grade\s*[456]/i.test(task.className)
+                      ? 'UP-'
+                      : task.levelCategory === 'LOWER_PRIMARY' || /Grade\s*[123]/i.test(task.className)
+                      ? 'LP-'
+                      : '';
+
                   return (
                     <div
                       key={`${task.examId}-${task.classId}-${task.subjectId}`}
                       onClick={() => handleOpenSlideOver(task)}
-                      className="group p-4 sm:p-5 bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-600 hover:shadow-lg transition-all cursor-pointer"
+                      className="group p-3.5 bg-white dark:bg-[#091326] rounded-xl border border-slate-200 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-500 hover:shadow-md transition-all cursor-pointer"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3.5">
-                          <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-black text-sm shrink-0 border border-sky-100 dark:border-sky-900/40">
-                            {task.subjectCode ? task.subjectCode.substring(0, 3) : 'SB'}
-                          </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        {/* Left: Code badge + Grade & Subject + Progress Subtext */}
+                        <div className="flex items-center gap-3">
+                          <span className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-900/60 text-[11px] font-black tracking-wider shrink-0 font-mono">
+                            {prefix || (task.subjectCode ? task.subjectCode.substring(0, 3) : 'SB')}
+                          </span>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                {task.className}
-                              </span>
                               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                                {task.subjectName}
+                                {task.className} · {task.subjectName}
                               </h3>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -489,10 +476,10 @@ export const MarksheetEntryView: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Progress and Action */}
-                        <div className="flex items-center gap-3">
-                          <div className="w-28 hidden sm:block">
-                            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        {/* Right: Progress Bar + Status Badge + Action Button */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="w-24 hidden md:block">
+                            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                               <div
                                 className={`h-full transition-all ${
                                   task.isComplete
@@ -506,48 +493,49 @@ export const MarksheetEntryView: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Status Pill */}
+                          {/* Status Badge */}
                           <div className="shrink-0">
                             {task.status === 'LOCKED' ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                                Permanently Locked
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>Permanently Locked</span>
                               </span>
                             ) : task.status === 'APPROVED' ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                Approved
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>Approved</span>
                               </span>
                             ) : task.status === 'SUBMITTED' ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                                <Lock className="w-3.5 h-3.5 text-sky-600" />
-                                Submitted
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                <Lock className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                                <span>Submitted</span>
                               </span>
                             ) : task.status === 'CORRECTION_REQUESTED' ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                Unlock Requested
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                <span>Unlock Requested</span>
                               </span>
                             ) : Boolean(task.isUnlockedForCorrection) || (task.status === 'DRAFT' && Boolean(task.correctionReason)) ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
-                                <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
-                                Fix Required
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 animate-pulse">
+                                <AlertCircle className="w-3 h-3 text-amber-600" />
+                                <span>Fix Required</span>
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                {task.status === 'DRAFT' ? 'Draft' : 'Not Started'}
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                <FileText className="w-3 h-3 text-slate-400" />
+                                <span>Pending Submission</span>
                               </span>
                             )}
                           </div>
 
+                          {/* Action Button: "Enter Marks ->" */}
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenSlideOver(task);
                             }}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-xs transition-colors cursor-pointer shrink-0"
+                            className="h-9 px-4 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-500 text-white inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
                           >
                             <span>Enter Marks</span>
                             <ArrowRight className="w-3.5 h-3.5" />
@@ -566,20 +554,20 @@ export const MarksheetEntryView: React.FC = () => {
         {/* MODE 2: CONTINUOUS ASSESSMENT TESTS (CATS) - GRADES 3, 6, 9              */}
         {/* ========================================================================= */}
         {assessmentMode === 'cat' && (
-          <div className="space-y-4">
-            {/* CAT Header with Add CAT Button and Search */}
+          <div className="space-y-3">
+            {/* CAT Header with Search */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-indigo-500" />
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-indigo-500" />
                   National Transition Cohorts (Grades 3, 6, 9)
                 </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Continuous Assessment Tests are managed by subject teachers to track national preparedness.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <div className="relative min-w-[200px]">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                   <input
@@ -587,7 +575,7 @@ export const MarksheetEntryView: React.FC = () => {
                     placeholder="Search grade or subject..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
 
@@ -598,10 +586,10 @@ export const MarksheetEntryView: React.FC = () => {
                       setSelectedAllocForCreate(null);
                       setIsCreateCatModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-500 hover:bg-indigo-600 text-white shadow-xs transition-colors cursor-pointer shrink-0"
+                    className="h-8 px-3 text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>New CAT</span>
+                    <span>+ New CAT</span>
                   </button>
                 )}
               </div>
@@ -609,12 +597,12 @@ export const MarksheetEntryView: React.FC = () => {
 
             {/* Content List */}
             {catLoading ? (
-              <div className="p-12 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d]">
+              <div className="p-12 text-center bg-white dark:bg-[#091326] rounded-xl border border-slate-200 dark:border-[#162b4d]">
                 <PageLoadingProgress isLoading={true} title="Loading CAT Allocations" subtitle="Fetching national milestone classes..." />
               </div>
             ) : filteredCatAllocations.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-xs">
+              <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#091326] rounded-xl border border-slate-200 dark:border-[#162b4d] space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto shadow-xs">
                   <Layers className="w-6 h-6" />
                 </div>
                 <div className="max-w-md mx-auto">
@@ -627,30 +615,27 @@ export const MarksheetEntryView: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {filteredCatAllocations.map((alloc) => {
                   const milestone = getMilestoneTag(alloc.className);
 
                   return (
                     <div
                       key={`${alloc.classId}-${alloc.subjectId}`}
-                      className="p-5 bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] shadow-xs space-y-4"
+                      className="p-3.5 bg-white dark:bg-[#091326] rounded-xl border border-slate-200 dark:border-[#162b4d] shadow-xs space-y-3"
                     >
                       {/* Allocation Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#162b4d]/60">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-slate-100 dark:border-[#162b4d]/60">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm shrink-0 border border-indigo-100 dark:border-indigo-900/40">
+                          <span className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-900/60 text-[11px] font-black tracking-wider shrink-0 font-mono">
                             {alloc.subjectCode ? alloc.subjectCode.substring(0, 3) : 'CAT'}
-                          </div>
+                          </span>
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-black px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
-                                {alloc.className}
-                              </span>
-                              <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
-                                {alloc.subjectName}
+                              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                {alloc.className} · {alloc.subjectName}
                               </h3>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${milestone.color}`}>
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${milestone.color}`}>
                                 {milestone.label}
                               </span>
                             </div>
@@ -669,11 +654,11 @@ export const MarksheetEntryView: React.FC = () => {
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                               Running CAT Average
                             </span>
-                            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
                               {alloc.runningCatAverage !== null ? (
                                 <>
                                   {alloc.runningCatAverage}%{' '}
-                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
                                     {alloc.runningCatRubric}
                                   </span>
                                 </>
@@ -689,7 +674,7 @@ export const MarksheetEntryView: React.FC = () => {
                               setSelectedAllocForCreate(alloc);
                               setIsCreateCatModalOpen(true);
                             }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-colors cursor-pointer shrink-0"
+                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>Add CAT</span>
@@ -697,26 +682,31 @@ export const MarksheetEntryView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* CATs Grid */}
+                      {/* CATs Empty State / Grid */}
                       {alloc.cats.length === 0 ? (
-                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-dashed border-slate-200 dark:border-[#162b4d] text-center">
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            No assessments created yet for this term. Click{' '}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedAllocForCreate(alloc);
-                                setIsCreateCatModalOpen(true);
-                              }}
-                              className="font-bold text-indigo-600 dark:text-indigo-400 underline cursor-pointer"
-                            >
-                              Add CAT
-                            </button>{' '}
-                            to set up CAT 1.
-                          </p>
+                        <div className="p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-dashed border-slate-200 dark:border-[#162b4d] flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                              No Continuous Assessments recorded yet for this paper.
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              Continuous assessments track national milestone readiness asynchronously.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAllocForCreate(alloc);
+                              setIsCreateCatModalOpen(true);
+                            }}
+                            className="h-8 px-3.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Create First CAT for this Paper</span>
+                          </button>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                           {alloc.cats.map((cat: any) => {
                             const isMarked = cat.scoredStudents >= cat.totalStudents && cat.totalStudents > 0;
 
@@ -724,10 +714,10 @@ export const MarksheetEntryView: React.FC = () => {
                               <div
                                 key={cat.id}
                                 onClick={() => setSelectedCatId(cat.id)}
-                                className="group/card p-3.5 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer space-y-2.5"
+                                className="group/card p-3 rounded-xl border border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#0c1830] hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-md transition-all cursor-pointer space-y-2"
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="px-2 py-0.5 rounded-md text-xs font-black bg-indigo-500 text-white shadow-2xs">
+                                  <span className="px-2 py-0.5 rounded-md text-xs font-black bg-sky-600 text-white shadow-2xs">
                                     CAT {cat.catNumber}
                                   </span>
                                   <span className="text-[11px] font-bold text-slate-400">
@@ -759,7 +749,7 @@ export const MarksheetEntryView: React.FC = () => {
                                   <span className={isMarked ? 'text-emerald-600 font-bold' : 'text-amber-600 font-medium'}>
                                     {isMarked ? '● Completed' : '● In Progress'}
                                   </span>
-                                  <span className="font-bold text-indigo-600 dark:text-indigo-400 group-hover/card:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                                  <span className="font-bold text-sky-600 dark:text-sky-400 group-hover/card:translate-x-0.5 transition-transform flex items-center gap-0.5">
                                     Open Marksheet →
                                   </span>
                                 </div>
@@ -786,6 +776,19 @@ export const MarksheetEntryView: React.FC = () => {
           schoolSettings={schoolSettings}
           onSaved={() => fetchData(false)}
           onSubmitted={() => fetchData(false)}
+          initialTaskInfo={
+            activeTask
+              ? {
+                  className: activeTask.className,
+                  subjectName: activeTask.subjectName,
+                  subjectCode: activeTask.subjectCode,
+                  examTitle: activeTask.examTitle || activeExam?.title,
+                  totalStudents: activeTask.totalStudents,
+                  status: activeTask.status,
+                  levelCategory: activeTask.levelCategory,
+                }
+              : null
+          }
         />
 
         {/* CAT Marksheet Slide-over */}
