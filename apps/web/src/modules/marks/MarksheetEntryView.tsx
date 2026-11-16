@@ -328,36 +328,22 @@ export const MarksheetEntryView: React.FC = () => {
               </button>
             </div>
 
-            {/* Mode-specific Compact Filter Selector or Action */}
-            {assessmentMode === 'summative' ? (
-              exams.length > 0 && (
-                <div className="flex items-center gap-1.5 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs">
-                  <span className="font-medium text-slate-400 dark:text-slate-500 shrink-0">Exam:</span>
-                  <select
-                    value={selectedExamId}
-                    onChange={(e) => setSelectedExamId(e.target.value)}
-                    className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer pr-1"
-                  >
-                    {exams.map((ex) => (
-                      <option key={ex.id} value={ex.id} className="bg-white dark:bg-[#091326]">
-                        {ex.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAllocForCreate(null);
-                  setIsCreateCatModalOpen(true);
-                }}
-                className="h-8 px-3 text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ New CAT</span>
-              </button>
+            {/* Mode-specific Compact Filter Selector (Summative Exam Selector) */}
+            {assessmentMode === 'summative' && exams.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs">
+                <span className="font-medium text-slate-400 dark:text-slate-500 shrink-0">Exam:</span>
+                <select
+                  value={selectedExamId}
+                  onChange={(e) => setSelectedExamId(e.target.value)}
+                  className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer pr-1"
+                >
+                  {exams.map((ex) => (
+                    <option key={ex.id} value={ex.id} className="bg-white dark:bg-[#091326]">
+                      {ex.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
         </div>
@@ -589,7 +575,7 @@ export const MarksheetEntryView: React.FC = () => {
                     className="h-8 px-3 text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ New CAT</span>
+                    <span>New CAT</span>
                   </button>
                 )}
               </div>
@@ -648,7 +634,7 @@ export const MarksheetEntryView: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Running CAT Mean & Action */}
+                        {/* Running CAT Mean */}
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -667,18 +653,6 @@ export const MarksheetEntryView: React.FC = () => {
                               )}
                             </span>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedAllocForCreate(alloc);
-                              setIsCreateCatModalOpen(true);
-                            }}
-                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add CAT</span>
-                          </button>
                         </div>
                       </div>
 
