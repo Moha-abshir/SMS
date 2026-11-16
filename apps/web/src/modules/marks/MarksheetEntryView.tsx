@@ -655,7 +655,10 @@ export const MarksheetEntryView: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              {alloc.totalStudents} Active Learners • {alloc.cats.length} Continuous Assessments recorded
+                              {alloc.totalStudents} Active Learners •{' '}
+                              {alloc.cats.length === 0
+                                ? 'No assessments recorded yet'
+                                : `${alloc.cats.length} Continuous Assessment${alloc.cats.length > 1 ? 's' : ''} recorded`}
                             </p>
                           </div>
                         </div>

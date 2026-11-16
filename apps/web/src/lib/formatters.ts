@@ -65,19 +65,21 @@ export const sanitizeErrorMessage = (rawError?: string | null): string => {
   if (!rawError) return 'An unexpected error occurred. Please try again.';
   const str = String(rawError);
 
-  if (
-    str.includes('Failed query:') ||
-    str.includes('insert into') ||
-    str.includes('update ') ||
-    str.includes('delete from') ||
-    str.includes('select ') ||
-    str.includes('values (') ||
+  const isDuplicate =
     str.includes('violates unique constraint') ||
-    str.includes('duplicate key')
-  ) {
-    if (str.includes('unique constraint') || str.includes('duplicate key') || str.includes('code')) {
-      return 'A record with this code or unique identifier already exists.';
-    }
+    str.includes('duplicate key') ||
+    (str.includes('unique') && str.includes('constraint'));
+
+  if (isDuplicate) {
+    return 'A record with this code or unique identifier already exists.';
+  }
+
+  const isSqlError =
+    str.includes('Failed query:') ||
+    /\b(insert\s+into|update\s+\w+\s+set|delete\s+from|values\s*\(|syntax\s+error\s+at\s+or\s+near)\b/i.test(str) ||
+    /\bselect\s+["`\*a-z0-9_,\s]+\s+from\b/i.test(str);
+
+  if (isSqlError) {
     return 'A system database error occurred. Please check your inputs and try again.';
   }
 

@@ -37,15 +37,16 @@ export const CreateCatModal: React.FC<CreateCatModalProps> = ({
 
   useEffect(() => {
     if (preselectedAllocation) {
-      setSelectedKey(`${preselectedAllocation.classId}-${preselectedAllocation.subjectId}`);
+      setSelectedKey(`${preselectedAllocation.classId}::${preselectedAllocation.subjectId}`);
       // Find highest cat number + 1
       const existingNums = preselectedAllocation.cats.map((c) => c.catNumber);
       const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
       setCatNumber(nextNum);
-    } else if (allocations.length > 0 && !selectedKey) {
-      const first = allocations[0];
-      setSelectedKey(`${first.classId}-${first.subjectId}`);
-      const existingNums = first.cats.map((c) => c.catNumber);
+    } else if (allocations.length > 0) {
+      const match = allocations.find((a) => `${a.classId}::${a.subjectId}` === selectedKey);
+      const target = match || allocations[0];
+      setSelectedKey(`${target.classId}::${target.subjectId}`);
+      const existingNums = target.cats.map((c) => c.catNumber);
       const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
       setCatNumber(nextNum);
     }
@@ -53,7 +54,7 @@ export const CreateCatModal: React.FC<CreateCatModalProps> = ({
 
   const handleAllocationChange = (key: string) => {
     setSelectedKey(key);
-    const target = allocations.find((a) => `${a.classId}-${a.subjectId}` === key);
+    const target = allocations.find((a) => `${a.classId}::${a.subjectId}` === key);
     if (target) {
       const existingNums = target.cats.map((c) => c.catNumber);
       const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
@@ -70,7 +71,7 @@ export const CreateCatModal: React.FC<CreateCatModalProps> = ({
       return;
     }
 
-    const [classId, subjectId] = selectedKey.split('-');
+    const [classId, subjectId] = selectedKey.split('::');
     if (!classId || !subjectId) {
       toast.error('Invalid class or subject selection');
       return;
@@ -138,10 +139,11 @@ export const CreateCatModal: React.FC<CreateCatModalProps> = ({
             >
               {allocations.map((alloc) => (
                 <option
-                  key={`${alloc.classId}-${alloc.subjectId}`}
-                  value={`${alloc.classId}-${alloc.subjectId}`}
+                  key={`${alloc.classId}::${alloc.subjectId}`}
+                  value={`${alloc.classId}::${alloc.subjectId}`}
                 >
-                  {alloc.className} • {alloc.subjectName} ({alloc.cats.length} CATs active)
+                  {alloc.className} • {alloc.subjectName}
+                  {alloc.cats.length > 0 ? ` (${alloc.cats.length} CAT${alloc.cats.length > 1 ? 's' : ''} recorded)` : ''}
                 </option>
               ))}
             </select>
