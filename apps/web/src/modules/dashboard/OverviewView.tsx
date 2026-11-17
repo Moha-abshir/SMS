@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Users, CheckCircle2, BookOpen, Wallet, UserPlus, FileText, Settings, ShieldCheck, TrendingUp } from 'lucide-react';
+import {
+  Users, CheckCircle2, BookOpen, Wallet, UserPlus, FileText, Settings,
+  ShieldCheck, TrendingUp, CalendarCheck, ArrowRight, Clock, Award
+} from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
@@ -56,6 +58,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
     fetchOverview();
   }, []);
 
+  const handleGo = (viewId: string, path: string) => {
+    if (onNavigate) {
+      onNavigate(viewId);
+    }
+    navigate(path);
+  };
+
+  const todayFormatted = new Date().toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
   return (
     <PageLoadingWrapper
       isLoading={loading}
@@ -63,134 +79,241 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
       subtitle="Synthesizing academic census, financial balances, and attendance rates..."
       icon={TrendingUp}
     >
-      <div className="space-y-4 sm:space-y-6">
-      {/* Welcome Glass Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <TrendingUp className="w-4 h-4 text-sky-500 dark:text-sky-400" />
-            Executive Oversight & System Dashboard
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{data.schoolName} Executive Dashboard</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
-            Real-time operational summary of student admissions, attendance, staff, and financial oversight.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-around sm:justify-start gap-4 px-4 sm:px-5 py-2.5 sm:py-3 bg-sky-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl sm:rounded-2xl w-full sm:w-auto shrink-0">
-          <div className="text-center">
-            <span className="block text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100 leading-none">{data.academicYear}</span>
-            <span className="text-[10px] font-bold tracking-wider text-slate-500 dark:text-slate-400 uppercase mt-1 block">Academic Year</span>
-          </div>
-          <div className="w-[1px] h-8 bg-sky-200/60 dark:bg-[#162b4d]" />
-          <div className="text-center">
-            <span className="block text-lg sm:text-xl font-bold text-sky-600 dark:text-sky-400 leading-none">Term {data.currentTermNumber}</span>
-            <span className="text-[10px] font-bold tracking-wider text-sky-700 dark:text-sky-300 uppercase mt-1 block">Active Term</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Stat Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="p-4 sm:p-5 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass hover:border-sky-200 dark:hover:border-sky-500 transition-all">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Active Learners</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1f3d] border border-sky-100 dark:border-[#163660] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <Users className="w-4 h-4" />
+      <div className="space-y-3.5 max-w-7xl mx-auto">
+        {/* 1. Flattened Header Row (Max Height: ~48px) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+          {/* Left: Role title + user details + active term badge */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+              HT
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                {data.schoolName} · Executive Dashboard
+              </h1>
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border border-sky-200 dark:border-sky-800/80">
+                Head Teacher
+              </span>
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                Term {data.currentTermNumber} · {data.academicYear}
+              </span>
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">{data.totalLearners}</div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">PPE, Lower, Upper & JSS</p>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass hover:border-sky-200 dark:hover:border-sky-500 transition-all">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Today Attendance</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1f3d] border border-sky-100 dark:border-[#163660] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
+          {/* Right: Academic Year / Term Indicator & Date */}
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] text-xs font-medium text-slate-600 dark:text-slate-300 shadow-xs">
+              <CalendarCheck className="w-3.5 h-3.5 text-sky-500" />
+              <span>Today: {todayFormatted}</span>
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">
-            {data.todayAttendancePercentage > 0 ? `${data.todayAttendancePercentage}%` : '0%'}
-          </div>
-          <p className="text-xs text-sky-700 dark:text-sky-400 mt-1 font-medium">
-            {data.todayAttendancePercentage > 0
-              ? `${data.absentCount} Absences Recorded Today`
-              : 'Roll call pending today'}
-          </p>
         </div>
 
-        <div className="p-4 sm:p-5 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass hover:border-sky-200 dark:hover:border-sky-500 transition-all">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Staff Directory</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1f3d] border border-sky-100 dark:border-[#163660] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <BookOpen className="w-4 h-4" />
+        {/* 2. Sleek Executive Ticker Ribbon (Max Height: ~44px) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
+          {/* 1. Active Learners */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <Users className="w-4 h-4 text-sky-500 shrink-0" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm leading-tight font-mono">
+                  {data.totalLearners}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Active Learners
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 block">PPE, Lower, Upper, JSS</span>
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">{data.totalStaff}</div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Teachers & Administrative Staff</p>
-        </div>
 
-        <div className="p-4 sm:p-5 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-glass hover:border-sky-200 dark:hover:border-sky-500 transition-all">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Term Fee Collection Rate</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-[#0c1f3d] border border-sky-100 dark:border-[#163660] text-sky-600 dark:text-sky-400 flex items-center justify-center">
-              <Wallet className="w-4 h-4" />
+          {/* 2. Today Attendance */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm leading-tight font-mono">
+                  {data.todayAttendancePercentage > 0 ? `${data.todayAttendancePercentage}%` : '0%'}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Attendance Today
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 block truncate">
+                {data.todayAttendancePercentage > 0
+                  ? `${data.absentCount} absent today`
+                  : 'Roll call pending today'}
+              </span>
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100">{data.feeCollectionRate}%</div>
-          <p className="text-xs text-sky-700 dark:text-sky-400 mt-1 truncate font-medium">
-            KES {data.totalOutstandingBalance.toLocaleString()} Outstanding
-          </p>
+
+          {/* 3. Active Staff Directory */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm leading-tight font-mono">
+                  {data.totalStaff}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Active Staff
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 block">Teachers & Admin Staff</span>
+            </div>
+          </div>
+
+          {/* 4. Term Fee Collection Rate */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <Wallet className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-sm leading-tight font-mono">
+                  {data.feeCollectionRate}%
+                </span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Fee Collection
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 block truncate">
+                KES {data.totalOutstandingBalance.toLocaleString()} Outstanding
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Quick Administrative Shortcuts */}
-      <div className="p-4 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-sky-500 dark:text-sky-400" />
-          Executive Shortcuts & Module Navigation
-        </h3>
+        {/* 3. Executive Shortcuts & Management Strip */}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] p-3 shadow-xs">
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-sky-500" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                Executive Shortcuts & Governance
+              </h2>
+            </div>
+            <span className="text-[10px] font-semibold text-slate-400">Quick Operations</span>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          <button
-            onClick={() => {
-              if (onNavigate) onNavigate('admissions');
-              navigate('/admissions');
-            }}
-            className="p-4 bg-sky-50/40 dark:bg-[#0c1830] hover:bg-sky-50/80 dark:hover:bg-[#0f2042] border border-sky-100 dark:border-[#162b4d] hover:border-sky-200 dark:hover:border-sky-500 rounded-xl sm:rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer"
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <button
+              onClick={() => handleGo('admissions', '/admissions')}
+              className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 hover:bg-sky-50/60 dark:hover:bg-[#122444] hover:border-sky-300 dark:hover:border-sky-700 transition-all text-left cursor-pointer group shadow-2xs"
+            >
+              <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <UserPlus className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                    Admit New Learner
+                  </h3>
+                  <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  KNEC assessment registration
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleGo('letters', '/letters')}
+              className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 hover:bg-sky-50/60 dark:hover:bg-[#122444] hover:border-sky-300 dark:hover:border-sky-700 transition-all text-left cursor-pointer group shadow-2xs"
+            >
+              <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                    Official Letterhead
+                  </h3>
+                  <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  Draft & print official letters
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleGo('settings', '/settings')}
+              className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 hover:bg-sky-50/60 dark:hover:bg-[#122444] hover:border-sky-300 dark:hover:border-sky-700 transition-all text-left cursor-pointer group shadow-2xs"
+            >
+              <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Settings className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                    School Profile Settings
+                  </h3>
+                  <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  Motto, address & academic terms
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* 4. Secondary Operational Navigation Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div
+            onClick={() => handleGo('staff', '/staff')}
+            className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer group shadow-2xs"
           >
-            <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-sky-500 dark:text-sky-400 mb-2 group-hover:scale-105 transition-transform" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Admit New Learner</h4>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">KNEC Assessment Number registration</p>
-          </button>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Staff Management</span>
+              <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              {data.totalStaff} staff profiles, roles & permissions
+            </p>
+          </div>
 
-          <button
-            onClick={() => {
-              if (onNavigate) onNavigate('letters');
-              navigate('/letters');
-            }}
-            className="p-4 bg-sky-50/40 dark:bg-[#0c1830] hover:bg-sky-50/80 dark:hover:bg-[#0f2042] border border-sky-100 dark:border-[#162b4d] hover:border-sky-200 dark:hover:border-sky-500 rounded-xl sm:rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer"
+          <div
+            onClick={() => handleGo('attendance', '/attendance')}
+            className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer group shadow-2xs"
           >
-            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-sky-500 dark:text-sky-400 mb-2 group-hover:scale-105 transition-transform" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">Official Letterhead</h4>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Draft & print official school letters</p>
-          </button>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Daily Attendance</span>
+              <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Schoolwide roll call inspection & SMS
+            </p>
+          </div>
 
-          <button
-            onClick={() => {
-              if (onNavigate) onNavigate('settings');
-              navigate('/settings');
-            }}
-            className="p-4 bg-sky-50/40 dark:bg-[#0c1830] hover:bg-sky-50/80 dark:hover:bg-[#0f2042] border border-sky-100 dark:border-[#162b4d] hover:border-sky-200 dark:hover:border-sky-500 rounded-xl sm:rounded-2xl text-left transition-all group min-h-[44px] cursor-pointer sm:col-span-2 lg:col-span-1"
+          <div
+            onClick={() => handleGo('school_results', '/school-results')}
+            className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer group shadow-2xs"
           >
-            <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-sky-500 dark:text-sky-400 mb-2 group-hover:scale-105 transition-transform" />
-            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">School Profile Settings</h4>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Motto, address & academic terms</p>
-          </button>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Schoolwide Results</span>
+              <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              CBC rubric analysis & rankings
+            </p>
+          </div>
+
+          <div
+            onClick={() => handleGo('finance', '/finance')}
+            className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Fee Accounts</span>
+              <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Fee collections & balance ledgers
+            </p>
+          </div>
         </div>
-      </div>
       </div>
     </PageLoadingWrapper>
   );
 };
+
+export default OverviewView;

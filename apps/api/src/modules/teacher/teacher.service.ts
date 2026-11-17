@@ -11,6 +11,7 @@ import {
   markSubmissions,
   attendanceRegisters,
   attendanceRecords,
+  academicTerms,
   users,
   systemSettings,
   calculateCbcRubric,
@@ -385,11 +386,22 @@ export class TeacherService {
       }
     }
 
+    const [activeTerm] = await db
+      .select({
+        academicYear: academicTerms.year,
+        termNumber: academicTerms.termNumber,
+      })
+      .from(academicTerms)
+      .where(and(eq(academicTerms.isCurrent, true), isNull(academicTerms.deletedAt)))
+      .limit(1);
+
     return {
       teacher,
       classTeacher: classTeacherInfo,
       subjectAllocations: allTeachingAreas,
       markEntryTasks,
+      academicYear: activeTerm?.academicYear || new Date().getFullYear(),
+      currentTermNumber: activeTerm?.termNumber || 1,
       alerts: {
         pendingCorrections: pendingCorrectionsCount,
         hasUnmarkedAttendanceToday:

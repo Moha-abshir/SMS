@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   CalendarCheck, BookOpen, Users, Award, AlertCircle, CheckCircle2,
-  Clock, ArrowRight, ChevronRight, TrendingUp, Sparkles, UserCheck,
-  AlertTriangle, ShieldCheck, FileText, CheckCheck, Calendar
+  Clock, ArrowRight, ChevronRight, UserCheck, Calendar,
+  ShieldAlert, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
@@ -36,6 +35,11 @@ export const TeacherDashboardView: React.FC = () => {
   const allocations = data?.subjectAllocations || [];
   const markTasks = data?.markEntryTasks || [];
   const alerts = data?.alerts || { pendingCorrections: 0, hasUnmarkedAttendanceToday: false };
+  const currentTerm = data?.currentTermNumber || 1;
+  const academicYear = data?.academicYear || new Date().getFullYear();
+
+  const completedMarksheets = markTasks.filter((t: any) => t.isComplete).length;
+  const totalMarksheets = markTasks.length;
 
   // Timetable engine is exclusively designed for Grades 4 through 9 (UPPER_PRIMARY & JUNIOR)
   const isTargetTimetableClass = (item: any) => {
@@ -59,6 +63,13 @@ export const TeacherDashboardView: React.FC = () => {
   const hasTimetableAllocations =
     allocations.some(isTargetTimetableClass) || isTargetTimetableClass(classTeacher);
 
+  const todayDateFormatted = new Date().toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
   return (
     <PageLoadingWrapper
       isLoading={loading}
@@ -66,374 +77,293 @@ export const TeacherDashboardView: React.FC = () => {
       subtitle="Loading allocated streams, teaching schedules, and active tasks..."
       icon={Award}
     >
-      <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Teacher Welcome Banner */}
-      <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-sky-400 to-sky-600 text-white flex items-center justify-center font-black text-lg sm:text-xl shadow-md shrink-0">
-              {teacher?.firstName?.[0]}
-              {teacher?.lastName?.[0]}
+      <div className="space-y-3.5 max-w-7xl mx-auto">
+        {/* 1. Flattened Header Row (Max Height: ~48px) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+          {/* Left: Role title + user details + active term badge */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+              {teacher?.firstName?.[0] || 'T'}{teacher?.lastName?.[0] || 'C'}
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                  Welcome, Teacher {teacher?.firstName} {teacher?.lastName}
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                  {classTeacher ? 'Class & Subject Teacher' : 'Subject Specialist'}
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                Teacher {teacher?.firstName} {teacher?.lastName}
+              </h1>
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border border-sky-200 dark:border-sky-800/80">
+                {classTeacher ? `Class Teacher · ${classTeacher.className}` : 'Subject Specialist'}
+              </span>
+              {classTeacher?.isStandingIn && (
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 uppercase">
+                  Standing-In
                 </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-2">
-                <span>TSC No: {teacher?.tscNumber || 'Registered'}</span>
-                <span>•</span>
-                <span>{teacher?.email}</span>
-                <span>•</span>
-                <span>{allocations.length} Active Teaching Allocation(s)</span>
-              </p>
+              )}
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                TSC: {teacher?.tscNumber || 'Registered'}
+              </span>
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                Term {currentTerm} · {academicYear}
+              </span>
             </div>
           </div>
 
-          {/* Date Indicator */}
-          <div className="flex items-center gap-2 p-2.5 bg-sky-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl text-xs font-semibold text-sky-800 dark:text-sky-300 shrink-0">
-            <CalendarCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            <span>Today: {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          {/* Right: Date Indicator Pill */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] text-xs font-medium text-slate-600 dark:text-slate-300 shadow-xs shrink-0 self-start sm:self-auto">
+            <CalendarCheck className="w-3.5 h-3.5 text-sky-500" />
+            <span>Today: {todayDateFormatted}</span>
           </div>
         </div>
 
-        {/* Pending Correction Urgent Alert Banner */}
+        {/* Pending Mark Correction Alert Banner (Compact) */}
         {alerts.pendingCorrections > 0 && (
-          <div className="mt-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                  Mark Correction Unlocked by Class Teacher ({alerts.pendingCorrections})
-                </h4>
-                <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
-                  One or more examination marksheets have been unlocked by the Class Teacher for score correction.
-                </p>
-              </div>
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-xs">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-medium">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>{alerts.pendingCorrections} Marksheet(s) Unlocked:</strong> Class Teacher requested score correction.
+              </span>
             </div>
             <button
               onClick={() => navigate('/marks-entry')}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors shadow-xs shrink-0 cursor-pointer"
+              className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition-colors cursor-pointer shrink-0"
             >
-              Review & Fix
+              Review & Fix →
             </button>
           </div>
         )}
-      </div>
 
-      {/* Class Teacher Section (Rendered dynamically if teacher is assigned a class) */}
-      {classTeacher && (
-        <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 dark:border-[#112038] pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-sky-500 text-white shadow-xs">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    My Class: {classTeacher.className}
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 uppercase">
-                    {classTeacher.levelCategory?.replace('_', ' ')}
+        {/* 2. Sleek Metric Ribbon (Max Height: ~44px) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
+          {/* Slot 1: Attendance Status */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            {classTeacher ? (
+              classTeacher.todayAttendance?.isSubmitted ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] leading-tight">
+                      Roll Call Taken
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      {classTeacher.todayAttendance.presentCount} present · {classTeacher.todayAttendance.absentCount} absent
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div>
+                    <span className="font-bold text-amber-700 dark:text-amber-400 block text-[11px] leading-tight">
+                      Pending Roll Call
+                    </span>
+                    <span className="text-[10px] text-slate-400">Not submitted today</span>
+                  </div>
+                </>
+              )
+            ) : (
+              <>
+                <Award className="w-4 h-4 text-sky-500 shrink-0" />
+                <div>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] leading-tight">
+                    Subject Specialist
                   </span>
-                  {classTeacher.isStandingIn && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 uppercase">
-                      Standing-In
-                    </span>
-                  )}
+                  <span className="text-[10px] text-slate-400">Class oversight N/A</span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {classTeacher.isStandingIn ? (
-                    <span className="text-amber-700 dark:text-amber-400 font-semibold">
-                      You are the temporary Standing-In Class Teacher (covering for {classTeacher.standingInFor || 'assigned teacher'}) for {classTeacher.studentCount} active enrolled learners.
-                    </span>
-                  ) : (
-                    `You are the assigned Class Teacher for ${classTeacher.studentCount} active enrolled learners.`
-                  )}
-                </p>
-              </div>
-            </div>
+              </>
+            )}
+          </div>
 
-            <div className="flex items-center gap-2">
+          {/* Slot 2: Total Learners */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <UserCheck className="w-4 h-4 text-sky-500 shrink-0" />
+            <div>
+              <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] leading-tight">
+                {classTeacher ? `${classTeacher.studentCount} Learners Enrolled` : 'All School Streams'}
+              </span>
+              <span className="text-[10px] text-slate-400">
+                {classTeacher ? `${classTeacher.className} (${classTeacher.levelCategory?.replace('_', ' ')})` : 'Specialist Roster'}
+              </span>
+            </div>
+          </div>
+
+          {/* Slot 3: Marksheet Progress */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
+            <div>
+              <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] leading-tight">
+                Marksheets: {completedMarksheets}/{totalMarksheets} Done
+              </span>
+              <span className="text-[10px] text-slate-400">
+                {totalMarksheets > 0
+                  ? `${Math.round((completedMarksheets / totalMarksheets) * 100)}% completed`
+                  : 'No active papers'}
+              </span>
+            </div>
+          </div>
+
+          {/* Slot 4: Active Allocations */}
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div>
+              <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] leading-tight">
+                {allocations.length} Teaching Allocation{allocations.length === 1 ? '' : 's'}
+              </span>
+              <span className="text-[10px] text-slate-400">Assigned classes & subjects</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Streamlined Class Operations Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white/70 dark:bg-[#0c1830]/70 backdrop-blur-xs shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">
+              Class Operations:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {classTeacher && (
               <button
                 onClick={() => navigate('/class-register')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                  classTeacher.todayAttendance?.isSubmitted
+                    ? 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    : 'bg-sky-600 hover:bg-sky-500 text-white'
+                }`}
               >
-                <CalendarCheck className="w-4 h-4" />
-                Take Class Register
+                <CalendarCheck className="w-3.5 h-3.5" />
+                <span>{classTeacher.todayAttendance?.isSubmitted ? 'View Class Register' : 'Take Daily Register'}</span>
               </button>
+            )}
+
+            <button
+              onClick={() => navigate('/marks-entry')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-sky-300 dark:hover:border-sky-600 transition-all shadow-xs cursor-pointer"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-sky-500" />
+              <span>Enter Marks</span>
+              {totalMarksheets > 0 && (
+                <span className="px-1.5 py-0.2 rounded text-[10px] bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-semibold">
+                  {totalMarksheets}
+                </span>
+              )}
+            </button>
+
+            {classTeacher && (
               <button
                 onClick={() => navigate('/my-learners')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#0c1830] border border-sky-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-[#122444] text-xs font-bold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-sky-300 dark:hover:border-sky-600 transition-all shadow-xs cursor-pointer"
               >
-                <Users className="w-4 h-4" />
-                Class Learners
+                <Users className="w-3.5 h-3.5 text-slate-500" />
+                <span>Class Learners</span>
+                <span className="text-[10px] text-slate-400">({classTeacher.studentCount})</span>
               </button>
-            </div>
-          </div>
+            )}
 
-          {/* Today's Register Status Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-            <div className="p-3.5 bg-slate-50/70 dark:bg-[#0c1830] rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs flex items-center justify-between">
-              <div>
-                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                  Today's Attendance Status
-                </div>
-                <div className="mt-1">
-                  {classTeacher.todayAttendance.isSubmitted ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      Register Marked & Submitted
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-400">
-                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      Pending Roll Call for Today
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {classTeacher.todayAttendance.isSubmitted
-                    ? `${classTeacher.todayAttendance.presentCount} present • ${classTeacher.todayAttendance.absentCount} absent`
-                    : 'Not taken'}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-slate-50/70 dark:bg-[#0c1830] rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs flex items-center justify-between">
-              <div>
-                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                  Total Class Learners
-                </div>
-                <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-0.5">
-                  {classTeacher.studentCount}
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
-                <UserCheck className="w-5 h-5" />
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-slate-50/70 dark:bg-[#0c1830] rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs flex items-center justify-between">
-              <div>
-                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                  Roll Call Shortcuts
-                </div>
-                <div className="text-xs text-sky-700 dark:text-sky-400 font-bold mt-1 cursor-pointer hover:underline" onClick={() => navigate('/class-register')}>
-                  Open → Mark → Save
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-sky-500 dark:text-sky-400" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Workstation Actions & Call to Action (CTA) Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Workstation Quick Actions
-          </h2>
-          <span className="text-xs text-slate-400">
-            {allocations.length} Active Allocation(s)
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-          {/* 1. Marksheet Entry CTA */}
-          <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                {alerts.pendingCorrections > 0 ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
-                    {alerts.pendingCorrections} Fix Required
-                  </span>
-                ) : markTasks.length > 0 ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
-                    {markTasks.length} Papers
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                    No Pending
-                  </span>
-                )}
-              </div>
-
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Marksheet Entry
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                {markTasks.length > 0
-                  ? `${markTasks.filter((t: any) => t.isComplete).length} of ${markTasks.length} marksheets completed`
-                  : 'Electronic score recording with automated CBC rubrics'}
-              </p>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            {hasTimetableAllocations && (
               <button
-                onClick={() => navigate('/marks-entry')}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                onClick={() => navigate('/timetable')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-sky-300 dark:hover:border-sky-600 transition-all shadow-xs cursor-pointer"
               >
-                Go to Marksheet Entry <ArrowRight className="w-3.5 h-3.5" />
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <span>My Timetable</span>
               </button>
+            )}
+          </div>
+        </div>
+
+        {/* 4. High-Density Teaching Allocations Table */}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] overflow-hidden shadow-xs">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-sky-500" />
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                My Teaching Allocations & Learning Areas
+              </h2>
             </div>
+            <span className="text-[11px] font-semibold text-slate-400">
+              {allocations.length} Active Subject{allocations.length === 1 ? '' : 's'}
+            </span>
           </div>
 
-          {/* 2. Daily Class Register CTA (Class Teachers only) */}
-          {classTeacher && (
-            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                    <CalendarCheck className="w-5 h-5" />
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      classTeacher.todayAttendance?.isSubmitted
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'bg-amber-100 text-amber-800 border-amber-300'
-                    }`}
-                  >
-                    {classTeacher.todayAttendance?.isSubmitted ? 'Roll Call Taken' : 'Pending Today'}
-                  </span>
-                </div>
-
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  Daily Class Register
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Roll call oversight for {classTeacher.className}
-                </p>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-                <button
-                  onClick={() => navigate('/class-register')}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
-                >
-                  Take Class Register <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          {allocations.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No subject allocations assigned yet. Please contact the Deputy Head.
             </div>
-          )}
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 dark:bg-slate-900/80 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-4">Class</th>
+                    <th className="py-2.5 px-4">Level</th>
+                    <th className="py-2.5 px-4">Learning Area / Subject</th>
+                    <th className="py-2.5 px-4 text-center">Code</th>
+                    <th className="py-2.5 px-4 text-center">Marksheet Task</th>
+                    <th className="py-2.5 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {allocations.map((alloc: any) => {
+                    const task = markTasks.find(
+                      (t: any) => t.classId === alloc.classId && t.subjectId === alloc.subjectId
+                    );
 
-          {/* 3. Class Learners CTA (Class Teachers only) */}
-          {classTeacher && (
-            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
-                    {classTeacher.studentCount} Learners
-                  </span>
-                </div>
-
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  Class Learners
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Learner directory, guardian phone numbers & emergency profiles
-                </p>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-                <button
-                  onClick={() => navigate('/my-learners')}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
-                >
-                  View Class Learners <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* 4. My Timetable CTA (Grades 4-9 teaching allocations only) */}
-          {hasTimetableAllocations && (
-            <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none flex flex-col justify-between transition-all hover:border-sky-300 group">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
-                    Schedule
-                  </span>
-                </div>
-
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                  My Timetable
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Weekly teaching schedule, allocated lessons & classroom venues
-                </p>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-                <button
-                  onClick={() => navigate('/timetable')}
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-sky-200 hover:bg-sky-50 text-sky-700 dark:bg-[#0c1a33] dark:border-[#1e3a66] dark:text-sky-300 dark:hover:bg-[#122444] text-xs font-bold transition-all shadow-xs cursor-pointer"
-                >
-                  View My Timetable <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                    return (
+                      <tr
+                        key={`${alloc.classId}-${alloc.subjectId}`}
+                        className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-slate-100">
+                          {alloc.className}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-500 text-[11px]">
+                          {alloc.levelCategory?.replace('_', ' ')}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-800 dark:text-slate-200 font-semibold">
+                          {alloc.subjectName}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            {alloc.subjectCode}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          {task ? (
+                            task.isComplete ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {task.scoredStudents}/{task.totalStudents} Scored (100%)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                                <Clock className="w-3.5 h-3.5" />
+                                {task.scoredStudents}/{task.totalStudents} Scored
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[11px] text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          <button
+                            onClick={() => navigate('/marks-entry')}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/60 transition-colors cursor-pointer"
+                          >
+                            <span>Marksheet</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Teaching Subject Allocations Grid */}
-      <div className="bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md rounded-2xl p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass dark:shadow-none space-y-4">
-        <div className="flex items-center justify-between border-b border-sky-100 dark:border-[#162b4d] pb-3">
-          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-            My Teaching Allocations
-          </h3>
-          <span className="text-xs text-sky-600 dark:text-sky-400 font-bold">
-            {allocations.length} Active Subject(s)
-          </span>
-        </div>
-
-        {allocations.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs">
-            No subject allocations assigned yet. Please contact the Deputy Head.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {allocations.map((alloc: any) => (
-              <div
-                key={`${alloc.classId}-${alloc.subjectId}`}
-                className="p-3.5 bg-sky-50/40 dark:bg-[#0b172c] border border-sky-100 dark:border-[#162b4d] rounded-xl hover:bg-sky-50/70 dark:hover:bg-[#0f1f3d] transition-colors flex items-center justify-between"
-              >
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                    {alloc.subjectName}
-                  </h4>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Class: <span className="font-semibold text-sky-700 dark:text-sky-300">{alloc.className}</span>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#081020] text-slate-700 dark:text-slate-300 border border-sky-100 dark:border-slate-800">
-                  {alloc.subjectCode}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       </div>
     </PageLoadingWrapper>
   );
 };
+
 export default TeacherDashboardView;
