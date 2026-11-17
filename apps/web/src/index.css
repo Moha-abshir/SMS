@@ -24,6 +24,29 @@
 
 /* Glassmorphism System Components */
 @layer components {
+  /* Compact workspaces share the examination pages' restrained surfaces. */
+  .workspace-page {
+    @apply min-w-0 space-y-3.5;
+  }
+  .workspace-header {
+    @apply flex min-w-0 flex-col gap-3 border-b border-slate-200 pb-3 dark:border-slate-800 xl:flex-row xl:items-center xl:justify-between;
+  }
+  .workspace-actions {
+    @apply flex min-w-0 flex-wrap items-center gap-2 xl:shrink-0;
+  }
+  .workspace-panel {
+    @apply min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-[#0c1830] sm:p-4;
+  }
+  .workspace-table-scroll {
+    @apply max-w-full overflow-x-auto overscroll-x-contain rounded-lg;
+    -webkit-overflow-scrolling: touch;
+  }
+  .workspace-table-scroll:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-sky-500;
+  }
+  .workspace-tabs {
+    @apply flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-[#0c1830];
+  }
   .glass-card {
     @apply bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass transition-all duration-200 dark:bg-[#091326]/90 dark:border-[#162b4d] dark:shadow-none;
   }
