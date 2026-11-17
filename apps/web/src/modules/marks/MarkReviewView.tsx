@@ -361,7 +361,7 @@ export const MarkReviewView: React.FC = () => {
         {/* Filter Bar & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#091326]/85 p-3.5 sm:p-4 rounded-lg border border-slate-200 dark:border-[#162b4d] shadow-sm">
           {/* Status Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
             <button
               onClick={() => setStatusFilter('ALL')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
@@ -579,7 +579,7 @@ export const MarkReviewView: React.FC = () => {
                 </div>
 
                 {/* Subject Selector Tabs */}
-                <div className="px-5 py-3 border-b border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#081020] flex items-center gap-2 overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
+                <div className="px-5 py-3 border-b border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#081020] flex items-center gap-2 overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
                     Learning Areas:
                   </span>

@@ -283,7 +283,7 @@ export const ClassExamProgressView: React.FC = () => {
 
         {/* Examination Selector Tabs (if multiple exams exist) */}
         {exams.length > 1 && (
-          <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#162b4d] flex items-center gap-2 overflow-x-auto pb-1 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
+          <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#162b4d] flex items-center gap-2 overflow-x-auto pb-1 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0 mr-1">
               Examination:
             </span>

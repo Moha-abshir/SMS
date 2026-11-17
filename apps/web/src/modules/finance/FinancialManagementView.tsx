@@ -319,7 +319,7 @@ export const FinancialManagementView: React.FC = () => {
       </WorkspaceHeader>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
+      <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
         <button
           type="button"
           onClick={() => setActiveTab('overview')}

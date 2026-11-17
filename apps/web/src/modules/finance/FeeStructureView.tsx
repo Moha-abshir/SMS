@@ -232,7 +232,7 @@ export const FeeStructureView: React.FC = () => {
                     </td>
 
                     {/* Computed Annual Total */}
-                    <td className="py-3 px-4 text-right font-black text-sm text-sky-600">
+                    <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-sm text-sky-600">
                       KES {annualSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
 

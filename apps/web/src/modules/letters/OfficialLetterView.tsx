@@ -387,7 +387,7 @@ export const OfficialLetterView: React.FC = () => {
                 </div>
 
               {/* Subject Title */}
-              <div className="text-center py-2.5 border-y-2 border-slate-300 font-bold uppercase tracking-wider text-xs sm:text-sm text-slate-900">
+              <div className="text-center py-2.5 border-y-2 border-slate-300 font-extrabold uppercase tracking-wider text-xs sm:text-sm text-slate-900">
                 RE: {printModalData.letter.title}
               </div>
 
