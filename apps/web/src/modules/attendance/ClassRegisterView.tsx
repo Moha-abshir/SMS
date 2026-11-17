@@ -341,8 +341,8 @@ export const ClassRegisterView: React.FC = () => {
     >
       {!assignedClass ? (
         <div className="space-y-6 max-w-4xl mx-auto py-8">
-          <div className="bg-white/90 dark:bg-[#091326]/90 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-sky-100 dark:border-[#162b4d] shadow-glass text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] flex items-center justify-center mx-auto text-sky-600 dark:text-sky-400 shadow-xs">
+          <div className="bg-white dark:bg-[#091326]/90 rounded-lg p-8 sm:p-12 border border-slate-200 dark:border-[#162b4d] shadow-sm text-center space-y-4 min-w-0">
+            <div className="w-16 h-16 rounded-lg bg-sky-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] flex items-center justify-center mx-auto text-sky-600 dark:text-sky-400 shadow-xs">
               <Users className="w-8 h-8" />
             </div>
             <div className="max-w-md mx-auto space-y-2">
@@ -352,24 +352,24 @@ export const ClassRegisterView: React.FC = () => {
               </p>
             </div>
             <div className="pt-2">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 text-xs font-semibold border border-sky-100 dark:border-[#0c4a6e]">
-                <span className="w-2 h-2 rounded-full bg-sky-500" />
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 text-xs font-semibold border border-slate-200 dark:border-[#0c4a6e]">
+                <span className="w-2 h-2 rounded-full bg-sky-600" />
                 Role: Subject Specialist / Unassigned Class Teacher
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="space-y-3.5 max-w-5xl mx-auto pb-10">
+        <div className="workspace-page max-w-5xl mx-auto pb-24 sm:pb-10">
       {/* 1. Minimalist Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               {assignedClass?.className || 'Class'} Register
             </h1>
             {assignedClass?.isStandingIn && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 Standing In
               </span>
             )}
@@ -391,7 +391,7 @@ export const ClassRegisterView: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleDiscardDraft}
-                      className="ml-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300 underline hover:text-rose-600 cursor-pointer"
+                      className="ml-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 underline hover:text-rose-600 cursor-pointer"
                       title="Discard local draft changes and revert to original register"
                     >
                       Reset
@@ -416,7 +416,7 @@ export const ClassRegisterView: React.FC = () => {
                 activeTab === 'today'
                   ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+              } `}
             >
               Roll Call
             </button>
@@ -426,7 +426,7 @@ export const ClassRegisterView: React.FC = () => {
                 activeTab === 'history'
                   ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+              } `}
             >
               History
             </button>
@@ -447,7 +447,7 @@ export const ClassRegisterView: React.FC = () => {
                   <button
                     onClick={handleSaveRegister}
                     disabled={loading || saving || students.length === 0}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? (
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
@@ -471,7 +471,7 @@ export const ClassRegisterView: React.FC = () => {
       {activeTab === 'today' ? (
         <>
           {/* 2. Compact Minimalist Summary & Filter Bar (Sticky on scroll) */}
-          <div className="sticky top-2 z-20 bg-white/95 dark:bg-[#0c1830]/95 backdrop-blur-md p-2.5 rounded-2xl border border-slate-200/90 dark:border-[#1a335a] shadow-xs space-y-2">
+          <div className="sticky top-16 lg:top-2 z-20 bg-white/95 dark:bg-[#0c1830]/95 p-2.5 rounded-lg border border-slate-200/90 dark:border-[#1a335a] shadow-xs space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               {/* Quick Metrics Strip */}
               <div className="flex items-center gap-2 sm:gap-3 text-xs font-semibold text-slate-600 dark:text-slate-400">
@@ -517,7 +517,7 @@ export const ClassRegisterView: React.FC = () => {
                   <button
                     onClick={handleSaveRegister}
                     disabled={loading || saving || students.length === 0}
-                    className="px-3 py-1 text-[11px] font-bold rounded-lg bg-sky-500 hover:bg-sky-600 text-white shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                    className="px-3 py-1 text-[11px] font-bold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                   >
                     {saving && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
                     <span>{saving ? 'Saving...' : 'Submit'}</span>
@@ -548,7 +548,7 @@ export const ClassRegisterView: React.FC = () => {
                       statusFilter === filter
                         ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-xs'
                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
+                    } `}
                   >
                     {filter === 'ALL' ? `All (${totalCount})` : filter === 'PRESENT' ? `Present (${presentCount})` : `Absent (${absentCount})`}
                   </button>
@@ -573,7 +573,7 @@ export const ClassRegisterView: React.FC = () => {
           )}
 
           {/* 3. High-Density Mobile-First Roll Call Roster */}
-          <div className="bg-white/90 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl border border-slate-200/90 dark:border-[#1a335a] shadow-xs overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div className="bg-white dark:bg-[#0c1830] rounded-lg border border-slate-200/90 dark:border-[#1a335a] shadow-xs overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60">
             {filteredStudents.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">
                 No students found matching current filters.
@@ -592,9 +592,9 @@ export const ClassRegisterView: React.FC = () => {
                         : student.status === 'LATE'
                         ? 'bg-amber-50/30 dark:bg-amber-950/15'
                         : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/30'
-                    }`}
+                    } `}
                   >
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
                       {/* Left: Roll #, Name, Adm # */}
                       <div className="min-w-0 flex-1 flex items-center gap-2 sm:gap-3">
                         <span className="text-[11px] font-mono font-bold text-slate-400 w-5 text-center shrink-0">
@@ -619,7 +619,7 @@ export const ClassRegisterView: React.FC = () => {
                       </div>
 
                       {/* Right: Segmented Status Toggle & Remark Button */}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center justify-between gap-1.5 shrink-0">
                         <div className="inline-flex rounded-xl p-0.5 bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800">
                           {/* PRESENT */}
                           <button
@@ -630,11 +630,12 @@ export const ClassRegisterView: React.FC = () => {
                               student.status === 'PRESENT'
                                 ? 'bg-emerald-600 text-white shadow-xs'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                            } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+                            }  ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'} `}
                             title="Present"
+                            aria-label={`Mark ${student.firstName} ${student.lastName} present`}
+                            aria-pressed={student.status === 'PRESENT'}
                           >
-                            <span className="sm:hidden">P</span>
-                            <span className="hidden sm:inline">Present</span>
+                            <span>Present</span>
                           </button>
 
                           {/* ABSENT */}
@@ -646,11 +647,12 @@ export const ClassRegisterView: React.FC = () => {
                               student.status === 'ABSENT'
                                 ? 'bg-rose-600 text-white shadow-xs'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400'
-                            } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+                            }  ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'} `}
                             title="Absent"
+                            aria-label={`Mark ${student.firstName} ${student.lastName} absent`}
+                            aria-pressed={student.status === 'ABSENT'}
                           >
-                            <span className="sm:hidden">A</span>
-                            <span className="hidden sm:inline">Absent</span>
+                            <span>Absent</span>
                           </button>
 
                           {/* EXCUSED */}
@@ -662,11 +664,12 @@ export const ClassRegisterView: React.FC = () => {
                               student.status === 'EXCUSED'
                                 ? 'bg-sky-600 text-white shadow-xs'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400'
-                            } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+                            }  ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'} `}
                             title="Excused"
+                            aria-label={`Mark ${student.firstName} ${student.lastName} excused`}
+                            aria-pressed={student.status === 'EXCUSED'}
                           >
-                            <span className="sm:hidden">E</span>
-                            <span className="hidden sm:inline">Excused</span>
+                            <span>Excused</span>
                           </button>
 
                           {/* LATE */}
@@ -678,11 +681,12 @@ export const ClassRegisterView: React.FC = () => {
                               student.status === 'LATE'
                                 ? 'bg-amber-600 text-white shadow-xs'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400'
-                            } ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+                            }  ${isSubmitted ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'} `}
                             title="Late Arrival"
+                            aria-label={`Mark ${student.firstName} ${student.lastName} late`}
+                            aria-pressed={student.status === 'LATE'}
                           >
-                            <span className="sm:hidden">L</span>
-                            <span className="hidden sm:inline">Late</span>
+                            <span>Late</span>
                           </button>
                         </div>
 
@@ -694,7 +698,7 @@ export const ClassRegisterView: React.FC = () => {
                               student.remarks
                                 ? 'text-amber-700 bg-amber-100/80 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60'
                                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            }`}
+                            } `}
                             title={student.remarks ? `Note: ${student.remarks}` : "Add note for absence/late arrival"}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
@@ -731,16 +735,16 @@ export const ClassRegisterView: React.FC = () => {
         </>
       ) : (
         /* History Tab */
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* History KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white/85 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl p-4 border border-slate-200 dark:border-[#1a335a] shadow-xs">
+            <div className="workspace-panel shadow-xs">
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Roll Calls</div>
               <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{historyData?.totalRegisters || 0}</div>
               <div className="text-[10px] text-slate-400 mt-0.5">Recorded daily registers</div>
             </div>
 
-            <div className="bg-white/85 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl p-4 border border-slate-200 dark:border-[#1a335a] shadow-xs">
+            <div className="workspace-panel shadow-xs">
               <div className="text-xs font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">Overall Attendance Rate</div>
               <div className="text-2xl font-black text-sky-700 dark:text-sky-400 mt-1">
                 {historyData?.overallAttendanceRate || 100}%
@@ -748,7 +752,7 @@ export const ClassRegisterView: React.FC = () => {
               <div className="text-[11px] text-sky-600/80 mt-0.5">Term attendance performance</div>
             </div>
 
-            <div className="bg-white/85 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl p-4 border border-slate-200 dark:border-[#1a335a] shadow-xs">
+            <div className="workspace-panel shadow-xs">
               <div className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-rose-600" /> Chronic Absenteeism Flag
               </div>
@@ -761,7 +765,7 @@ export const ClassRegisterView: React.FC = () => {
 
           {/* Chronic Absenteeism Notice Banner */}
           {historyData && historyData.students.some((s) => s.stats.isChronicAbsent) && (
-            <div className="p-3.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-2xl flex items-start gap-3">
+            <div className="p-3.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200">Chronic Absenteeism Warning</h4>
@@ -773,7 +777,7 @@ export const ClassRegisterView: React.FC = () => {
           )}
 
           {/* Search History */}
-          <div className="bg-white/85 dark:bg-[#0c1830] backdrop-blur-md p-2.5 rounded-2xl border border-slate-200 dark:border-[#1a335a] shadow-xs">
+          <div className="bg-white dark:bg-[#0c1830] p-2.5 rounded-lg border border-slate-200 dark:border-[#1a335a] shadow-xs">
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -787,7 +791,7 @@ export const ClassRegisterView: React.FC = () => {
           </div>
 
           {/* History Table */}
-          <div className="bg-white/85 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl border border-slate-200 dark:border-[#1a335a] shadow-xs overflow-hidden">
+          <div className="bg-white dark:bg-[#0c1830] rounded-lg border border-slate-200 dark:border-[#1a335a] shadow-xs overflow-hidden">
             {historyLoading ? (
               <div className="p-8 text-center text-slate-400 text-xs">
                 <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -798,7 +802,7 @@ export const ClassRegisterView: React.FC = () => {
                 No attendance history records available for this class.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-bold uppercase text-[10px] tracking-wider">
                     <tr>
@@ -817,7 +821,7 @@ export const ClassRegisterView: React.FC = () => {
                         key={h.studentId}
                         className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors ${
                           h.stats.isChronicAbsent ? 'bg-rose-50/30 dark:bg-rose-950/20' : ''
-                        }`}
+                        } `}
                       >
                         <td className="py-2.5 px-3">
                           <div className="font-bold text-slate-900 dark:text-slate-100">{h.fullName}</div>
@@ -834,7 +838,7 @@ export const ClassRegisterView: React.FC = () => {
                             <span
                               className={`font-bold ${
                                 h.stats.attendanceRate < 85 ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'
-                              }`}
+                              } `}
                             >
                               {h.stats.attendanceRate}%
                             </span>

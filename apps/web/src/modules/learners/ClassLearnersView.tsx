@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -93,8 +94,8 @@ export const ClassLearnersView: React.FC = () => {
     >
       {notAssignedMessage ? (
         <div className="space-y-6 max-w-4xl mx-auto py-8">
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-sky-100 shadow-glass text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center mx-auto text-sky-600 shadow-xs">
+          <div className="bg-white rounded-lg p-8 sm:p-12 border border-slate-200 shadow-sm text-center space-y-4 min-w-0">
+            <div className="w-16 h-16 rounded-lg bg-sky-50 border border-slate-200 flex items-center justify-center mx-auto text-sky-600 shadow-xs">
               <Users className="w-8 h-8" />
             </div>
             <div className="max-w-md mx-auto space-y-2">
@@ -104,42 +105,22 @@ export const ClassLearnersView: React.FC = () => {
               </p>
             </div>
             <div className="pt-2">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 text-sky-700 text-xs font-semibold border border-sky-100">
-                <span className="w-2 h-2 rounded-full bg-sky-500" />
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 text-sky-700 text-xs font-semibold border border-slate-200">
+                <span className="w-2 h-2 rounded-full bg-sky-600" />
                 Role: Subject Specialist / Unassigned Class Teacher
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="space-y-6 max-w-7xl mx-auto">
+        <div className="workspace-page">
       {/* Top Header */}
-      <div className="bg-white/85 dark:bg-[#0c1830]/85 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-sky-100 dark:border-[#1a335a] shadow-glass">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                Class Teacher Hub
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-                {classInfo?.name || 'Class Roster'}
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 dark:bg-slate-800 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-slate-700">
-                {learners.length} {learners.length === 1 ? 'Learner' : 'Learners'} Enrolled
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-              Class Learners & Guardian Directory
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Inspect comprehensive learner profiles, attendance rates, academic standing, and initiate controlled guardian outreach.
-            </p>
-          </div>
-        </div>
-      </div>
+      <WorkspaceHeader icon={Users} title="Class Learners" description="View learner profiles, attendance, and guardian contacts.">
+<span className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">{classInfo?.name} · {learners.length} learners</span>
+      </WorkspaceHeader>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md p-3 rounded-2xl border border-sky-100 dark:border-[#162b4d] shadow-xs">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-[#091326]/90 p-3 rounded-lg border border-slate-200 dark:border-[#162b4d] shadow-xs">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -147,7 +128,7 @@ export const ClassLearnersView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by learner name, assessment number, or guardian..."
-            className="w-full bg-slate-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-[#0f2042] focus:ring-2 focus:ring-sky-400 outline-hidden transition-all"
+            className="w-full bg-slate-50/70 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-[#0f2042] focus:ring-2 focus:ring-sky-400 outline-hidden transition-all"
           />
         </div>
 
@@ -175,15 +156,38 @@ export const ClassLearnersView: React.FC = () => {
       </div>
 
       {/* Learners Table */}
-      <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl border border-sky-100 dark:border-[#162b4d] shadow-glass overflow-hidden">
+      <div className="bg-white dark:bg-[#091326]/90 rounded-lg border border-slate-200 dark:border-[#162b4d] shadow-sm overflow-hidden">
         {filteredLearners.length === 0 ? (
           <div className="p-16 text-center text-slate-400 dark:text-slate-500 text-sm">
             No learners found matching the search criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 lg:hidden">
+            {filteredLearners.map(learner => (
+              <article key={learner.studentId} className="space-y-3 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{learner.fullName}</h3>
+                    <p className="mt-0.5 text-xs text-slate-500">{learner.assessmentNumber || learner.admissionNumber || 'No assessment number'}</p>
+                  </div>
+                  {learner.attendance.isChronicAbsent && <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Attendance concern</span>}
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="min-w-0"><dt className="text-slate-500">Guardian</dt><dd className="mt-1 break-words font-medium text-slate-800 dark:text-slate-200">{learner.guardianName}<span className="mt-0.5 block text-slate-500">{learner.guardianPhone}</span></dd></div>
+                  <div><dt className="text-slate-500">Attendance</dt><dd className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{learner.attendance.attendanceRate}% <span className="font-normal text-slate-500">({learner.attendance.presentDays}/{learner.attendance.totalDays} days)</span></dd><dd className="mt-1 text-slate-500">Academic average: <span className="font-semibold text-slate-800 dark:text-slate-200">{learner.academicAverage !== null ? `${learner.academicAverage}%` : 'Pending'}</span></dd></div>
+                </dl>
+                <div className="flex gap-2">
+                  {(['profile', 'contact'] as const).map(panel => (
+                    <button key={panel} onClick={() => setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('studentId', learner.studentId); next.set('panel', panel); return next; })} className="min-h-11 flex-1 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-sky-700 dark:border-slate-700 dark:text-sky-300">{panel === 'profile' ? 'View profile' : 'Contact guardian'}</button>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden lg:block overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Class learner directory" tabIndex={0}>
             <table className="w-full text-left text-xs min-w-[640px]">
-              <thead className="bg-sky-50/60 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border-b border-sky-100 dark:border-[#162b4d] font-bold uppercase text-[10px] tracking-wider">
+              <thead className="bg-sky-50/60 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-[#162b4d] font-bold uppercase text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-3.5 w-10 text-center">#</th>
                   <th className="py-3 px-4">Learner Name</th>
@@ -194,13 +198,13 @@ export const ClassLearnersView: React.FC = () => {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-sky-100/60 dark:divide-[#162b4d] font-medium">
+              <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d] font-medium">
                 {filteredLearners.map((learner, idx) => (
                   <tr
                     key={learner.studentId}
                     className={`hover:bg-sky-50/40 dark:hover:bg-[#0f2042] transition-colors ${
                       learner.attendance.isChronicAbsent ? 'bg-rose-50/20 dark:bg-rose-950/20' : ''
-                    }`}
+                    } `}
                   >
                     <td className="py-3 px-3.5 text-center text-slate-400 dark:text-slate-500 font-bold">
                       {idx + 1}
@@ -231,7 +235,7 @@ export const ClassLearnersView: React.FC = () => {
                         <span
                           className={`font-black text-xs ${
                             learner.attendance.isChronicAbsent ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'
-                          }`}
+                          } `}
                         >
                           {learner.attendance.attendanceRate}%
                         </span>
@@ -256,7 +260,7 @@ export const ClassLearnersView: React.FC = () => {
                               : learner.academicAverage >= 50
                               ? 'text-amber-700 dark:text-amber-400'
                               : 'text-rose-700 dark:text-rose-400'
-                          }`}
+                          } `}
                         >
                           {learner.academicAverage}%
                         </span>
@@ -304,6 +308,7 @@ export const ClassLearnersView: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

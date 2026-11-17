@@ -157,7 +157,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-slate-950/60 transition-opacity"
         />
 
         <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
@@ -167,10 +167,10 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-            className="w-screen h-full sm:max-w-2xl lg:max-w-3xl bg-white dark:bg-[#0c1830] border-l border-sky-100 dark:border-[#1a335a] shadow-2xl flex flex-col z-50"
+            className="w-screen h-full sm:max-w-2xl lg:max-w-3xl bg-white dark:bg-[#0c1830] border-l border-slate-200 dark:border-[#1a335a] shadow-2xl flex flex-col z-50"
           >
             {/* Top Navigation & Sticky Header */}
-            <div className="p-4 sm:p-5 border-b border-sky-100 dark:border-[#1a335a] bg-white/95 dark:bg-[#0c1830]/95 backdrop-blur-md shrink-0 space-y-3">
+            <div className="p-4 border-b border-slate-200 dark:border-[#1a335a] bg-white/95 dark:bg-[#0c1830]/95 shrink-0 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 {/* Mobile Back button or Desktop Title */}
                 <div className="flex items-center gap-3 min-w-0">
@@ -183,7 +183,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                     <ArrowLeft className="w-5 h-5" />
                   </button>
 
-                  <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                  <div className="w-10 h-10 rounded-lg bg-sky-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
                     {studentName[0] || 'L'}
                   </div>
 
@@ -221,7 +221,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                     activePanel === 'profile'
                       ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
+                  } `}
                 >
                   <BookOpen className="w-4 h-4 text-sky-500 shrink-0" />
                   <span>Academic Profile</span>
@@ -234,7 +234,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                     activePanel === 'contact'
                       ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
+                  } `}
                 >
                   <MessageSquare className="w-4 h-4 text-sky-500 shrink-0" />
                   <span>Contact Guardian</span>
@@ -243,10 +243,10 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
             </div>
 
             {/* Scrollable Slide-Over Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {/* TAB 1: ACADEMIC PROFILE */}
               {activePanel === 'profile' && (
-                <div className="space-y-4">
+                <div className="space-y-4 min-w-0">
                   {loading ? (
                     <div className="p-16 text-center text-slate-400 text-sm">
                       <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -259,7 +259,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                   ) : (
                     <>
                       {/* Performance Trend Card */}
-                      <div className="p-4 bg-sky-50/50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="p-4 bg-sky-50/50 dark:bg-sky-950/20 border border-slate-200 dark:border-sky-900/40 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             Academic Assessment Standing
@@ -330,14 +330,14 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                         </h4>
 
                         {!profile.examHistory || profile.examHistory.length === 0 ? (
-                          <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-sky-200 dark:border-slate-800 rounded-2xl">
+                          <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-sky-200 dark:border-slate-800 rounded-lg">
                             No recorded examination scores for this learner yet.
                           </div>
                         ) : (
                           profile.examHistory.map((ex: any) => (
                             <div
                               key={ex.examId}
-                              className="p-4 bg-white dark:bg-slate-900/60 border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-xs space-y-3"
+                              className="workspace-panel shadow-xs space-y-3"
                             >
                               <div className="flex items-center justify-between border-b border-sky-50 dark:border-slate-800 pb-2.5">
                                 <div>
@@ -357,7 +357,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                               </div>
 
                               {/* Subject scores table */}
-                              <div className="overflow-x-auto">
+                              <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                                 <table className="w-full text-xs text-left min-w-[480px]">
                                   <thead className="text-[10px] text-slate-400 font-bold uppercase border-b border-sky-50 dark:border-slate-800">
                                     <tr>
@@ -400,7 +400,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                                                     : sc.juniorPoints === 2
                                                     ? 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/60 dark:text-orange-300'
                                                     : 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300'
-                                                }`}
+                                                } `}
                                               >
                                                 {sc.juniorPoints} pts
                                               </span>
@@ -417,7 +417,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                                                   : sc.cbcRubricLevel === 'AE'
                                                   ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800'
                                                   : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                                              }`}
+                                              } `}
                                             >
                                               {sc.cbcRubricLevel}
                                             </span>
@@ -444,9 +444,9 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
 
               {/* TAB 2: GUARDIAN OUTREACH / SMS */}
               {activePanel === 'contact' && (
-                <div className="space-y-4">
+                <div className="space-y-4 min-w-0">
                   {/* Recipient Card */}
-                  <div className="p-4 bg-sky-50/70 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/40 rounded-2xl flex items-center justify-between gap-3">
+                  <div className="p-4 bg-sky-50/70 dark:bg-sky-950/30 border border-slate-200 dark:border-sky-900/40 rounded-lg flex items-center justify-between gap-3">
                     <div>
                       <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
                         {guardianName}
@@ -496,7 +496,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                             templateType === t.id
                               ? 'bg-sky-50 dark:bg-sky-950/60 border-sky-400 dark:border-sky-500 shadow-xs'
                               : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-sky-200 dark:hover:border-slate-700'
-                          }`}
+                          } `}
                         >
                           <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between">
                             {t.title}
@@ -563,7 +563,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
                       type="button"
                       onClick={handleSendSms}
                       disabled={sendingSms || !guardianPhone}
-                      className="px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {sendingSms ? (
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
