@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Plus, CheckCircle, Printer, FileText, X, Eye, UserCheck, Calendar, FileCheck, ShieldAlert } from 'lucide-react';
@@ -290,7 +291,7 @@ export const LeaveManagementView: React.FC = () => {
       subtitle="Synchronizing departure permissions, standing-in teachers, and return status..."
       icon={Clock}
     >
-      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
+      <div className="workspace-page">
       {/* Print Stylesheet injection */}
       <style>{`
         @media print {
@@ -328,38 +329,27 @@ export const LeaveManagementView: React.FC = () => {
       `}</style>
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-xl border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl shadow-xs">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">
-            <Clock className="w-4 h-4" />
-            Staff Absence & Permissions
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Teaching Staff Leave Out Sheets</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
-            Log official duty and personal permission slips, assign standing-in teachers, and print standardized academy leave out sheets.
-          </p>
-        </div>
-
-        <button
+      <WorkspaceHeader icon={Clock} title="Teacher Leave-Outs" description="Record leave, assign cover, and print leave slips.">
+<button
           onClick={handleOpenModal}
           className="w-full sm:w-auto justify-center min-h-[40px] px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-xs flex items-center gap-2 shadow-xs transition-colors shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Log Leave Out Slip
         </button>
-      </div>
+      </WorkspaceHeader>
 
       {/* Leave Requests Table */}
-      <div className="p-5 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-4 shadow-xs">
+      <div className="p-3 sm:p-4 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-lg space-y-4 shadow-xs min-w-0">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Clock className="w-3.5 h-3.5 text-sky-500" />
             Teacher Leave History ({requests.length} {requests.length === 1 ? 'Record' : 'Records'})
           </h3>
           <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Standardized Academy Format</span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
           <table className="w-full text-left text-xs min-w-[700px]">
             <thead className="bg-slate-50/70 dark:bg-[#081224] text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider border-b border-slate-200/60 dark:border-[#1a335a]">
               <tr>
@@ -381,13 +371,13 @@ export const LeaveManagementView: React.FC = () => {
                 requests.map((row) => (
                   <tr key={row.request.id} className="hover:bg-slate-50/50 dark:hover:bg-[#0f2042]/50 transition-colors">
                     {/* Teacher Column */}
-                    <td className="py-3.5 px-4 align-middle">
+                    <td className="py-2.5 px-4 align-middle">
                       <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs sm:text-sm">
                         {row.teacher.firstName} {row.teacher.lastName}
                       </div>
                       {row.classTeacherOf ? (
                         <div className="mt-1">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/40">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-sky-900/40">
                             Class Teacher · {row.classTeacherOf.name}
                           </span>
                         </div>
@@ -399,7 +389,7 @@ export const LeaveManagementView: React.FC = () => {
                     </td>
 
                     {/* Schedule & Duration Column */}
-                    <td className="py-3.5 px-4 align-middle">
+                    <td className="py-2.5 px-4 align-middle">
                       <div className="font-medium text-slate-700 dark:text-slate-200 text-xs">
                         {formatDate(row.request.startDate)} · {row.departureTime || 'Morning'}
                       </div>
@@ -409,7 +399,7 @@ export const LeaveManagementView: React.FC = () => {
                     </td>
 
                     {/* Substitute Teacher Column */}
-                    <td className="py-3.5 px-4 align-middle">
+                    <td className="py-2.5 px-4 align-middle">
                       {row.standingInTeacher ? (
                         <div>
                           <div className="font-medium text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5">
@@ -428,7 +418,7 @@ export const LeaveManagementView: React.FC = () => {
                     </td>
 
                     {/* Status Column */}
-                    <td className="py-3.5 px-4 align-middle text-center">
+                    <td className="py-2.5 px-4 align-middle text-center">
                       {row.isReturned ? (
                         <div className="inline-flex flex-col items-center">
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -450,7 +440,7 @@ export const LeaveManagementView: React.FC = () => {
                     </td>
 
                     {/* Actions Column */}
-                    <td className="py-3.5 px-4 align-middle text-right">
+                    <td className="py-2.5 px-4 align-middle text-right">
                       <div className="inline-flex items-center justify-end gap-2">
                         {!row.isReturned && (
                           <button
@@ -497,7 +487,7 @@ export const LeaveManagementView: React.FC = () => {
         title="Log Teaching Staff Leave Out Sheet"
         maxWidth="max-w-2xl"
       >
-        <form onSubmit={handleCreateLeave} className="space-y-4">
+        <form onSubmit={handleCreateLeave} className="space-y-4 min-w-0">
           <div className={selectedTeacherClass ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -581,7 +571,7 @@ export const LeaveManagementView: React.FC = () => {
                 required
                 value={form.startDate}
                 onChange={(e) => setForm({ ...form, startDate: e.target.value, endDate: e.target.value })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
@@ -595,7 +585,7 @@ export const LeaveManagementView: React.FC = () => {
                 placeholder="e.g. 08:30 AM"
                 value={form.departureTime}
                 onChange={(e) => setForm({ ...form, departureTime: e.target.value })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
@@ -611,7 +601,7 @@ export const LeaveManagementView: React.FC = () => {
                   placeholder="Qty"
                   value={form.durationValue}
                   onChange={(e) => setForm({ ...form, durationValue: Math.max(1, parseInt(e.target.value) || 1) })}
-                  className="w-20 bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                  className="w-20 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
                 />
                 <div className="flex-1">
                   <SearchableSelect
@@ -630,7 +620,7 @@ export const LeaveManagementView: React.FC = () => {
           </div>
 
           {/* 3 Numbered Reasons matching physical slip */}
-          <div className="p-3.5 bg-sky-50/50 dark:bg-[#0c1830]/60 border border-sky-100 dark:border-[#162b4d] rounded-2xl space-y-2.5">
+          <div className="p-3.5 bg-sky-50/50 dark:bg-[#0c1830]/60 border border-slate-200 dark:border-[#162b4d] rounded-lg space-y-2.5">
             <span className="text-xs font-bold text-sky-900 dark:text-sky-300 block">
               Reasons for Seeking Permission (Numbered lines on Leave Out Sheet):
             </span>
@@ -654,7 +644,7 @@ export const LeaveManagementView: React.FC = () => {
                 placeholder="e.g. Follow up on student examination registration materials..."
                 value={form.reason2}
                 onChange={(e) => setForm({ ...form, reason2: e.target.value })}
-                className="w-full bg-white dark:bg-[#091326] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
@@ -665,7 +655,7 @@ export const LeaveManagementView: React.FC = () => {
                 placeholder="e.g. Medical consultation..."
                 value={form.reason3}
                 onChange={(e) => setForm({ ...form, reason3: e.target.value })}
-                className="w-full bg-white dark:bg-[#091326] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
@@ -679,11 +669,11 @@ export const LeaveManagementView: React.FC = () => {
               placeholder="e.g. Approved official duties out of school premises"
               value={form.deputyReason}
               onChange={(e) => setForm({ ...form, deputyReason: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100 dark:border-[#162b4d]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#162b4d]">
             <button
               type="button"
               onClick={() => setShowModal(false)}
@@ -694,7 +684,7 @@ export const LeaveManagementView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
               {submitting ? 'Saving...' : 'Save & Generate Slip'}
@@ -707,14 +697,14 @@ export const LeaveManagementView: React.FC = () => {
       {printSlipData && (
         <div
           id="leave-slip-modal-root"
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex"
+          className="fixed inset-0 z-50 bg-slate-950/70 flex"
         >
           {/* Left Sidebar — Summary Details (hidden on print) */}
           <div className="no-print hidden lg:flex flex-col w-72 sm:w-80 bg-white dark:bg-[#0c1830] border-r border-slate-200 dark:border-[#1a335a] shrink-0">
             {/* Sidebar header */}
             <div className="p-5 border-b border-slate-100 dark:border-[#1a335a]">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-slate-200 dark:border-sky-900/40 flex items-center justify-center text-sky-600 dark:text-sky-400">
                   <FileText className="w-4 h-4" />
                 </div>
                 <div>
@@ -725,7 +715,7 @@ export const LeaveManagementView: React.FC = () => {
             </div>
 
             {/* Metadata list */}
-            <div className="p-5 space-y-4 flex-1 overflow-y-auto text-xs">
+            <div className="p-5 space-y-4 flex-1 overflow-y-auto text-xs min-w-0">
               <div>
                 <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                   Teacher Seeking Leave
@@ -734,7 +724,7 @@ export const LeaveManagementView: React.FC = () => {
                   {printSlipData.teacher.firstName} {printSlipData.teacher.lastName}
                 </p>
                 {printSlipData.classTeacherOf ? (
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-sky-900/40">
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-sky-900/40">
                     Class Teacher · {printSlipData.classTeacherOf.name}
                   </span>
                 ) : (
@@ -839,7 +829,7 @@ export const LeaveManagementView: React.FC = () => {
             </div>
 
             {/* Scrollable Document Area with Muted Backdrop */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-8 md:p-12 bg-slate-100 dark:bg-[#060c18]">
+            <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-8 md:p-12 bg-slate-100 dark:bg-[#060c18] max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
               {/* Pure White A4 Physical Document (Never dark/inverted) */}
               <div
                 id="leave-slip-printable"

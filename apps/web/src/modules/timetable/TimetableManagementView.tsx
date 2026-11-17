@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -133,7 +134,7 @@ const TeacherSelectDropdown: React.FC<{
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
             isOpen ? 'rotate-180 text-sky-500' : ''
-          }`}
+          } `}
         />
       </button>
 
@@ -144,7 +145,7 @@ const TeacherSelectDropdown: React.FC<{
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1.5 w-72 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-xl z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-1.5 w-72 bg-white/95 dark:bg-[#091326]/95 border border-slate-200 dark:border-[#162b4d] rounded-lg shadow-xl z-50 overflow-hidden"
           >
             {teachers.length > 5 && (
               <div className="p-2 border-b border-slate-100 dark:border-[#162b4d]">
@@ -164,7 +165,7 @@ const TeacherSelectDropdown: React.FC<{
 
             <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
               {filteredTeachers.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-slate-400">
+                <div className="px-3 py-3 text-center text-xs text-slate-400">
                   No matching teachers found
                 </div>
               ) : (
@@ -182,7 +183,7 @@ const TeacherSelectDropdown: React.FC<{
                         isSelected
                           ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 font-bold'
                           : 'hover:bg-slate-50 dark:hover:bg-[#0c1830] text-slate-700 dark:text-slate-300'
-                      }`}
+                      } `}
                     >
                       <div className="flex items-center gap-2 truncate">
                         <div
@@ -190,7 +191,7 @@ const TeacherSelectDropdown: React.FC<{
                             isSelected
                               ? 'bg-sky-500 text-white border-sky-600'
                               : 'bg-slate-100 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-[#162b4d]'
-                          }`}
+                          } `}
                         >
                           {getInitials(t.firstName, t.lastName)}
                         </div>
@@ -279,7 +280,7 @@ const GradeSelectDropdown: React.FC<{
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
             isOpen ? 'rotate-180 text-sky-500' : ''
-          }`}
+          } `}
         />
       </button>
 
@@ -290,7 +291,7 @@ const GradeSelectDropdown: React.FC<{
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1.5 w-64 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-xl z-50 overflow-hidden p-1.5 space-y-0.5"
+            className="absolute right-0 top-full mt-1.5 w-64 bg-white/95 dark:bg-[#091326]/95 border border-slate-200 dark:border-[#162b4d] rounded-lg shadow-xl z-50 overflow-hidden p-1.5 space-y-0.5"
           >
             {classes.map((cls) => {
               const isSelected = cls.id === selectedId;
@@ -306,11 +307,11 @@ const GradeSelectDropdown: React.FC<{
                     isSelected
                       ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 font-bold'
                       : 'hover:bg-slate-50 dark:hover:bg-[#0c1830] text-slate-700 dark:text-slate-300'
-                  }`}
+                  } `}
                 >
                   <div className="flex items-center gap-2 truncate">
                     <GraduationCap
-                      className={`w-4 h-4 shrink-0 ${isSelected ? 'text-sky-500' : 'text-slate-400'}`}
+                      className={`w-4 h-4 shrink-0 ${isSelected ? 'text-sky-500' : 'text-slate-400'} `}
                     />
                     <div className="truncate">
                       <span className="block truncate font-bold">{cls.name}</span>
@@ -743,10 +744,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       icon={Calendar}
     >
       {isDeputy && allocationsStatus && !allocationsStatus.isReady ? (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
-        <div className="rounded-3xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-[#0c182d] p-6 sm:p-8 shadow-sm">
+      <div className="workspace-page max-w-5xl mx-auto">
+        <div className="rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-[#0c182d] p-6 sm:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-6 border-b border-amber-200/80 dark:border-amber-900/40">
-            <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
+            <div className="w-14 h-14 rounded-lg bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 flex items-center justify-center text-amber-700 dark:text-amber-400 shrink-0">
               <AlertTriangle className="w-7 h-7" />
             </div>
             <div>
@@ -760,7 +761,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           </div>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#091326] border border-amber-100 dark:border-amber-900/30">
+            <div className="workspace-panel border-amber-100">
               <span className="text-xs font-semibold text-slate-500">Allocation Progress:</span>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-amber-700 dark:text-amber-400">
@@ -778,7 +779,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#091326] border border-amber-100 dark:border-amber-900/30 flex flex-col justify-center">
+            <div className="workspace-panel border-amber-100 flex flex-col justify-center">
               <span className="text-xs font-semibold text-slate-500">Next Step:</span>
               <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
                 Complete teacher assignments in the Teacher Allocations module to enable automatic schedule generation.
@@ -841,28 +842,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         </div>
       </div>
     ) : (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      <div className="workspace-page">
       {/* Top Banner & Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                {isDeputy ? 'School Timetable (Grades 4–9)' : 'My Timetable'}
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {isDeputy
-                  ? `Academic Year ${academicYear} • Term ${term} • Eldoret Muslim Academy`
-                  : `Personal Teaching Schedule • ${user?.firstName || 'Teacher'} ${user?.lastName || ''}`}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Global Action Buttons */}
+      <WorkspaceHeader icon={Calendar} title={isDeputy ? 'School Timetable' : 'My Timetable'} description={`Academic year ${academicYear} · Term ${term}`}>
+{/* Global Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
           {isDeputy && (
             <button
@@ -884,7 +867,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
             A4 Print Preview
           </button>
         </div>
-      </div>
+      </WorkspaceHeader>
 
       {/* Navigation Tabs Bar: Only Class Timetables & Teachers Timetables (Master removed) */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -894,18 +877,18 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
             <span>Personal Teaching Schedule</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] rounded-2xl w-fit">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-[#091326] rounded-lg w-fit">
             <button
               type="button"
               disabled={swapping}
               onClick={() => handleTabChange('class')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 swapping ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-              } ${
+              }  ${
                 activeTab === 'class'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              } `}
             >
               Class Timetables
             </button>
@@ -916,11 +899,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
               onClick={() => handleTabChange('teacher')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 swapping ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-              } ${
+              }  ${
                 activeTab === 'teacher'
                   ? 'bg-white dark:bg-sky-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              } `}
             >
               Teachers Timetables
             </button>
@@ -979,11 +962,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs transition-all ${
+          className={`p-3.5 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs transition-all ${
             swapping
               ? 'bg-sky-100/90 dark:bg-sky-950/80 border-sky-300 dark:border-sky-700 text-sky-950 dark:text-sky-100'
               : 'bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200'
-          }`}
+          } `}
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -1056,8 +1039,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         </div>
       ) : slotsList.length === 0 ? (
         /* Empty State / First-Time Deputy Onboarding */
-        <div className="py-16 text-center p-8 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-[#091326] max-w-2xl mx-auto">
-          <div className="w-14 h-14 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 mx-auto mb-4">
+        <div className="py-16 text-center p-8 rounded-lg border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-[#091326] max-w-2xl mx-auto">
+          <div className="w-14 h-14 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 mx-auto mb-4">
             <Sparkles className="w-7 h-7" />
           </div>
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">
@@ -1079,9 +1062,9 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         </div>
       ) : (
         /* CLASSIC TIMETABLE GRID: Columns = Periods/Time, Rows = Days of the Week */
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Subheader info badge */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0b172e] border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+          <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0b172e] border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
             <span className="font-bold text-slate-800 dark:text-slate-200">
               {activeTab === 'class' ? `Class Schedule: ${activeClassName}` : `Teacher Schedule: ${activeTeacherName}`}
             </span>
@@ -1090,8 +1073,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
             </span>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#091326] shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#091326] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="w-full border-collapse text-xs min-w-[900px]">
                 {/* TABLE HEADER: Periods & Times as Columns */}
                 <thead>
@@ -1106,7 +1089,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                           col.isBreak
                             ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 min-w-[100px]'
                             : 'min-w-[130px]'
-                        }`}
+                        } `}
                       >
                         {col.isBreak ? (
                           <div>
@@ -1215,7 +1198,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                               key={colIdx}
                               className={`p-1.5 border-r border-slate-200 dark:border-slate-800 last:border-r-0 align-middle transition-colors ${
                                 isSelected || isSwappingTarget ? 'bg-sky-100/80 dark:bg-sky-950/80' : ''
-                              }`}
+                              } `}
                             >
                               {lesson ? (
                                 <div
@@ -1229,9 +1212,9 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                         ? 'cursor-wait'
                                         : 'cursor-pointer hover:shadow-xs hover:scale-[1.01]'
                                       : ''
-                                  } ${getSubjectBadgeColor(
+                                  }  ${getSubjectBadgeColor(
                                     lesson.subjectCode || lesson.subjectName
-                                  )} ${
+                                  )}  ${
                                     isSwappingTarget
                                       ? 'ring-2 ring-sky-500 shadow-md scale-[1.02] bg-sky-100/70 dark:bg-sky-950/70 animate-pulse'
                                       : isSelected
@@ -1247,7 +1230,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
                                         ? 'opacity-80 animate-pulse cursor-wait'
                                         : ''
                                       : ''
-                                  }`}
+                                  } `}
                                   title={
                                     isDeputy
                                       ? swapping
