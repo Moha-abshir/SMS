@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -234,8 +235,8 @@ export const ClassExamProgressView: React.FC = () => {
     >
       {/* If user is not an allocated class teacher */}
       {!assignedClass ? (
-        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
+        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4 min-w-0">
+          <div className="w-16 h-16 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
             <AlertCircle className="w-8 h-8" />
           </div>
           <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
@@ -247,8 +248,8 @@ export const ClassExamProgressView: React.FC = () => {
         </div>
       ) : isLowerOrPP ? (
         /* If user is Class Teacher of PP1 - Grade 3 (Self-contained) */
-        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
+        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4 min-w-0">
+          <div className="w-16 h-16 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
             <BookOpen className="w-8 h-8" />
           </div>
           <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
@@ -260,26 +261,13 @@ export const ClassExamProgressView: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="space-y-6 max-w-6xl mx-auto pb-16">
+        <div className="workspace-page pb-8">
           {/* Top Header Card */}
-      <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-glass">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
-              <Layers className="w-4 h-4 text-sky-500" />
-              Class Teacher Oversight • {assignedClass.className}
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              Class Examination Progress & Submission
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Monitor marksheet submissions from all assigned Subject Teachers for {assignedClass.className}. Once all subjects have been completed, forward the entire class marksheet to the Deputy Head for review and lock.
-            </p>
-          </div>
-
-          {/* Active Examination Pill */}
-          <div className="flex items-center gap-3 p-3 sm:px-4 sm:py-2.5 bg-sky-50/70 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-2xl shrink-0 shadow-xs">
-            <div className="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center font-black text-sm shrink-0">
+      <div className="space-y-3">
+        <WorkspaceHeader icon={Layers} title="Class Exam Progress" description="Review subject submissions before forwarding the class marksheet.">
+{/* Active Examination Pill */}
+          <div className="flex items-center gap-3 p-3 sm:px-4 sm:py-2.5 bg-sky-50/70 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-lg shrink-0 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center font-black text-sm shrink-0">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
@@ -291,11 +279,11 @@ export const ClassExamProgressView: React.FC = () => {
               </span>
             </div>
           </div>
-        </div>
+      </WorkspaceHeader>
 
         {/* Examination Selector Tabs (if multiple exams exist) */}
         {exams.length > 1 && (
-          <div className="mt-5 pt-4 border-t border-sky-100 dark:border-[#162b4d] flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#162b4d] flex items-center gap-2 overflow-x-auto pb-1 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0 mr-1">
               Examination:
             </span>
@@ -307,7 +295,7 @@ export const ClassExamProgressView: React.FC = () => {
                   selectedExamId === ex.id
                     ? 'bg-sky-500 text-white shadow-xs'
                     : 'bg-white dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border border-sky-100 dark:border-[#162b4d] hover:bg-sky-50 dark:hover:bg-[#122444]'
-                }`}
+                } `}
               >
                 {typeof ex.title === 'string' ? ex.title : 'Examination'}
               </button>
@@ -317,7 +305,7 @@ export const ClassExamProgressView: React.FC = () => {
       </div>
 
       {/* Progress & Submission Call-to-Action Bar */}
-      <div className="bg-white/90 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-glass space-y-5">
+      <div className="space-y-3 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -331,7 +319,7 @@ export const ClassExamProgressView: React.FC = () => {
               </span>
             </div>
 
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
               {isPermanentlyLocked
                 ? 'Class Marksheet Permanently Locked & Submitted'
                 : isAllSubmittedOrApproved
@@ -351,7 +339,7 @@ export const ClassExamProgressView: React.FC = () => {
           {/* Action Button */}
           <div className="shrink-0">
             {isPermanentlyLocked ? (
-              <div className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs">
+              <div className="px-5 py-3 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs">
                 <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Permanently Locked & Submitted
               </div>
@@ -359,11 +347,11 @@ export const ClassExamProgressView: React.FC = () => {
               <button
                 onClick={handleOpenConfirmSubmit}
                 disabled={!isAllSubmittedOrApproved || submittingToDeputy}
-                className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs transition-all ${
+                className={`px-5 py-3 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs transition-all ${
                   isAllSubmittedOrApproved
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-102 active:scale-98 cursor-pointer'
                     : 'bg-slate-100 dark:bg-[#0c1830] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#162b4d] cursor-not-allowed opacity-75'
-                }`}
+                } `}
               >
                 {submittingToDeputy ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -392,7 +380,7 @@ export const ClassExamProgressView: React.FC = () => {
                 isPermanentlyLocked || isSubmittedToDeputy || isAllSubmittedOrApproved
                   ? 'bg-emerald-500'
                   : 'bg-gradient-to-r from-sky-500 to-indigo-600'
-              }`}
+              } `}
               style={{ width: `${completionPercent}%` }}
             />
           </div>
@@ -437,7 +425,7 @@ export const ClassExamProgressView: React.FC = () => {
       </div>
 
       {/* Subject Papers Breakdown List */}
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
@@ -463,7 +451,7 @@ export const ClassExamProgressView: React.FC = () => {
 
         {/* Active Correction Requests Advisory Banner */}
         {correctionCount > 0 && (
-          <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-xs">
+          <div className="p-4 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
                 <AlertCircle className="w-5 h-5" />
@@ -481,7 +469,7 @@ export const ClassExamProgressView: React.FC = () => {
         )}
 
         {filteredPapers.length === 0 ? (
-          <div className="p-8 text-center bg-white dark:bg-[#091326] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-2">
+          <div className="p-8 text-center bg-white dark:bg-[#091326] rounded-lg border border-slate-200 dark:border-[#162b4d] space-y-2">
             <BookOpen className="w-8 h-8 text-slate-400 mx-auto" />
             <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
               No subjects match your query
@@ -544,11 +532,11 @@ export const ClassExamProgressView: React.FC = () => {
               return (
                 <div
                   key={paper.subjectId}
-                  className={`p-4 sm:p-5 backdrop-blur-md rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs ${
+                  className={`p-4 sm:p-5 backdrop-blur-md rounded-lg border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs ${
                     isCorrectionRequested
                       ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/80 ring-2 ring-amber-400/20'
                       : 'bg-white/90 dark:bg-[#091326]/90 border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700'
-                  }`}
+                  } `}
                 >
                   {/* Left: Subject & Specialist Info */}
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -608,7 +596,7 @@ export const ClassExamProgressView: React.FC = () => {
                           isCorrectionRequested
                             ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs active:scale-95'
                             : 'bg-sky-50 hover:bg-sky-100 dark:bg-[#0c1830] dark:hover:bg-[#122444] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#162b4d]'
-                        }`}
+                        } `}
                       >
                         <Eye className="w-3.5 h-3.5" />
                         {isCorrectionRequested ? 'Review & Unlock' : 'Inspect & Regulate'}
@@ -641,8 +629,8 @@ export const ClassExamProgressView: React.FC = () => {
         title="Submit Class Marksheet to Deputy Head"
         maxWidth="max-w-lg"
       >
-        <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+        <div className="space-y-4 min-w-0">
+          <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="text-xs space-y-1.5">
               <h4 className="font-bold text-amber-900 dark:text-amber-200">

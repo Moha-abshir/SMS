@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, ShieldAlert, UserX, UserCheck, MailWarning, Clock, Ban, Send, RefreshCw, Lock, AlertTriangle, Mail, CheckCircle2, XCircle, FileText, BookOpen, Users, Trash2, Phone, Sparkles } from 'lucide-react';
@@ -378,7 +379,7 @@ export const StaffManagementView: React.FC = () => {
               s.isActive
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50'
                 : 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50'
-            }`}
+            } `}
           >
             {s.isActive ? <UserCheck className="w-3.5 h-3.5 text-emerald-500" /> : <UserX className="w-3.5 h-3.5 text-rose-500" />}
             {s.isActive ? 'Active' : 'Deactivated & Blocked'}
@@ -508,7 +509,7 @@ export const StaffManagementView: React.FC = () => {
               s.classTeacherFor && s.classTeacherFor.length > 0
                 ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
                 : 'text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-            }`}
+            } `}
             title={
               s.classTeacherFor && s.classTeacherFor.length > 0
                 ? `Active Class Teacher for ${s.classTeacherFor.map((c: any) => c.name).join(', ')} (Cannot be deactivated)`
@@ -598,20 +599,9 @@ export const StaffManagementView: React.FC = () => {
       subtitle="Loading staff profiles, roles, and security credentials..."
       icon={Users}
     >
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-white/80 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <Users className="w-4 h-4 text-sky-500" />
-            Human Resources & Staff Management
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Staff Directory & User Invitations</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
-            Manage school employees, subject qualifications, role invitations, and employment contracts.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
+      <div className="workspace-page">
+        <WorkspaceHeader icon={Users} title="Staff Directory" description="Manage staff, teaching qualifications, invitations, and contracts.">
+<div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setShowSubjectModal(true)}
             className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-50 dark:bg-[#0c1830] hover:bg-sky-100/80 dark:hover:bg-[#122347] text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-[#162b4d] rounded-xl font-bold text-xs flex items-center gap-2 transition-all min-h-[42px] cursor-pointer"
@@ -623,16 +613,16 @@ export const StaffManagementView: React.FC = () => {
               resetForm();
               setShowInviteModal(true);
             }}
-            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md shadow-sky-500/20 transition-all min-h-[42px] cursor-pointer"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md shadow-sky-500/20 transition-all min-h-[42px] cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Invite Staff
           </button>
         </div>
-      </div>
+      </WorkspaceHeader>
 
       {/* Directory Section Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white/80 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-2xl shadow-xs">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-lg shadow-xs">
           <button
             type="button"
             onClick={() => setActiveTab('ACTIVE')}
@@ -640,7 +630,7 @@ export const StaffManagementView: React.FC = () => {
               activeTab === 'ACTIVE'
                 ? 'bg-sky-500 text-white shadow-glass'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-sky-50/50 dark:hover:bg-slate-800/50'
-            }`}
+            } `}
           >
             <UserCheck className="w-4 h-4 text-emerald-400" />
             <span>Active Staff ({activeStaff.length})</span>
@@ -653,7 +643,7 @@ export const StaffManagementView: React.FC = () => {
               activeTab === 'INVITATIONS'
                 ? 'bg-sky-500 text-white shadow-glass'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-sky-50/50 dark:hover:bg-slate-800/50'
-            }`}
+            } `}
           >
             <Mail className="w-4 h-4 text-sky-400" />
             <span>Pending Invitations ({pendingInvitations.length})</span>
@@ -666,7 +656,7 @@ export const StaffManagementView: React.FC = () => {
               activeTab === 'DEACTIVATED'
                 ? 'bg-rose-500 text-white shadow-glass'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-rose-50/50 dark:hover:bg-slate-800/50'
-            }`}
+            } `}
           >
             <UserX className="w-4 h-4 text-rose-400" />
             <span>Deactivated Staff ({deactivatedStaff.length})</span>
@@ -680,7 +670,7 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Zero Trust Alert Banner when on Deactivated Tab */}
       {activeTab === 'DEACTIVATED' && (
-        <div className="p-3.5 sm:p-4 bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 rounded-2xl flex items-start sm:items-center gap-3 text-xs text-rose-900 dark:text-rose-200 shadow-xs">
+        <div className="p-3.5 sm:p-4 bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 rounded-lg flex items-start sm:items-center gap-3 text-xs text-rose-900 dark:text-rose-200 shadow-xs">
           <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
           <div className="flex-1 leading-relaxed">
             <strong className="font-bold">Zero-Trust Access Restriction:</strong> Deactivated staff accounts are completely blocked from logging in, accessing school portals, and taking roll call. All active session tokens have been revoked. Click <strong>Reactivate</strong> on any staff member below to restore access.
@@ -689,9 +679,9 @@ export const StaffManagementView: React.FC = () => {
       )}
 
       {/* Staff Directory Container: Responsive Cards for Mobile/Tablet (< lg) + Pristine Wide Table for Desktop (>= lg) */}
-      <div className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-glass border border-sky-100 dark:border-[#162b4d] overflow-hidden">
+      <div className="bg-white dark:bg-[#091326]/90 rounded-lg shadow-sm border border-slate-200 dark:border-[#162b4d] overflow-hidden">
         {/* 1. Mobile & Split-Screen Responsive Card List (< lg) */}
-        <div className="lg:hidden divide-y divide-sky-100/70 dark:divide-[#162b4d]/70">
+        <div className="lg:hidden divide-y divide-slate-100 dark:divide-[#162b4d]/70">
           {displayedList.length === 0 ? (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
               {activeTab === 'ACTIVE' && 'No active staff members found.'}
@@ -724,7 +714,7 @@ export const StaffManagementView: React.FC = () => {
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-1.5">
-                    <span className="px-2.5 py-0.5 bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold whitespace-nowrap">
+                    <span className="px-2.5 py-0.5 bg-sky-50 dark:bg-sky-950/60 border border-slate-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold whitespace-nowrap">
                       {s.roleName ? s.roleName.replace(/_/g, ' ') : 'STAFF'}
                     </span>
                     <div>{getStatusBadge(s)}</div>
@@ -766,10 +756,10 @@ export const StaffManagementView: React.FC = () => {
         </div>
 
         {/* 2. Desktop Wide Table View (>= lg) */}
-        <div className="hidden lg:block overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
           <table className="w-full text-left border-collapse min-w-[880px]">
             <thead>
-              <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-sky-100 dark:border-[#162b4d] text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold sticky top-0 z-10 backdrop-blur-md">
+              <tr className="bg-sky-50/70 dark:bg-[#0c1830] border-b border-slate-200 dark:border-[#162b4d] text-xs uppercase tracking-wider text-slate-600 dark:text-slate-300 font-bold sticky top-0 z-10">
                 <th className="p-3.5 sm:p-4 min-w-[280px]">Staff Member</th>
                 <th className="p-3.5 sm:p-4 min-w-[130px]">Role</th>
                 <th className="p-3.5 sm:p-4 min-w-[220px]">Contact Info</th>
@@ -818,7 +808,7 @@ export const StaffManagementView: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950/60 border border-sky-100 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold whitespace-nowrap inline-block">
+                      <span className="px-2.5 py-1 bg-sky-50 dark:bg-sky-950/60 border border-slate-200 dark:border-[#162b4d] text-sky-700 dark:text-sky-300 rounded-lg text-xs font-semibold whitespace-nowrap inline-block">
                         {s.roleName ? s.roleName.replace(/_/g, ' ') : 'STAFF'}
                       </span>
                     </td>
@@ -848,9 +838,9 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Invite Staff Modal */}
       <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite New Staff" maxWidth="max-w-2xl lg:max-w-3xl">
-        <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2">
+        <form onSubmit={handleInviteSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 sm:px-2 min-w-0">
           
-          <div className="pb-2 border-b border-sky-100">
+          <div className="pb-2 border-b border-slate-200">
             <h3 className="text-sm font-bold text-slate-800">Personal Details</h3>
           </div>
           
@@ -880,7 +870,7 @@ export const StaffManagementView: React.FC = () => {
             <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-white border border-sky-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:border-sky-500 outline-none transition-colors" />
           </div>
 
-          <div className="pb-2 pt-4 border-b border-sky-100">
+          <div className="pb-2 pt-4 border-b border-slate-200">
             <h3 className="text-sm font-bold text-slate-800">Professional Details</h3>
           </div>
 
@@ -919,7 +909,7 @@ export const StaffManagementView: React.FC = () => {
             />
           )}
 
-          <div className="pb-2 pt-4 border-b border-sky-100">
+          <div className="pb-2 pt-4 border-b border-slate-200">
             <h3 className="text-sm font-bold text-slate-800">Financial Details</h3>
           </div>
           
@@ -934,7 +924,7 @@ export const StaffManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 mt-4 sm:mt-6 border-t border-sky-100 sticky bottom-0 bg-white">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 mt-4 sm:mt-6 border-t border-slate-200 sticky bottom-0 bg-white">
             <button type="button" onClick={() => setShowInviteModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
             <button
               type="button"
@@ -946,7 +936,7 @@ export const StaffManagementView: React.FC = () => {
             <button
               type="submit"
               disabled={submittingInvite}
-              className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-glass min-h-[40px] transition-all"
+              className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm min-h-[40px] transition-all"
             >
               {submittingInvite ? (
                 <>
@@ -966,9 +956,9 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Edit Staff Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Staff Details" maxWidth="max-w-2xl lg:max-w-3xl">
-        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1 sm:px-2">
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1 sm:px-2 min-w-0">
           
-          <div className="pb-2 border-b border-sky-100 dark:border-[#162b4d]">
+          <div className="pb-2 border-b border-slate-200 dark:border-[#162b4d]">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Personal Details</h3>
           </div>
 
@@ -997,7 +987,7 @@ export const StaffManagementView: React.FC = () => {
             <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full bg-white dark:bg-[#081224] border border-sky-200 dark:border-[#162b4d] rounded-xl px-4 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:border-sky-500 outline-none transition-colors" />
           </div>
 
-          <div className="pb-2 pt-4 border-b border-sky-100 dark:border-[#162b4d]">
+          <div className="pb-2 pt-4 border-b border-slate-200 dark:border-[#162b4d]">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Professional Details</h3>
           </div>
 
@@ -1035,7 +1025,7 @@ export const StaffManagementView: React.FC = () => {
             />
           )}
 
-          <div className="pb-2 pt-4 border-b border-sky-100 dark:border-[#162b4d]">
+          <div className="pb-2 pt-4 border-b border-slate-200 dark:border-[#162b4d]">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Financial Details</h3>
           </div>
 
@@ -1050,12 +1040,12 @@ export const StaffManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-sky-100 dark:border-[#162b4d] sticky bottom-0 bg-white/95 dark:bg-[#091326]/95 backdrop-blur-md mt-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-slate-200 dark:border-[#162b4d] sticky bottom-0 bg-white/95 dark:bg-[#091326]/95 mt-4">
             <button type="button" onClick={() => setShowEditModal(false)} className="w-full sm:w-auto px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-xl shadow-xs min-h-[40px] transition-colors">Cancel</button>
             <button
               type="submit"
               disabled={submittingEdit}
-              className="w-full sm:w-auto px-4 py-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-glass min-h-[40px] transition-all"
+              className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm min-h-[40px] transition-all"
             >
               {submittingEdit ? (
                 <>
@@ -1072,7 +1062,7 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Staff Email Recovery & Address Change Modal */}
       <Modal isOpen={showEmailRecoveryModal} onClose={() => setShowEmailRecoveryModal(false)} title="Staff Email Recovery & Address Change" maxWidth="max-w-lg">
-        <form onSubmit={handleInitiateEmailChange} className="space-y-4">
+        <form onSubmit={handleInitiateEmailChange} className="space-y-4 min-w-0">
           <div className="flex items-center gap-2 font-bold text-sky-600">
             <Mail className="w-5 h-5 text-sky-500" /> Email Recovery & Address Change
           </div>
@@ -1104,7 +1094,7 @@ export const StaffManagementView: React.FC = () => {
                   newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0
                     ? 'text-sky-600'
                     : 'text-rose-500'
-                }`}>
+                } `}>
                   {newEmailInput.trim().toLowerCase() === confirmNewEmailInput.trim().toLowerCase() && newEmailInput.trim().length > 0 ? (
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" /> Emails match
@@ -1130,7 +1120,7 @@ export const StaffManagementView: React.FC = () => {
                       ? 'border-sky-500 ring-1 ring-sky-500/30'
                       : 'border-rose-500 ring-1 ring-rose-500/30'
                     : 'border-sky-200 focus:border-sky-500'
-                }`}
+                } `}
               />
               {confirmNewEmailInput.length > 0 && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1161,7 +1151,7 @@ export const StaffManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-sky-100">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => setShowEmailRecoveryModal(false)}
@@ -1177,7 +1167,7 @@ export const StaffManagementView: React.FC = () => {
                 newEmailInput.trim().toLowerCase() !== confirmNewEmailInput.trim().toLowerCase() ||
                 !emailChangeAdminPassword
               }
-              className="w-full sm:w-auto px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-glass disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
+              className="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
             >
               {submittingEmailChange ? (
                 <>
@@ -1194,8 +1184,8 @@ export const StaffManagementView: React.FC = () => {
 
       {/* Reset 2FA Modal */}
       <Modal isOpen={show2FaResetModal} onClose={() => setShow2FaResetModal(false)} title="Reset Two-Factor Authentication (2FA)">
-        <form onSubmit={handle2FaReset} className="space-y-4">
-          <div className="p-4 bg-sky-50 text-slate-800 rounded-xl text-xs leading-relaxed border border-sky-100">
+        <form onSubmit={handle2FaReset} className="space-y-4 min-w-0">
+          <div className="p-4 bg-sky-50 text-slate-800 rounded-xl text-xs leading-relaxed border border-slate-200">
             <div className="flex items-center gap-2 font-bold text-sky-700 mb-1">
               <AlertTriangle className="w-4 h-4 text-sky-600" /> Security Confirmation
             </div>
@@ -1223,12 +1213,12 @@ export const StaffManagementView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
             <button type="button" onClick={() => setShow2FaResetModal(false)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-sky-200 hover:bg-sky-50 rounded-xl shadow-xs transition-colors">Cancel</button>
             <button
               type="submit"
               disabled={submitting2Fa}
-              className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-glass disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {submitting2Fa ? (
                 <>
@@ -1266,7 +1256,7 @@ export const StaffManagementView: React.FC = () => {
           title="Delete Inactive Staff Member"
           maxWidth="max-w-md"
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="text-xs text-rose-800 space-y-1">
@@ -1277,7 +1267,7 @@ export const StaffManagementView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3.5 bg-sky-50/50 border border-sky-100 rounded-xl space-y-1.5 text-xs">
+            <div className="p-3.5 bg-sky-50/50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Staff Member:</span>
                 <span className="font-bold text-slate-800">{invitationToDelete.firstName} {invitationToDelete.lastName}</span>
@@ -1292,11 +1282,11 @@ export const StaffManagementView: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Status:</span>
-                <span className="font-extrabold text-rose-600 uppercase">{invitationToDelete.invitationStatus}</span>
+                <span className="font-bold text-rose-600 uppercase">{invitationToDelete.invitationStatus}</span>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-sky-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setInvitationToDelete(null)}
@@ -1329,8 +1319,8 @@ export const StaffManagementView: React.FC = () => {
         onClose={() => setClassTeacherWarningModal({ isOpen: false, teacherName: '', classNames: '' })}
         title="Action Restricted: Active Class Teacher"
       >
-        <div className="space-y-4">
-          <div className="p-4 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-900/50 rounded-2xl flex items-start gap-3.5">
+        <div className="space-y-4 min-w-0">
+          <div className="p-4 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-900/50 rounded-lg flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-amber-500 text-white shrink-0 mt-0.5 shadow-xs">
               <AlertTriangle className="w-5 h-5" />
             </div>

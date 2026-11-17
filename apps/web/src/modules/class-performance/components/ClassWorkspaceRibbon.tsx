@@ -190,7 +190,7 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 xl:w-auto">
           {/* Target Mean CTA - Targets upcoming exam */}
           <button
             type="button"
@@ -221,11 +221,12 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
           </button>
 
           {/* Compact Exam Select */}
-          <div className="relative">
+          <div className="relative min-w-0 max-w-full basis-full sm:basis-auto">
             <select
               value={selectedExamId}
+              aria-label="Examination"
               onChange={(e) => onSelectExam(e.target.value)}
-              className="h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1120] text-slate-800 dark:text-slate-200 shadow-2xs focus:ring-1 focus:ring-sky-500 appearance-none cursor-pointer"
+              className="h-8 w-full max-w-full sm:max-w-80 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1120] text-slate-800 dark:text-slate-200 shadow-2xs focus:ring-1 focus:ring-sky-500 appearance-none cursor-pointer"
             >
               {availableExams.map((ex) => (
                 <option key={ex.id} value={ex.id}>
@@ -237,11 +238,12 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
           </div>
 
           {/* Compact Baseline Compare Select */}
-          <div className="relative">
+          <div className="relative min-w-0 max-w-full basis-full sm:basis-auto">
             <select
               value={compareExamId}
+              aria-label="Comparison examination"
               onChange={(e) => onSelectCompareExam(e.target.value)}
-              className="h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1120] text-slate-800 dark:text-slate-200 shadow-2xs focus:ring-1 focus:ring-sky-500 appearance-none cursor-pointer"
+              className="h-8 w-full max-w-full sm:max-w-64 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1120] text-slate-800 dark:text-slate-200 shadow-2xs focus:ring-1 focus:ring-sky-500 appearance-none cursor-pointer"
             >
               <option value="auto">Compare: Auto</option>
               {availableExams
@@ -280,13 +282,13 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
       </div>
 
-      {/* 2. Sleek Single-Line Ticker Ribbon (Max Height: 44px, 5 Slots) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
+      {/* 2. Responsive summary ribbon; values wrap within their curriculum metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-y-2 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
         
         {/* Slot 1: Target Mean */}
-        <div className="flex items-center justify-between px-2.5 min-w-0">
+        <div className="flex min-w-0 flex-col items-start justify-center gap-1 px-2.5 py-1">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Target Mean:</span>
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {targetMean?.targetMeanPercentage !== null && targetMean?.targetMeanPercentage !== undefined && targetMean?.wasSetBeforeExamStarted ? (
               <>
                 <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
@@ -327,13 +329,13 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
 
         {/* Slot 2: School Mean & Class Mean */}
-        <div className="flex items-center justify-between px-2.5 min-w-0">
+        <div className="flex min-w-0 flex-col items-start justify-center gap-1 px-2.5 py-1">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
             {academicSummary.schoolMeanPct !== undefined && academicSummary.schoolMeanPct !== null
               ? 'Class / Sch Mean:'
               : 'Class Mean:'}
           </span>
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {meanPct !== null && meanPct !== undefined ? (
               <>
                 <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
@@ -373,9 +375,9 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
 
         {/* Slot 3: Readiness */}
-        <div className="flex items-center justify-between px-2.5 min-w-0">
+        <div className="flex min-w-0 flex-col items-start justify-center gap-1 px-2.5 py-1">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Readiness:</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${isAllSubmitted ? 'bg-emerald-500' : 'bg-amber-500'}`} />
             <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
               {submittedSubjectsCount}/{totalSubjectsCount} Ready
@@ -393,9 +395,9 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
 
         {/* Slot 4: Mastery */}
-        <div className="flex items-center justify-between px-2.5 min-w-0">
+        <div className="flex min-w-0 flex-col items-start justify-center gap-1 px-2.5 py-1">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Mastery:</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {meanPct !== null && meanPct !== undefined ? (
               <>
                 <span className="font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
@@ -421,7 +423,7 @@ export const ClassWorkspaceRibbon: React.FC<ClassWorkspaceRibbonProps> = ({
         </div>
 
         {/* Slot 5: Momentum */}
-        <div className="flex items-center justify-between px-2.5 min-w-0">
+        <div className="flex min-w-0 flex-col items-start justify-center gap-1 px-2.5 py-1">
           <span className="text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Momentum:</span>
           {meanPct !== null && meanPct !== undefined && hasPriorExam ? (
             <div className="flex items-center gap-1.5 font-bold text-xs">

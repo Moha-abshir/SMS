@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -401,21 +402,10 @@ export const StudentAdmissionView: React.FC = () => {
       subtitle="Loading enrolled rosters, stream allocations, and applicant dossiers..."
       icon={UserPlus}
     >
-      <div className="space-y-4 sm:space-y-6">
+      <div className="workspace-page">
         {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
-            <UserPlus className="w-4 h-4 text-sky-600" />
-            Admissions & Student Information System
-          </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">Learner Enrolment & Class Directory</h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
-            Register new learners with KNEC Assessment numbers, manage class placements, process secretary admissions, and audit class rosters.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
+      <WorkspaceHeader icon={UserPlus} title="Admissions & Learners" description="Browse class rosters, admit learners, and review pending applications.">
+<div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={handleDownloadTemplate}
@@ -428,16 +418,16 @@ export const StudentAdmissionView: React.FC = () => {
           <button
             type="button"
             onClick={() => setBulkModalOpen(true)}
-            className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-glass"
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <Upload className="w-3.5 h-3.5" />
             Bulk CSV Import
           </button>
         </div>
-      </div>
+      </WorkspaceHeader>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 p-1.5 bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl shadow-xs overflow-x-auto">
+      <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
         <button
           type="button"
           onClick={() => {
@@ -448,7 +438,7 @@ export const StudentAdmissionView: React.FC = () => {
             activeTab === 'roster'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           <Users className="w-4 h-4" />
           Active Roster ({activeStudents.length})
@@ -461,7 +451,7 @@ export const StudentAdmissionView: React.FC = () => {
             activeTab === 'register'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           <UserPlus className="w-4 h-4" />
           New Learner Admission
@@ -474,7 +464,7 @@ export const StudentAdmissionView: React.FC = () => {
             activeTab === 'pending'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           <Clock className="w-4 h-4" />
           Pending Approvals
@@ -484,7 +474,7 @@ export const StudentAdmissionView: React.FC = () => {
                 activeTab === 'pending'
                   ? 'bg-white text-sky-600'
                   : 'bg-sky-100 text-sky-700'
-              }`}
+              } `}
             >
               {pendingList.length}
             </span>
@@ -494,13 +484,13 @@ export const StudentAdmissionView: React.FC = () => {
 
       {/* TAB 1: ACTIVE ROSTER */}
       {activeTab === 'roster' && (
-        <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 sm:space-y-5 shadow-glass">
+        <div className="workspace-panel space-y-4 sm:space-y-5 min-w-0">
           {selectedClassId === null ? (
             /* LEVEL 1: GRADE CARDS DIRECTORY OVERVIEW */
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-sky-100 pb-3">
+            <div className="space-y-4 min-w-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                     <Users className="w-4.5 h-4.5 text-sky-600" />
                     Active School Roster ({classesList.length} Classes — {activeStudents.length} Active Learners)
                   </h3>
@@ -525,14 +515,14 @@ export const StudentAdmissionView: React.FC = () => {
                           setSelectedClassId(c.id);
                           setRosterSearchQuery('');
                         }}
-                        className="group p-4 bg-white/80 backdrop-blur-xs border border-sky-100 rounded-2xl cursor-pointer hover:border-sky-400 hover:bg-sky-50/40 hover:shadow-glass transition-all flex flex-col justify-between shadow-xs"
+                        className="workspace-panel group cursor-pointer hover:border-sky-400 hover:bg-sky-50/40 hover:shadow-sm transition-all flex flex-col justify-between shadow-xs"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="font-extrabold text-sm text-slate-800 group-hover:text-sky-600 transition-colors">
+                            <span className="font-bold text-sm text-slate-800 group-hover:text-sky-600 transition-colors">
                               {c.name}
                             </span>
-                            <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-sky-100">
+                            <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-slate-200">
                               {formatLevelTag(c.levelCategory)}
                             </span>
                           </div>
@@ -547,7 +537,7 @@ export const StudentAdmissionView: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-3 border-t border-sky-100 flex items-center justify-between text-xs font-bold text-sky-600">
+                        <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs font-bold text-sky-600">
                           <span>View Class Roster</span>
                           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </div>
@@ -559,9 +549,9 @@ export const StudentAdmissionView: React.FC = () => {
             </div>
           ) : (
             /* LEVEL 2: DRILL-DOWN ENROLLED LEARNERS TABLE FOR SELECTED GRADE */
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0">
               {/* Header & Back Action */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -575,7 +565,7 @@ export const StudentAdmissionView: React.FC = () => {
                     <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                       <GraduationCap className="w-5 h-5 text-sky-600" />
                       {selectedClass?.name} Roster
-                      <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 text-xs font-extrabold rounded-full">
+                      <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 border border-slate-200 text-xs font-bold rounded-full">
                         {classStudents.length} {classStudents.length === 1 ? 'Learner' : 'Learners'}
                       </span>
                     </h3>
@@ -590,15 +580,15 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder={`Search ${selectedClass?.name}...`}
                     value={rosterSearchQuery}
                     onChange={(e) => setRosterSearchQuery(e.target.value)}
-                    className="w-full pl-8 bg-white border border-sky-100 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full pl-8 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Students Table */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                 <table className="w-full text-left text-xs min-w-[760px]">
-                  <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
+                  <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-3 sm:px-4">KNEC Assessment No</th>
                       <th className="py-3 px-3 sm:px-4">Student Name</th>
@@ -608,7 +598,7 @@ export const StudentAdmissionView: React.FC = () => {
                       <th className="py-3 px-3 sm:px-4 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-sky-100/60">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredClassStudents.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-8 text-center text-slate-400 italic">
@@ -641,7 +631,7 @@ export const StudentAdmissionView: React.FC = () => {
                                   : row.student.status === 'EXPELLED'
                                   ? 'bg-rose-50 border border-rose-200 text-rose-700'
                                   : 'bg-slate-100 border border-slate-200 text-slate-600'
-                              }`}
+                              } `}
                             >
                               {row.student.status}
                             </span>
@@ -683,15 +673,15 @@ export const StudentAdmissionView: React.FC = () => {
 
       {/* TAB 2: REGISTER NEW LEARNER */}
       {activeTab === 'register' && (
-        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
           {/* Section 1: Learner Basic Details */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <div className="workspace-panel space-y-4 min-w-0">
+            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-sky-600" />
               1. Learner Profile & KNEC Assessment Record
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   KNEC Assessment Number *
@@ -702,7 +692,7 @@ export const StudentAdmissionView: React.FC = () => {
                   placeholder="e.g. 26701004012"
                   value={studentForm.assessmentNumber}
                   onChange={(e) => setStudentForm({ ...studentForm, assessmentNumber: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -716,7 +706,7 @@ export const StudentAdmissionView: React.FC = () => {
                   placeholder="e.g. Brian"
                   value={studentForm.firstName}
                   onChange={(e) => setStudentForm({ ...studentForm, firstName: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -729,7 +719,7 @@ export const StudentAdmissionView: React.FC = () => {
                   placeholder="e.g. Kiprono"
                   value={studentForm.middleName}
                   onChange={(e) => setStudentForm({ ...studentForm, middleName: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -743,7 +733,7 @@ export const StudentAdmissionView: React.FC = () => {
                   placeholder="e.g. Kemboi"
                   value={studentForm.lastName}
                   onChange={(e) => setStudentForm({ ...studentForm, lastName: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -754,7 +744,7 @@ export const StudentAdmissionView: React.FC = () => {
                 <select
                   value={studentForm.gender}
                   onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value as any })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 >
                   <option value="MALE">Male</option>
                   <option value="FEMALE">Female</option>
@@ -788,7 +778,7 @@ export const StudentAdmissionView: React.FC = () => {
                   placeholder="e.g. PP2 or Grade 3"
                   value={studentForm.previousGrade}
                   onChange={(e) => setStudentForm({ ...studentForm, previousGrade: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -801,17 +791,17 @@ export const StudentAdmissionView: React.FC = () => {
                   required
                   value={studentForm.admissionDate}
                   onChange={(e) => setStudentForm({ ...studentForm, admissionDate: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 2: Guardian Information */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sky-100 pb-3">
+          <div className="workspace-panel space-y-4 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-sky-600" />
                   2. Primary Parent or Guardian Information
                 </h3>
@@ -840,7 +830,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="Search existing guardian by ID/Phone..."
                     value={guardianQuery}
                     onChange={(e) => setGuardianQuery(e.target.value)}
-                    className="w-full pl-8 bg-white border border-sky-100 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full pl-8 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                   {searchingGuardian && (
                     <div className="absolute right-3 top-2.5 text-[10px] text-slate-400">Searching...</div>
@@ -876,7 +866,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="e.g. Mary Kemboi"
                     value={guardianForm.fullName}
                     onChange={(e) => setGuardianForm({ ...guardianForm, fullName: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
 
@@ -890,7 +880,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="e.g. 29481920"
                     value={guardianForm.idNumber}
                     onChange={(e) => setGuardianForm({ ...guardianForm, idNumber: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
 
@@ -904,7 +894,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="e.g. 0712345678"
                     value={guardianForm.phoneNumber}
                     onChange={(e) => setGuardianForm({ ...guardianForm, phoneNumber: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
 
@@ -917,7 +907,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="e.g. Father, Mother, Guardian"
                     value={guardianForm.relationship}
                     onChange={(e) => setGuardianForm({ ...guardianForm, relationship: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
 
@@ -930,7 +920,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="e.g. Eldoret West"
                     value={guardianForm.address}
                     onChange={(e) => setGuardianForm({ ...guardianForm, address: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
 
@@ -943,7 +933,7 @@ export const StudentAdmissionView: React.FC = () => {
                     placeholder="e.g. 0723456789"
                     value={guardianForm.emergencyContact}
                     onChange={(e) => setGuardianForm({ ...guardianForm, emergencyContact: e.target.value })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
               </div>
@@ -954,7 +944,7 @@ export const StudentAdmissionView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
             >
               {submitting ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
@@ -969,9 +959,9 @@ export const StudentAdmissionView: React.FC = () => {
 
       {/* TAB 3: PENDING SECRETARY ADMISSIONS QUEUE */}
       {activeTab === 'pending' && (
-        <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-          <div className="border-b border-sky-100 pb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+        <div className="workspace-panel space-y-4 min-w-0">
+          <div className="border-b border-slate-200 pb-3">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
               <Clock className="w-4.5 h-4.5 text-sky-600" />
               Pending Secretary Admissions Queue ({pendingList.length})
             </h3>
@@ -987,9 +977,9 @@ export const StudentAdmissionView: React.FC = () => {
               <p className="text-[11px] text-slate-400 mt-0.5">All student admissions are up-to-date and active.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="w-full text-left text-xs min-w-[760px]">
-                <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
+                <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-3 sm:px-4">KNEC Assessment No</th>
                     <th className="py-3 px-3 sm:px-4">Learner Name</th>
@@ -999,7 +989,7 @@ export const StudentAdmissionView: React.FC = () => {
                     <th className="py-3 px-3 sm:px-4 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-sky-100/60">
+                <tbody className="divide-y divide-slate-100">
                   {pendingList.map((row) => (
                     <tr key={row.student.id} className="hover:bg-sky-50/40 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-sky-600">
@@ -1025,7 +1015,7 @@ export const StudentAdmissionView: React.FC = () => {
                             type="button"
                             onClick={() => handleApprovePending(row.student.id)}
                             disabled={processingAction}
-                            className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {approvingStudentId === row.student.id ? (
                               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
@@ -1060,12 +1050,12 @@ export const StudentAdmissionView: React.FC = () => {
           onClose={() => setBulkModalOpen(false)}
           title="Bulk CSV Learner & Guardian Import"
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <p className="text-xs text-slate-600">
               Upload a comma-separated CSV file containing learner records and guardian details. The system will automatically validate assessment numbers and resolve classes atomically.
             </p>
 
-            <div className="flex items-center justify-between p-3 bg-sky-50/70 border border-sky-100 rounded-xl">
+            <div className="flex items-center justify-between p-3 bg-sky-50/70 border border-slate-200 rounded-xl">
               <div className="flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-sky-600" />
                 <span className="text-xs font-semibold text-slate-700">Need the standardized template?</span>
@@ -1087,7 +1077,7 @@ export const StudentAdmissionView: React.FC = () => {
                 type="file"
                 accept=".csv,text/csv"
                 onChange={handleFileUpload}
-                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-500 file:text-white hover:file:bg-sky-600 file:cursor-pointer cursor-pointer border border-sky-100 rounded-xl p-2 bg-white"
+                className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-500 file:text-white hover:file:bg-sky-600 file:cursor-pointer cursor-pointer border border-slate-200 rounded-xl p-2 bg-white"
               />
               {csvFileName && (
                 <p className="text-[11px] text-sky-700 font-semibold mt-1">Loaded: {csvFileName}</p>
@@ -1099,7 +1089,7 @@ export const StudentAdmissionView: React.FC = () => {
                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   Data Preview (First {csvPreview.length} Rows)
                 </h4>
-                <div className="overflow-x-auto max-h-44 border border-sky-100 rounded-xl bg-white">
+                <div className="overflow-x-auto max-h-44 border border-slate-200 rounded-xl bg-white max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                   <table className="w-full text-left text-[11px]">
                     <thead className="bg-sky-50 text-sky-900 font-bold">
                       <tr>
@@ -1110,7 +1100,7 @@ export const StudentAdmissionView: React.FC = () => {
                         <th className="p-2">Phone</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-sky-100/60">
+                    <tbody className="divide-y divide-slate-100">
                       {csvPreview.map((r, i) => (
                         <tr key={i}>
                           <td className="p-2 font-mono text-sky-600">{r.assessmentNumber || r.assessment_number}</td>
@@ -1126,7 +1116,7 @@ export const StudentAdmissionView: React.FC = () => {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setBulkModalOpen(false)}
@@ -1138,7 +1128,7 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleExecuteBulkImport}
                 disabled={importingCsv || !csvText}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {importingCsv ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
@@ -1159,7 +1149,7 @@ export const StudentAdmissionView: React.FC = () => {
           onClose={() => setRejectModalStudent(null)}
           title={`Reject Admission: ${rejectModalStudent.student.firstName} ${rejectModalStudent.student.lastName}`}
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <p className="text-xs text-slate-600">
               Are you sure you want to reject this pending admission for{' '}
               <strong className="text-slate-800">
@@ -1177,11 +1167,11 @@ export const StudentAdmissionView: React.FC = () => {
                 placeholder="Specify reason for rejecting admission..."
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full bg-white border border-sky-100 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setRejectModalStudent(null)}
@@ -1193,7 +1183,7 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleRejectPending}
                 disabled={processingAction}
-                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
                 {processingAction ? 'Rejecting...' : 'Confirm Rejection'}
@@ -1210,7 +1200,7 @@ export const StudentAdmissionView: React.FC = () => {
           onClose={() => setExpelModalStudent(null)}
           title={`Expel Student: ${expelModalStudent.student.firstName} ${expelModalStudent.student.lastName}`}
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="text-xs text-rose-800">
@@ -1231,11 +1221,11 @@ export const StudentAdmissionView: React.FC = () => {
                 placeholder="Specify the reason for student expulsion (disciplinary grounds, board decision, etc.)..."
                 value={expelReason}
                 onChange={(e) => setExpelReason(e.target.value)}
-                className="w-full bg-white border border-sky-100 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-rose-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-rose-500 transition-colors"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setExpelModalStudent(null)}
@@ -1247,7 +1237,7 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmExpulsion}
                 disabled={processingAction || !expelReason.trim()}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
                 {processingAction ? 'Expelling...' : 'Confirm Expulsion'}
@@ -1264,7 +1254,7 @@ export const StudentAdmissionView: React.FC = () => {
           onClose={() => setTransferModalStudent(null)}
           title={`Transfer Student: ${transferModalStudent.student.firstName} ${transferModalStudent.student.lastName}`}
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <p className="text-xs text-slate-600">
               Confirm transfer of student <strong className="text-slate-800">{transferModalStudent.student.firstName} {transferModalStudent.student.lastName}</strong> (Assessment No: <span className="font-mono font-bold text-sky-600">{transferModalStudent.student.assessmentNumber}</span>) to another institution.
             </p>
@@ -1278,11 +1268,11 @@ export const StudentAdmissionView: React.FC = () => {
                 placeholder="Specify transfer reason or destination school..."
                 value={transferReason}
                 onChange={(e) => setTransferReason(e.target.value)}
-                className="w-full bg-white border border-sky-100 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setTransferModalStudent(null)}
@@ -1294,7 +1284,7 @@ export const StudentAdmissionView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmTransfer}
                 disabled={processingAction}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {processingAction && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
                 {processingAction ? 'Transferring...' : 'Confirm Transfer'}

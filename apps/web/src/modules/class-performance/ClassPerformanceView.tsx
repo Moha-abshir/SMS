@@ -388,7 +388,7 @@ export const ClassPerformanceView: React.FC = () => {
   const isLeadership = ['HEAD_TEACHER', 'DOS', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'ADMIN'].includes(currentUserRole);
 
   return (
-    <div className="w-full px-4 sm:px-5 py-3 space-y-3 animate-in fade-in duration-150">
+    <div className="workspace-page w-full py-3 animate-in fade-in duration-150">
       
       {/* 1. Flat Header Bar & Minimalist 5-Slot Ticker Ribbon */}
       <ClassWorkspaceRibbon
@@ -423,7 +423,7 @@ export const ClassPerformanceView: React.FC = () => {
       {/* 2. Sleek Single-Row Control Bar (Max Height: 36px) */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Left: View Switcher */}
-        <div className="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 shrink-0 h-8">
+        <div className="inline-flex max-w-full flex-wrap gap-1 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800">
           <button
             type="button"
             onClick={() => setActiveTab('broadsheet')}

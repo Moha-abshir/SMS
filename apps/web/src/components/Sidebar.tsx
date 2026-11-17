@@ -74,6 +74,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   }, [mobileOpen]);
 
   useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileOpen]);
+
+  useEffect(() => {
     apiClient.get('/api/settings/public').then((res) => {
       if (res.data.data) {
         if (res.data.data.logoUrl) setLogoUrl(res.data.data.logoUrl);
@@ -235,6 +248,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle navigation menu"
+            aria-expanded={mobileOpen}
+            aria-controls="school-navigation"
             className="p-2 text-slate-600 hover:text-sky-600 hover:bg-sky-50 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-[#0d1c38] rounded-xl shrink-0 cursor-pointer transition-colors"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -268,9 +283,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed lg:sticky top-0 bottom-0 left-0 z-50 bg-white/85 backdrop-blur-xl border-r border-sky-100/90 dark:bg-[#081020]/95 dark:border-[#112038] flex flex-col h-screen max-h-screen justify-between shadow-glass transition-all duration-300 shrink-0 w-72 max-w-[85vw] ${
+        id="school-navigation"
+        aria-label="School navigation"
+        className={`fixed lg:sticky top-0 bottom-0 left-0 z-50 bg-white/85 backdrop-blur-xl border-r border-sky-100/90 dark:bg-[#081020]/95 dark:border-[#112038] flex flex-col h-dvh max-h-dvh justify-between shadow-glass transition-all duration-300 shrink-0 w-72 max-w-[85vw] ${
           collapsed ? 'lg:w-20' : 'lg:w-64'
-        } ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
+        } ${mobileOpen ? 'visible translate-x-0 shadow-2xl' : 'invisible lg:visible -translate-x-full lg:translate-x-0'}`}
       >
         {/* Top Branding Section */}
         <div className="shrink-0 border-b border-sky-100/70 dark:border-[#112038]">

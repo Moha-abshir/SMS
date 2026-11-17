@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -306,24 +307,10 @@ export const MarkReviewView: React.FC = () => {
       subtitle="Gathering submitted class marksheets and examination records..."
       icon={ClipboardCheck}
     >
-      <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <div className="workspace-page pb-8">
         {/* Top Header Card */}
-        <div className="relative z-30 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-glass">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 mb-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
-                Director of Studies (DoS) Oversight • Exam Mark Review
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                Exam Mark Review
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-                Review complete class marksheets received from Class Teachers. Once submitted by Class Teachers, marksheets are permanently locked and cannot be altered.
-              </p>
-            </div>
-
-            {/* Examination Period Selector */}
+        <WorkspaceHeader icon={ClipboardCheck} title="Exam Mark Review" description="Review class submissions and inspect subject marksheets.">
+{/* Examination Period Selector */}
             <div className="w-full lg:w-80 shrink-0 relative z-40">
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
                 Examination Period
@@ -350,12 +337,11 @@ export const MarkReviewView: React.FC = () => {
                 searchPlaceholder="Search examination..."
               />
             </div>
-          </div>
-        </div>
+        </WorkspaceHeader>
 
         {/* Standby Notice when Exam Period is Inactive / Concluded */}
         {!hasActiveExams && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="p-4 rounded-lg bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-start sm:items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
                 <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -373,16 +359,16 @@ export const MarkReviewView: React.FC = () => {
         )}
 
         {/* Filter Bar & Search */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/85 dark:bg-[#091326]/85 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-sky-100 dark:border-[#162b4d] shadow-glass">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#091326]/85 p-3.5 sm:p-4 rounded-lg border border-slate-200 dark:border-[#162b4d] shadow-sm">
           {/* Status Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
             <button
               onClick={() => setStatusFilter('ALL')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 statusFilter === 'ALL'
                   ? 'bg-sky-500 text-white shadow-xs'
                   : 'bg-slate-50 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-[#122444] border border-sky-100 dark:border-[#162b4d]'
-              }`}
+              } `}
             >
               All Streams ({metrics.totalClasses})
             </button>
@@ -392,7 +378,7 @@ export const MarkReviewView: React.FC = () => {
                 statusFilter === 'RECEIVED'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-slate-50 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-[#122444] border border-sky-100 dark:border-[#162b4d]'
-              }`}
+              } `}
             >
               Received ({metrics.receivedClasses})
             </button>
@@ -402,7 +388,7 @@ export const MarkReviewView: React.FC = () => {
                 statusFilter === 'AWAITING'
                   ? 'bg-amber-500 text-white shadow-xs'
                   : 'bg-slate-50 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-[#122444] border border-sky-100 dark:border-[#162b4d]'
-              }`}
+              } `}
             >
               Awaiting CT ({metrics.awaitingClasses})
             </button>
@@ -416,14 +402,14 @@ export const MarkReviewView: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search stream or class teacher..."
-              className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
         </div>
 
         {/* Minimalist Class Stream Cards Grid */}
         {filteredClasses.length === 0 ? (
-          <div className="p-12 text-center bg-white/80 dark:bg-[#091326]/80 rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-2">
+          <div className="p-12 text-center bg-white dark:bg-[#091326]/80 rounded-lg border border-slate-200 dark:border-[#162b4d] space-y-2">
             <ClipboardCheck className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
               No matching class streams found
@@ -441,7 +427,7 @@ export const MarkReviewView: React.FC = () => {
               return (
                 <div
                   key={item.class.id}
-                  className="bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-sky-100 dark:border-[#162b4d] shadow-glass hover:border-sky-300 dark:hover:border-sky-600/50 transition-all flex flex-col justify-between space-y-3.5 group/card"
+                  className="workspace-panel hover:border-sky-300 dark:hover:border-sky-600/50 transition-all flex flex-col justify-between space-y-3.5 group/card min-w-0"
                 >
                   <div className="space-y-3">
                     {/* Header Row: Class Name & Status Badge */}
@@ -535,7 +521,7 @@ export const MarkReviewView: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleCloseDrawer}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+              className="absolute inset-0 bg-slate-900/60 transition-opacity"
             />
 
             {/* Slide-Over Panel */}
@@ -545,10 +531,10 @@ export const MarkReviewView: React.FC = () => {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                className="w-screen max-w-full sm:max-w-3xl lg:max-w-4xl bg-white dark:bg-[#081020] shadow-2xl flex flex-col border-l border-sky-100 dark:border-[#162b4d]"
+                className="w-screen max-w-full sm:max-w-3xl lg:max-w-4xl bg-white dark:bg-[#081020] shadow-2xl flex flex-col border-l border-slate-200 dark:border-[#162b4d]"
               >
                 {/* Drawer Header */}
-                <div className="p-5 sm:p-6 border-b border-sky-100 dark:border-[#162b4d] bg-sky-50/40 dark:bg-[#0c1830] flex items-center justify-between gap-4">
+                <div className="p-5 sm:p-4 border-b border-slate-200 dark:border-[#162b4d] bg-sky-50/40 dark:bg-[#0c1830] flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
@@ -579,7 +565,7 @@ export const MarkReviewView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleCloseDrawer}
-                      className="p-2 rounded-xl bg-white dark:bg-[#0c1830] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-sky-100 dark:border-[#162b4d] transition-colors cursor-pointer"
+                      className="p-2 rounded-xl bg-white dark:bg-[#0c1830] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 border border-slate-200 dark:border-[#162b4d] transition-colors cursor-pointer"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -593,7 +579,7 @@ export const MarkReviewView: React.FC = () => {
                 </div>
 
                 {/* Subject Selector Tabs */}
-                <div className="px-5 py-3 border-b border-sky-100 dark:border-[#162b4d] bg-white dark:bg-[#081020] flex items-center gap-2 overflow-x-auto">
+                <div className="px-5 py-3 border-b border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#081020] flex items-center gap-2 overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
                     Learning Areas:
                   </span>
@@ -607,7 +593,7 @@ export const MarkReviewView: React.FC = () => {
                           isSelected
                             ? 'bg-sky-500 text-white shadow-xs'
                             : 'bg-slate-50 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border border-sky-100 dark:border-[#162b4d] hover:bg-sky-50 dark:hover:bg-[#122444]'
-                        }`}
+                        } `}
                       >
                         {p.subjectName}
                       </button>
@@ -616,17 +602,17 @@ export const MarkReviewView: React.FC = () => {
                 </div>
 
                 {/* Drawer Main Body: Scores & Details */}
-                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+                <div className="flex-1 overflow-y-auto p-5 sm:p-4 space-y-5">
                   {/* Selected Subject Overview Header Card */}
                   {activePaper && (
-                    <div className="p-4 bg-sky-50/50 dark:bg-[#0c1830] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-3">
+                    <div className="p-4 bg-sky-50/50 dark:bg-[#0c1830] rounded-lg border border-slate-200 dark:border-[#162b4d] space-y-3">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                               {activePaper.subjectName}
                             </h3>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#081020] text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-slate-800">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-[#081020] text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-slate-800">
                               {activePaper.subjectCode}
                             </span>
                           </div>
@@ -646,10 +632,10 @@ export const MarkReviewView: React.FC = () => {
                         {/* Subject Quick Stats */}
                         {subjectScoresData?.stats && (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#081020] border border-sky-100 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#081020] border border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                               Mean: <strong className="text-sky-600 dark:text-sky-400">{Math.round(subjectScoresData.stats.meanScore || 0)}%</strong>
                             </span>
-                            <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#081020] border border-sky-100 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-[#081020] border border-slate-200 dark:border-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                               Learners: <strong className="text-slate-900 dark:text-white">{subjectScoresData.stats.totalStudents || 0}</strong>
                             </span>
                           </div>
@@ -687,7 +673,7 @@ export const MarkReviewView: React.FC = () => {
                       value={studentSearchQuery}
                       onChange={(e) => setStudentSearchQuery(e.target.value)}
                       placeholder="Search student name or assessment number in marksheet..."
-                      className="w-full bg-slate-50 dark:bg-[#0c1830] border border-sky-100 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
+                      className="w-full bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
                     />
                   </div>
 
@@ -698,7 +684,7 @@ export const MarkReviewView: React.FC = () => {
                       <p className="text-xs text-slate-400">Loading student scores...</p>
                     </div>
                   ) : !activePaper?.submissionId ? (
-                    <div className="py-16 text-center bg-slate-50/50 dark:bg-[#0c1830] rounded-2xl border border-sky-100 dark:border-[#162b4d] space-y-2">
+                    <div className="py-16 text-center bg-slate-50/50 dark:bg-[#0c1830] rounded-lg border border-slate-200 dark:border-[#162b4d] space-y-2">
                       <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
                       <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Marksheet Not Submitted Yet
@@ -716,10 +702,10 @@ export const MarkReviewView: React.FC = () => {
                       tabIndex={0}
                       role="region"
                       aria-label="Learner assessment scores marksheet"
-                      className="overflow-x-auto rounded-xl border border-sky-100 dark:border-[#162b4d] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#162b4d] focus:outline-none focus:ring-1 focus:ring-sky-500 max-w-full overscroll-x-contain workspace-table-scroll"
                     >
                       <table className="w-full min-w-[720px] text-left text-xs border-collapse">
-                        <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border-b border-sky-100 dark:border-[#162b4d] uppercase text-[10px] font-bold tracking-wider">
+                        <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-[#162b4d] uppercase text-[10px] font-bold tracking-wider">
                           <tr>
                             <th scope="col" className="py-3 px-3.5 text-center w-12 whitespace-nowrap">#</th>
                             <th scope="col" className="py-3 px-3.5 whitespace-nowrap w-36">Assessment No.</th>
@@ -731,7 +717,7 @@ export const MarkReviewView: React.FC = () => {
                             <th scope="col" className="py-3 px-3.5 min-w-[220px]">Teacher Remarks</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-sky-100/60 dark:divide-[#162b4d]/60 bg-white dark:bg-[#081020]">
+                        <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]/60 bg-white dark:bg-[#081020]">
                           {filteredStudentScores.map((score, idx) => (
                             <tr key={score.studentId} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830]/60 transition-colors">
                               <td className="py-2.5 px-3.5 text-center text-slate-400 font-mono text-[11px] whitespace-nowrap">
@@ -771,7 +757,7 @@ export const MarkReviewView: React.FC = () => {
                                         : score.cbcRubricLevel === 'AE'
                                         ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                                         : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                                    }`}
+                                    } `}
                                   >
                                     {score.cbcRubricLevel}
                                   </span>
@@ -791,7 +777,7 @@ export const MarkReviewView: React.FC = () => {
                 </div>
 
                 {/* Drawer Footer */}
-                <div className="p-4 border-t border-sky-100 dark:border-[#162b4d] bg-sky-50/30 dark:bg-[#0c1830] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <div className="p-4 border-t border-slate-200 dark:border-[#162b4d] bg-sky-50/30 dark:bg-[#0c1830] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                   <span>
                     Viewing {filteredStudentScores.length} learner score record(s) • Read-Only Administrative Mode
                   </span>

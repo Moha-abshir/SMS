@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -295,23 +296,10 @@ export const InventoryView: React.FC = () => {
       subtitle="Cataloging school textbooks, lab apparatus, and checkout tracking..."
       icon={Package}
     >
-      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
+      <div className="workspace-page">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-xl border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-widest mb-1">
-            <Package className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            Asset Management & Textbook Tracking
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-            School Inventory & Asset Management
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
-            Catalog textbooks, classroom accessories & equipment, track staff checkouts, returns & overdue alerts.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
+      <WorkspaceHeader icon={Package} title="School Inventory" description="Manage stock, staff checkouts, and item returns.">
+<div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setShowItemModal(true)}
             className="flex-1 sm:flex-initial justify-center min-h-[42px] px-4 py-2.5 bg-white dark:bg-[#0d1c38] border border-sky-200 dark:border-[#1d3863] hover:bg-sky-50 dark:hover:bg-[#13274c] text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs flex items-center gap-2 transition-all whitespace-nowrap shadow-xs cursor-pointer"
@@ -321,23 +309,23 @@ export const InventoryView: React.FC = () => {
           </button>
           <button
             onClick={() => handleOpenCheckoutModal()}
-            className="flex-1 sm:flex-initial justify-center min-h-[42px] px-4 py-2.5 bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-glass transition-all whitespace-nowrap cursor-pointer"
+            className="flex-1 sm:flex-initial justify-center min-h-[42px] px-4 py-2.5 bg-sky-600 hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all whitespace-nowrap cursor-pointer"
           >
             <BookOpen className="w-4 h-4" />
             Checkout Item
           </button>
         </div>
-      </div>
+      </WorkspaceHeader>
 
       {/* Asset Catalog Section */}
-      <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+      <div className="workspace-panel space-y-4 min-w-0">
         {/* Header line with database search on the same line */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-sky-100/60 dark:border-[#162b4d]/70">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
             <Layers className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             <span>Asset Catalog ({pagination.total} Registered Items)</span>
             {activeSearch && (
-              <span className="text-[11px] font-normal normal-case text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-[#072648] px-2 py-0.5 rounded-full border border-sky-100 dark:border-[#0c4a6e]">
+              <span className="text-[11px] font-normal normal-case text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-[#072648] px-2 py-0.5 rounded-full border border-slate-200 dark:border-[#0c4a6e]">
                 Filtered by "{activeSearch}"
               </span>
             )}
@@ -369,7 +357,7 @@ export const InventoryView: React.FC = () => {
             <button
               type="submit"
               disabled={searching}
-              className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
+              className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
             >
               {searching ? (
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -382,7 +370,7 @@ export const InventoryView: React.FC = () => {
         </div>
 
         {/* List Format View (Replacing 4-column Grid) */}
-        <div className="divide-y divide-sky-100/70 dark:divide-[#162b4d] border border-sky-100 dark:border-[#162b4d] rounded-2xl overflow-hidden bg-white/70 dark:bg-[#091326]/60">
+        <div className="divide-y divide-slate-100 dark:divide-[#162b4d] border border-slate-200 dark:border-[#162b4d] rounded-lg overflow-hidden bg-white/70 dark:bg-[#091326]/60">
           {items.length === 0 ? (
             <div className="py-12 px-4 text-center">
               <Package className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
@@ -419,7 +407,7 @@ export const InventoryView: React.FC = () => {
                       <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
                         {row.name}
                       </h4>
-                      <span className="px-2 py-0.5 bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-[#0c4a6e] text-[10px] font-extrabold rounded-full uppercase tracking-wider">
+                      <span className="px-2 py-0.5 bg-sky-50 dark:bg-[#072648] text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-[#0c4a6e] text-[10px] font-bold rounded-full uppercase tracking-wider">
                         {row.category}
                       </span>
                     </div>
@@ -461,7 +449,7 @@ export const InventoryView: React.FC = () => {
                             : isLowStock
                             ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50'
                             : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50'
-                        }`}
+                        } `}
                       >
                         {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
                       </span>
@@ -510,26 +498,26 @@ export const InventoryView: React.FC = () => {
       </div>
 
       {/* Active Checkouts Table */}
-      <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#091326]/90 backdrop-blur-md border border-sky-100 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+      <div className="workspace-panel space-y-4 min-w-0">
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
           <ArrowUpRight className="w-4 h-4 text-sky-600 dark:text-sky-400" />
           Asset Checkouts & Returns Register ({checkouts.length})
         </h3>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
           <table className="w-full text-left text-xs min-w-[680px]">
-            <thead className="bg-sky-50/80 dark:bg-[#0d1c38] text-sky-900 dark:text-[#7dd3fc] font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#162b4d]">
+            <thead className="bg-sky-50/80 dark:bg-[#0d1c38] text-sky-900 dark:text-[#7dd3fc] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-[#162b4d]">
               <tr>
-                <th className="py-3.5 px-4">Item Name</th>
-                <th className="py-3.5 px-4">Checked Out To</th>
-                <th className="py-3.5 px-4 text-center">Qty</th>
-                <th className="py-3.5 px-4">Checkout Date</th>
-                <th className="py-3.5 px-4">Expected Return</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-center">Action</th>
+                <th className="py-2.5 px-4">Item Name</th>
+                <th className="py-2.5 px-4">Checked Out To</th>
+                <th className="py-2.5 px-4 text-center">Qty</th>
+                <th className="py-2.5 px-4">Checkout Date</th>
+                <th className="py-2.5 px-4">Expected Return</th>
+                <th className="py-2.5 px-4 text-center">Status</th>
+                <th className="py-2.5 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-sky-100/60 dark:divide-[#132540]">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#132540]">
               {checkouts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
@@ -539,22 +527,22 @@ export const InventoryView: React.FC = () => {
               ) : (
                 checkouts.map((row) => (
                   <tr key={row.checkout.id} className="hover:bg-sky-50/40 dark:hover:bg-[#0c1830] transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-100">
+                    <td className="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-100">
                       {row.item.name}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-sky-700 dark:text-sky-400">
+                    <td className="py-2.5 px-4 font-semibold text-sky-700 dark:text-sky-400">
                       {row.checkout.checkedOutTo}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-800 dark:text-slate-100">
+                    <td className="py-2.5 px-4 text-center font-bold text-slate-800 dark:text-slate-100">
                       {row.checkout.quantity}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-mono">
+                    <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400 font-mono">
                       {formatDate(row.checkout.checkoutDate)}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 font-mono">
+                    <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400 font-mono">
                       {row.checkout.expectedReturnDate ? formatDate(row.checkout.expectedReturnDate) : 'N/A'}
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-2.5 px-4 text-center">
                       <span
                         className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full uppercase border ${
                           row.checkout.status === 'RETURNED'
@@ -562,17 +550,17 @@ export const InventoryView: React.FC = () => {
                             : row.checkout.status === 'OVERDUE'
                             ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800 animate-pulse'
                             : 'bg-sky-50 text-sky-700 border-sky-100 dark:bg-[#072648] dark:text-sky-300 dark:border-[#0c4a6e]'
-                        }`}
+                        } `}
                       >
                         {row.checkout.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-2.5 px-4 text-center">
                       {row.checkout.status !== 'RETURNED' && (
                         <button
                           onClick={() => handleReturnItem(row.checkout.id)}
                           disabled={returningCheckoutId === row.checkout.id}
-                          className="px-2.5 py-1 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-sky-100 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] font-bold text-[10px] rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-2.5 py-1 bg-sky-50 dark:bg-[#0d1c38] text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-[#1d3863] hover:bg-sky-100 dark:hover:bg-[#13274c] font-bold text-[10px] rounded-lg transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {returningCheckoutId === row.checkout.id ? (
                             <div className="w-3 h-3 border-2 border-sky-600 dark:border-sky-400 border-t-transparent rounded-full animate-spin shrink-0" />
@@ -593,7 +581,7 @@ export const InventoryView: React.FC = () => {
 
       {/* Add Item Modal */}
       <Modal isOpen={showItemModal} onClose={() => setShowItemModal(false)} title="Catalog New Inventory Asset">
-        <form onSubmit={handleCreateItem} className="space-y-4">
+        <form onSubmit={handleCreateItem} className="space-y-4 min-w-0">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Item / Asset Name *
@@ -604,7 +592,7 @@ export const InventoryView: React.FC = () => {
               placeholder="e.g. Grade 7 Mathematics Pupil's Book"
               value={itemForm.name}
               onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
@@ -639,7 +627,7 @@ export const InventoryView: React.FC = () => {
                 min={1}
                 value={itemForm.totalQuantity}
                 onChange={(e) => setItemForm({ ...itemForm, totalQuantity: parseInt(e.target.value) || 1 })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
@@ -653,11 +641,11 @@ export const InventoryView: React.FC = () => {
               placeholder="e.g. KLB Edition 2026 Batch #04"
               value={itemForm.description}
               onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100 dark:border-[#162b4d]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#162b4d]">
             <button
               type="button"
               onClick={() => setShowItemModal(false)}
@@ -668,7 +656,7 @@ export const InventoryView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
               {submitting ? 'Saving Item...' : 'Save Asset Item'}
@@ -679,7 +667,7 @@ export const InventoryView: React.FC = () => {
 
       {/* Checkout Asset Modal */}
       <Modal isOpen={showCheckoutModal} onClose={() => setShowCheckoutModal(false)} title="Checkout Asset to Teacher/Class">
-        <form onSubmit={handleCreateCheckout} className="space-y-4">
+        <form onSubmit={handleCreateCheckout} className="space-y-4 min-w-0">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Select Inventory Item *
@@ -730,7 +718,7 @@ export const InventoryView: React.FC = () => {
                 min={1}
                 value={checkoutForm.quantity}
                 onChange={(e) => setCheckoutForm({ ...checkoutForm, quantity: parseInt(e.target.value) || 1 })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
@@ -743,11 +731,11 @@ export const InventoryView: React.FC = () => {
               type="date"
               value={checkoutForm.expectedReturnDate}
               onChange={(e) => setCheckoutForm({ ...checkoutForm, expectedReturnDate: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100 dark:border-[#162b4d]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#162b4d]">
             <button
               type="button"
               onClick={() => setShowCheckoutModal(false)}
@@ -758,7 +746,7 @@ export const InventoryView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
               {submitting ? 'Checking Out...' : 'Complete Checkout'}
@@ -776,7 +764,7 @@ export const InventoryView: React.FC = () => {
         }}
         title="Edit Inventory Asset Details"
       >
-        <form onSubmit={handleUpdateItem} className="space-y-4">
+        <form onSubmit={handleUpdateItem} className="space-y-4 min-w-0">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Item / Asset Name *
@@ -786,7 +774,7 @@ export const InventoryView: React.FC = () => {
               required
               value={editForm.name}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
@@ -821,7 +809,7 @@ export const InventoryView: React.FC = () => {
                 min={editingItem ? Math.max(1, editingItem.totalQuantity - editingItem.availableQuantity) : 1}
                 value={editForm.totalQuantity}
                 onChange={(e) => setEditForm({ ...editForm, totalQuantity: parseInt(e.target.value) || 1 })}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
               {editingItem && (
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
@@ -839,11 +827,11 @@ export const InventoryView: React.FC = () => {
               type="text"
               value={editForm.description}
               onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-              className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-sky-100 dark:border-[#162b4d]">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#162b4d]">
             <button
               type="button"
               onClick={() => {
@@ -857,7 +845,7 @@ export const InventoryView: React.FC = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
               {submitting ? 'Saving Changes...' : 'Save Changes'}

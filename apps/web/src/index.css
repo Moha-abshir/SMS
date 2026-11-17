@@ -24,6 +24,29 @@
 
 /* Glassmorphism System Components */
 @layer components {
+  /* Compact workspaces share the examination pages' restrained surfaces. */
+  .workspace-page {
+    @apply min-w-0 space-y-3.5;
+  }
+  .workspace-header {
+    @apply flex min-w-0 flex-col gap-3 border-b border-slate-200 pb-3 dark:border-slate-800 xl:flex-row xl:items-center xl:justify-between;
+  }
+  .workspace-actions {
+    @apply flex min-w-0 flex-wrap items-center gap-2 xl:shrink-0;
+  }
+  .workspace-panel {
+    @apply min-w-0 rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-[#0c1830] sm:p-4;
+  }
+  .workspace-table-scroll {
+    @apply max-w-full overflow-x-auto overscroll-x-contain rounded-lg;
+    -webkit-overflow-scrolling: touch;
+  }
+  .workspace-table-scroll:focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-sky-500;
+  }
+  .workspace-tabs {
+    @apply flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-[#0c1830];
+  }
   .glass-card {
     @apply bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass transition-all duration-200 dark:bg-[#091326]/90 dark:border-[#162b4d] dark:shadow-none;
   }
@@ -47,6 +70,18 @@
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200/70 active:scale-[0.99] transition-all cursor-pointer dark:bg-[#0d1c38] dark:text-sky-300 dark:border-[#1d3863] dark:hover:bg-[#13274c];
+  }
+}
+
+/* Phone controls retain comfortable touch targets without enlarging desktop tables. */
+@media (max-width: 639px) {
+  .workspace-page :where(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])),
+  .workspace-dialog :where(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])) {
+    min-height: 44px;
+  }
+  .workspace-page :where(input, select, textarea),
+  .workspace-dialog :where(input, select, textarea) {
+    font-size: 16px;
   }
 }
 

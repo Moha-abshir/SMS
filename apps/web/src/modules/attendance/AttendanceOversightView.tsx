@@ -1,3 +1,5 @@
+import { WorkspaceStats } from '../../components/WorkspaceStats';
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -343,26 +345,13 @@ export const AttendanceOversightView: React.FC = () => {
       subtitle="Synchronizing school-wide class registers, roll call metrics, and absentee notifications..."
       icon={Users}
     >
-      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
+      <div className="workspace-page">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 sm:p-6 bg-white/90 dark:bg-[#0c1830] backdrop-blur-md rounded-2xl sm:rounded-3xl border border-sky-100 dark:border-[#1a335a] shadow-glass">
-        <div>
-          <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs uppercase tracking-wider mb-1">
-            <Users className="w-4 h-4 text-sky-500" />
-            Attendance Oversight
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-            Daily Attendance Oversight
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium max-w-xl">
-            School-wide daily register completion status and absentee notifications for parents.
-          </p>
-        </div>
-
-        {/* Controls Bar: DD/MM/YY Date Navigator & Bulk SMS Action */}
+      <WorkspaceHeader icon={Users} title="Attendance Oversight" description="Review class registers and follow up with absent learners.">
+{/* Controls Bar: DD/MM/YY Date Navigator & Bulk SMS Action */}
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
           {/* Enhanced Date Navigator in DD/MM/YY format */}
-          <div className="flex items-center gap-1.5 p-1 bg-sky-50/70 dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800 rounded-xl sm:rounded-2xl">
+          <div className="flex items-center gap-1.5 p-1 bg-sky-50/70 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-lg">
             {/* Prev Day button */}
             <button
               type="button"
@@ -452,11 +441,11 @@ export const AttendanceOversightView: React.FC = () => {
           <button
             onClick={handleNotifyAllAbsent}
             disabled={bulkSendingSms || unnotifiedCount === 0}
-            className={`px-4 py-2 font-bold text-xs rounded-xl sm:rounded-2xl shadow-glass flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`px-4 py-2 font-bold text-xs rounded-xl sm:rounded-lg shadow-sm flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
               unnotifiedCount === 0 && data.absentStudents.length > 0
                 ? 'bg-emerald-600 text-white'
                 : 'bg-sky-500 hover:bg-sky-600 text-white'
-            }`}
+            } `}
             title="Dispatch SMS notifications to all unnotified parents of absent learners"
           >
             {bulkSendingSms ? (
@@ -473,78 +462,24 @@ export const AttendanceOversightView: React.FC = () => {
             </span>
           </button>
         </div>
-      </div>
+      </WorkspaceHeader>
 
-      {/* Aggregate KPI Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1: Registers Submitted */}
-        <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Registers Submitted
-          </span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
-            {data.registersSubmittedCount} / {data.totalClassesCount}
-          </div>
-          <div className="text-xs text-sky-600 dark:text-sky-400 font-semibold mt-1">
-            {data.totalClassesCount > 0 ? Math.round((data.registersSubmittedCount / data.totalClassesCount) * 100) : 0}% completed
-          </div>
-        </div>
-
-        {/* Card 2: Present Learners */}
-        <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Present Learners
-          </span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-            {data.totalPresent}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Learners in school</p>
-        </div>
-
-        {/* Card 3: Absent Learners */}
-        <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Absent Learners
-          </span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">
-            {data.totalAbsent}
-          </div>
-          {data.totalAbsent === 0 ? (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">Full attendance</p>
-          ) : unnotifiedCount > 0 ? (
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              {unnotifiedCount} Pending SMS
-            </p>
-          ) : (
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
-              <CheckCircle className="w-3.5 h-3.5" />
-              All SMS Dispatched
-            </p>
-          )}
-        </div>
-
-        {/* Card 4: Excused */}
-        <div className="p-4 sm:p-5 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl shadow-glass">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Excused Absences
-          </span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-sky-600 dark:text-sky-400 mt-1">
-            {data.totalExcused}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Authorized absences</p>
-        </div>
-      </div>
+      <WorkspaceStats items={[
+        { label: 'Registers submitted', value: `${data.registersSubmittedCount} / ${data.totalClassesCount}`, detail: `${data.totalClassesCount > 0 ? Math.round(data.registersSubmittedCount / data.totalClassesCount * 100) : 0}% completed` },
+        { label: 'Present', value: data.totalPresent, detail: 'Recorded present today' },
+        { label: 'Absent', value: data.totalAbsent, detail: `${unnotifiedCount} awaiting parent notification` },
+        { label: 'Excused', value: data.totalExcused, detail: 'Excused absences' },
+      ]} />
 
       {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-sky-100 dark:border-[#1a335a] pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-[#1a335a] pb-2">
         <button
           onClick={() => setActiveTab('registers')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'registers'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'bg-white/80 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-700 dark:hover:text-sky-300 border border-sky-100 dark:border-[#1a335a]'
-          }`}
+          } `}
         >
           <Users className="w-4 h-4" />
           <span>Class Registers ({data.classSummaries?.length || 0})</span>
@@ -556,16 +491,16 @@ export const AttendanceOversightView: React.FC = () => {
             activeTab === 'absentees'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'bg-white/80 dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-700 dark:hover:text-sky-300 border border-sky-100 dark:border-[#1a335a]'
-          }`}
+          } `}
         >
           <Phone className="w-4 h-4" />
           <span>Absentee Parents Hub ({data.absentStudents.length})</span>
           {unnotifiedCount > 0 ? (
-            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-500 text-white font-extrabold rounded-full">
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-amber-500 text-white font-bold rounded-full">
               {unnotifiedCount}
             </span>
           ) : data.absentStudents.length > 0 ? (
-            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-emerald-500 text-white font-extrabold rounded-full flex items-center gap-0.5">
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-emerald-500 text-white font-bold rounded-full flex items-center gap-0.5">
               <CheckCircle className="w-2.5 h-2.5" /> All Sent
             </span>
           ) : null}
@@ -574,9 +509,9 @@ export const AttendanceOversightView: React.FC = () => {
 
       {/* TAB 1: Class Registers Oversight Grid */}
       {activeTab === 'registers' && (
-        <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <div className="workspace-panel space-y-4 min-w-0">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
               <Users className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               Class Registers ({formatToDdMmYy(targetDate)})
             </h3>
@@ -598,7 +533,7 @@ export const AttendanceOversightView: React.FC = () => {
                 return (
                   <div
                     key={cls.classId}
-                    className="p-4 rounded-2xl bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all shadow-xs flex flex-col justify-between"
+                    className="workspace-panel hover:border-sky-300 dark:hover:border-sky-500/50 transition-all shadow-xs flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
@@ -613,7 +548,7 @@ export const AttendanceOversightView: React.FC = () => {
                             isSubmitted
                               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                               : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                          }`}
+                          } `}
                         >
                           {isSubmitted ? 'SUBMITTED' : 'PENDING'}
                         </span>
@@ -676,22 +611,22 @@ export const AttendanceOversightView: React.FC = () => {
 
       {/* TAB 2: Absentee Roster & Parent SMS Action Table */}
       {activeTab === 'absentees' && (
-        <div className="p-4 sm:p-6 bg-white/85 dark:bg-[#0c1830] backdrop-blur-md border border-sky-100 dark:border-[#1a335a] rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
+        <div className="workspace-panel space-y-4 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
               <Phone className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               Absentee Learners & Parent Alerts ({filteredAbsentStudents.length})
             </h3>
 
             {/* Filter pills */}
-            <div className="flex items-center gap-1.5 bg-sky-50/80 dark:bg-slate-900 p-1 rounded-xl border border-sky-100 dark:border-slate-800 text-xs">
+            <div className="flex items-center gap-1.5 bg-sky-50/80 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
               <button
                 onClick={() => setAbsentFilter('ALL')}
                 className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                   absentFilter === 'ALL'
                     ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
+                } `}
               >
                 All ({data.absentStudents.length})
               </button>
@@ -701,7 +636,7 @@ export const AttendanceOversightView: React.FC = () => {
                   absentFilter === 'UNNOTIFIED'
                     ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
+                } `}
               >
                 Unnotified ({unnotifiedCount})
               </button>
@@ -711,27 +646,27 @@ export const AttendanceOversightView: React.FC = () => {
                   absentFilter === 'SENT'
                     ? 'bg-white dark:bg-[#0c1830] text-sky-700 dark:text-sky-300 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                }`}
+                } `}
               >
                 SMS Sent ({data.absentStudents.filter((s) => s.smsSentStatus === 'SENT').length})
               </button>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
             <table className="w-full text-left text-xs min-w-[680px]">
-              <thead className="bg-sky-50/80 dark:bg-slate-900 text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#1a335a]">
+              <thead className="bg-sky-50/80 dark:bg-slate-900 text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-[#1a335a]">
                 <tr>
-                  <th className="py-3.5 px-4">Student Name</th>
-                  <th className="py-3.5 px-4">Class</th>
-                  <th className="py-3.5 px-4">Teacher Note / Reason</th>
-                  <th className="py-3.5 px-4">Parent / Guardian</th>
-                  <th className="py-3.5 px-4">Parent Phone Number</th>
-                  <th className="py-3.5 px-4 text-center">SMS Status</th>
-                  <th className="py-3.5 px-4 text-center">Action</th>
+                  <th className="py-2.5 px-4">Student Name</th>
+                  <th className="py-2.5 px-4">Class</th>
+                  <th className="py-2.5 px-4">Teacher Note / Reason</th>
+                  <th className="py-2.5 px-4">Parent / Guardian</th>
+                  <th className="py-2.5 px-4">Parent Phone Number</th>
+                  <th className="py-2.5 px-4 text-center">SMS Status</th>
+                  <th className="py-2.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-sky-100/60 dark:divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {filteredAbsentStudents.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500 italic">
@@ -741,13 +676,13 @@ export const AttendanceOversightView: React.FC = () => {
                 ) : (
                   filteredAbsentStudents.map((row) => (
                     <tr key={row.studentId} className="hover:bg-sky-50/40 dark:hover:bg-sky-950/20 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
+                      <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-slate-100">
                         {row.studentName}
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-600 dark:text-slate-400">
+                      <td className="py-2.5 px-4 font-semibold text-slate-600 dark:text-slate-400">
                         {row.className}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-2.5 px-4">
                         {row.remarks ? (
                           <div
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 font-medium text-[11px] max-w-xs"
@@ -760,19 +695,19 @@ export const AttendanceOversightView: React.FC = () => {
                           <span className="text-slate-400 dark:text-slate-500 italic text-[11px]">No note recorded</span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-800 dark:text-slate-200 font-bold">
+                      <td className="py-2.5 px-4 text-slate-800 dark:text-slate-200 font-bold">
                         {row.guardianName || 'Parent / Guardian'}
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-500 dark:text-slate-400">
+                      <td className="py-2.5 px-4 font-mono text-slate-500 dark:text-slate-400">
                         {row.guardianPhone || 'No phone registered'}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-2.5 px-4 text-center">
                         {row.smsSentStatus === 'SENT' ? (
-                          <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold rounded-full inline-flex items-center justify-center gap-1 border border-emerald-500/20">
+                          <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded-full inline-flex items-center justify-center gap-1 border border-emerald-500/20">
                             <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> SMS Delivered
                           </span>
                         ) : row.smsSentStatus === 'FAILED' ? (
-                          <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-extrabold rounded-full inline-flex items-center justify-center gap-1 border border-rose-500/20">
+                          <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-full inline-flex items-center justify-center gap-1 border border-rose-500/20">
                             <AlertCircle className="w-3 h-3 text-rose-500" /> Delivery Failed
                           </span>
                         ) : (
@@ -782,7 +717,7 @@ export const AttendanceOversightView: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-2.5 px-4 text-center">
                         <button
                           onClick={() => handleSendSms(row)}
                           disabled={sendingSmsId === row.studentId || !row.guardianPhone}
@@ -790,7 +725,7 @@ export const AttendanceOversightView: React.FC = () => {
                             row.smsSentStatus === 'SENT'
                               ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                               : 'bg-sky-500 hover:bg-sky-600 text-white shadow-glass'
-                          }`}
+                          } `}
                           title={row.smsSentStatus === 'SENT' ? 'Resend absentee SMS' : 'Send absentee SMS'}
                         >
                           {sendingSmsId === row.studentId ? (
@@ -822,14 +757,14 @@ export const AttendanceOversightView: React.FC = () => {
           }
           maxWidth="max-w-3xl"
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             {/* Submitted Notice Banner */}
             {selectedClass.isSubmitted && (
               <div className="flex items-center justify-between gap-3 p-3 bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-900 dark:text-emerald-200">
                 <div className="flex items-center gap-2.5">
                   <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <div>
-                    <div className="font-extrabold flex items-center gap-1.5">
+                    <div className="font-bold flex items-center gap-1.5">
                       <span>Submitted Register</span>
                     </div>
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
@@ -848,7 +783,7 @@ export const AttendanceOversightView: React.FC = () => {
             )}
 
             {/* Modal Subheader with Stats & Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/40 rounded-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-sky-50/70 dark:bg-sky-950/40 border border-slate-200 dark:border-sky-900/40 rounded-xl">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Total: <strong className="text-slate-900 dark:text-slate-100">{registerRecords.length}</strong>
@@ -890,7 +825,7 @@ export const AttendanceOversightView: React.FC = () => {
                 placeholder="Search learner by name or admission number..."
                 value={registerSearch}
                 onChange={(e) => setRegisterSearch(e.target.value)}
-                className="w-full bg-white dark:bg-[#0c1830] border border-sky-100 dark:border-[#1a335a] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#1a335a] rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
 
@@ -900,9 +835,9 @@ export const AttendanceOversightView: React.FC = () => {
                 <div className="w-6 h-6 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
-              <div className="max-h-96 overflow-y-auto border border-sky-100 dark:border-[#1a335a] rounded-xl">
+              <div className="max-h-96 overflow-y-auto border border-slate-200 dark:border-[#1a335a] rounded-xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-sky-50/90 dark:bg-[#0c1830] text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-sky-100 dark:border-[#1a335a] sticky top-0 z-10">
+                  <thead className="bg-sky-50/90 dark:bg-[#0c1830] text-sky-900 dark:text-sky-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-[#1a335a] sticky top-0 z-10">
                     <tr>
                       <th className="py-2.5 px-3">Adm #</th>
                       <th className="py-2.5 px-3">Student Name</th>
@@ -935,12 +870,12 @@ export const AttendanceOversightView: React.FC = () => {
                                     : r.status === 'ABSENT'
                                     ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                                     : 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
-                                }`}
+                                } `}
                               >
                                 {r.status}
                               </span>
                             ) : (
-                              <div className="inline-flex rounded-lg p-0.5 bg-sky-50/80 dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800">
+                              <div className="inline-flex rounded-lg p-0.5 bg-sky-50/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
                                 <button
                                   type="button"
                                   onClick={() => handleRecordStatusChange(r.studentId, 'PRESENT')}
@@ -948,7 +883,7 @@ export const AttendanceOversightView: React.FC = () => {
                                     r.status === 'PRESENT'
                                       ? 'bg-sky-500 text-white shadow-xs'
                                       : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
-                                  }`}
+                                  } `}
                                 >
                                   Present
                                 </button>
@@ -959,7 +894,7 @@ export const AttendanceOversightView: React.FC = () => {
                                     r.status === 'ABSENT'
                                       ? 'bg-slate-800 text-white shadow-xs'
                                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                                  }`}
+                                  } `}
                                 >
                                   Absent
                                 </button>
@@ -970,7 +905,7 @@ export const AttendanceOversightView: React.FC = () => {
                                     r.status === 'EXCUSED'
                                       ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 font-extrabold border border-sky-200 dark:border-sky-800'
                                       : 'text-slate-600 dark:text-slate-400 hover:text-sky-700 dark:hover:text-sky-300'
-                                  }`}
+                                  } `}
                                 >
                                   Excused
                                 </button>
@@ -988,7 +923,7 @@ export const AttendanceOversightView: React.FC = () => {
                                 placeholder="Reason / Notes..."
                                 value={r.remarks || ''}
                                 onChange={(e) => handleRecordRemarkChange(r.studentId, e.target.value)}
-                                className="w-full bg-white dark:bg-slate-900/80 border border-sky-100 dark:border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 outline-none focus:border-sky-400 transition-colors"
+                                className="w-full bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 outline-none focus:border-sky-400 transition-colors"
                               />
                             )}
                           </td>
@@ -1001,7 +936,7 @@ export const AttendanceOversightView: React.FC = () => {
             )}
 
             {/* Modal Actions */}
-            <div className="flex justify-end gap-3 pt-3 border-t border-sky-100 dark:border-slate-800">
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
               {selectedClass.isSubmitted ? (
                 <button
                   type="button"
@@ -1023,7 +958,7 @@ export const AttendanceOversightView: React.FC = () => {
                     type="button"
                     onClick={handleSaveRegister}
                     disabled={registerSaving}
-                    className="px-5 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {registerSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
                     {registerSaving ? 'Saving...' : 'Save Daily Register'}
