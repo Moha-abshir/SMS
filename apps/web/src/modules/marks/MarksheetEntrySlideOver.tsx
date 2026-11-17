@@ -567,13 +567,13 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         />
 
         {/* Slide-over panel */}
-        <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
+        <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
           <motion.div
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="w-screen max-w-4xl bg-white dark:bg-[#081020] border-l border-sky-100 dark:border-[#112038] shadow-2xl flex flex-col"
+            className="w-screen min-w-0 max-w-full sm:max-w-4xl bg-white dark:bg-[#081020] border-l border-sky-100 dark:border-[#112038] shadow-2xl flex flex-col"
           >
             {/* Header */}
             <div className="px-5 py-4 bg-white/95 dark:bg-[#081020]/95 backdrop-blur-md border-b border-sky-100 dark:border-[#112038] shrink-0">
@@ -703,7 +703,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
               {!readyToShow ? (
                 /* Structured Table Skeleton instead of generic loading box */
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-sky-100 dark:border-[#162b4d] overflow-hidden shadow-xs">
+                  <div className="workspace-table-scroll rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs" role="region" aria-label="Loading learner marks" tabIndex={0}>
                     <table className="w-full text-left border-collapse text-xs">
                       <thead className="bg-sky-50 dark:bg-[#0c1830]">
                         <tr className="border-b border-sky-100 dark:border-[#162b4d] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[11px]">
