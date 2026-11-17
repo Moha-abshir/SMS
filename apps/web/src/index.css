@@ -73,6 +73,18 @@
   }
 }
 
+/* Phone controls retain comfortable touch targets without enlarging desktop tables. */
+@media (max-width: 639px) {
+  .workspace-page :where(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])),
+  .workspace-dialog :where(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])) {
+    min-height: 44px;
+  }
+  .workspace-page :where(input, select, textarea),
+  .workspace-dialog :where(input, select, textarea) {
+    font-size: 16px;
+  }
+}
+
 /* Sleek Sky Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

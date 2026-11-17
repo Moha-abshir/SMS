@@ -1,3 +1,5 @@
+import { WorkspaceStats } from '../../components/WorkspaceStats';
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -302,34 +304,22 @@ export const FinancialManagementView: React.FC = () => {
       subtitle="Auditing fee collections, billed balances, and payment transaction logs..."
       icon={GraduationCap}
     >
-      <div className="space-y-4 sm:space-y-6">
+      <div className="workspace-page">
         {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white/85 backdrop-blur-xl border border-sky-100 rounded-2xl sm:rounded-3xl shadow-glass">
-        <div>
-          <div className="text-sky-600 font-bold text-xs uppercase tracking-widest mb-1">
-            Financial Oversight & Fee Accounting
-          </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-tight">
-            School Fee Collections & Financial Management
-          </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium max-w-xl">
-            Real-time fee collection oversight, manual receipt issuance, payment reversals authorization, and student fee statements.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
+      <WorkspaceHeader icon={GraduationCap} title="Financial Management" description="Track collections, record payments, and review fee statements.">
+<div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={() => setActiveTab('payment')}
-            className="px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl transition-colors shadow-glass cursor-pointer"
+            className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl transition-colors shadow-sm cursor-pointer"
           >
             Record Fee Payment
           </button>
         </div>
-      </div>
+      </WorkspaceHeader>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 p-1.5 bg-white/80 backdrop-blur-md border border-sky-100 rounded-2xl shadow-xs overflow-x-auto">
+      <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
         <button
           type="button"
           onClick={() => setActiveTab('overview')}
@@ -337,7 +327,7 @@ export const FinancialManagementView: React.FC = () => {
             activeTab === 'overview'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           Financial Summary
         </button>
@@ -349,7 +339,7 @@ export const FinancialManagementView: React.FC = () => {
             activeTab === 'payment'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           Record Payment
         </button>
@@ -361,7 +351,7 @@ export const FinancialManagementView: React.FC = () => {
             activeTab === 'ledger'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           Payments Ledger
         </button>
@@ -373,14 +363,14 @@ export const FinancialManagementView: React.FC = () => {
             activeTab === 'reversals'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           Reversals Queue
           {pendingReversals.length > 0 && (
             <span
               className={`ml-1.5 px-2 py-0.5 text-[10px] font-black rounded-full ${
                 activeTab === 'reversals' ? 'bg-white text-sky-600' : 'bg-rose-100 text-rose-700'
-              }`}
+              } `}
             >
               {pendingReversals.length}
             </span>
@@ -394,7 +384,7 @@ export const FinancialManagementView: React.FC = () => {
             activeTab === 'statements'
               ? 'bg-sky-500 text-white shadow-glass'
               : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50/70'
-          }`}
+          } `}
         >
           Fee Statements
         </button>
@@ -402,65 +392,22 @@ export const FinancialManagementView: React.FC = () => {
 
       {/* TAB 1: FINANCIAL OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="space-y-4 sm:space-y-6">
-          {/* Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-                <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Collected</span>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-sky-600 font-mono">
-                    KES {(summary?.totalCollected || 0).toLocaleString()}
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    {summary?.totalTransactions || 0} valid receipt transactions
-                  </p>
-                </div>
-
-                <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Billed</span>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-800 font-mono">
-                    KES {(summary?.totalBilled || 0).toLocaleString()}
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">Tuition & term fee allocations</p>
-                </div>
-
-                <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Outstanding Balance</span>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-800 font-mono">
-                    KES {(summary?.totalOutstanding || 0).toLocaleString()}
-                  </div>
-                  <p className="text-[11px] text-sky-700 mt-1 font-semibold">Uncollected term balances</p>
-                </div>
-
-                <div className="p-4 sm:p-5 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl shadow-glass">
-                  <div className="mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Collection Rate</span>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-sky-600 font-mono">
-                    {collectionRate}%
-                  </div>
-                  <div className="w-full bg-sky-100 h-1.5 rounded-full mt-2 overflow-hidden">
-                    <div
-                      className="bg-sky-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(collectionRate, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
+        <div className="space-y-4 min-w-0">
+          <WorkspaceStats items={[
+            { label: 'Collected', value: `KES ${(summary?.totalCollected || 0).toLocaleString()}`, detail: `${summary?.totalTransactions || 0} receipts` },
+            { label: 'Billed', value: `KES ${(summary?.totalBilled || 0).toLocaleString()}`, detail: 'Tuition and term fees' },
+            { label: 'Outstanding', value: `KES ${(summary?.totalOutstanding || 0).toLocaleString()}`, detail: 'Uncollected balance' },
+            { label: 'Collection rate', value: `${collectionRate}%`, detail: 'Of total billed fees' },
+          ]} />
 
               {/* Collections by Payment Method */}
-              <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                  Collection Channels & Payment Method Split
+              <div className="workspace-panel space-y-4 min-w-0">
+                <h3 className="text-sm font-bold text-slate-800">
+                  Collections by payment method
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 bg-sky-50/60 border border-sky-100 rounded-2xl">
+                  <div className="p-4 bg-sky-50/60 border border-slate-200 rounded-lg">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold tracking-wider text-slate-700 uppercase">
                         Cash Deposit
@@ -469,7 +416,7 @@ export const FinancialManagementView: React.FC = () => {
                         Active Channel
                       </span>
                     </div>
-                    <span className="text-xl sm:text-2xl font-black text-sky-700 block mt-2 font-mono">
+                    <span className="text-lg font-bold text-sky-700 block mt-2 font-mono">
                       KES {(summary?.methodBreakdown?.CASH?.total || 0).toLocaleString()}
                     </span>
                     <span className="text-[11px] text-slate-400 mt-0.5 block font-semibold">
@@ -477,7 +424,7 @@ export const FinancialManagementView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="p-4 bg-sky-50/60 border border-sky-100 rounded-2xl">
+                  <div className="p-4 bg-sky-50/60 border border-slate-200 rounded-lg">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold tracking-wider text-slate-700 uppercase">
                         Manual M-Pesa
@@ -486,7 +433,7 @@ export const FinancialManagementView: React.FC = () => {
                         Active Channel
                       </span>
                     </div>
-                    <span className="text-xl sm:text-2xl font-black text-sky-700 block mt-2 font-mono">
+                    <span className="text-lg font-bold text-sky-700 block mt-2 font-mono">
                       KES {(summary?.methodBreakdown?.MANUAL_MPESA?.total || 0).toLocaleString()}
                     </span>
                     <span className="text-[11px] text-slate-400 mt-0.5 block font-semibold">
@@ -497,9 +444,9 @@ export const FinancialManagementView: React.FC = () => {
               </div>
 
               {/* Recent Payments Section */}
-              <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-                <div className="flex items-center justify-between border-b border-sky-100 pb-3">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              <div className="workspace-panel space-y-4 min-w-0">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <h3 className="text-sm font-bold text-slate-800">
                     Recent Fee Receipts
                   </h3>
                   <button
@@ -514,9 +461,9 @@ export const FinancialManagementView: React.FC = () => {
                 {summary?.recentPayments?.length === 0 ? (
                   <p className="text-xs text-slate-400 italic py-6 text-center">No fee payments recorded yet.</p>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                     <table className="w-full text-left text-xs min-w-[700px]">
-                      <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
+                      <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-slate-200">
                         <tr>
                           <th className="py-2.5 px-3">Receipt #</th>
                           <th className="py-2.5 px-3">Learner</th>
@@ -526,14 +473,14 @@ export const FinancialManagementView: React.FC = () => {
                           <th className="py-2.5 px-3">Date</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-sky-100/60">
+                      <tbody className="divide-y divide-slate-100">
                         {summary?.recentPayments?.map((p: any) => (
                           <tr key={p.id} className="hover:bg-sky-50/40">
                             <td className="py-2.5 px-3 font-mono font-bold text-sky-600">{p.receiptNumber}</td>
                             <td className="py-2.5 px-3 font-bold text-slate-800">{p.studentFirstName} {p.studentLastName}</td>
                             <td className="py-2.5 px-3 text-slate-600">{p.className}</td>
                             <td className="py-2.5 px-3">
-                              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-sky-100">
+                              <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-slate-200">
                                 {p.paymentMethod}
                               </span>
                             </td>
@@ -555,21 +502,21 @@ export const FinancialManagementView: React.FC = () => {
 
       {/* TAB 2: RECORD FEE PAYMENT */}
       {activeTab === 'payment' && (
-        <form onSubmit={handleRecordPayment} className="space-y-4 sm:space-y-6">
+        <form onSubmit={handleRecordPayment} className="space-y-4 min-w-0">
           {/* Step 1: Select Student */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+          <div className="workspace-panel space-y-4 min-w-0">
+            <h3 className="text-sm font-bold text-slate-700">
               1. Learner Lookup & Identification
             </h3>
 
             {selectedStudent ? (
-              <div className="p-4 bg-sky-50 border border-sky-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 bg-sky-50 border border-sky-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold">
                     <GraduationCap className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-extrabold text-slate-900">
+                    <h4 className="text-sm font-bold text-slate-900">
                       {selectedStudent.student.firstName} {selectedStudent.student.middleName || ''} {selectedStudent.student.lastName}
                     </h4>
                     <p className="text-xs text-sky-700 font-semibold">
@@ -593,11 +540,11 @@ export const FinancialManagementView: React.FC = () => {
                   placeholder="Type student name or KNEC assessment number..."
                   value={studentSearchQuery}
                   onChange={(e) => setStudentSearchQuery(e.target.value)}
-                  className="w-full pl-10 bg-white border border-sky-100 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full pl-10 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
 
                 {filteredStudents.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-sky-200 rounded-2xl shadow-xl z-20 overflow-hidden divide-y divide-sky-50">
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-sky-200 rounded-lg shadow-xl z-20 overflow-hidden divide-y divide-sky-50">
                     {filteredStudents.map((item) => (
                       <div
                         key={item.student.id}
@@ -619,7 +566,7 @@ export const FinancialManagementView: React.FC = () => {
                             KNEC: <span className="font-mono text-sky-600">{item.student.assessmentNumber}</span> | Parent: {item.guardian?.fullName}
                           </p>
                         </div>
-                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-sky-100">
+                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-slate-200">
                           {item.class.name}
                         </span>
                       </div>
@@ -631,8 +578,8 @@ export const FinancialManagementView: React.FC = () => {
           </div>
 
           {/* Step 2: Payment Details */}
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+          <div className="workspace-panel space-y-4 min-w-0">
+            <h3 className="text-sm font-bold text-slate-700">
               2. Transaction Particulars & Amount
             </h3>
 
@@ -648,7 +595,7 @@ export const FinancialManagementView: React.FC = () => {
                   placeholder="e.g. 5000"
                   value={paymentForm.amountPaid}
                   onChange={(e) => setPaymentForm({ ...paymentForm, amountPaid: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors font-bold"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors font-bold"
                 />
               </div>
 
@@ -659,7 +606,7 @@ export const FinancialManagementView: React.FC = () => {
                 <select
                   value={paymentForm.paymentMethod}
                   onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value as 'CASH' | 'MANUAL_MPESA' })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 >
                   <option value="CASH">Cash Payment</option>
                   <option value="MANUAL_MPESA">M-Pesa (Manual Code Entry)</option>
@@ -676,7 +623,7 @@ export const FinancialManagementView: React.FC = () => {
                   placeholder="e.g. Mary Kemboi"
                   value={paymentForm.paidBy}
                   onChange={(e) => setPaymentForm({ ...paymentForm, paidBy: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -691,7 +638,7 @@ export const FinancialManagementView: React.FC = () => {
                     placeholder="e.g. QK876XYZ9"
                     value={paymentForm.mpesaRefCode}
                     onChange={(e) => setPaymentForm({ ...paymentForm, mpesaRefCode: e.target.value.toUpperCase() })}
-                    className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors font-mono"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors font-mono"
                   />
                 </div>
               )}
@@ -704,7 +651,7 @@ export const FinancialManagementView: React.FC = () => {
                   type="number"
                   value={paymentForm.academicYear}
                   onChange={(e) => setPaymentForm({ ...paymentForm, academicYear: Number(e.target.value) })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
 
@@ -715,7 +662,7 @@ export const FinancialManagementView: React.FC = () => {
                 <select
                   value={paymentForm.termNumber}
                   onChange={(e) => setPaymentForm({ ...paymentForm, termNumber: Number(e.target.value) })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 >
                   <option value={1}>Term 1</option>
                   <option value={2}>Term 2</option>
@@ -732,7 +679,7 @@ export const FinancialManagementView: React.FC = () => {
                   placeholder="e.g. Cleared Term 1 balance"
                   value={paymentForm.notes}
                   onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-                  className="w-full bg-white border border-sky-100 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
               </div>
             </div>
@@ -742,7 +689,7 @@ export const FinancialManagementView: React.FC = () => {
             <button
               type="submit"
               disabled={recordingPayment || !selectedStudent}
-              className="w-full sm:w-auto px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
             >
               {recordingPayment && (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
@@ -755,10 +702,10 @@ export const FinancialManagementView: React.FC = () => {
 
       {/* TAB 3: PAYMENTS LEDGER */}
       {activeTab === 'ledger' && (
-        <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
+        <div className="workspace-panel space-y-4 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+              <h3 className="text-sm font-bold text-slate-800">
                 Fee Payments Ledger ({payments.length} Records)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -773,7 +720,7 @@ export const FinancialManagementView: React.FC = () => {
                 placeholder="Search receipt #, student, ref code..."
                 value={ledgerSearch}
                 onChange={(e) => setLedgerSearch(e.target.value)}
-                className="w-full pl-8 bg-white border border-sky-100 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full pl-8 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
             </div>
           </div>
@@ -783,9 +730,9 @@ export const FinancialManagementView: React.FC = () => {
           ) : filteredPayments.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-8 text-center">No payment records found.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="w-full text-left text-xs min-w-[800px]">
-                <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
+                <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-3 sm:px-4">Receipt #</th>
                     <th className="py-3 px-3 sm:px-4">Student Name</th>
@@ -797,7 +744,7 @@ export const FinancialManagementView: React.FC = () => {
                     <th className="py-3 px-3 sm:px-4 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-sky-100/60">
+                <tbody className="divide-y divide-slate-100">
                   {filteredPayments.map((p) => (
                     <tr key={p.id} className="hover:bg-sky-50/40">
                       <td className="py-3 px-4 font-mono font-bold text-sky-600">
@@ -812,7 +759,7 @@ export const FinancialManagementView: React.FC = () => {
                         KES {Number(p.amountPaid).toLocaleString()}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-sky-100">
+                        <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-md border border-slate-200">
                           {p.paymentMethod}
                         </span>
                         {(p.mpesaRefCode || p.bankRefNumber) && (
@@ -830,7 +777,7 @@ export const FinancialManagementView: React.FC = () => {
                             p.isReversed
                               ? 'bg-rose-50 border border-rose-200 text-rose-700'
                               : 'bg-sky-50 border border-sky-200 text-sky-700'
-                          }`}
+                          } `}
                         >
                           {p.isReversed ? 'REVERSED' : 'VALID'}
                         </span>
@@ -871,9 +818,9 @@ export const FinancialManagementView: React.FC = () => {
 
       {/* TAB 4: REVERSALS APPROVAL QUEUE */}
       {activeTab === 'reversals' && (
-        <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-          <div className="border-b border-sky-100 pb-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+        <div className="workspace-panel space-y-4 min-w-0">
+          <div className="border-b border-slate-200 pb-3">
+            <h3 className="text-sm font-bold text-slate-800">
               Pending Payment Reversals Queue ({pendingReversals.length})
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -890,9 +837,9 @@ export const FinancialManagementView: React.FC = () => {
               <p className="text-[11px] text-slate-400 mt-0.5">All transactions are settled and verified.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="w-full text-left text-xs min-w-[760px]">
-                <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-sky-100">
+                <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-3 sm:px-4">Receipt #</th>
                     <th className="py-3 px-3 sm:px-4">Student</th>
@@ -902,7 +849,7 @@ export const FinancialManagementView: React.FC = () => {
                     <th className="py-3 px-3 sm:px-4 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-sky-100/60">
+                <tbody className="divide-y divide-slate-100">
                   {pendingReversals.map((rev) => (
                     <tr key={rev.reversalId} className="hover:bg-sky-50/40">
                       <td className="py-3 px-4 font-mono font-bold text-sky-600">
@@ -928,7 +875,7 @@ export const FinancialManagementView: React.FC = () => {
                             type="button"
                             onClick={() => handleApproveReversal(rev.reversalId)}
                             disabled={!!processingReversalId}
-                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {processingReversalId === rev.reversalId && processingReversalAction === 'APPROVE' ? (
                               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
@@ -963,9 +910,9 @@ export const FinancialManagementView: React.FC = () => {
 
       {/* TAB 5: STUDENT FEE STATEMENTS */}
       {activeTab === 'statements' && (
-        <div className="space-y-4 sm:space-y-6">
-          <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-4 shadow-glass">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+        <div className="space-y-4 min-w-0">
+          <div className="workspace-panel space-y-4 min-w-0">
+            <h3 className="text-sm font-bold text-slate-800">
               Learner Fee Statement Audit
             </h3>
 
@@ -976,11 +923,11 @@ export const FinancialManagementView: React.FC = () => {
                 placeholder="Search student by name or KNEC number..."
                 value={statementStudentQuery}
                 onChange={(e) => setStatementStudentQuery(e.target.value)}
-                className="w-full pl-10 bg-white border border-sky-100 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
+                className="w-full pl-10 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
               />
 
               {statementStudentQuery.trim().length >= 2 && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-sky-200 rounded-2xl shadow-xl z-20 overflow-hidden divide-y divide-sky-50 max-h-48 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-sky-200 rounded-lg shadow-xl z-20 overflow-hidden divide-y divide-sky-50 max-h-48 overflow-y-auto">
                   {studentsList
                     .filter((s) => {
                       const q = statementStudentQuery.toLowerCase();
@@ -1006,7 +953,7 @@ export const FinancialManagementView: React.FC = () => {
                             {item.student.assessmentNumber}
                           </p>
                         </div>
-                        <span className="text-[10px] font-bold text-sky-700 px-2 py-0.5 bg-sky-50 rounded-md border border-sky-100">
+                        <span className="text-[10px] font-bold text-sky-700 px-2 py-0.5 bg-sky-50 rounded-md border border-slate-200">
                           {item.class.name}
                         </span>
                       </div>
@@ -1019,12 +966,12 @@ export const FinancialManagementView: React.FC = () => {
           {loadingStatement ? (
             <div className="py-12 text-center text-slate-400">Loading statement...</div>
           ) : statementData ? (
-            <div className="p-4 sm:p-6 bg-white/85 backdrop-blur-md border border-sky-100 rounded-2xl sm:rounded-3xl space-y-5 shadow-glass">
+            <div className="workspace-panel space-y-5">
               {/* Statement Header Card */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-sky-50/70 border border-sky-100 rounded-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-sky-50/70 border border-slate-200 rounded-lg">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600">Official Fee Statement</span>
-                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
                     {statementData.student.fullName}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
@@ -1045,7 +992,7 @@ export const FinancialManagementView: React.FC = () => {
               {/* Itemized Bills */}
               <div className="space-y-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Itemized Fee Invoices</h4>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                   <table className="w-full text-left text-xs min-w-[600px]">
                     <thead className="bg-sky-50 text-sky-900 font-bold">
                       <tr>
@@ -1056,7 +1003,7 @@ export const FinancialManagementView: React.FC = () => {
                         <th className="p-2.5">Balance</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-sky-100/60">
+                    <tbody className="divide-y divide-slate-100">
                       {statementData.bills?.map((b: any) => (
                         <tr key={b.id}>
                           <td className="p-2.5 font-bold text-slate-800">{b.title}</td>
@@ -1072,12 +1019,12 @@ export const FinancialManagementView: React.FC = () => {
               </div>
 
               {/* Receipts History */}
-              <div className="space-y-2 pt-3 border-t border-sky-100">
+              <div className="space-y-2 pt-3 border-t border-slate-200">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">Payment Receipts History</h4>
                 {statementData.payments?.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic py-4">No receipts recorded for this learner yet.</p>
+                  <p className="text-xs text-slate-400 italic py-3">No receipts recorded for this learner yet.</p>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
                     <table className="w-full text-left text-xs min-w-[600px]">
                       <thead className="bg-sky-50 text-sky-900 font-bold">
                         <tr>
@@ -1088,7 +1035,7 @@ export const FinancialManagementView: React.FC = () => {
                           <th className="p-2.5">Status</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-sky-100/60">
+                      <tbody className="divide-y divide-slate-100">
                         {statementData.payments?.map((pm: any) => (
                           <tr key={pm.id}>
                             <td className="p-2.5 font-mono font-bold text-sky-600">{pm.receiptNumber}</td>
@@ -1099,7 +1046,7 @@ export const FinancialManagementView: React.FC = () => {
                               <span
                                 className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${
                                   pm.isReversed ? 'bg-rose-50 text-rose-700' : 'bg-sky-50 text-sky-700'
-                                }`}
+                                } `}
                               >
                                 {pm.isReversed ? 'REVERSED' : 'CLEARED'}
                               </span>
@@ -1113,7 +1060,7 @@ export const FinancialManagementView: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="p-8 text-center text-slate-400 bg-white/80 rounded-2xl border border-sky-100">
+            <div className="p-8 text-center text-slate-400 bg-white rounded-lg border border-slate-200">
               <p className="text-xs">Search and select a student above to inspect their statement.</p>
             </div>
           )}
@@ -1127,7 +1074,7 @@ export const FinancialManagementView: React.FC = () => {
           onClose={() => setReversalModalPayment(null)}
           title="Request Fee Payment Reversal"
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5">
               <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div className="text-xs text-rose-800">
@@ -1138,7 +1085,7 @@ export const FinancialManagementView: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-3 bg-sky-50/50 border border-sky-100 rounded-xl space-y-1 text-xs">
+            <div className="p-3 bg-sky-50/50 border border-slate-200 rounded-xl space-y-1 text-xs">
               <p><strong className="text-slate-700">Receipt #:</strong> <span className="font-mono text-sky-700 font-bold">{reversalModalPayment.receiptNumber}</span></p>
               <p><strong className="text-slate-700">Learner:</strong> {reversalModalPayment.studentFirstName} {reversalModalPayment.studentLastName}</p>
               <p><strong className="text-slate-700">Amount Paid:</strong> KES {Number(reversalModalPayment.amountPaid).toLocaleString()}</p>
@@ -1154,11 +1101,11 @@ export const FinancialManagementView: React.FC = () => {
                 placeholder="Specify reason (e.g. wrong student credited, bank error, bounced cheque)..."
                 value={reversalReason}
                 onChange={(e) => setReversalReason(e.target.value)}
-                className="w-full bg-white border border-sky-100 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-rose-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:border-rose-500 transition-colors"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-sky-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setReversalModalPayment(null)}
@@ -1170,7 +1117,7 @@ export const FinancialManagementView: React.FC = () => {
                 type="button"
                 onClick={handleRequestReversal}
                 disabled={requestingReversal || !reversalReason.trim()}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {requestingReversal && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}
                 {requestingReversal ? 'Submitting Reversal...' : 'Submit Reversal Request'}
@@ -1187,16 +1134,16 @@ export const FinancialManagementView: React.FC = () => {
           onClose={() => setReceiptModalData(null)}
           title="Official Fee Payment Receipt"
         >
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             {/* Printable Receipt Card */}
-            <div id="official-receipt-print" className="p-6 bg-white border border-sky-100 rounded-2xl shadow-xs space-y-4">
+            <div id="official-receipt-print" className="p-6 bg-white border border-slate-200 rounded-lg shadow-xs space-y-4">
               {/* Receipt Header */}
-              <div className="text-center border-b border-sky-100 pb-4">
+              <div className="text-center border-b border-slate-200 pb-4">
                 <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">
                   Eldoret Muslim Academy
                 </h2>
                 <p className="text-[11px] text-slate-500 font-medium">P.O. Box 1234, Eldoret, Kenya</p>
-                <div className="inline-block px-3 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-extrabold rounded-full mt-2 border border-sky-200">
+                <div className="inline-block px-3 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-bold rounded-full mt-2 border border-sky-200">
                   OFFICIAL STUDENT FEE RECEIPT
                 </div>
               </div>
@@ -1246,7 +1193,7 @@ export const FinancialManagementView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="pt-2 text-center text-[10px] text-slate-400 border-t border-sky-100">
+              <div className="pt-2 text-center text-[10px] text-slate-400 border-t border-slate-200">
                 This is a computer-generated official receipt. Thank you for your payment.
               </div>
             </div>
@@ -1263,7 +1210,7 @@ export const FinancialManagementView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => printElement('official-receipt-print', `Receipt - ${receiptModalData?.receiptNumber || 'Official Receipt'}`)}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-glass flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-4 h-4" /> Print Receipt
               </button>
