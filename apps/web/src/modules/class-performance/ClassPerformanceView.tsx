@@ -18,6 +18,7 @@ import { ClassStudentBroadsheet } from './components/ClassStudentBroadsheet';
 import { ClassSubjectAnalysis } from './components/ClassSubjectAnalysis';
 import { Learner360Drawer } from './components/Learner360Drawer';
 import { ClassWorkspaceSkeleton } from './components/ClassWorkspaceSkeleton';
+import { isNationalExamClass } from '@school/shared/types';
 
 export const ClassPerformanceView: React.FC = () => {
   const { classId: routeClassId } = useParams<{ classId?: string }>();
@@ -441,7 +442,11 @@ export const ClassPerformanceView: React.FC = () => {
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Subject & CAT Analysis ({workspace.subjects.length})</span>
+            <span>
+              {isNationalExamClass(workspace?.classInfo)
+                ? `Subject & CAT Analysis (${workspace?.subjects?.length || 0})`
+                : `Subject Analysis (${workspace?.subjects?.length || 0})`}
+            </span>
           </button>
         </div>
 
@@ -533,6 +538,8 @@ export const ClassPerformanceView: React.FC = () => {
           isJuniorSecondary={workspace.classInfo.isJuniorSecondary}
           classId={selectedClassId}
           className={workspace.classInfo.name}
+          levelCategory={workspace.classInfo.levelCategory}
+          numericOrder={workspace.classInfo.numericOrder}
           onFilterStrugglingSubject={(subjectId) => {
             setActiveTab('broadsheet');
             setQuickFilter('all');
@@ -549,6 +556,7 @@ export const ClassPerformanceView: React.FC = () => {
         studentId={selectedDrawerStudentId}
         examId={selectedExamId}
         allLearners={filteredLearners}
+        classInfo={workspace.classInfo}
         onSelectStudent={(newStudentId) => setSelectedDrawerStudentId(newStudentId)}
         onRemarkSaved={(savedStudentId, remark) => {
           setWorkspace((prev: any) => {

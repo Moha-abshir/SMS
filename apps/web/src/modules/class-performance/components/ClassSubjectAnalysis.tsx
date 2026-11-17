@@ -44,6 +44,8 @@ export interface ClassSubjectAnalysisProps {
   isJuniorSecondary: boolean;
   classId?: string;
   className?: string;
+  levelCategory?: string;
+  numericOrder?: number;
   onFilterStrugglingSubject?: (subjectId: string) => void;
   deltaLoading?: boolean;
 }
@@ -53,12 +55,18 @@ export const ClassSubjectAnalysis: React.FC<ClassSubjectAnalysisProps> = ({
   isJuniorSecondary,
   classId,
   className,
+  levelCategory,
+  numericOrder,
   onFilterStrugglingSubject,
   deltaLoading = false,
 }) => {
   const [selectedDrilldownSubject, setSelectedDrilldownSubject] = useState<SubjectAnalysisItem | null>(null);
 
-  const isNationalTransition = isNationalExamClass({ name: className });
+  const isNationalTransition = isNationalExamClass({
+    name: className,
+    levelCategory,
+    numericOrder,
+  });
 
   if (subjects.length === 0) {
     return (
@@ -81,14 +89,22 @@ export const ClassSubjectAnalysis: React.FC<ClassSubjectAnalysisProps> = ({
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/80 font-bold text-[11px] text-slate-600 dark:text-slate-400 select-none">
                 <th className="px-4 py-3 min-w-[200px]">LEARNING AREA & TEACHER</th>
                 <th className="px-3.5 py-3 text-center min-w-[90px]">SUBMISSION</th>
-                <th className="px-3.5 py-3 text-center min-w-[140px]">
-                  CONTINUOUS ASSESSMENT (CATS)
+                {isNationalTransition && (
+                  <th className="px-3.5 py-3 text-center min-w-[140px]">
+                    CONTINUOUS ASSESSMENT (CATS)
+                  </th>
+                )}
+                <th className="px-3.5 py-3 text-center min-w-[120px]">
+                  {isNationalTransition ? 'MAIN EXAM MEAN' : 'EXAM MEAN'}
                 </th>
-                <th className="px-3.5 py-3 text-center min-w-[120px]">MAIN EXAM MEAN</th>
-                <th className="px-3.5 py-3 text-center min-w-[125px]">EXAM VS CAT</th>
+                {isNationalTransition && (
+                  <th className="px-3.5 py-3 text-center min-w-[125px]">EXAM VS CAT</th>
+                )}
                 <th className="px-3.5 py-3 text-center min-w-[95px]">VS PREV EXAM</th>
                 <th className="px-4 py-3 text-center min-w-[160px]">SCORE SPREAD</th>
-                <th className="px-4 py-3 text-right min-w-[120px]">REMEDIAL (BE)</th>
+                <th className="px-4 py-3 text-right min-w-[120px]">
+                  {isJuniorSecondary ? 'REMEDIAL (≤2 PTS)' : 'REMEDIAL (BE)'}
+                </th>
               </tr>
             </thead>
 
@@ -133,64 +149,62 @@ export const ClassSubjectAnalysis: React.FC<ClassSubjectAnalysisProps> = ({
                       </span>
                     </td>
 
-                    {/* 3. Continuous Assessment (CATs) */}
-                    <td className="px-3.5 py-3 text-center">
-                      {sub.catsList && sub.catsList.length > 0 ? (
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center justify-center gap-1 flex-wrap max-w-[170px]">
-                            {sub.catsList.map((c) => (
-                              <span
-                                key={c.id}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
-                                title={`CAT ${c.catNumber}: ${c.meanPct !== null ? c.meanPct + '%' : 'Pending'} (${c.scoredCount}/${c.totalCount} marked, out of ${c.maxMarks})`}
-                              >
-                                CAT {c.catNumber}: {c.meanPct !== null ? `${c.meanPct}%` : '—'}
-                              </span>
-                            ))}
+                    {/* 3. Continuous Assessment (CATs) - Only for National Transition Cohorts (Grades 3, 6, 9) */}
+                    {isNationalTransition && (
+                      <td className="px-3.5 py-3 text-center">
+                        {sub.catsList && sub.catsList.length > 0 ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="flex items-center justify-center gap-1 flex-wrap max-w-[170px]">
+                              {sub.catsList.map((c) => (
+                                <span
+                                  key={c.id}
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-50 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
+                                  title={`CAT ${c.catNumber}: ${c.meanPct !== null ? c.meanPct + '%' : 'Pending'} (${c.scoredCount}/${c.totalCount} marked, out of ${c.maxMarks})`}
+                                >
+                                  CAT {c.catNumber}: {c.meanPct !== null ? `${c.meanPct}%` : '—'}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {sub.catMeanPct !== null && (
+                                <span className="text-[11px] font-black text-slate-800 dark:text-slate-200">
+                                  Avg: {sub.catMeanPct}%
+                                </span>
+                              )}
+                              {classId && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDrilldownSubject(sub)}
+                                  className="text-[10px] font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 hover:underline cursor-pointer"
+                                  title="View individual learner marks across CATs"
+                                >
+                                  Details →
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {sub.catMeanPct !== null && (
-                              <span className="text-[11px] font-black text-slate-800 dark:text-slate-200">
-                                Avg: {sub.catMeanPct}%
-                              </span>
-                            )}
+                        ) : sub.catMeanPct !== null ? (
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                              {sub.catMeanPct}%
+                            </span>
                             {classId && (
                               <button
                                 type="button"
                                 onClick={() => setSelectedDrilldownSubject(sub)}
-                                className="text-[10px] font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 hover:underline cursor-pointer"
-                                title="View individual learner marks across CATs"
+                                className="text-[10px] font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 hover:underline cursor-pointer mt-0.5"
                               >
                                 Details →
                               </button>
                             )}
                           </div>
-                        </div>
-                      ) : sub.catMeanPct !== null ? (
-                        <div className="flex flex-col items-center">
-                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                            {sub.catMeanPct}%
+                        ) : (
+                          <span className="text-[10px] text-amber-500/90 dark:text-amber-400/90 font-medium">
+                            No CATs
                           </span>
-                          {classId && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedDrilldownSubject(sub)}
-                              className="text-[10px] font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 hover:underline cursor-pointer mt-0.5"
-                            >
-                              Details →
-                            </button>
-                          )}
-                        </div>
-                      ) : isNationalTransition ? (
-                        <span className="text-[10px] text-amber-500/90 dark:text-amber-400/90 font-medium">
-                          No CATs
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                          — (Exam Only)
-                        </span>
-                      )}
-                    </td>
+                        )}
+                      </td>
+                    )}
 
                     {/* 4. Main Exam Mean */}
                     <td className="px-3.5 py-3 text-center">
@@ -210,31 +224,33 @@ export const ClassSubjectAnalysis: React.FC<ClassSubjectAnalysisProps> = ({
                       )}
                     </td>
 
-                    {/* 5. Exam vs CAT Variance */}
-                    <td className="px-3.5 py-3 text-center">
-                      {catVariance !== null ? (
-                        <div className="inline-flex items-center gap-1 font-bold text-xs">
-                          {catVariance > 0 ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                              <TrendingUp className="w-3 h-3" />
-                              +{catVariance}%
-                            </span>
-                          ) : catVariance < 0 ? (
-                            <span className="text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
-                              <TrendingDown className="w-3 h-3" />
-                              {catVariance}%
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 flex items-center gap-0.5">
-                              <Minus className="w-3 h-3" />
-                              0.0%
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400">—</span>
-                      )}
-                    </td>
+                    {/* 5. Exam vs CAT Variance - Only for National Transition Cohorts (Grades 3, 6, 9) */}
+                    {isNationalTransition && (
+                      <td className="px-3.5 py-3 text-center">
+                        {catVariance !== null ? (
+                          <div className="inline-flex items-center gap-1 font-bold text-xs">
+                            {catVariance > 0 ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                <TrendingUp className="w-3 h-3" />
+                                +{catVariance}%
+                              </span>
+                            ) : catVariance < 0 ? (
+                              <span className="text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
+                                <TrendingDown className="w-3 h-3" />
+                                {catVariance}%
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 flex items-center gap-0.5">
+                                <Minus className="w-3 h-3" />
+                                0.0%
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">—</span>
+                        )}
+                      </td>
+                    )}
 
                     {/* 6. vs Previous Exam */}
                     <td className="px-3.5 py-3 text-center">
@@ -295,8 +311,8 @@ export const ClassSubjectAnalysis: React.FC<ClassSubjectAnalysisProps> = ({
         </div>
       </div>
 
-      {/* Subject CAT Drilldown Modal */}
-      {selectedDrilldownSubject && classId && (
+      {/* Subject CAT Drilldown Modal (National Transition Cohorts: Grades 3, 6, 9 Only) */}
+      {isNationalTransition && selectedDrilldownSubject && classId && (
         <SubjectCatDrilldownModal
           isOpen={selectedDrilldownSubject !== null}
           onClose={() => setSelectedDrilldownSubject(null)}

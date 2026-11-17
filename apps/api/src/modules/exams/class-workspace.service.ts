@@ -18,6 +18,7 @@ import {
   attendanceRegisters,
   attendanceRecords,
   teacherLeaveRequests,
+  isNationalExamClass,
   eq,
   and,
   isNull,
@@ -345,22 +346,25 @@ export class ClassWorkspaceService {
       });
     }
 
-    // 10. Fetch CAT assessments and scores for the active term
-    const termCats = await db
-      .select({
-        id: catAssessments.id,
-        subjectId: catAssessments.subjectId,
-        catNumber: catAssessments.catNumber,
-        maxMarks: catAssessments.maxMarks,
-      })
-      .from(catAssessments)
-      .where(
-        and(
-          eq(catAssessments.termId, selectedExam.termId),
-          eq(catAssessments.classId, classId),
-          isNull(catAssessments.deletedAt)
-        )
-      );
+    // 10. Fetch CAT assessments and scores for the active term (only for national transition cohorts: Grades 3, 6, 9)
+    const isNationalCohort = isNationalExamClass(targetClass);
+    const termCats = isNationalCohort
+      ? await db
+          .select({
+            id: catAssessments.id,
+            subjectId: catAssessments.subjectId,
+            catNumber: catAssessments.catNumber,
+            maxMarks: catAssessments.maxMarks,
+          })
+          .from(catAssessments)
+          .where(
+            and(
+              eq(catAssessments.termId, selectedExam.termId),
+              eq(catAssessments.classId, classId),
+              isNull(catAssessments.deletedAt)
+            )
+          )
+      : [];
 
     const catIds = termCats.map((c) => c.id);
     const catScoresList = catIds.length > 0 && studentIds.length > 0
@@ -724,32 +728,36 @@ export class ClassWorkspaceService {
           : getPrimaryRubric(examMeanPct!))
         : '—';
 
-      // CAT assessments breakdown for this subject
-      const subCats = termCats.filter((c) => c.subjectId === sub.id);
-      const catsList = subCats.map((c) => {
-        const scores = catScoresList.filter((cs) => cs.catId === c.id);
-        const pcts = scores.map((cs) => {
-          const m = typeof cs.marksObtained === 'number' ? cs.marksObtained : parseFloat(cs.marksObtained as any) || 0;
-          return c.maxMarks > 0 ? (m / c.maxMarks) * 100 : m;
-        });
-        const mPct = pcts.length > 0 ? +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1) : null;
-        return {
-          id: c.id,
-          catNumber: c.catNumber,
-          maxMarks: c.maxMarks,
-          meanPct: mPct,
-          scoredCount: pcts.length,
-          totalCount: studentIds.length,
-        };
-      });
+      // CAT assessments breakdown for this subject (only if national transition cohort)
+      const subCats = isNationalCohort ? termCats.filter((c) => c.subjectId === sub.id) : [];
+      const catsList = isNationalCohort
+        ? subCats.map((c) => {
+            const scores = catScoresList.filter((cs) => cs.catId === c.id);
+            const pcts = scores.map((cs) => {
+              const m = typeof cs.marksObtained === 'number' ? cs.marksObtained : parseFloat(cs.marksObtained as any) || 0;
+              return c.maxMarks > 0 ? (m / c.maxMarks) * 100 : m;
+            });
+            const mPct = pcts.length > 0 ? +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1) : null;
+            return {
+              id: c.id,
+              catNumber: c.catNumber,
+              maxMarks: c.maxMarks,
+              meanPct: mPct,
+              scoredCount: pcts.length,
+              totalCount: studentIds.length,
+            };
+          })
+        : [];
 
       // CAT average
-      const catMarks = subjectCatMap.get(sub.id) || [];
+      const catMarks = isNationalCohort ? (subjectCatMap.get(sub.id) || []) : [];
       const catMeanPct = catMarks.length > 0
         ? +(catMarks.reduce((a, b) => a + b, 0) / catMarks.length).toFixed(1)
         : null;
 
-      const catToExamVariancePct = (hasSubScores && catMeanPct !== null) ? +(examMeanPct! - catMeanPct).toFixed(1) : null;
+      const catToExamVariancePct = (isNationalCohort && hasSubScores && catMeanPct !== null)
+        ? +(examMeanPct! - catMeanPct).toFixed(1)
+        : null;
 
       const subState = submissionMap.get(sub.id);
       const isSubSubmitted = subState && ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'LOCKED'].includes(subState.status);
@@ -970,7 +978,9 @@ export class ClassWorkspaceService {
         id: targetClass.id,
         name: targetClass.name,
         levelCategory: targetClass.levelCategory,
+        numericOrder: targetClass.numericOrder,
         isJuniorSecondary: isJunior,
+        isNationalTransition: isNationalCohort,
         classTeacherName: targetClass.teacherFirstName
           ? `${targetClass.teacherFirstName} ${targetClass.teacherLastName}`
           : 'Unassigned',
@@ -1124,21 +1134,24 @@ export class ClassWorkspaceService {
       subjectDelta: number | null;
     }> = [];
 
-    // Fetch student CAT marks for active term
-    const termCats = await db
-      .select({
-        id: catAssessments.id,
-        subjectId: catAssessments.subjectId,
-        maxMarks: catAssessments.maxMarks,
-      })
-      .from(catAssessments)
-      .where(
-        and(
-          eq(catAssessments.termId, workspace.selectedExam.id ? (await db.select({ termId: examinations.termId }).from(examinations).where(eq(examinations.id, workspace.selectedExam.id)))[0]?.termId : sql`NULL`),
-          eq(catAssessments.classId, classId),
-          isNull(catAssessments.deletedAt)
-        )
-      );
+    // Fetch student CAT marks for active term (only for national transition cohorts: Grades 3, 6, 9)
+    const isNationalCohort = isNationalExamClass(workspace.classInfo);
+    const termCats = isNationalCohort
+      ? await db
+          .select({
+            id: catAssessments.id,
+            subjectId: catAssessments.subjectId,
+            maxMarks: catAssessments.maxMarks,
+          })
+          .from(catAssessments)
+          .where(
+            and(
+              eq(catAssessments.termId, workspace.selectedExam.id ? (await db.select({ termId: examinations.termId }).from(examinations).where(eq(examinations.id, workspace.selectedExam.id)))[0]?.termId : sql`NULL`),
+              eq(catAssessments.classId, classId),
+              isNull(catAssessments.deletedAt)
+            )
+          )
+      : [];
 
     const catIds = termCats.map((c) => c.id);
     const learnerCatScores = catIds.length > 0
@@ -1332,6 +1345,7 @@ export class ClassWorkspaceService {
         overallRubricOrPoints: learner.overallRubricOrPoints,
         deltaPct: learner.deltaPct,
       },
+      classInfo: workspace.classInfo,
       examHistory,
       subjectComparison,
       attendanceSummary,

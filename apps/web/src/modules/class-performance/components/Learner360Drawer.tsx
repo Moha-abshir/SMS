@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../../lib/apiClient';
+import { isNationalExamClass } from '@school/shared/types';
 
 export interface Learner360DrawerProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export interface Learner360DrawerProps {
     overallRubricOrPoints: string;
     deltaPct: number | null;
   }>;
+  classInfo?: any;
   onSelectStudent: (newStudentId: string) => void;
   onRemarkSaved?: (studentId: string, remark: string) => void;
 }
@@ -46,6 +48,7 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
   studentId,
   examId,
   allLearners,
+  classInfo,
   onSelectStudent,
   onRemarkSaved,
 }) => {
@@ -56,6 +59,8 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
   const [isRequestingUnlock, setIsRequestingUnlock] = useState(false);
   const [unlockReason, setUnlockReason] = useState('');
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+
+  const isNationalTransition = isNationalExamClass(data?.classInfo || classInfo);
 
   // Find index of current student for Next/Prev navigation
   const currentIndex = allLearners.findIndex((l) => l.studentId === studentId);
@@ -369,7 +374,9 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Learning Area Breakdown (Learner vs Class Mean & CATs)
+                    {isNationalTransition
+                      ? 'Learning Area Breakdown (Learner vs Class Mean & CATs)'
+                      : 'Learning Area Breakdown (Learner vs Class Mean)'}
                   </h3>
                   <span className="text-[10px] text-slate-400">
                     {subjects.length} Subjects Evaluated
@@ -382,7 +389,9 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
                       <thead>
                         <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 font-bold text-[10px] text-slate-500 uppercase tracking-wider">
                           <th className="px-3.5 py-2.5">SUBJECT</th>
-                          <th className="px-2.5 py-2.5 text-center">CAT AVG</th>
+                          {isNationalTransition && (
+                            <th className="px-2.5 py-2.5 text-center">CAT AVG</th>
+                          )}
                           <th className="px-2.5 py-2.5 text-center">EXAM SCORE</th>
                           <th className="px-2.5 py-2.5 text-center">CLASS MEAN</th>
                           <th className="px-3 py-2.5 text-center">VS CLASS MEAN</th>
@@ -404,9 +413,11 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
                                 <p className="text-[10px] text-slate-400">{sub.teacherName}</p>
                               </td>
 
-                              <td className="px-2.5 py-2.5 text-center font-mono">
-                                {sub.learnerCatAvgPct !== null ? `${sub.learnerCatAvgPct}%` : '—'}
-                              </td>
+                              {isNationalTransition && (
+                                <td className="px-2.5 py-2.5 text-center font-mono">
+                                  {sub.learnerCatAvgPct !== null ? `${sub.learnerCatAvgPct}%` : '—'}
+                                </td>
+                              )}
 
                               <td className="px-2.5 py-2.5 text-center">
                                 {hasScore ? (
