@@ -373,15 +373,15 @@ export const DeputyDashboardView: React.FC<DeputyDashboardViewProps> = ({ onNavi
           </div>
 
           <div
-            onClick={() => handleGo('class_performance', '/class-performance')}
+            onClick={() => handleGo('subject_performance', '/subject-performance')}
             className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1830] hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer group shadow-2xs"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Class Performance Workspace</span>
+              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Subject Performance Analysis</span>
               <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-sky-500 transition-colors" />
             </div>
             <p className="text-[10px] text-slate-400">
-              Stream-by-stream diagnostics & reports
+              Curriculum diagnostics & teacher grading
             </p>
           </div>
         </div>

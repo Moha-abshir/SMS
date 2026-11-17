@@ -165,6 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       path: '/class-performance',
       label: 'Class Performance',
       icon: Award,
+      isClassTeacherFeature: true,
       roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
     {

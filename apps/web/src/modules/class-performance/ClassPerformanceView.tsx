@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
   BookOpen,
@@ -21,6 +21,7 @@ import { ClassWorkspaceSkeleton } from './components/ClassWorkspaceSkeleton';
 import { isNationalExamClass } from '@school/shared/types';
 
 export const ClassPerformanceView: React.FC = () => {
+  const navigate = useNavigate();
   const { classId: routeClassId } = useParams<{ classId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -50,10 +51,12 @@ export const ClassPerformanceView: React.FC = () => {
   useEffect(() => {
     const resolveInitialClass = async () => {
       try {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = localStorage.getItem('auth_user') || localStorage.getItem('user');
+        let parsedRole = 'TEACHER';
         if (storedUser) {
           const u = JSON.parse(storedUser);
-          setCurrentUserRole(u.roleName || u.role || 'TEACHER');
+          parsedRole = u.roleName || u.role || 'TEACHER';
+          setCurrentUserRole(parsedRole);
         }
 
         if (routeClassId) {
@@ -67,12 +70,14 @@ export const ClassPerformanceView: React.FC = () => {
         if (ws?.classTeacher?.classId) {
           setSelectedClassId(ws.classTeacher.classId);
         } else {
-          // If no assigned class (e.g. Leadership), fetch classes to pick first
-          const classesRes = await apiClient.get('/api/admissions/classes');
-          const clsList = classesRes.data?.data || classesRes.data || [];
-          if (clsList.length > 0) {
-            setSelectedClassId(clsList[0].id);
+          // If no assigned class, non-class teachers (e.g. DoS, Head Teacher) belong in Schoolwide Results
+          if (['DOS', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER'].includes(parsedRole)) {
+            navigate('/school-results', { replace: true });
+          } else {
+            toast.info('You are not currently assigned as a Class Teacher.');
+            navigate('/overview', { replace: true });
           }
+          return;
         }
       } catch (err) {
         console.warn('Could not resolve initial class assignment:', err);
@@ -80,7 +85,7 @@ export const ClassPerformanceView: React.FC = () => {
     };
 
     resolveInitialClass();
-  }, [routeClassId]);
+  }, [routeClassId, navigate]);
 
   // 2. Fetch workspace data
   const fetchWorkspace = useCallback(async (isDeltaOnly: boolean = false) => {
