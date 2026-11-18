@@ -1,8 +1,11 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { AuthController } from './auth.controller.js';
 import { userRateLimiter } from '../../middleware/auth.js';
 
 const router = Router();
+// Bound aggregate auth traffic as well as per-account attempts, including email rotation.
+router.use(rateLimit({ windowMs: 120_000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false }));
 
 router.post('/login', userRateLimiter, AuthController.login);
 router.post('/verify-2fa', userRateLimiter, AuthController.verify2FA);

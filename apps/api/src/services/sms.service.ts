@@ -83,10 +83,9 @@ export class SmsService {
         params.append('from', senderId);
       }
 
-      console.log(`[SmsService] Dispatching SMS to ${formattedPhone} via Africa's Talking (${isSandbox ? 'sandbox' : 'production'})`);
-
       const response = await fetch(endpoint, {
         method: 'POST',
+        signal: AbortSignal.timeout(15_000),
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'apiKey': apiKey,
@@ -102,8 +101,6 @@ export class SmsService {
       } catch {
         resJson = null;
       }
-
-      console.log(`[SmsService Response HTTP ${response.status}]:`, resText);
 
       if (!response.ok) {
         const errorMsg = resJson?.errorMessage || resJson?.message || `Africa's Talking HTTP ${response.status}: ${resText}`;

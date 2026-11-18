@@ -29,6 +29,10 @@ import timetableRoutes from './modules/timetable/timetable.routes.js';
 import catsRoutes from './modules/cats/cats.routes.js';
 
 const app = express();
+// Railway terminates TLS at its edge. Never trust arbitrary forwarded headers globally.
+const proxyHops = Number(process.env.TRUST_PROXY_HOPS ?? (process.env.RAILWAY_ENVIRONMENT_ID ? 1 : 0));
+if (!Number.isInteger(proxyHops) || proxyHops < 0 || proxyHops > 5) throw new Error('Invalid TRUST_PROXY_HOPS');
+app.set('trust proxy', proxyHops);
 
 // Disable ETags completely for dynamic REST API to avoid 304 Not Modified empty body issues in SPAs
 app.set('etag', false);

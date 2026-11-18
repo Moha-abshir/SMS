@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { PasswordResetService } from './passwordReset.service.js';
 import { resolveFrontendUrl } from '../../config/env.js';
@@ -20,7 +21,7 @@ export class PasswordResetController {
       });
     } catch (error: any) {
       console.error('Error requesting password reset:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to process password reset request' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to process password reset request') });
     }
   }
 
@@ -39,7 +40,7 @@ export class PasswordResetController {
       });
     } catch (error: any) {
       console.error('Error initiating password reset:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to initiate password reset' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to initiate password reset') });
     }
   }
 
@@ -54,7 +55,7 @@ export class PasswordResetController {
       res.status(200).json({ success: true, data: staffDetails });
     } catch (error: any) {
       console.error('Error verifying password reset token:', error);
-      res.status(400).json({ success: false, message: error.message || 'Invalid or expired reset link' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Invalid or expired reset link') });
     }
   }
 
@@ -76,7 +77,7 @@ export class PasswordResetController {
       });
     } catch (error: any) {
       console.error('Error completing password reset:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to reset password' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to reset password') });
     }
   }
 }

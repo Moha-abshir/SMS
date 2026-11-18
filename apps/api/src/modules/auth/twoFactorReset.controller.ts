@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { TwoFactorResetService } from './twoFactorReset.service.js';
 
@@ -27,7 +28,7 @@ export class TwoFactorResetController {
       });
     } catch (error: any) {
       console.error('Error resetting 2FA:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to reset 2FA' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to reset 2FA') });
     }
   }
 }

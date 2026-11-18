@@ -1,10 +1,11 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { randomInt } from 'node:crypto';
 import { Request, Response } from 'express';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { db } from '../../config/db.js';
 import { env } from '../../config/env.js';
-import { users, roles, loginSchema, verifyOtpSchema, eq } from '@school/shared';
+import { users, roles, loginSchema, verifyOtpSchema, eq, and, sql } from '@school/shared';
 import { EmailService } from '../../services/email.service.js';
 import { ROLE_DEFAULT_PERMISSIONS, setUserSessionCache } from '../../middleware/auth.js';
 
@@ -38,10 +39,9 @@ export class AuthController {
         .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
         .where(eq(users.id, user.id));
 
-      //Placed here for local testing only.
-
       // Send Brevo OTP Email
       const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);
+      if (!emailSent) return res.status(503).json({ success: false, message: 'Verification email could not be delivered. Please try again later.' });
 
       return res.status(200).json({
         success: true,
@@ -49,11 +49,11 @@ export class AuthController {
         requires2FA: true,
         email: user.email,
         emailSent,
-        devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+
       });
     } catch (error: any) {
       if (error.name === 'ZodError') {
-        return res.status(400).json({ success: false, message: 'Validation failed', errors: error.errors });
+        return res.status(400).json({ success: false, message: 'Validation failed', errors: error.issues });
       }
       console.error('Login error:', error);
       return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -94,9 +94,12 @@ export class AuthController {
       const roleName = roleList[0]?.name || 'STAFF';
 
       // Clear OTP, reset twoFactorResetRequired flag & update lastLoginAt
-      await db.update(users)
+      const [consumed] = await db.update(users)
         .set({ twoFactorOtp: null, twoFactorExpiresAt: null, twoFactorResetRequired: false, lastLoginAt: new Date() })
-        .where(eq(users.id, user.id));
+        .where(and(eq(users.id, user.id), eq(users.twoFactorOtp, parsed.otp),
+          eq(users.tokenVersion, user.tokenVersion), eq(users.roleId, user.roleId), eq(users.isActive, true),
+          sql`${users.twoFactorExpiresAt} > now()`)).returning({ id: users.id });
+      if (!consumed) return res.status(401).json({ success: false, message: 'Verification code has expired or already been used. Please sign in again.' });
 
       const tokenVersion = user.tokenVersion ?? 1;
       const payload = {
@@ -131,10 +134,10 @@ export class AuthController {
       });
     } catch (error: any) {
       if (error.name === 'ZodError') {
-        return res.status(400).json({ success: false, message: 'Validation failed', errors: error.errors });
+        return res.status(400).json({ success: false, message: 'Validation failed', errors: error.issues });
       }
       console.error('Verify 2FA error:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Internal server error') });
     }
   }
 
@@ -163,15 +166,15 @@ export class AuthController {
         .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
         .where(eq(users.id, user.id));
 
-
       // Send Brevo OTP Email
       const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);
+      if (!emailSent) return res.status(503).json({ success: false, message: 'Verification email could not be delivered. Please try again later.' });
 
       return res.status(200).json({
         success: true,
         message: 'A new 2FA OTP code has been sent to your email.',
         emailSent,
-        devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+
       });
     } catch (error: any) {
       console.error('Resend OTP error:', error);

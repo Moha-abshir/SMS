@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { EmailChangeService } from './emailChange.service.js';
 import { resolveFrontendUrl } from '../../config/env.js';
@@ -37,7 +38,7 @@ export class EmailChangeController {
       });
     } catch (error: any) {
       console.error('Error initiating email change:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to initiate email change' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to initiate email change') });
     }
   }
 
@@ -52,7 +53,7 @@ export class EmailChangeController {
       res.status(200).json({ success: true, data: details });
     } catch (error: any) {
       console.error('Error verifying email change token:', error);
-      res.status(400).json({ success: false, message: error.message || 'Invalid or expired link' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Invalid or expired link') });
     }
   }
 
@@ -71,7 +72,7 @@ export class EmailChangeController {
       });
     } catch (error: any) {
       console.error('Error completing email change:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to update email address' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update email address') });
     }
   }
 }

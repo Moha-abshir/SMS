@@ -12,14 +12,14 @@ export class EmailService {
           pass: env.SMTP_PASS,
         }
       : undefined,
-    tls: {
-      rejectUnauthorized: false,
-    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
   });
 
   /**
    * Unified dispatcher: Sends via Brevo API if key is present,
-   * otherwise sends via local SMTP (Mailpit) on port 1025 with fallback to console logs.
+   * otherwise sends via local SMTP (Mailpit) on port 1025. Delivery failures are reported to the caller.
    */
   private static async sendMail(options: {
     to: string;
@@ -32,6 +32,7 @@ export class EmailService {
       try {
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
+          signal: AbortSignal.timeout(15_000),
           headers: {
             accept: 'application/json',
             'api-key': env.BREVO_API_KEY,
@@ -63,21 +64,16 @@ export class EmailService {
         subject: options.subject,
         html: options.htmlContent,
       });
-      console.log(`[Mailpit SMTP] Email sent to ${options.to}: "${options.subject}" -> View at http://localhost:8025`);
+
       return true;
     } catch (smtpError: any) {
-      console.warn(`[Mailpit SMTP Warning] Could not connect to SMTP server at ${env.SMTP_HOST}:${env.SMTP_PORT} (${smtpError.message}). Fallback to console.`);
-      return true;
+      console.warn(`[Mailpit SMTP Warning] Could not connect to SMTP server at ${env.SMTP_HOST}:${env.SMTP_PORT} (${smtpError.message}). Email delivery failed.`);
+      return false;
     }
   }
 
   static async sendOtpEmail(toEmail: string, recipientName: string, otp: string): Promise<boolean> {
-    console.log('\n' + '═'.repeat(64));
-    console.log('[2FA LOGIN VERIFICATION CODE]');
-    console.log(`Recipient: ${recipientName} <${toEmail}>`);
-    console.log(`OTP CODE:  ${otp}`);
-    console.log(`Valid For: 5 minutes`);
-    console.log('═'.repeat(64) + '\n');
+
     return this.sendMail({
       to: toEmail,
       toName: recipientName,
@@ -99,13 +95,7 @@ export class EmailService {
   }
 
   static async sendInvitationEmail(toEmail: string, recipientName: string, roleName: string, inviteUrl: string, expiryDate: string): Promise<boolean> {
-    console.log('\n' + '═'.repeat(64));
-    console.log('✉️ [STAFF INVITATION DISPATCHED]');
-    console.log(`📧 Recipient: ${recipientName} <${toEmail}>`);
-    console.log(`💼 Role:      ${roleName.replace(/_/g, ' ')}`);
-    console.log(`🔗 Link:      ${inviteUrl}`);
-    console.log(`⏳ Expires:   ${expiryDate}`);
-    console.log('═'.repeat(64) + '\n');
+
     return this.sendMail({
       to: toEmail,
       toName: recipientName,
@@ -129,12 +119,7 @@ export class EmailService {
   }
 
   static async sendPasswordResetEmail(toEmail: string, recipientName: string, resetUrl: string, expiryMinutes: number): Promise<boolean> {
-    console.log('\n' + '═'.repeat(64));
-    console.log('🔑 [PASSWORD RESET LINK DISPATCHED]');
-    console.log(`📧 Recipient: ${recipientName} <${toEmail}>`);
-    console.log(`🔗 Link:      ${resetUrl}`);
-    console.log(`⏳ Valid For: ${expiryMinutes} minutes`);
-    console.log('═'.repeat(64) + '\n');
+
     return this.sendMail({
       to: toEmail,
       toName: recipientName,
@@ -197,7 +182,7 @@ export class EmailService {
   }
 
   static async sendEmailChangeVerificationEmail(toNewEmail: string, recipientName: string, oldEmail: string, verificationUrl: string, expiryMinutes: number): Promise<boolean> {
-    console.log(`[Email Notification] Email Change Verification Link for ${toNewEmail}: ${verificationUrl}`);
+
     return this.sendMail({
       to: toNewEmail,
       toName: recipientName,

@@ -30,26 +30,21 @@ export const env = {
 };
 
 /**
- * Resolves the frontend URL dynamically from the incoming request or environment,
- * strictly guaranteeing that all system outgoing links use Cloudflare Pages (.pages.dev)
- * and never old .vercel.app links.
+ * Restricts security-email link destinations to configured/trusted frontends.
+ * Untrusted Origin/Referer values cannot redirect recovery links to another site.
  */
 export function resolveFrontendUrl(req?: any): string {
-  if (req && req.headers) {
-    const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
-    if (origin) {
-      const cleanOrigin = origin.replace(/\/$/, '');
-      if (!cleanOrigin.includes('vercel.app')) {
-        return cleanOrigin;
-      }
-    }
+  const configured = process.env.FRONTEND_URL?.trim().replace(/\/$/, '') || env.DEFAULT_FRONTEND_URL;
+  const trusted = new Set([configured, env.DEFAULT_FRONTEND_URL]);
+  if (process.env.NODE_ENV !== 'production') {
+    for (const host of ['localhost', '127.0.0.1']) for (const port of [3000, 5173, 5174]) trusted.add(`http://${host}:${port}`);
   }
-
-  const envUrl = process.env.FRONTEND_URL?.trim().replace(/\/$/, '');
-  if (envUrl && !envUrl.includes('vercel.app')) {
-    return envUrl;
+  const candidate = req?.headers?.origin || req?.headers?.referer;
+  if (typeof candidate === 'string') {
+    try {
+      const origin = new URL(candidate).origin;
+      if (trusted.has(origin)) return origin;
+    } catch { /* Invalid client headers cannot select an email-link destination. */ }
   }
-
-  return env.DEFAULT_FRONTEND_URL;
+  return configured;
 }
-
