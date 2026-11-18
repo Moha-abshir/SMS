@@ -690,6 +690,19 @@ export class ClassWorkspaceService {
       }
     }
 
+    const catsBySubject = new Map<string, typeof termCats>();
+    for (const cat of termCats) {
+      const group = catsBySubject.get(cat.subjectId) || [];
+      group.push(cat);
+      catsBySubject.set(cat.subjectId, group);
+    }
+    const scoresByCat = new Map<string, typeof catScoresList>();
+    for (const score of catScoresList) {
+      const group = scoresByCat.get(score.catId) || [];
+      group.push(score);
+      scoresByCat.set(score.catId, group);
+    }
+
     for (const sub of classSubjects) {
       const subScores: number[] = [];
       const distributionCounts: Record<string, number> = isJunior
@@ -729,10 +742,10 @@ export class ClassWorkspaceService {
         : '—';
 
       // CAT assessments breakdown for this subject (only if national transition cohort)
-      const subCats = isNationalCohort ? termCats.filter((c) => c.subjectId === sub.id) : [];
+      const subCats = isNationalCohort ? (catsBySubject.get(sub.id) || []) : [];
       const catsList = isNationalCohort
         ? subCats.map((c) => {
-            const scores = catScoresList.filter((cs) => cs.catId === c.id);
+            const scores = (scoresByCat.get(c.id) || []);
             const pcts = scores.map((cs) => {
               const m = typeof cs.marksObtained === 'number' ? cs.marksObtained : parseFloat(cs.marksObtained as any) || 0;
               return c.maxMarks > 0 ? (m / c.maxMarks) * 100 : m;
@@ -1082,20 +1095,16 @@ export class ClassWorkspaceService {
       rank: number | null;
     }> = [];
 
+    const historyScores = pastExams.length ? await db.select({ examId: examScores.examId, marksObtained: examScores.marksObtained }).from(examScores)
+      .where(and(inArray(examScores.examId, pastExams.map(exam => exam.id)), eq(examScores.studentId, studentId), isNull(examScores.deletedAt))) : [];
+    const historyByExam = new Map<string, typeof historyScores>();
+    for (const score of historyScores) {
+      const group = historyByExam.get(score.examId) || [];
+      group.push(score);
+      historyByExam.set(score.examId, group);
+    }
     for (const ex of pastExams.reverse()) {
-      // Fetch student scores for this exam
-      const studentPastScores = await db
-        .select({
-          marksObtained: examScores.marksObtained,
-        })
-        .from(examScores)
-        .where(
-          and(
-            eq(examScores.examId, ex.id),
-            eq(examScores.studentId, studentId),
-            isNull(examScores.deletedAt)
-          )
-        );
+      const studentPastScores = historyByExam.get(ex.id) || [];
 
       if (studentPastScores.length > 0) {
         let total = 0;
