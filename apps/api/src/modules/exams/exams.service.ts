@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { parseISO, format, isWeekend, eachDayOfInterval } from 'date-fns';
 import { db } from '../../config/db.js';
 import {
@@ -19,6 +20,7 @@ import {
   isNull,
   desc,
   count,
+  sql,
 } from '@school/shared';
 
 export class ExamsService {
@@ -263,16 +265,6 @@ export class ExamsService {
       throw new Error('Examination series not found');
     }
 
-    // Persist series startDate and endDate to exam series record
-    await db
-      .update(examinations)
-      .set({
-        startDate: data.startDate,
-        endDate: data.endDate,
-        updatedAt: new Date(),
-      })
-      .where(eq(examinations.id, data.examId));
-
     // Parse and validate start/end dates using date-fns
     const start = parseISO(data.startDate);
     const end = parseISO(data.endDate);
@@ -283,6 +275,7 @@ export class ExamsService {
       throw new Error('Start date must be before or equal to end date.');
     }
 
+    if (end.getTime() - start.getTime() > 366 * 86400_000) throw new Error('Examination date range must not exceed one year');
     // Extract all weekdays across the exam date interval using date-fns
     const allDays = eachDayOfInterval({ start, end });
     const examDates = allDays
@@ -351,32 +344,15 @@ export class ExamsService {
       .orderBy(classes.numericOrder);
 
     // Soft delete existing sessions for this exam
-    const existingSessions = await db
-      .select({ id: examSessions.id })
-      .from(examSessions)
-      .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
-
-    if (existingSessions.length > 0) {
-      await db
-        .update(invigilatorAllocations)
-        .set({ deletedAt: new Date() })
-        .where(isNull(invigilatorAllocations.deletedAt));
-      await db
-        .update(examSessions)
-        .set({ deletedAt: new Date() })
-        .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
-    }
-
     let totalSessionsGenerated = 0;
+    const plannedSessions: Array<typeof examSessions.$inferInsert> = [];
+    const plannedInvigilators: Array<typeof invigilatorAllocations.$inferInsert> = [];
+    const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt)).orderBy(subjects.name);
     const targetClasses = schoolClasses.filter((c) => c.name.toLowerCase() !== 'playgroup');
 
     // For each class, schedule subjects
     for (const cls of targetClasses) {
-      const classSubjects = await db
-        .select()
-        .from(subjects)
-        .where(and(eq(subjects.levelCategory, cls.levelCategory), isNull(subjects.deletedAt)))
-        .orderBy(subjects.name);
+      const classSubjects = allSubjects.filter(subject => subject.levelCategory === cls.levelCategory);
 
       if (classSubjects.length === 0) continue;
 
@@ -407,24 +383,17 @@ export class ExamsService {
         const slotEnd = Math.min(block.startMin + duration, block.endMin);
         const sessionTime = `${toTimeString(slotStart)} - ${toTimeString(slotEnd)}`;
 
-        const [newSession] = await db
-          .insert(examSessions)
-          .values({
-            examId: data.examId,
-            classId: cls.id,
-            subjectId: subj.id,
-            sessionDate: sessionDate,
-            sessionTime: sessionTime,
-            durationMinutes: duration,
-          })
-          .returning();
+        if (!Number.isFinite(duration) || duration <= 0 || duration > 1440) throw new Error('Invalid examination duration');
+        const sessionId = randomUUID();
+        plannedSessions.push({ id: sessionId, examId: data.examId, classId: cls.id, subjectId: subj.id,
+          sessionDate, sessionTime, durationMinutes: duration });
 
         totalSessionsGenerated++;
 
         const invigilatorId = data.classInvigilators?.[cls.id];
         if (invigilatorId) {
-          await db.insert(invigilatorAllocations).values({
-            examSessionId: newSession.id,
+          plannedInvigilators.push({
+            examSessionId: sessionId,
             classId: cls.id,
             teacherId: invigilatorId,
           });
@@ -433,6 +402,24 @@ export class ExamsService {
         intervalIdx++;
       }
     }
+
+    await db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-timetable:${data.examId}`}, 0))`);
+      const previous = await tx.select({ id: examSessions.id }).from(examSessions)
+        .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
+      if (previous.length) {
+        await tx.update(invigilatorAllocations).set({ deletedAt: new Date() })
+          .where(and(inArray(invigilatorAllocations.examSessionId, previous.map(session => session.id)), isNull(invigilatorAllocations.deletedAt)));
+        await tx.update(examSessions).set({ deletedAt: new Date() })
+          .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
+      }
+      for (let offset = 0; offset < plannedSessions.length; offset += 500)
+        await tx.insert(examSessions).values(plannedSessions.slice(offset, offset + 500));
+      for (let offset = 0; offset < plannedInvigilators.length; offset += 500)
+        await tx.insert(invigilatorAllocations).values(plannedInvigilators.slice(offset, offset + 500));
+      await tx.update(examinations).set({ startDate: data.startDate, endDate: data.endDate, updatedAt: new Date() })
+        .where(eq(examinations.id, data.examId));
+    });
 
     return {
       success: true,
