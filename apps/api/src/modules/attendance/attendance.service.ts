@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { attendanceRegisters, attendanceRecords, students, guardians, classes, users, absenceSmsLogs, systemSettings, eq, inArray, isNull, and, desc } from '@school/shared';
+import { attendanceRegisters, attendanceRecords, students, guardians, classes, users, absenceSmsLogs, systemSettings, sql, eq, inArray, isNull, and, desc } from '@school/shared';
 import { SmsService } from '../../services/sms.service.js';
 
 export class AttendanceService {
@@ -252,7 +252,7 @@ export class AttendanceService {
             eq(attendanceRegisters.date, dateStr),
             isNull(attendanceRegisters.deletedAt)
           )
-        );
+        ).for('update');
 
       if (register && register.isSubmitted) {
         throw new Error(
@@ -282,29 +282,29 @@ export class AttendanceService {
           .where(eq(attendanceRegisters.id, register.id));
       }
 
-      for (const item of records) {
-        const [existing] = await tx
-          .select()
-          .from(attendanceRecords)
-          .where(and(eq(attendanceRecords.registerId, register.id), eq(attendanceRecords.studentId, item.studentId)));
-
-        if (existing) {
-          await tx
-            .update(attendanceRecords)
-            .set({
-              status: item.status,
-              remarks: item.remarks || null,
-              updatedAt: new Date(),
-            })
-            .where(eq(attendanceRecords.id, existing.id));
-        } else {
-          await tx.insert(attendanceRecords).values({
-            registerId: register.id,
-            studentId: item.studentId,
-            status: item.status,
-            remarks: item.remarks || null,
-          });
-        }
+      const ids = records.map(item => item.studentId);
+      if (new Set(ids).size !== ids.length) throw new Error('Duplicate learners in attendance submission');
+      if (ids.length) {
+        const valid = await tx.select({ id: students.id }).from(students)
+          .where(and(inArray(students.id, ids), eq(students.classId, classId), isNull(students.deletedAt)));
+        if (valid.length !== ids.length) throw new Error('Attendance includes learners outside this class');
+        // Keep existing record IDs/audit timestamps, and update all submitted rows in one statement.
+        const payload = JSON.stringify(records.map(item => ({
+          student_id: item.studentId, status: item.status, remarks: item.remarks || null,
+        })));
+        await tx.execute(sql`
+          UPDATE attendance_records AS target
+          SET status = source.status::attendance_status, remarks = source.remarks, updated_at = now()
+          FROM jsonb_to_recordset(${payload}::jsonb) AS source(student_id uuid, status text, remarks text)
+          WHERE target.register_id = ${register.id}::uuid AND target.student_id = source.student_id
+        `);
+        await tx.execute(sql`
+          INSERT INTO attendance_records (register_id, student_id, status, remarks)
+          SELECT ${register.id}::uuid, source.student_id, source.status::attendance_status, source.remarks
+          FROM jsonb_to_recordset(${payload}::jsonb) AS source(student_id uuid, status text, remarks text)
+          WHERE NOT EXISTS (SELECT 1 FROM attendance_records existing
+            WHERE existing.register_id = ${register.id}::uuid AND existing.student_id = source.student_id)
+        `);
       }
 
       return {

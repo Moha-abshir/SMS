@@ -113,19 +113,20 @@ export class CatsService {
       subjectCode: string;
     }> = [...subjectAllocs];
 
-    // For Grade 3 class teacher (Lower Primary self-contained), they teach all subjects of Grade 3
-    for (const c of classTeacherClasses) {
-      if (isNationalExamClass(c) && (c.levelCategory === 'LOWER_PRIMARY' || c.numericOrder === 6)) {
-        const classSubjects = await db
-          .select()
-          .from(subjects)
-          .where(and(eq(subjects.levelCategory, c.levelCategory), isNull(subjects.deletedAt)));
-
+    const eligibleClasses = classTeacherClasses.filter(c =>
+      isNationalExamClass(c) && (c.levelCategory === 'LOWER_PRIMARY' || c.numericOrder === 6));
+    const categories = [...new Set(eligibleClasses.map(c => c.levelCategory))];
+    const relevantSubjects = categories.length ? await db.select().from(subjects)
+      .where(and(inArray(subjects.levelCategory, categories), isNull(subjects.deletedAt))) : [];
+    const allocationKeys = new Set(candidateAllocations.map(a => `${a.classId}:${a.subjectId}`));
+    for (const c of eligibleClasses) {
+      {
+        const classSubjects = relevantSubjects.filter(s => s.levelCategory === c.levelCategory);
         for (const sub of classSubjects) {
-          const exists = candidateAllocations.some(
-            (a) => a.classId === c.id && a.subjectId === sub.id
-          );
+          const key = `${c.id}:${sub.id}`;
+          const exists = allocationKeys.has(key);
           if (!exists) {
+            allocationKeys.add(key);
             candidateAllocations.push({
               classId: c.id,
               className: c.name,
