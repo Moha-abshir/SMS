@@ -97,8 +97,10 @@ export class TimetableEngine {
    */
   static timeToMinutes(timeStr?: string | null): number {
     if (!timeStr) return 0;
-    const [hours, mins] = timeStr.split(':').map((v) => parseInt(v, 10) || 0);
-    return (hours || 0) * 60 + (mins || 0);
+    if (!/^\d{1,2}:\d{2}$/.test(timeStr)) return 0;
+    const [hours, mins] = timeStr.split(':').map(Number);
+    if (hours > 24 || mins > 59 || (hours === 24 && mins !== 0)) return 0;
+    return hours * 60 + mins;
   }
 
   /**
@@ -126,6 +128,10 @@ export class TimetableEngine {
     breaks: TimetableBreak[];
     fridaySchedule?: FridaySpecialSchedule;
   }): Map<string, DayPeriodSlot[]> {
+    if (!Array.isArray(config.schoolDays) || config.schoolDays.length < 1 || config.schoolDays.length > 7 || new Set(config.schoolDays).size !== config.schoolDays.length)
+      throw new Error('Select between one and seven distinct school days');
+    if (!Number.isFinite(Number(config.lessonDurationMinutes)) || Number(config.lessonDurationMinutes) < 15 || Number(config.lessonDurationMinutes) > 180)
+      throw new Error('Lesson duration must be between 15 and 180 minutes');
     const gridByDay = new Map<string, DayPeriodSlot[]>();
     const lessonDuration = Math.max(15, Number(config.lessonDurationMinutes) || 40);
 
@@ -311,6 +317,11 @@ export class TimetableEngine {
     teacherConstraints?: TimetableTeacherConstraints;
   }): GenerationResult {
     const { periodsGrid, allocations, coCurriculars, teacherConstraints } = params;
+    if (periodsGrid.size > 7 || [...periodsGrid.values()].some(slots => slots.length > 96) || allocations.length > 1000 ||
+        allocations.some(a => !Number.isInteger(a.lessonsPerWeek) || a.lessonsPerWeek < 0 || a.lessonsPerWeek > 60 ||
+          !Number.isInteger(a.doubleLessonsCount) || a.doubleLessonsCount < 0 || a.doubleLessonsCount > 30) ||
+        allocations.reduce((sum, a) => sum + a.lessonsPerWeek, 0) > 5000)
+      throw new Error('Timetable input exceeds supported generation limits');
 
     const resultSlots: GeneratedSlot[] = [];
     const unplacedLessons: GenerationReportItem[] = [];

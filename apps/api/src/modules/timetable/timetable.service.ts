@@ -571,8 +571,8 @@ export class TimetableService {
         .where(and(eq(timetableSlots.academicYear, year), eq(timetableSlots.term, t)));
 
       if (generatedSlots.length > 0) {
-        for (let i = 0; i < generatedSlots.length; i += 50) {
-          const batch = generatedSlots.slice(i, i + 50).map((s) => ({
+        for (let i = 0; i < generatedSlots.length; i += 500) {
+          const batch = generatedSlots.slice(i, i + 500).map((s) => ({
             academicYear: year,
             term: t,
             classId: s.classId,
