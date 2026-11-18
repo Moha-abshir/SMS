@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { Request, Response } from 'express';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
@@ -30,7 +31,7 @@ export class AuthController {
       }
 
       // Generate 6-digit 2FA OTP code
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = randomInt(100000, 1000000).toString();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
       await db.update(users)
@@ -38,12 +39,6 @@ export class AuthController {
         .where(eq(users.id, user.id));
 
       //Placed here for local testing only.
-      console.log('\n' + '═'.repeat(64));
-      console.log('[2FA AUTHENTICATION CODE GENERATED]');
-      console.log(`User:      ${user.firstName} ${user.lastName} (${user.email})`);
-      console.log(`OTP CODE:  ${otp}`);
-      console.log(`Expires:   5 minutes`);
-      console.log('═'.repeat(64) + '\n');
 
       // Send Brevo OTP Email
       const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);
@@ -161,19 +156,13 @@ export class AuthController {
       }
 
       // Generate 6-digit 2FA OTP code
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otp = randomInt(100000, 1000000).toString();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
       await db.update(users)
         .set({ twoFactorOtp: otp, twoFactorExpiresAt: expiresAt })
         .where(eq(users.id, user.id));
 
-      console.log('\n' + '═'.repeat(64));
-      console.log('🔐 [2FA CODE RESENT]');
-      console.log(`📧 User:      ${user.firstName} ${user.lastName} (${user.email})`);
-      console.log(`🔑 OTP CODE:  >>> ${otp} <<<`);
-      console.log(`⏳ Expires:   5 minutes`);
-      console.log('═'.repeat(64) + '\n');
 
       // Send Brevo OTP Email
       const emailSent = await EmailService.sendOtpEmail(user.email, `${user.firstName} ${user.lastName}`, otp);

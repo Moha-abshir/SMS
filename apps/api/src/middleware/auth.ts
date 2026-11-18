@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { env } from '../config/env.js';
 import { db } from '../config/db.js';
 import { users, eq } from '@school/shared';
@@ -30,7 +30,8 @@ export const userRateLimiter = rateLimit({
     message: 'Too many attempts for this user account. Please try again after 1 minute.',
   },
   keyGenerator: (req) => {
-    return req.body?.email || req.user?.email || req.ip || 'anonymous_user';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : req.user?.email;
+    return email ? `email:${email}` : ipKeyGenerator(req.ip || '127.0.0.1');
   },
 });
 
@@ -47,6 +48,7 @@ export function invalidateUserSessionCache(userId: string) {
 }
 
 export function setUserSessionCache(userId: string, session: { tokenVersion: number; isActive: boolean }) {
+  if (userSessionCache.size >= 1000) userSessionCache.delete(userSessionCache.keys().next().value!);
   userSessionCache.set(userId, { ...session, cachedAt: Date.now() });
 }
 
@@ -59,9 +61,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   const token = authHeader.split(' ')[1];
   let decoded: AuthenticatedUser;
   try {
-    decoded = jwt.verify(token, env.JWT_SECRET) as AuthenticatedUser;
+    decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as AuthenticatedUser;
   } catch (error) {
     return res.status(401).json({ success: false, message: 'Invalid or expired session token' });
+  }
+
+  if (!decoded || typeof decoded.id !== 'string' || !Number.isInteger(decoded.tokenVersion)) {
+    return res.status(401).json({ success: false, message: 'Invalid session claims' });
   }
 
   // Check in-memory cache before hitting database
@@ -76,17 +82,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
         return res.status(401).json({ success: false, message: 'User account not found' });
       }
       userRecord = { tokenVersion: dbUser.tokenVersion, isActive: dbUser.isActive, cachedAt: now };
-      userSessionCache.set(decoded.id, userRecord);
+      setUserSessionCache(decoded.id, userRecord);
     } catch (dbError) {
-      console.warn('[Auth Middleware] Database session check warning (falling back to decoded JWT):', dbError);
-      // DB transient connection error / cold start: Since JWT cryptographic signature is already verified,
-      // allow request to proceed rather than falsely returning 401 and destroying the user's session!
-      req.user = decoded;
-      return next();
+      return res.status(503).json({ success: false, message: 'Session validation temporarily unavailable. Please retry.' });
     }
   }
 
-  if (!userRecord.isActive || (decoded.tokenVersion && decoded.tokenVersion !== userRecord.tokenVersion)) {
+  if (!userRecord.isActive || decoded.tokenVersion !== userRecord.tokenVersion) {
     userSessionCache.delete(decoded.id);
     return res.status(401).json({ success: false, message: 'Session revoked or expired. Please log in again.' });
   }

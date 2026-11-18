@@ -70,9 +70,11 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+app.use(helmet());
 app.use(compression());
 app.use(express.json());
 app.use(pinoHttp({
+  redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
   transport: {
     target: 'pino-pretty',
     options: { colorize: true, ignore: 'pid,hostname' }

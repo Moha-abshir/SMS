@@ -9,6 +9,10 @@ dotenv.config();
 
 process.env.TZ = process.env.TZ || 'Africa/Nairobi';
 
+if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || process.env.JWT_SECRET === 'super-secret-jwt-key-eldoret-muslim-academy-2026')) {
+  throw new Error('Production requires a JWT_SECRET of at least 32 characters');
+}
+
 export const env = {
   PORT: process.env.PORT || '5000',
   DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/school_db',
