@@ -1,3 +1,4 @@
+import { getPublicSettings } from '../lib/publicSettings';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
@@ -87,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
   }, [mobileOpen]);
 
   useEffect(() => {
-    apiClient.get('/api/settings/public').then((res) => {
+    getPublicSettings().then((res) => {
       if (res.data.data) {
         if (res.data.data.logoUrl) setLogoUrl(res.data.data.logoUrl);
         if (res.data.data.schoolName) setSchoolName(res.data.data.schoolName);

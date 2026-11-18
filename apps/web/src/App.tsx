@@ -1,40 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import { getPublicSettings } from './lib/publicSettings';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ThemeProvider } from './context/ThemeContext';
 import { PullToRefresh } from './components/PullToRefresh';
-import { LoginPage } from './modules/auth/LoginPage';
-import { AcceptInvitationPage } from './modules/auth/AcceptInvitationPage';
-import { ResetPasswordPage } from './modules/auth/ResetPasswordPage';
-import { VerifyEmailChangePage } from './modules/auth/VerifyEmailChangePage';
+const LoginPage = lazy(() => import('./modules/auth/LoginPage').then(module => ({ default: module.LoginPage })));
+const AcceptInvitationPage = lazy(() => import('./modules/auth/AcceptInvitationPage').then(module => ({ default: module.AcceptInvitationPage })));
+const ResetPasswordPage = lazy(() => import('./modules/auth/ResetPasswordPage').then(module => ({ default: module.ResetPasswordPage })));
+const VerifyEmailChangePage = lazy(() => import('./modules/auth/VerifyEmailChangePage').then(module => ({ default: module.VerifyEmailChangePage })));
 import { AppLayout } from './components/AppLayout';
 import { RoleGuard } from './components/RoleGuard';
-import { OverviewView } from './modules/dashboard/OverviewView';
-import { DeputyDashboardView } from './modules/dashboard/DeputyDashboardView';
-import { DosDashboardView } from './modules/dashboard/DosDashboardView';
-import { TeacherDashboardView } from './modules/dashboard/TeacherDashboardView';
-import { ClassLearnersView } from './modules/learners/ClassLearnersView';
-import { SettingsView } from './modules/settings/SettingsView';
-import { StaffManagementView } from './modules/staff/StaffManagementView';
-import { StudentAdmissionView } from './modules/admissions/StudentAdmissionView';
-import { OfficialLetterView } from './modules/letters/OfficialLetterView';
-import { FeeStructureView } from './modules/finance/FeeStructureView';
-import { FinancialManagementView } from './modules/finance/FinancialManagementView';
-import { AllocationView } from './modules/allocations/AllocationView';
-import { InventoryView } from './modules/inventory/InventoryView';
-import { LeaveManagementView } from './modules/leave/LeaveManagementView';
-import { AttendanceOversightView } from './modules/attendance/AttendanceOversightView';
-import { ClassRegisterView } from './modules/attendance/ClassRegisterView';
-import { MarkReviewView } from './modules/marks/MarkReviewView';
-import { MarksheetEntryView } from './modules/marks/MarksheetEntryView';
-import { ClassExamProgressView } from './modules/marks/ClassExamProgressView';
-import { SubjectPerformanceView } from './modules/dos/SubjectPerformanceView';
-import { SchoolResultsView } from './modules/dos/SchoolResultsView';
-import { ClassPerformanceView } from './modules/class-performance/ClassPerformanceView';
-import { ExamTimetableView } from './modules/exams/ExamTimetableView';
-import { MarkingAllocationView } from './modules/exams/MarkingAllocationView';
-import { TimetableManagementView } from './modules/timetable/TimetableManagementView';
+const OverviewView = lazy(() => import('./modules/dashboard/OverviewView').then(module => ({ default: module.OverviewView })));
+const DeputyDashboardView = lazy(() => import('./modules/dashboard/DeputyDashboardView').then(module => ({ default: module.DeputyDashboardView })));
+const DosDashboardView = lazy(() => import('./modules/dashboard/DosDashboardView').then(module => ({ default: module.DosDashboardView })));
+const TeacherDashboardView = lazy(() => import('./modules/dashboard/TeacherDashboardView').then(module => ({ default: module.TeacherDashboardView })));
+const ClassLearnersView = lazy(() => import('./modules/learners/ClassLearnersView').then(module => ({ default: module.ClassLearnersView })));
+const SettingsView = lazy(() => import('./modules/settings/SettingsView').then(module => ({ default: module.SettingsView })));
+const StaffManagementView = lazy(() => import('./modules/staff/StaffManagementView').then(module => ({ default: module.StaffManagementView })));
+const StudentAdmissionView = lazy(() => import('./modules/admissions/StudentAdmissionView').then(module => ({ default: module.StudentAdmissionView })));
+const OfficialLetterView = lazy(() => import('./modules/letters/OfficialLetterView').then(module => ({ default: module.OfficialLetterView })));
+const FeeStructureView = lazy(() => import('./modules/finance/FeeStructureView').then(module => ({ default: module.FeeStructureView })));
+const FinancialManagementView = lazy(() => import('./modules/finance/FinancialManagementView').then(module => ({ default: module.FinancialManagementView })));
+const AllocationView = lazy(() => import('./modules/allocations/AllocationView').then(module => ({ default: module.AllocationView })));
+const InventoryView = lazy(() => import('./modules/inventory/InventoryView').then(module => ({ default: module.InventoryView })));
+const LeaveManagementView = lazy(() => import('./modules/leave/LeaveManagementView').then(module => ({ default: module.LeaveManagementView })));
+const AttendanceOversightView = lazy(() => import('./modules/attendance/AttendanceOversightView').then(module => ({ default: module.AttendanceOversightView })));
+const ClassRegisterView = lazy(() => import('./modules/attendance/ClassRegisterView').then(module => ({ default: module.ClassRegisterView })));
+const MarkReviewView = lazy(() => import('./modules/marks/MarkReviewView').then(module => ({ default: module.MarkReviewView })));
+const MarksheetEntryView = lazy(() => import('./modules/marks/MarksheetEntryView').then(module => ({ default: module.MarksheetEntryView })));
+const ClassExamProgressView = lazy(() => import('./modules/marks/ClassExamProgressView').then(module => ({ default: module.ClassExamProgressView })));
+const SubjectPerformanceView = lazy(() => import('./modules/dos/SubjectPerformanceView').then(module => ({ default: module.SubjectPerformanceView })));
+const SchoolResultsView = lazy(() => import('./modules/dos/SchoolResultsView').then(module => ({ default: module.SchoolResultsView })));
+const ClassPerformanceView = lazy(() => import('./modules/class-performance/ClassPerformanceView').then(module => ({ default: module.ClassPerformanceView })));
+const ExamTimetableView = lazy(() => import('./modules/exams/ExamTimetableView').then(module => ({ default: module.ExamTimetableView })));
+const MarkingAllocationView = lazy(() => import('./modules/exams/MarkingAllocationView').then(module => ({ default: module.MarkingAllocationView })));
+const TimetableManagementView = lazy(() => import('./modules/timetable/TimetableManagementView').then(module => ({ default: module.TimetableManagementView })));
 import { apiClient } from './lib/apiClient';
 
 // Helper component that selects the appropriate Dashboard Overview based on logged-in role
@@ -71,7 +72,7 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     // Synchronize school branding, tab title, and favicon dynamically
-    apiClient.get('/api/settings/public').then((res) => {
+    getPublicSettings().then((res) => {
       if (res.data.data) {
         const { logoUrl, schoolName } = res.data.data;
         if (schoolName) {
@@ -108,7 +109,7 @@ const AppContent: React.FC = () => {
   return (
     <PullToRefresh>
       <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 text-slate-800 antialiased selection:bg-sky-100 selection:text-sky-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 dark:selection:bg-sky-900/60 dark:selection:text-sky-200 transition-colors duration-200">
-        <Routes>
+        <Suspense fallback={<div role="status" className="p-6">Loading workspace…</div>}><Routes>
         {/* Public & Invitation Routes */}
         <Route
           path="/login"
@@ -320,7 +321,7 @@ const AppContent: React.FC = () => {
 
         {/* Catch-all Fallback */}
         <Route path="*" element={<Navigate to="/overview" replace />} />
-      </Routes>
+      </Routes></Suspense>
       <ToastContainer position="top-right" autoClose={3500} theme="colored" />
     </div>
     </PullToRefresh>
