@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { students, guardians, classes, eq, isNull, desc, ilike, or } from '@school/shared';
+import { students, guardians, classes, eq, isNull, desc, ilike, or, inArray } from '@school/shared';
 
 export class AdmissionsService {
   static async searchGuardians(query: string) {
@@ -299,46 +299,19 @@ export class AdmissionsService {
 
     let insertedCount = 0;
     await db.transaction(async (tx) => {
-      for (const item of validRows) {
-        const [existingGuardian] = await tx
-          .select()
-          .from(guardians)
-          .where(eq(guardians.idNumber, item.guardian.idNumber));
-
-        let guardianId = existingGuardian?.id;
-        if (!guardianId) {
-          const [newGuardian] = await tx
-            .insert(guardians)
-            .values({
-              fullName: item.guardian.fullName,
-              phoneNumber: item.guardian.phoneNumber,
-              idNumber: item.guardian.idNumber,
-              address: item.guardian.address,
-              emergencyContact: item.guardian.emergencyContact,
-              relationship: item.guardian.relationship,
-              createdBy: admittedById,
-            })
-            .returning();
-          guardianId = newGuardian.id;
-        }
-
-        await tx.insert(students).values({
-          assessmentNumber: item.student.assessmentNumber,
-          firstName: item.student.firstName,
-          middleName: item.student.middleName,
-          lastName: item.student.lastName,
-          gender: item.student.gender,
-          previousGrade: item.student.previousGrade,
-          classId: item.student.classId,
-          primaryGuardianId: guardianId,
-          admissionDate: item.student.admissionDate,
-          approvedById: isDirectActive ? admittedById : null,
-          status: isDirectActive ? 'ACTIVE' : 'PENDING',
-          createdBy: admittedById,
-        });
-
-        insertedCount++;
-      }
+      const guardiansByIdentity = new Map<string, any>();
+      for (const item of validRows) if (!guardiansByIdentity.has(item.guardian.idNumber)) guardiansByIdentity.set(item.guardian.idNumber, item.guardian);
+      const guardianValues = [...guardiansByIdentity.values()].map(guardian => ({ ...guardian, createdBy: admittedById }));
+      for (let offset = 0; offset < guardianValues.length; offset += 500)
+        await tx.insert(guardians).values(guardianValues.slice(offset, offset + 500)).onConflictDoNothing({ target: guardians.idNumber });
+      const guardianRows = await tx.select({ id: guardians.id, idNumber: guardians.idNumber }).from(guardians)
+        .where(inArray(guardians.idNumber, [...guardiansByIdentity.keys()]));
+      const guardianIds = new Map(guardianRows.map(guardian => [guardian.idNumber, guardian.id]));
+      const studentValues = validRows.map(item => ({ ...item.student, primaryGuardianId: guardianIds.get(item.guardian.idNumber)!,
+        approvedById: isDirectActive ? admittedById : null, status: isDirectActive ? 'ACTIVE' as const : 'PENDING' as const, createdBy: admittedById }));
+      for (let offset = 0; offset < studentValues.length; offset += 500)
+        await tx.insert(students).values(studentValues.slice(offset, offset + 500));
+      insertedCount = studentValues.length;
     });
 
     return {

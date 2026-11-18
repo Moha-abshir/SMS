@@ -136,19 +136,20 @@ export const StudentAdmissionView: React.FC = () => {
       return;
     }
 
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         setSearchingGuardian(true);
-        const res = await apiClient.get(`/api/admissions/guardians/search?q=${encodeURIComponent(guardianQuery)}`);
-        setGuardianSearchResults(res.data.data || []);
+        const res = await apiClient.get(`/api/admissions/guardians/search?q=${encodeURIComponent(guardianQuery)}`, { signal: controller.signal });
+        if (!controller.signal.aborted) setGuardianSearchResults(res.data.data || []);
       } catch (error) {
-        console.error('Guardian search failed', error);
+        if (!controller.signal.aborted) console.error('Guardian search failed', error);
       } finally {
-        setSearchingGuardian(false);
+        if (!controller.signal.aborted) setSearchingGuardian(false);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); setSearchingGuardian(false); };
   }, [guardianQuery]);
 
   const handleSelectExistingGuardian = (guardian: GuardianItem) => {
