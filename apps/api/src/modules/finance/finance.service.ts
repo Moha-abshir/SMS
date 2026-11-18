@@ -41,8 +41,8 @@ export class FinanceService {
   /**
    * Helper to format receipt number e.g. REC-2026-0001
    */
-  private static async generateReceiptNumber(year: number): Promise<string> {
-    const [{ count }] = await db
+  private static async generateReceiptNumber(year: number, executor: Pick<typeof db, "select"> = db): Promise<string> {
+    const [{ count }] = await executor
       .select({ count: sql<number>`count(*)` })
       .from(feePayments)
       .where(eq(feePayments.academicYear, year));
@@ -52,7 +52,7 @@ export class FinanceService {
     let candidate = `REC-${year}-${padded}`;
 
     // Verify uniqueness
-    const [existing] = await db
+    const [existing] = await executor
       .select({ id: feePayments.id })
       .from(feePayments)
       .where(eq(feePayments.receiptNumber, candidate));
@@ -68,142 +68,166 @@ export class FinanceService {
    * Record fee payment and update student bill balance
    */
   static async recordPayment(input: RecordPaymentInput, recordedById: string) {
-    const year = input.academicYear || 2026;
-    const numAmount = Number(input.amountPaid);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      throw new Error('Payment amount must be a positive number');
-    }
+    const terms = await AcademicTermsService.ensureThreeTerms(input.academicYear || 2026);
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`finance:${input.academicYear || 2026}`}, 0))`);
+
+      const year = input.academicYear || 2026;
+      const numAmount = Number(input.amountPaid);
+      if (!Number.isFinite(numAmount) || numAmount <= 0 || numAmount > 99999999.99 || Math.abs(numAmount * 100 - Math.round(numAmount * 100)) > 0.00001) {
+        throw new Error('Payment amount must be positive with at most two decimal places');
+      }
 
     // 1. Ensure academic terms exist
-    const terms = await AcademicTermsService.ensureThreeTerms(year);
-    let targetTerm = input.termNumber ? terms.find((t) => t.termNumber === input.termNumber) : null;
-    if (!targetTerm) {
-      targetTerm = terms.find((t) => t.isCurrent) || terms[0];
-    }
-    if (!targetTerm) {
-      throw new Error('Academic term not found for specified year and term number');
-    }
+
+      let targetTerm = input.termNumber ? terms.find((t) => t.termNumber === input.termNumber) : null;
+      if (!targetTerm) {
+        targetTerm = terms.find((t) => t.isCurrent) || terms[0];
+      }
+      if (!targetTerm) {
+        throw new Error('Academic term not found for specified year and term number');
+      }
 
     // 2. Fetch student and class details
-    const [studentInfo] = await db
-      .select({
-        student: students,
-        class: classes,
-      })
-      .from(students)
-      .innerJoin(classes, eq(students.classId, classes.id))
-      .where(eq(students.id, input.studentId));
+      const [studentInfo] = await tx
+        .select({
+          student: students,
+          class: classes,
+        })
+        .from(students)
+        .innerJoin(classes, eq(students.classId, classes.id))
+        .where(eq(students.id, input.studentId));
 
-    if (!studentInfo) {
-      throw new Error('Student not found');
-    }
+      if (!studentInfo) {
+        throw new Error('Student not found');
+      }
 
     // 3. Find or auto-create student bill for this term
-    let targetBill: any = null;
-    if (input.billId) {
-      const [b] = await db
-        .select()
-        .from(studentBills)
-        .where(eq(studentBills.id, input.billId));
-      targetBill = b;
-    }
-
-    if (!targetBill) {
-      // Look for existing bill for this student & term
-      const [existingBill] = await db
-        .select()
-        .from(studentBills)
-        .where(
-          and(
-            eq(studentBills.studentId, input.studentId),
-            eq(studentBills.termId, targetTerm.id),
-            isNull(studentBills.deletedAt)
-          )
-        );
-
-      if (existingBill) {
-        targetBill = existingBill;
-      } else {
-        // Resolve fee structure for this class's level category
-        const [feeStruct] = await db
+      let targetBill: any = null;
+      if (input.billId) {
+        const [b] = await tx
           .select()
-          .from(feeStructures)
+          .from(studentBills)
+          .where(eq(studentBills.id, input.billId));
+        if (!b || b.studentId !== input.studentId || b.termId !== targetTerm.id || b.deletedAt) throw new Error('Bill does not belong to this learner and term');
+        targetBill = b;
+      }
+
+      if (!targetBill) {
+        // Look for existing bill for this student & term
+        const [existingBill] = await tx
+          .select()
+          .from(studentBills)
           .where(
             and(
-              eq(feeStructures.termId, targetTerm.id),
-              eq(feeStructures.levelCategory, studentInfo.class.levelCategory)
+              eq(studentBills.studentId, input.studentId),
+              eq(studentBills.termId, targetTerm.id),
+              isNull(studentBills.deletedAt)
             )
           );
 
-        const feeAmount = feeStruct
-          ? Number(feeStruct.totalAmount)
-          : (DEFAULT_TERM_FEES[studentInfo.class.levelCategory] || 7000);
+        if (existingBill) {
+          targetBill = existingBill;
+        } else {
+          // Resolve fee structure for this class's level category
+          const [feeStruct] = await tx
+            .select()
+            .from(feeStructures)
+            .where(
+              and(
+                eq(feeStructures.termId, targetTerm.id),
+                eq(feeStructures.levelCategory, studentInfo.class.levelCategory)
+              )
+            );
 
-        const [createdBill] = await db
-          .insert(studentBills)
+          const feeAmount = feeStruct
+            ? Number(feeStruct.totalAmount)
+            : (DEFAULT_TERM_FEES[studentInfo.class.levelCategory] || 7000);
+
+          const [createdBill] = await tx
+            .insert(studentBills)
+            .values({
+              studentId: input.studentId,
+              termId: targetTerm.id,
+              title: `Term ${targetTerm.termNumber} ${year} Tuition & School Fees`,
+              billedAmount: feeAmount.toFixed(2),
+              waiverAmount: '0.00',
+              netAmount: feeAmount.toFixed(2),
+              paidAmount: '0.00',
+              balance: feeAmount.toFixed(2),
+            })
+            .returning();
+
+          targetBill = createdBill;
+        }
+      }
+
+      const reference = (input.mpesaRefCode || input.bankRefNumber || '').trim().toUpperCase();
+      if (reference) {
+        const mpesa = Boolean(input.mpesaRefCode);
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`payment-ref:${mpesa ? 'mpesa' : 'bank'}:${reference}`}, 0))`);
+        const column = mpesa ? feePayments.mpesaRefCode : feePayments.bankRefNumber;
+        const [existing] = await tx.select().from(feePayments).where(sql`upper(trim(${column})) = ${reference}`);
+        if (existing) {
+          if (existing.studentId !== input.studentId || existing.billId !== targetBill.id || Number(existing.amountPaid) !== numAmount || existing.isReversed)
+            throw new Error('Payment reference has already been recorded with different details or reversed');
+          return { ...existing, studentName: `${studentInfo.student.firstName} ${studentInfo.student.lastName}`,
+            assessmentNumber: studentInfo.student.assessmentNumber, className: studentInfo.class.name, billTitle: targetBill.title };
+        }
+        input = { ...input, ...(mpesa ? { mpesaRefCode: reference } : { bankRefNumber: reference }) };
+      }
+
+    // 4. Generate receipt number
+      const receiptNumber = await this.generateReceiptNumber(year, tx);
+
+    // 5. Transaction: record payment & update student bill
+      const payment = await tx.transaction(async (tx) => {
+        const [lockedBill] = await tx.select().from(studentBills).where(eq(studentBills.id, targetBill.id)).for('update');
+        targetBill = lockedBill;
+        const [newPayment] = await tx
+          .insert(feePayments)
           .values({
+            receiptNumber,
             studentId: input.studentId,
-            termId: targetTerm.id,
-            title: `Term ${targetTerm.termNumber} ${year} Tuition & School Fees`,
-            billedAmount: feeAmount.toFixed(2),
-            waiverAmount: '0.00',
-            netAmount: feeAmount.toFixed(2),
-            paidAmount: '0.00',
-            balance: feeAmount.toFixed(2),
+            billId: targetBill.id,
+            amountPaid: numAmount.toFixed(2),
+            paymentMethod: input.paymentMethod,
+            mpesaRefCode: input.mpesaRefCode || null,
+            bankRefNumber: input.bankRefNumber || null,
+            paidBy: input.paidBy,
+            academicYear: year,
+            termNumber: targetTerm!.termNumber,
+            notes: input.notes || null,
+            isReversed: false,
+            recordedById,
+            paymentDate: input.paymentDate ? new Date(input.paymentDate) : new Date(),
           })
           .returning();
 
-        targetBill = createdBill;
-      }
-    }
+        const newPaidAmount = Number(targetBill.paidAmount) + numAmount;
+        const newBalance = Number(targetBill.netAmount) - newPaidAmount;
 
-    // 4. Generate receipt number
-    const receiptNumber = await this.generateReceiptNumber(year);
+        await tx
+          .update(studentBills)
+          .set({
+            paidAmount: newPaidAmount.toFixed(2),
+            balance: newBalance.toFixed(2),
+            updatedAt: new Date(),
+          })
+          .where(eq(studentBills.id, targetBill.id));
 
-    // 5. Transaction: record payment & update student bill
-    const payment = await db.transaction(async (tx) => {
-      const [newPayment] = await tx
-        .insert(feePayments)
-        .values({
-          receiptNumber,
-          studentId: input.studentId,
-          billId: targetBill.id,
-          amountPaid: numAmount.toFixed(2),
-          paymentMethod: input.paymentMethod,
-          mpesaRefCode: input.mpesaRefCode || null,
-          bankRefNumber: input.bankRefNumber || null,
-          paidBy: input.paidBy,
-          academicYear: year,
-          termNumber: targetTerm!.termNumber,
-          notes: input.notes || null,
-          isReversed: false,
-          recordedById,
-          paymentDate: input.paymentDate ? new Date(input.paymentDate) : new Date(),
-        })
-        .returning();
+        return newPayment;
+      });
 
-      const newPaidAmount = Number(targetBill.paidAmount) + numAmount;
-      const newBalance = Number(targetBill.netAmount) - newPaidAmount;
+      return {
+        ...payment,
+        studentName: `${studentInfo.student.firstName} ${studentInfo.student.lastName}`,
+        assessmentNumber: studentInfo.student.assessmentNumber,
+        className: studentInfo.class.name,
+        billTitle: targetBill.title,
+      };
 
-      await tx
-        .update(studentBills)
-        .set({
-          paidAmount: newPaidAmount.toFixed(2),
-          balance: newBalance.toFixed(2),
-          updatedAt: new Date(),
-        })
-        .where(eq(studentBills.id, targetBill.id));
-
-      return newPayment;
     });
-
-    return {
-      ...payment,
-      studentName: `${studentInfo.student.firstName} ${studentInfo.student.lastName}`,
-      assessmentNumber: studentInfo.student.assessmentNumber,
-      className: studentInfo.class.name,
-      billTitle: targetBill.title,
-    };
   }
 
   /**
@@ -263,52 +287,30 @@ export class FinanceService {
    * Financial Summary overview for Head Teacher and Bursar
    */
   static async getFinancialSummary(year: number = 2026, termNumber?: number) {
-    // 1. Total collections and breakdown
-    const paymentsList = await db
-      .select()
-      .from(feePayments)
-      .where(
-        and(
-          eq(feePayments.academicYear, year),
-          eq(feePayments.isReversed, false),
-          termNumber ? eq(feePayments.termNumber, termNumber) : sql`1=1`
-        )
-      );
-
+    const paymentTotals = await db.select({
+      method: feePayments.paymentMethod,
+      total: sql<string>`coalesce(sum(${feePayments.amountPaid}), 0)`,
+      count: sql<number>`count(*)::int`,
+    }).from(feePayments).where(and(eq(feePayments.academicYear, year), eq(feePayments.isReversed, false),
+      isNull(feePayments.deletedAt), termNumber ? eq(feePayments.termNumber, termNumber) : undefined)).groupBy(feePayments.paymentMethod);
     let totalCollected = 0;
-    const methodCounts: Record<string, { count: number; total: number }> = {
-      CASH: { count: 0, total: 0 },
-      MANUAL_MPESA: { count: 0, total: 0 },
-    };
-
-    paymentsList.forEach((p) => {
-      const amt = Number(p.amountPaid) || 0;
-      totalCollected += amt;
-      const method = p.paymentMethod || 'OTHER';
-      if (!methodCounts[method]) {
-        methodCounts[method] = { count: 0, total: 0 };
-      }
-      methodCounts[method].count += 1;
-      methodCounts[method].total += amt;
-    });
-
-    // 2. Total bills
-    const billsList = await db
-      .select()
-      .from(studentBills)
-      .where(isNull(studentBills.deletedAt));
-
-    let totalBilled = 0;
-    let totalPaidFromBills = 0;
-    let totalOutstanding = 0;
-    let totalWaivers = 0;
-
-    billsList.forEach((b) => {
-      totalBilled += Number(b.billedAmount) || 0;
-      totalPaidFromBills += Number(b.paidAmount) || 0;
-      totalOutstanding += Number(b.balance) || 0;
-      totalWaivers += Number(b.waiverAmount) || 0;
-    });
+    let totalTransactions = 0;
+    const methodCounts: Record<string, { count: number; total: number }> = { CASH: { count: 0, total: 0 }, MANUAL_MPESA: { count: 0, total: 0 } };
+    for (const row of paymentTotals) {
+      const total = Number(row.total);
+      methodCounts[row.method] = { count: Number(row.count), total };
+      totalCollected += total;
+      totalTransactions += Number(row.count);
+    }
+    const [billTotals] = await db.select({
+      billed: sql<string>`coalesce(sum(${studentBills.billedAmount}), 0)`,
+      paid: sql<string>`coalesce(sum(${studentBills.paidAmount}), 0)`,
+      outstanding: sql<string>`coalesce(sum(${studentBills.balance}), 0)`,
+      waivers: sql<string>`coalesce(sum(${studentBills.waiverAmount}), 0)`,
+    }).from(studentBills).innerJoin(academicTerms, eq(studentBills.termId, academicTerms.id))
+      .where(and(isNull(studentBills.deletedAt), eq(academicTerms.year, year), termNumber ? eq(academicTerms.termNumber, termNumber) : undefined));
+    const totalBilled = Number(billTotals.billed), totalPaidFromBills = Number(billTotals.paid),
+      totalOutstanding = Number(billTotals.outstanding), totalWaivers = Number(billTotals.waivers);
 
     // 3. Count pending reversals
     const [{ pendingCount }] = await db
@@ -317,7 +319,7 @@ export class FinanceService {
       .where(isNull(paymentReversals.approvedById));
 
     // 4. Recent payments
-    const recentPayments = await this.getPayments({ academicYear: year, limit: 10 });
+    const recentPayments = await this.getPayments({ academicYear: year, termNumber, limit: 10 });
 
     return {
       academicYear: year,
@@ -327,7 +329,7 @@ export class FinanceService {
       totalPaidFromBills,
       totalOutstanding,
       totalWaivers,
-      totalTransactions: paymentsList.length,
+      totalTransactions,
       methodBreakdown: methodCounts,
       pendingReversalsCount: Number(pendingCount),
       recentPayments,
@@ -338,42 +340,44 @@ export class FinanceService {
    * Request a payment reversal
    */
   static async requestReversal(originalPaymentId: string, reason: string, reversedById: string) {
-    const [payment] = await db
-      .select()
-      .from(feePayments)
-      .where(eq(feePayments.id, originalPaymentId));
+    return db.transaction(async tx => {
+      const [payment] = await tx
+        .select()
+        .from(feePayments)
+        .where(eq(feePayments.id, originalPaymentId)).for('update');
 
-    if (!payment) {
-      throw new Error('Original payment record not found');
-    }
-    if (payment.isReversed) {
-      throw new Error('Payment is already reversed');
-    }
+      if (!payment) {
+        throw new Error('Original payment record not found');
+      }
+      if (payment.isReversed) {
+        throw new Error('Payment is already reversed');
+      }
 
-    const [existingRequest] = await db
-      .select()
-      .from(paymentReversals)
-      .where(
-        and(
-          eq(paymentReversals.originalPaymentId, originalPaymentId),
-          isNull(paymentReversals.approvedById)
-        )
-      );
+      const [existingRequest] = await tx
+        .select()
+        .from(paymentReversals)
+        .where(
+          and(
+            eq(paymentReversals.originalPaymentId, originalPaymentId),
+            isNull(paymentReversals.approvedById)
+          )
+        );
 
-    if (existingRequest) {
-      throw new Error('A pending reversal request already exists for this payment');
-    }
+      if (existingRequest) {
+        throw new Error('A pending reversal request already exists for this payment');
+      }
 
-    const [reversal] = await db
-      .insert(paymentReversals)
-      .values({
-        originalPaymentId,
-        reason,
-        reversedById,
-      })
-      .returning();
+      const [reversal] = await tx
+        .insert(paymentReversals)
+        .values({
+          originalPaymentId,
+          reason,
+          reversedById,
+        })
+        .returning();
 
-    return reversal;
+      return reversal;
+    });
   }
 
   /**
@@ -416,7 +420,7 @@ export class FinanceService {
       const [reversal] = await tx
         .select()
         .from(paymentReversals)
-        .where(eq(paymentReversals.id, reversalId));
+        .where(eq(paymentReversals.id, reversalId)).for('update');
 
       if (!reversal) {
         throw new Error('Reversal request not found');
@@ -428,7 +432,7 @@ export class FinanceService {
       const [payment] = await tx
         .select()
         .from(feePayments)
-        .where(eq(feePayments.id, reversal.originalPaymentId));
+        .where(eq(feePayments.id, reversal.originalPaymentId)).for('update');
 
       if (!payment) {
         throw new Error('Original payment not found');
@@ -461,7 +465,7 @@ export class FinanceService {
         const [bill] = await tx
           .select()
           .from(studentBills)
-          .where(eq(studentBills.id, payment.billId));
+          .where(eq(studentBills.id, payment.billId)).for('update');
 
         if (bill) {
           const reversedAmt = Number(payment.amountPaid);
@@ -498,7 +502,9 @@ export class FinanceService {
     }
 
     // Delete pending reversal request so payment stays valid
-    await db.delete(paymentReversals).where(eq(paymentReversals.id, reversalId));
+    const deleted = await db.delete(paymentReversals)
+      .where(and(eq(paymentReversals.id, reversalId), isNull(paymentReversals.approvedById))).returning();
+    if (!deleted.length) throw new Error('Reversal request has already been processed');
     return { success: true, message: 'Reversal request dismissed' };
   }
 

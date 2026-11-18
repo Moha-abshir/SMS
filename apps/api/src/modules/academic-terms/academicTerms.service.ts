@@ -45,7 +45,7 @@ export class AcademicTermsService {
         isCurrent: hasCurrent ? false : t.isCurrent,
       }));
 
-      await db.insert(academicTerms).values(toInsert);
+      await db.insert(academicTerms).values(toInsert).onConflictDoNothing({ target: [academicTerms.year, academicTerms.termNumber] });
     }
 
     return await db
