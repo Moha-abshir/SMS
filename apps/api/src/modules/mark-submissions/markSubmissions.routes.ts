@@ -13,7 +13,7 @@ router.post('/submit', MarkSubmissionsController.submitMarksheet);
 router.post('/request-correction-by-teacher', MarkSubmissionsController.requestCorrectionByTeacher);
 
 // Deputy Review & Approval Endpoints
-router.get('/', MarkSubmissionsController.getSubmissions);
+router.get('/', authorizePermission('marks:review'), MarkSubmissionsController.getSubmissions);
 router.get('/classes-overview', MarkSubmissionsController.getClassesReviewOverview);
 router.put('/classes/:classId/submit-to-deputy', MarkSubmissionsController.submitClassToDeputy);
 router.put('/classes/:classId/lock', authorizePermission('marks:approve'), MarkSubmissionsController.lockClassSubmissions);

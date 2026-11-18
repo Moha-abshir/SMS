@@ -1,3 +1,5 @@
+import type { AuthenticatedUser } from '../../middleware/auth.js';
+import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 import { db } from '../../config/db.js';
 import {
   catAssessments,
@@ -42,6 +44,22 @@ export class CatsService {
   /**
    * Fetch current or latest active academic term
    */
+  static async assertAccess(actor: Pick<AuthenticatedUser, 'id' | 'roleName'>, classId: string, subjectId?: string, reader: Pick<typeof db, 'select'> = db) {
+    if (['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(actor.roleName)) return;
+    const denied = () => Object.assign(new Error('CAT access denied for this class and subject'), { status: 403 });
+    if (actor.roleName !== 'TEACHER') throw denied();
+    const [cls] = await reader.select().from(classes).where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
+    if (!cls) throw denied();
+    const effective = await LeaveRequestsService.isEffectiveClassTeacher(actor.id, classId, reader);
+    // Whole-class analysis belongs to its class teacher. Subject teachers use their own marksheet.
+    if (!subjectId) { if (effective) return; throw denied(); }
+    if (effective && (cls.levelCategory === 'LOWER_PRIMARY' || cls.numericOrder === 6)) return;
+    const [allocation] = await reader.select({ id: teacherSubjectAllocations.id }).from(teacherSubjectAllocations)
+      .where(and(eq(teacherSubjectAllocations.classId, classId), eq(teacherSubjectAllocations.subjectId, subjectId),
+        eq(teacherSubjectAllocations.teacherId, actor.id), isNull(teacherSubjectAllocations.deletedAt)));
+    if (!allocation) throw denied();
+  }
+
   static async getActiveTerm() {
     const [current] = await db
       .select()
@@ -302,89 +320,101 @@ export class CatsService {
   /**
    * Create a new Continuous Assessment Test (CAT)
    */
-  static async createCat(userId: string, data: CreateCatDto) {
-    const { classId, subjectId, catNumber, maxMarks = 100 } = data;
+  static async createCat(userId: string, data: CreateCatDto, actor: AuthenticatedUser) {
+    const resolvedTerm = data.termId || (await this.getActiveTerm())?.id;
+    if (!resolvedTerm) throw new Error('No active academic term found');
+    data = { ...data, termId: resolvedTerm };
+    return db.transaction(async tx => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`cat:${data.classId}:${data.subjectId}:${resolvedTerm}`}, 0))`);
+
+      const { classId, subjectId, catNumber, maxMarks = 100 } = data;
+      await this.assertAccess(actor, classId, subjectId, tx);
 
     // 1. Verify class exists and is a National Exam Transition Cohort (Grades 3, 6, 9)
-    const [targetClass] = await db
-      .select()
-      .from(classes)
-      .where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
+      const [targetClass] = await tx
+        .select()
+        .from(classes)
+        .where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
 
-    if (!targetClass) {
-      throw new Error('Class not found');
-    }
+      if (!targetClass) {
+        throw new Error('Class not found');
+      }
 
-    if (!isNationalExamClass(targetClass)) {
-      throw new Error(
-        'Continuous Assessment Tests (CATs) are restricted to national examination cohorts (Grades 3, 6, and 9).'
-      );
-    }
+      if (!isNationalExamClass(targetClass)) {
+        throw new Error(
+          'Continuous Assessment Tests (CATs) are restricted to national examination cohorts (Grades 3, 6, and 9).'
+        );
+      }
 
     // 2. Verify subject exists
-    const [targetSubject] = await db
-      .select()
-      .from(subjects)
-      .where(and(eq(subjects.id, subjectId), isNull(subjects.deletedAt)));
+      const [targetSubject] = await tx
+        .select()
+        .from(subjects)
+        .where(and(eq(subjects.id, subjectId), isNull(subjects.deletedAt)));
 
-    if (!targetSubject) {
-      throw new Error('Subject not found');
-    }
-
-    // 3. Resolve active term
-    let termId = data.termId;
-    if (!termId) {
-      const activeTerm = await this.getActiveTerm();
-      if (!activeTerm) {
-        throw new Error('No active academic term found to attach CAT assessment to.');
+      if (!targetSubject) {
+        throw new Error('Subject not found');
       }
-      termId = activeTerm.id;
-    }
+
+      if (targetSubject.levelCategory !== targetClass.levelCategory && !(targetClass.levelCategory === 'PRIMARY' && ['LOWER_PRIMARY', 'UPPER_PRIMARY'].includes(targetSubject.levelCategory)))
+        throw new Error('Subject does not belong to this class level');
+    // 3. Resolve active term
+      let termId = data.termId;
+      if (!termId) {
+        const activeTerm = await this.getActiveTerm();
+        if (!activeTerm) {
+          throw new Error('No active academic term found to attach CAT assessment to.');
+        }
+        termId = activeTerm.id;
+      }
 
     // 4. Validate CAT number and maxMarks
-    const parsedCatNumber = Math.max(1, Math.min(10, Math.floor(catNumber)));
-    const parsedMaxMarks = Math.max(5, Math.min(1000, Math.floor(maxMarks)));
+      if (!Number.isInteger(catNumber) || catNumber < 1 || catNumber > 10 || !Number.isInteger(maxMarks) || maxMarks < 5 || maxMarks > 1000)
+        throw new Error('Invalid CAT number or maximum marks');
+      const parsedCatNumber = catNumber;
+      const parsedMaxMarks = maxMarks;
 
     // 5. Check if this CAT number already exists for this term, class, and subject
-    const [existing] = await db
-      .select()
-      .from(catAssessments)
-      .where(
-        and(
-          eq(catAssessments.termId, termId),
-          eq(catAssessments.classId, classId),
-          eq(catAssessments.subjectId, subjectId),
-          eq(catAssessments.catNumber, parsedCatNumber),
-          isNull(catAssessments.deletedAt)
-        )
-      );
+      const [existing] = await tx
+        .select()
+        .from(catAssessments)
+        .where(
+          and(
+            eq(catAssessments.termId, termId),
+            eq(catAssessments.classId, classId),
+            eq(catAssessments.subjectId, subjectId),
+            eq(catAssessments.catNumber, parsedCatNumber),
+            isNull(catAssessments.deletedAt)
+          )
+        );
 
-    if (existing) {
-      throw new Error(
-        `CAT ${parsedCatNumber} already exists for ${targetClass.name} - ${targetSubject.name} in this term.`
-      );
-    }
+      if (existing) {
+        throw new Error(
+          `CAT ${parsedCatNumber} already exists for ${targetClass.name} - ${targetSubject.name} in this term.`
+        );
+      }
 
     // 6. Insert new CAT assessment
-    const [created] = await db
-      .insert(catAssessments)
-      .values({
-        termId,
-        classId,
-        subjectId,
-        catNumber: parsedCatNumber,
-        maxMarks: parsedMaxMarks,
-        createdById: userId,
-      })
-      .returning();
+      const [created] = await tx
+        .insert(catAssessments)
+        .values({
+          termId,
+          classId,
+          subjectId,
+          catNumber: parsedCatNumber,
+          maxMarks: parsedMaxMarks,
+          createdById: userId,
+        })
+        .returning();
 
-    return created;
+      return created;
+    });
   }
 
   /**
    * Get CAT Marksheet for scoring
    */
-  static async getCatMarksheet(catId: string) {
+  static async getCatMarksheet(catId: string, actor: AuthenticatedUser) {
     // 1. Fetch CAT with Class, Subject, and Term details
     const [cat] = await db
       .select({
@@ -412,6 +442,7 @@ export class CatsService {
     if (!cat) {
       throw new Error('CAT assessment not found or has been deleted.');
     }
+    await this.assertAccess(actor, cat.classId, cat.subjectId);
 
     const isJunior = isJuniorSecondaryClass({
       name: cat.className,
@@ -530,7 +561,7 @@ export class CatsService {
   /**
    * Save or update marksheet scores for a CAT
    */
-  static async saveCatScores(catId: string, _userId: string, data: SaveCatScoresDto) {
+  static async saveCatScores(catId: string, _userId: string, data: SaveCatScoresDto, actor: AuthenticatedUser) {
     const [cat] = await db
       .select()
       .from(catAssessments)
@@ -540,60 +571,32 @@ export class CatsService {
       throw new Error('CAT assessment not found or has been deleted.');
     }
 
+    await this.assertAccess(actor, cat.classId, cat.subjectId);
     const { scores } = data;
     if (!Array.isArray(scores)) {
       throw new Error('Invalid scores payload: array of learner scores expected.');
     }
 
-    // Execute batch upsert
-    await db.transaction(async (tx) => {
-      for (const item of scores) {
-        if (!item.studentId) continue;
-
-        const hasMark = item.marksObtained !== null && item.marksObtained !== undefined && item.marksObtained !== '';
-        if (!hasMark) {
-          // If blank, remove existing score if any
-          await tx
-            .delete(catScores)
-            .where(and(eq(catScores.catId, catId), eq(catScores.studentId, item.studentId)));
-          continue;
-        }
-
-        const markNum =
-          typeof item.marksObtained === 'number'
-            ? item.marksObtained
-            : parseFloat(String(item.marksObtained));
-        if (isNaN(markNum) || markNum < 0 || markNum > cat.maxMarks) {
-          throw new Error(
-            `Mark ${item.marksObtained} is invalid. Scores must be between 0 and maximum marks (${cat.maxMarks}).`
-          );
-        }
-
-        // Upsert score
-        const [existing] = await tx
-          .select()
-          .from(catScores)
-          .where(and(eq(catScores.catId, catId), eq(catScores.studentId, item.studentId)));
-
-        if (existing) {
-          await tx
-            .update(catScores)
-            .set({
-              marksObtained: markNum.toFixed(2),
-              remarks: item.remarks ? item.remarks.trim() : null,
-              updatedAt: new Date(),
-              deletedAt: null,
-            })
-            .where(eq(catScores.id, existing.id));
-        } else {
-          await tx.insert(catScores).values({
-            catId,
-            studentId: item.studentId,
-            marksObtained: markNum.toFixed(2),
-            remarks: item.remarks ? item.remarks.trim() : null,
-          });
-        }
-      }
+    const ids = scores.map(item => item.studentId);
+    if (new Set(ids).size !== ids.length) throw new Error('Duplicate learners in CAT scores');
+    await db.transaction(async tx => {
+      const [lockedCat] = await tx.select().from(catAssessments).where(eq(catAssessments.id, catId)).for('update');
+      if (!lockedCat || lockedCat.deletedAt) throw new Error('CAT assessment has been deleted');
+      const valid = ids.length ? await tx.select({ id: students.id }).from(students)
+        .where(and(inArray(students.id, ids), eq(students.classId, cat.classId), isNull(students.deletedAt))) : [];
+      if (valid.length !== ids.length) throw new Error('CAT scores include learners outside this class');
+      const blanks: string[] = [];
+      const values = scores.flatMap(item => {
+        if (item.marksObtained === null || item.marksObtained === '') { blanks.push(item.studentId); return []; }
+        const mark = Number(item.marksObtained);
+        if (!Number.isFinite(mark) || mark < 0 || mark > cat.maxMarks) throw new Error('Invalid CAT mark');
+        return [{ catId, studentId: item.studentId, marksObtained: mark.toFixed(2), remarks: item.remarks?.trim() || null }];
+      });
+      if (blanks.length) await tx.delete(catScores).where(and(eq(catScores.catId, catId), inArray(catScores.studentId, blanks)));
+      if (values.length) await tx.insert(catScores).values(values).onConflictDoUpdate({
+        target: [catScores.catId, catScores.studentId],
+        set: { marksObtained: sql`excluded.marks_obtained`, remarks: sql`excluded.remarks`, updatedAt: new Date(), deletedAt: null },
+      });
     });
 
     return {
@@ -605,7 +608,7 @@ export class CatsService {
   /**
    * Delete a CAT assessment
    */
-  static async deleteCat(catId: string, _userId: string) {
+  static async deleteCat(catId: string, _userId: string, actor: AuthenticatedUser) {
     const [cat] = await db
       .select()
       .from(catAssessments)
@@ -615,8 +618,11 @@ export class CatsService {
       throw new Error('CAT assessment not found or already deleted.');
     }
 
+    await this.assertAccess(actor, cat.classId, cat.subjectId);
     // Soft delete CAT and scores
     await db.transaction(async (tx) => {
+      const [current] = await tx.select().from(catAssessments).where(eq(catAssessments.id, catId)).for('update');
+      if (!current || current.deletedAt) throw new Error('CAT assessment has already been deleted');
       await tx
         .update(catAssessments)
         .set({ deletedAt: new Date() })
@@ -639,7 +645,8 @@ export class CatsService {
    * Get all CATs and learner marks for a class in the current term
    * For Class Teacher and Leadership oversight
    */
-  static async getClassCatsDetail(classId: string, termId?: string) {
+  static async getClassCatsDetail(classId: string, actor: AuthenticatedUser, termId?: string) {
+    await this.assertAccess(actor, classId);
     const [targetClass] = await db
       .select()
       .from(classes)

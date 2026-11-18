@@ -1,5 +1,5 @@
 import { db } from '../../config/db.js';
-import { teacherLeaveRequests, users, classes, roles, systemSettings, eq, and, isNull, desc } from '@school/shared';
+import { teacherLeaveRequests, users, classes, roles, systemSettings, eq, and, isNull, desc, inArray, sql } from '@school/shared';
 
 export class LeaveRequestsService {
   static async getFormData() {
@@ -193,8 +193,8 @@ export class LeaveRequestsService {
     return updated;
   }
 
-  static async getActiveStandInDelegationForTeacher(userId: string) {
-    const approvedRequests = await db
+  static async getActiveStandInDelegationForTeacher(userId: string, reader: Pick<typeof db, 'select'> = db) {
+    const approvedRequests = await reader
       .select({
         request: teacherLeaveRequests,
         originalTeacher: {
@@ -208,50 +208,32 @@ export class LeaveRequestsService {
       .where(
         and(
           eq(teacherLeaveRequests.status, 'APPROVED'),
+          sql`${teacherLeaveRequests.startDate} <= (now() AT TIME ZONE 'Africa/Nairobi')::date`,
           isNull(teacherLeaveRequests.deletedAt)
         )
       )
       .orderBy(desc(teacherLeaveRequests.createdAt));
 
-    for (const item of approvedRequests) {
-      let parsedNotes: any = {};
-      try {
-        if (item.request.notes && item.request.notes.startsWith('{')) {
-          parsedNotes = JSON.parse(item.request.notes);
-        }
-      } catch (e) {}
-
-      const standingInId = (item.request as any).standingInTeacherId || parsedNotes.standingInTeacherId;
-      const isReturned = Boolean(parsedNotes.isReturned);
-
-      if (standingInId === userId && !isReturned) {
-        const [assignedClass] = await db
-          .select()
-          .from(classes)
-          .where(
-            and(
-              eq(classes.classTeacherId, item.originalTeacher.id),
-              isNull(classes.deletedAt)
-            )
-          );
-
-        if (assignedClass) {
-          return {
-            assignedClass,
-            originalTeacher: item.originalTeacher,
-            leaveRequestId: item.request.id,
-            departureTime: (item.request as any).departureTime || parsedNotes.departureTime,
-            duration: (item.request as any).duration || parsedNotes.duration,
-          };
-        }
-      }
+    const candidates = approvedRequests.flatMap(item => {
+      let notes: any = {};
+      try { notes = JSON.parse(item.request.notes || '{}'); } catch { return []; }
+      if (!notes || typeof notes !== 'object' || Array.isArray(notes)) return [];
+      return notes.standingInTeacherId === userId && !notes.isReturned ? [{ item, notes }] : [];
+    });
+    const assignedClasses = candidates.length ? await reader.select().from(classes)
+      .where(and(inArray(classes.classTeacherId, candidates.map(({ item }) => item.originalTeacher.id)), isNull(classes.deletedAt))) : [];
+    const classesByTeacher = new Map<string, typeof assignedClasses[number]>();
+    for (const cls of assignedClasses) if (cls.classTeacherId && !classesByTeacher.has(cls.classTeacherId)) classesByTeacher.set(cls.classTeacherId, cls);
+    for (const { item, notes } of candidates) {
+      const assignedClass = classesByTeacher.get(item.originalTeacher.id);
+      if (assignedClass) return { assignedClass, originalTeacher: item.originalTeacher, leaveRequestId: item.request.id,
+        departureTime: notes.departureTime, duration: notes.duration };
     }
-
     return null;
   }
 
-  static async isEffectiveClassTeacher(userId: string, classId: string): Promise<boolean> {
-    const [cls] = await db
+  static async isEffectiveClassTeacher(userId: string, classId: string, reader: Pick<typeof db, 'select'> = db): Promise<boolean> {
+    const [cls] = await reader
       .select()
       .from(classes)
       .where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
@@ -259,7 +241,7 @@ export class LeaveRequestsService {
     if (!cls) return false;
     if (cls.classTeacherId === userId) return true;
 
-    const delegation = await this.getActiveStandInDelegationForTeacher(userId);
+    const delegation = await this.getActiveStandInDelegationForTeacher(userId, reader);
     if (delegation && delegation.assignedClass.id === classId) {
       return true;
     }

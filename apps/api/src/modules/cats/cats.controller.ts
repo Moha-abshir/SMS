@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { CatsService } from './cats.service.js';
 
@@ -16,9 +17,9 @@ export class CatsController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('[CatsController] getTeacherAllocations error:', error);
-      return res.status(500).json({
+      return res.status(error.status || 500).json({
         success: false,
-        message: error.message || 'Failed to load CAT teacher allocations',
+        message: publicErrorMessage(error, 'Failed to load CAT teacher allocations'),
       });
     }
   }
@@ -47,7 +48,7 @@ export class CatsController {
         catNumber: Number(catNumber),
         maxMarks: maxMarks ? Number(maxMarks) : 100,
         termId,
-      });
+      }, req.user!);
 
       return res.status(201).json({
         success: true,
@@ -67,9 +68,9 @@ export class CatsController {
       } else if (error.message?.includes('already exists')) {
         status = 409;
       }
-      return res.status(status).json({
+      return res.status(error.status || status).json({
         success: false,
-        message: error.message || 'Failed to create CAT assessment',
+        message: publicErrorMessage(error, 'Failed to create CAT assessment'),
       });
     }
   }
@@ -84,13 +85,13 @@ export class CatsController {
         return res.status(400).json({ success: false, message: 'catId is required.' });
       }
 
-      const data = await CatsService.getCatMarksheet(catId);
+      const data = await CatsService.getCatMarksheet(catId, req.user!);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('[CatsController] getCatMarksheet error:', error);
-      return res.status(404).json({
+      return res.status(error.status || 404).json({
         success: false,
-        message: error.message || 'Failed to fetch CAT marksheet',
+        message: publicErrorMessage(error, 'Failed to fetch CAT marksheet'),
       });
     }
   }
@@ -115,13 +116,13 @@ export class CatsController {
         });
       }
 
-      const result = await CatsService.saveCatScores(catId, userId, { scores });
+      const result = await CatsService.saveCatScores(catId, userId, { scores }, req.user!);
       return res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
       console.error('[CatsController] saveCatScores error:', error);
-      return res.status(400).json({
+      return res.status(error.status || 400).json({
         success: false,
-        message: error.message || 'Failed to save CAT scores',
+        message: publicErrorMessage(error, 'Failed to save CAT scores'),
       });
     }
   }
@@ -141,13 +142,13 @@ export class CatsController {
         return res.status(400).json({ success: false, message: 'catId is required.' });
       }
 
-      const result = await CatsService.deleteCat(catId, userId);
+      const result = await CatsService.deleteCat(catId, userId, req.user!);
       return res.status(200).json({ success: true, message: result.message, data: result });
     } catch (error: any) {
       console.error('[CatsController] deleteCat error:', error);
-      return res.status(400).json({
+      return res.status(error.status || 400).json({
         success: false,
-        message: error.message || 'Failed to delete CAT assessment',
+        message: publicErrorMessage(error, 'Failed to delete CAT assessment'),
       });
     }
   }
@@ -164,13 +165,13 @@ export class CatsController {
         return res.status(400).json({ success: false, message: 'classId is required.' });
       }
 
-      const data = await CatsService.getClassCatsDetail(classId, termId);
+      const data = await CatsService.getClassCatsDetail(classId, req.user!, termId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('[CatsController] getClassCatsDetail error:', error);
-      return res.status(500).json({
+      return res.status(error.status || 500).json({
         success: false,
-        message: error.message || 'Failed to fetch class CAT details',
+        message: publicErrorMessage(error, 'Failed to fetch class CAT details'),
       });
     }
   }

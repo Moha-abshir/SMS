@@ -1,3 +1,4 @@
+import type { AuthenticatedUser } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import {
   markSubmissions,
@@ -14,6 +15,7 @@ import {
   isJuniorSecondaryClass,
   eq,
   ne,
+  inArray,
   and,
   isNull,
   desc,
@@ -30,6 +32,33 @@ function computeGradeMetrics(marksObtained: number, maxMarks: number = 100, isJu
     const rubricResult = calculateCbcRubric(marksObtained, maxMarks);
     return { percentage, cbcRubricLevel: rubricResult.code, juniorPoints: null };
   }
+}
+
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function persistExamScores(tx: Transaction, examId: string, classId: string, subjectId: string,
+  scores: Array<{ studentId: string; marksObtained: number | string | null; maxMarks?: number; teacherRemarks?: string }>,
+  userId: string, isJunior: boolean) {
+  const ids = scores.map(s => s.studentId);
+  if (new Set(ids).size !== ids.length) throw new Error('Duplicate learners in marksheet');
+  const roster = ids.length ? await tx.select({ id: students.id }).from(students)
+    .where(and(inArray(students.id, ids), eq(students.classId, classId), eq(students.status, 'ACTIVE'), isNull(students.deletedAt))) : [];
+  if (roster.length !== ids.length) throw new Error('Marksheet contains learners outside the active class roster');
+  const values = scores.flatMap(item => {
+    if (item.marksObtained === null || item.marksObtained === '') return [];
+    const mark = Number(item.marksObtained);
+    const maxMarks = item.maxMarks ?? 100;
+    if (!Number.isFinite(mark) || !Number.isFinite(maxMarks) || maxMarks <= 0 || maxMarks > 1000 || mark < 0 || mark > maxMarks)
+      throw new Error('Invalid mark or maximum marks');
+    const { cbcRubricLevel, juniorPoints } = computeGradeMetrics(mark, maxMarks, isJunior);
+    return [{ examId, studentId: item.studentId, subjectId, marksObtained: mark.toFixed(2), maxMarks,
+      cbcRubricLevel, juniorPoints, teacherRemarks: item.teacherRemarks || null, enteredById: userId }];
+  });
+  if (values.length) await tx.insert(examScores).values(values).onConflictDoUpdate({
+    target: [examScores.examId, examScores.studentId, examScores.subjectId],
+    set: { marksObtained: sql`excluded.marks_obtained`, maxMarks: sql`excluded.max_marks`,
+      cbcRubricLevel: sql`excluded.cbc_rubric_level`, juniorPoints: sql`excluded.junior_points`,
+      teacherRemarks: sql`excluded.teacher_remarks`, enteredById: userId, updatedAt: new Date() },
+  });
 }
 
 export class MarkSubmissionsService {
@@ -59,7 +88,13 @@ export class MarkSubmissionsService {
    * Generates a hierarchical class-by-class review summary for the Deputy Head.
    * Lists each class stream, assigned Class Teacher, and submission status of all subject papers.
    */
-  static async getClassesReviewOverview(examId?: string) {
+  static async getClassesReviewOverview(examId: string | undefined, actor: AuthenticatedUser) {
+    const leadership = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(actor.roleName);
+    if (!leadership && actor.roleName !== 'TEACHER') throw Object.assign(new Error('Review access denied'), { status: 403 });
+    const assigned = leadership ? [] : await db.select({ id: classes.id }).from(classes).where(eq(classes.classTeacherId, actor.id));
+    const delegation = leadership ? null : await LeaveRequestsService.getActiveStandInDelegationForTeacher(actor.id);
+    const allowedClassIds = assigned.map(c => c.id);
+    if (delegation) allowedClassIds.push(delegation.assignedClass.id);
     // 1. Fetch all classes ordered by numericOrder
     const allClasses = await db
       .select({
@@ -74,7 +109,7 @@ export class MarkSubmissionsService {
       })
       .from(classes)
       .leftJoin(users, eq(classes.classTeacherId, users.id))
-      .where(isNull(classes.deletedAt))
+      .where(and(isNull(classes.deletedAt), leadership ? undefined : inArray(classes.id, allowedClassIds)))
       .orderBy(classes.numericOrder);
 
     // 2. Fetch all subjects
@@ -86,6 +121,7 @@ export class MarkSubmissionsService {
 
     // 3. Fetch submissions matching examId (or all if not specified)
     const baseConditions = [isNull(markSubmissions.deletedAt)];
+    if (!leadership) baseConditions.push(inArray(markSubmissions.classId, allowedClassIds));
     if (examId) {
       baseConditions.push(eq(markSubmissions.examId, examId));
     }
@@ -222,122 +258,140 @@ export class MarkSubmissionsService {
   }
 
   static async submitClassToDeputy(classId: string, examId: string, userId: string, userRole?: string) {
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
-    if (!isPrivileged && !isClassTeacher) {
-      throw new Error('Only the assigned Class Teacher can submit the class marksheet to the Deputy Head');
-    }
+      const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
+      const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId, tx);
 
-    const [cls] = await db.select().from(classes).where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
-    if (!cls) {
-      throw new Error('Class stream not found');
-    }
+      if (!isPrivileged && !isClassTeacher) {
+        throw new Error('Only the assigned Class Teacher can submit the class marksheet to the Deputy Head');
+      }
 
-    const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt));
-    const classSubjects = allSubjects.filter(
-      (sub) =>
-        sub.levelCategory === cls.levelCategory ||
-        (cls.levelCategory === 'PRIMARY' &&
-          (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
-    );
+      const [cls] = await tx.select().from(classes).where(and(eq(classes.id, classId), isNull(classes.deletedAt)));
+      if (!cls) {
+        throw new Error('Class stream not found');
+      }
 
-    const existingSubs = await db
-      .select()
-      .from(markSubmissions)
-      .where(
-        and(
-          eq(markSubmissions.classId, classId),
-          eq(markSubmissions.examId, examId),
-          isNull(markSubmissions.deletedAt)
-        )
+      const allSubjects = await tx.select().from(subjects).where(isNull(subjects.deletedAt));
+      const classSubjects = allSubjects.filter(
+        (sub) =>
+          sub.levelCategory === cls.levelCategory ||
+          (cls.levelCategory === 'PRIMARY' &&
+            (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
       );
 
-    const subMap = new Map<string, any>();
-    existingSubs.forEach((s) => subMap.set(s.subjectId, s));
+      const existingSubs = await tx
+        .select()
+        .from(markSubmissions)
+        .where(
+          and(
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.examId, examId),
+            isNull(markSubmissions.deletedAt)
+          )
+        );
 
-    const missingSubjects = classSubjects.filter((s) => !subMap.has(s.id));
-    if (missingSubjects.length > 0) {
-      throw new Error(`Cannot submit to Deputy: ${missingSubjects.length} subject(s) have not been submitted yet.`);
-    }
+      const subMap = new Map<string, any>();
+      existingSubs.forEach((s) => subMap.set(s.subjectId, s));
 
-    const invalidSubs = existingSubs.filter(
-      (s) => s.status === 'DRAFT' || s.status === 'CORRECTION_REQUESTED'
-    );
-    if (invalidSubs.length > 0) {
-      throw new Error('Cannot submit to Deputy: All subjects must be submitted. Some subjects are still in draft or pending correction.');
-    }
+      const missingSubjects = classSubjects.filter((s) => !subMap.has(s.id));
+      if (missingSubjects.length > 0) {
+        throw new Error(`Cannot submit to Deputy: ${missingSubjects.length} subject(s) have not been submitted yet.`);
+      }
 
-    const updated = await db
-      .update(markSubmissions)
-      .set({
-        status: 'LOCKED',
-        submittedAt: new Date(),
-        reviewedAt: new Date(),
-        reviewedById: userId,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(markSubmissions.classId, classId),
-          eq(markSubmissions.examId, examId),
-          isNull(markSubmissions.deletedAt)
+      const invalidSubs = existingSubs.filter(
+        (s) => s.status === 'DRAFT' || s.status === 'CORRECTION_REQUESTED'
+      );
+      if (invalidSubs.length > 0) {
+        throw new Error('Cannot submit to Deputy: All subjects must be submitted. Some subjects are still in draft or pending correction.');
+      }
+
+      const updated = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'LOCKED',
+          submittedAt: new Date(),
+          reviewedAt: new Date(),
+          reviewedById: userId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.examId, examId),
+            isNull(markSubmissions.deletedAt)
+          )
         )
-      )
-      .returning();
+        .returning();
 
-    return updated;
+      return updated;
+
+    });
   }
 
   static async lockClassSubmissions(classId: string, examId: string, reviewedById: string, userRole?: string) {
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    if (!isPrivileged) {
-      throw new Error('Only the Deputy Head or Head Teacher is authorized to permanently lock class marksheets');
-    }
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
-    const updated = await db
-      .update(markSubmissions)
-      .set({
-        status: 'LOCKED',
-        reviewedById,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(markSubmissions.classId, classId),
-          eq(markSubmissions.examId, examId),
-          isNull(markSubmissions.deletedAt)
+      const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
+      if (!isPrivileged) {
+        throw new Error('Only the Deputy Head or Head Teacher is authorized to permanently lock class marksheets');
+      }
+
+      const updated = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'LOCKED',
+          reviewedById,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.examId, examId),
+            isNull(markSubmissions.deletedAt)
+          )
         )
-      )
-      .returning();
+        .returning();
 
-    return updated;
+      return updated;
+
+    });
   }
 
   static async approveClassSubmissions(classId: string, examId: string, reviewedById: string) {
-    const updated = await db
-      .update(markSubmissions)
-      .set({
-        status: 'APPROVED',
-        reviewedById,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(markSubmissions.classId, classId),
-          eq(markSubmissions.examId, examId),
-          eq(markSubmissions.status, 'SUBMITTED'),
-          isNull(markSubmissions.deletedAt)
-        )
-      )
-      .returning();
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
-    return updated;
+      const updated = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'APPROVED',
+          reviewedById,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.examId, examId),
+            eq(markSubmissions.status, 'SUBMITTED'),
+            isNull(markSubmissions.deletedAt)
+          )
+        )
+        .returning();
+
+      return updated;
+
+    });
   }
 
-  static async getSubmissionScores(id: string) {
+  static async getSubmissionScores(id: string, actor: AuthenticatedUser) {
     const [subData] = await db
       .select({
         submission: markSubmissions,
@@ -361,6 +415,11 @@ export class MarkSubmissionsService {
     if (!subData) {
       throw new Error('Marksheet submission not found');
     }
+
+    const leadership = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(actor.roleName);
+    if (!leadership && (actor.roleName !== 'TEACHER' || !(await LeaveRequestsService.isEffectiveClassTeacher(actor.id, subData.submission.classId) ||
+      await this.verifyTeacherEligibility(subData.submission.examId, subData.submission.classId, subData.submission.subjectId, actor.id))))
+      throw Object.assign(new Error('Marksheet access denied'), { status: 403 });
 
     // Fetch class students
     const classStudents = await db
@@ -482,9 +541,10 @@ export class MarkSubmissionsService {
     examId: string,
     classId: string,
     subjectId: string,
-    userId: string
+    userId: string,
+    reader: Pick<typeof db, 'select'> = db
   ): Promise<boolean> {
-    const [user] = await db
+    const [user] = await reader
       .select({
         id: users.id,
         roleId: users.roleId,
@@ -495,17 +555,17 @@ export class MarkSubmissionsService {
     if (!user) return false;
 
     // Check if class teacher of PPE / Lower Primary (Grades 1-3), including active standing-in teachers
-    const [cls] = await db.select().from(classes).where(eq(classes.id, classId));
+    const [cls] = await reader.select().from(classes).where(eq(classes.id, classId));
     if (
       cls &&
       (cls.levelCategory === 'PPE' || cls.levelCategory === 'LOWER_PRIMARY' || cls.numericOrder <= 6)
     ) {
-      const isEffective = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
+      const isEffective = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId, reader);
       if (isEffective) return true;
     }
 
     // Check teacher_subject_allocations
-    const [allocation] = await db
+    const [allocation] = await reader
       .select()
       .from(teacherSubjectAllocations)
       .where(
@@ -519,7 +579,7 @@ export class MarkSubmissionsService {
     if (allocation) return true;
 
     // Check marking_allocations
-    const [marking] = await db
+    const [marking] = await reader
       .select()
       .from(markingAllocations)
       .where(
@@ -546,7 +606,7 @@ export class MarkSubmissionsService {
     userId: string,
     userRole?: string
   ) {
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
+    const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
     const isAllocatedSubjectTeacher = isPrivileged || (await this.verifyTeacherEligibility(examId, classId, subjectId, userId));
     const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId);
 
@@ -700,7 +760,9 @@ export class MarkSubmissionsService {
       .where(
         and(
           eq(examScores.examId, examId),
-          eq(examScores.subjectId, subjectId)
+          eq(examScores.subjectId, subjectId),
+          inArray(examScores.studentId, classStudents.map(student => student.id)),
+          isNull(examScores.deletedAt)
         )
       );
 
@@ -802,93 +864,65 @@ export class MarkSubmissionsService {
     userId: string,
     userRole?: string
   ) {
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    if (!isPrivileged) {
-      const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId);
-      if (!eligible) {
-        throw new Error('You are not authorized to enter marks for this class and subject');
-      }
-    }
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
-    // Check current submission status
-    const [existingSub] = await db
-      .select()
-      .from(markSubmissions)
-      .where(
-        and(
-          eq(markSubmissions.examId, examId),
-          eq(markSubmissions.classId, classId),
-          eq(markSubmissions.subjectId, subjectId)
-        )
-      );
-
-    if (existingSub && (existingSub.status === 'SUBMITTED' || existingSub.status === 'APPROVED' || existingSub.status === 'LOCKED')) {
+      const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
       if (!isPrivileged) {
-        throw new Error(`Cannot modify draft: marksheet is currently in '${existingSub.status}' status`);
-      }
-    }
-
-    const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId));
-    const isJunior = isJuniorSecondaryClass(targetClass);
-
-    await db.transaction(async (tx) => {
-      // Upsert scores
-      for (const item of scores) {
-        if (item.marksObtained !== null && item.marksObtained !== undefined && item.marksObtained !== '') {
-          const markNum = Math.max(0, Math.min(100, parseFloat(item.marksObtained as string)));
-          const maxMarks = item.maxMarks || 100;
-          const { cbcRubricLevel, juniorPoints } = computeGradeMetrics(markNum, maxMarks, isJunior);
-
-          await tx
-            .insert(examScores)
-            .values({
-              examId,
-              studentId: item.studentId,
-              subjectId,
-              marksObtained: markNum.toFixed(2),
-              maxMarks,
-              cbcRubricLevel,
-              juniorPoints,
-              teacherRemarks: item.teacherRemarks || null,
-              enteredById: userId,
-            })
-            .onConflictDoUpdate({
-              target: [examScores.examId, examScores.studentId, examScores.subjectId],
-              set: {
-                marksObtained: markNum.toFixed(2),
-                maxMarks,
-                cbcRubricLevel,
-                juniorPoints,
-                teacherRemarks: item.teacherRemarks || null,
-                enteredById: userId,
-                updatedAt: new Date(),
-              },
-            });
+        const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId, tx);
+        if (!eligible) {
+          throw new Error('You are not authorized to enter marks for this class and subject');
         }
       }
 
-      // Upsert submission record in DRAFT
-      if (existingSub) {
-        await tx
-          .update(markSubmissions)
-          .set({
-            status: existingSub.status === 'CORRECTION_REQUESTED' ? 'CORRECTION_REQUESTED' : 'DRAFT',
-            teacherId: userId,
-            updatedAt: new Date(),
-          })
-          .where(eq(markSubmissions.id, existingSub.id));
-      } else {
-        await tx.insert(markSubmissions).values({
-          examId,
-          classId,
-          subjectId,
-          teacherId: userId,
-          status: 'DRAFT',
-        });
-      }
-    });
+    // Check current submission status
+      const [existingSub] = await tx
+        .select()
+        .from(markSubmissions)
+        .where(
+          and(
+            eq(markSubmissions.examId, examId),
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.subjectId, subjectId)
+          )
+        );
 
-    return { success: true, message: 'Marksheet saved as draft successfully' };
+      if (existingSub && existingSub.status !== 'DRAFT') {
+        throw new Error(`Cannot modify draft: marksheet is currently in '${existingSub.status}' status`);
+      }
+
+      const [targetClass] = await tx.select().from(classes).where(eq(classes.id, classId));
+      const isJunior = isJuniorSecondaryClass(targetClass);
+
+      await tx.transaction(async (tx) => {
+        // Upsert scores
+        await persistExamScores(tx, examId, classId, subjectId, scores, userId, isJunior);
+
+        // Upsert submission record in DRAFT
+        if (existingSub) {
+          await tx
+            .update(markSubmissions)
+            .set({
+              status: existingSub.status === 'CORRECTION_REQUESTED' ? 'CORRECTION_REQUESTED' : 'DRAFT',
+              teacherId: userId,
+              updatedAt: new Date(),
+            })
+            .where(eq(markSubmissions.id, existingSub.id));
+        } else {
+          await tx.insert(markSubmissions).values({
+            examId,
+            classId,
+            subjectId,
+            teacherId: userId,
+            status: 'DRAFT',
+          });
+        }
+      });
+
+      return { success: true, message: 'Marksheet saved as draft successfully' };
+
+    });
   }
 
   /**
@@ -907,121 +941,100 @@ export class MarkSubmissionsService {
     userId: string,
     userRole?: string
   ) {
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    if (!isPrivileged) {
-      const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId);
-      if (!eligible) {
-        throw new Error('You are not authorized to submit marks for this class and subject');
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
+
+      const [state] = await tx.select().from(markSubmissions).where(and(eq(markSubmissions.examId, examId), eq(markSubmissions.classId, classId), eq(markSubmissions.subjectId, subjectId)));
+      if (state && state.status !== 'DRAFT') throw new Error('Marksheet must be explicitly unlocked before resubmission');
+
+      const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
+      if (!isPrivileged) {
+        const eligible = await this.verifyTeacherEligibility(examId, classId, subjectId, userId, tx);
+        if (!eligible) {
+          throw new Error('You are not authorized to submit marks for this class and subject');
+        }
       }
-    }
 
     // Verify all active students in class have scores
-    const classStudents = await db
-      .select({ id: students.id, name: students.firstName })
-      .from(students)
-      .where(
-        and(
-          eq(students.classId, classId),
-          eq(students.status, 'ACTIVE'),
-          isNull(students.deletedAt)
-        )
-      );
-
-    const scoresMap = new Map<string, any>();
-    scores.forEach((s) => scoresMap.set(s.studentId, s));
-
-    const missingLearners = classStudents.filter((st) => {
-      const scoreObj = scoresMap.get(st.id);
-      return (
-        !scoreObj ||
-        scoreObj.marksObtained === null ||
-        scoreObj.marksObtained === undefined ||
-        scoreObj.marksObtained === ''
-      );
-    });
-
-    if (missingLearners.length > 0) {
-      throw new Error(
-        `Cannot submit marksheet: All ${classStudents.length} active learners must have a recorded mark. Missing scores for ${missingLearners.length} learner(s).`
-      );
-    }
-
-    const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId));
-    const isJunior = isJuniorSecondaryClass(targetClass);
-
-    await db.transaction(async (tx) => {
-      // Upsert all scores
-      for (const item of scores) {
-        const markNum = Math.max(0, Math.min(100, parseFloat(item.marksObtained as string)));
-        const maxMarks = item.maxMarks || 100;
-        const { cbcRubricLevel, juniorPoints } = computeGradeMetrics(markNum, maxMarks, isJunior);
-
-        await tx
-          .insert(examScores)
-          .values({
-            examId,
-            studentId: item.studentId,
-            subjectId,
-            marksObtained: markNum.toFixed(2),
-            maxMarks,
-            cbcRubricLevel,
-            juniorPoints,
-            teacherRemarks: item.teacherRemarks || null,
-            enteredById: userId,
-          })
-          .onConflictDoUpdate({
-            target: [examScores.examId, examScores.studentId, examScores.subjectId],
-            set: {
-              marksObtained: markNum.toFixed(2),
-              maxMarks,
-              cbcRubricLevel,
-              juniorPoints,
-              teacherRemarks: item.teacherRemarks || null,
-              enteredById: userId,
-              updatedAt: new Date(),
-            },
-          });
-      }
-
-      // Transition submission to SUBMITTED
-      const [existingSub] = await tx
-        .select()
-        .from(markSubmissions)
+      const classStudents = await tx
+        .select({ id: students.id, name: students.firstName })
+        .from(students)
         .where(
           and(
-            eq(markSubmissions.examId, examId),
-            eq(markSubmissions.classId, classId),
-            eq(markSubmissions.subjectId, subjectId)
+            eq(students.classId, classId),
+            eq(students.status, 'ACTIVE'),
+            isNull(students.deletedAt)
           )
         );
 
-      if (existingSub) {
-        await tx
-          .update(markSubmissions)
-          .set({
-            status: 'SUBMITTED',
-            teacherId: userId,
-            submittedAt: new Date(),
-            correctionReason: null,
-            updatedAt: new Date(),
-          })
-          .where(eq(markSubmissions.id, existingSub.id));
-      } else {
-        await tx.insert(markSubmissions).values({
-          examId,
-          classId,
-          subjectId,
-          teacherId: userId,
-          status: 'SUBMITTED',
-          submittedAt: new Date(),
-        });
-      }
-    });
+      const scoresMap = new Map<string, any>();
+      scores.forEach((s) => scoresMap.set(s.studentId, s));
 
-    return {
-      success: true,
-      message: `Marksheet for ${classStudents.length} learners submitted successfully to the Deputy Head for review`,
-    };
+      const missingLearners = classStudents.filter((st) => {
+        const scoreObj = scoresMap.get(st.id);
+        return (
+          !scoreObj ||
+          scoreObj.marksObtained === null ||
+          scoreObj.marksObtained === undefined ||
+          scoreObj.marksObtained === ''
+        );
+      });
+
+      if (missingLearners.length > 0) {
+        throw new Error(
+          `Cannot submit marksheet: All ${classStudents.length} active learners must have a recorded mark. Missing scores for ${missingLearners.length} learner(s).`
+        );
+      }
+
+      const [targetClass] = await tx.select().from(classes).where(eq(classes.id, classId));
+      const isJunior = isJuniorSecondaryClass(targetClass);
+
+      await tx.transaction(async (tx) => {
+        // Upsert all scores
+        await persistExamScores(tx, examId, classId, subjectId, scores, userId, isJunior);
+
+        // Transition submission to SUBMITTED
+        const [existingSub] = await tx
+          .select()
+          .from(markSubmissions)
+          .where(
+            and(
+              eq(markSubmissions.examId, examId),
+              eq(markSubmissions.classId, classId),
+              eq(markSubmissions.subjectId, subjectId)
+            )
+          );
+
+        if (existingSub) {
+          await tx
+            .update(markSubmissions)
+            .set({
+              status: 'SUBMITTED',
+              teacherId: userId,
+              submittedAt: new Date(),
+              correctionReason: null,
+              updatedAt: new Date(),
+            })
+            .where(eq(markSubmissions.id, existingSub.id));
+        } else {
+          await tx.insert(markSubmissions).values({
+            examId,
+            classId,
+            subjectId,
+            teacherId: userId,
+            status: 'SUBMITTED',
+            submittedAt: new Date(),
+          });
+        }
+      });
+
+      return {
+        success: true,
+        message: `Marksheet for ${classStudents.length} learners submitted successfully to the Deputy Head for review`,
+      };
+
+    });
   }
 
   /**
@@ -1034,124 +1047,172 @@ export class MarkSubmissionsService {
     reason: string | undefined,
     userId: string
   ) {
-    const [sub] = await db
-      .select()
-      .from(markSubmissions)
-      .where(
-        and(
-          eq(markSubmissions.examId, examId),
-          eq(markSubmissions.classId, classId),
-          eq(markSubmissions.subjectId, subjectId)
-        )
-      );
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
-    if (!sub) {
-      throw new Error('Marksheet submission not found');
-    }
+      if (!await this.verifyTeacherEligibility(examId, classId, subjectId, userId, tx)) throw new Error('Not authorized to request corrections for this marksheet');
 
-    if (sub.status === 'LOCKED') {
-      throw new Error('This marksheet has been submitted to the Deputy Head and is under permanent lock. Correction requests can no longer be sent.');
-    }
+      const [sub] = await tx
+        .select()
+        .from(markSubmissions)
+        .where(
+          and(
+            eq(markSubmissions.examId, examId),
+            eq(markSubmissions.classId, classId),
+            eq(markSubmissions.subjectId, subjectId)
+          )
+        );
 
-    if (sub.status !== 'SUBMITTED') {
-      throw new Error(`Correction requests can only be sent for submitted marksheets (current: ${sub.status})`);
-    }
+      if (!sub) {
+        throw new Error('Marksheet submission not found');
+      }
 
-    const note = reason?.trim() || `Correction requested by subject teacher (${new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' })})`;
-    const [updated] = await db
-      .update(markSubmissions)
-      .set({
-        status: 'CORRECTION_REQUESTED',
-        correctionReason: note,
-        updatedAt: new Date(),
-      })
-      .where(eq(markSubmissions.id, sub.id))
-      .returning();
+      if (sub.status === 'LOCKED') {
+        throw new Error('This marksheet has been submitted to the Deputy Head and is under permanent lock. Correction requests can no longer be sent.');
+      }
 
-    return updated;
+      if (sub.status !== 'SUBMITTED') {
+        throw new Error(`Correction requests can only be sent for submitted marksheets (current: ${sub.status})`);
+      }
+
+      const note = reason?.trim() || `Correction requested by subject teacher (${new Date().toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi' })})`;
+      const [updated] = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'CORRECTION_REQUESTED',
+          correctionReason: note,
+          updatedAt: new Date(),
+        })
+        .where(eq(markSubmissions.id, sub.id))
+        .returning();
+
+      return updated;
+
+    });
   }
 
   static async approveSubmission(id: string, reviewedById: string) {
-    const [updated] = await db
-      .update(markSubmissions)
-      .set({
-        status: 'APPROVED',
-        reviewedById,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(markSubmissions.id, id))
-      .returning();
+    const [scope] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+    if (!scope) throw new Error('Marksheet submission not found');
 
-    return updated;
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
+      const [state] = await tx.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+      if (!state || state.status === 'LOCKED') throw new Error('Marksheet must be explicitly unlocked before review changes');
+
+      const [updated] = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'APPROVED',
+          reviewedById,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(markSubmissions.id, id), ne(markSubmissions.status, 'LOCKED')))
+        .returning();
+
+      return updated;
+
+    });
   }
 
   static async requestCorrection(id: string, reason: string) {
-    const [updated] = await db
-      .update(markSubmissions)
-      .set({
-        status: 'CORRECTION_REQUESTED',
-        correctionReason: reason,
-        updatedAt: new Date(),
-      })
-      .where(eq(markSubmissions.id, id))
-      .returning();
+    const [scope] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+    if (!scope) throw new Error('Marksheet submission not found');
 
-    return updated;
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
+      const [state] = await tx.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+      if (!state || state.status === 'LOCKED') throw new Error('Marksheet must be explicitly unlocked before review changes');
+
+      const [updated] = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'CORRECTION_REQUESTED',
+          correctionReason: reason,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(markSubmissions.id, id), ne(markSubmissions.status, 'LOCKED')))
+        .returning();
+
+      return updated;
+
+    });
   }
 
   static async lockSubmission(id: string, reviewedById: string, userRole?: string) {
-    const [sub] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
-    if (!sub) {
-      throw new Error('Marksheet submission not found');
-    }
+    const [scope] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+    if (!scope) throw new Error('Marksheet submission not found');
 
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(reviewedById, sub.classId);
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
 
-    if (!isPrivileged && !isClassTeacher) {
-      throw new Error('You are not authorized to regulate locking for this class marksheet');
-    }
+      const [sub] = await tx.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+      if (!sub) {
+        throw new Error('Marksheet submission not found');
+      }
 
-    const [updated] = await db
-      .update(markSubmissions)
-      .set({
-        status: 'LOCKED',
-        reviewedById,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(markSubmissions.id, id))
-      .returning();
+      const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
+      const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(reviewedById, sub.classId, tx);
 
-    return updated;
+      if (!isPrivileged && !isClassTeacher) {
+        throw new Error('You are not authorized to regulate locking for this class marksheet');
+      }
+
+      const [updated] = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'LOCKED',
+          reviewedById,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(markSubmissions.id, id))
+        .returning();
+
+      return updated;
+
+    });
   }
 
   static async unlockSubmission(id: string, reviewedById: string, userRole?: string) {
-    const [sub] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
-    if (!sub) {
-      throw new Error('Marksheet submission not found');
-    }
+    const [scope] = await db.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+    if (!scope) throw new Error('Marksheet submission not found');
 
-    const isPrivileged = userRole === 'HEAD_TEACHER' || userRole === 'DEPUTY_HEAD' || userRole === 'DOS';
-    const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(reviewedById, sub.classId);
+    return db.transaction(async tx => {
+      // Shared class/exam lock serializes entry, review and lock transitions across instances.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
 
-    if (!isPrivileged && !isClassTeacher) {
-      throw new Error('You are not authorized to regulate locking for this class marksheet');
-    }
+      const [sub] = await tx.select().from(markSubmissions).where(eq(markSubmissions.id, id));
+      if (!sub) {
+        throw new Error('Marksheet submission not found');
+      }
 
-    const [updated] = await db
-      .update(markSubmissions)
-      .set({
-        status: 'DRAFT',
-        reviewedById,
-        reviewedAt: new Date(),
-        correctionReason: sub.correctionReason || 'UNLOCKED_FOR_CORRECTION',
-        updatedAt: new Date(),
-      })
-      .where(eq(markSubmissions.id, id))
-      .returning();
+      const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
+      const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(reviewedById, sub.classId, tx);
 
-    return updated;
+      if (!isPrivileged && !isClassTeacher) {
+        throw new Error('You are not authorized to regulate locking for this class marksheet');
+      }
+
+      const [updated] = await tx
+        .update(markSubmissions)
+        .set({
+          status: 'DRAFT',
+          reviewedById,
+          reviewedAt: new Date(),
+          correctionReason: sub.correctionReason || 'UNLOCKED_FOR_CORRECTION',
+          updatedAt: new Date(),
+        })
+        .where(eq(markSubmissions.id, id))
+        .returning();
+
+      return updated;
+
+    });
   }
 }

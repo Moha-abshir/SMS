@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { MarkSubmissionsService } from './markSubmissions.service.js';
 
@@ -8,17 +9,17 @@ export class MarkSubmissionsController {
       const data = await MarkSubmissionsService.getSubmissions(status);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch mark submissions' });
+      return res.status(error.status || 500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch mark submissions') });
     }
   }
 
   static async getClassesReviewOverview(req: Request, res: Response) {
     try {
       const examId = req.query.examId as string;
-      const data = await MarkSubmissionsService.getClassesReviewOverview(examId);
+      const data = await MarkSubmissionsService.getClassesReviewOverview(examId, req.user!);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch classes review overview' });
+      return res.status(error.status || 500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch classes review overview') });
     }
   }
 
@@ -40,7 +41,7 @@ export class MarkSubmissionsController {
         message: `Successfully submitted class marksheet (${result.length} subject papers) to Deputy Head for final review and locking.`,
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to submit class marksheet to Deputy Head' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to submit class marksheet to Deputy Head') });
     }
   }
 
@@ -62,7 +63,7 @@ export class MarkSubmissionsController {
         message: `Successfully permanently locked ${result.length} marksheet(s) for this class.`,
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to lock class submissions' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to lock class submissions') });
     }
   }
 
@@ -77,17 +78,17 @@ export class MarkSubmissionsController {
       const data = await MarkSubmissionsService.approveClassSubmissions(classId, examId, reviewedById);
       return res.status(200).json({ success: true, data, message: `Approved ${data.length} submitted paper(s) for this class` });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to approve class submissions' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to approve class submissions') });
     }
   }
 
   static async getSubmissionScores(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const data = await MarkSubmissionsService.getSubmissionScores(id);
+      const data = await MarkSubmissionsService.getSubmissionScores(id, req.user!);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to fetch marksheet scores' });
+      return res.status(error.status || 400).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch marksheet scores') });
     }
   }
 
@@ -117,7 +118,7 @@ export class MarkSubmissionsController {
     } catch (error: any) {
       return res.status(400).json({
         success: false,
-        message: error.message || 'Failed to load marksheet entry',
+        message: publicErrorMessage(error, 'Failed to load marksheet entry'),
       });
     }
   }
@@ -147,7 +148,7 @@ export class MarkSubmissionsController {
     } catch (error: any) {
       return res.status(400).json({
         success: false,
-        message: error.message || 'Failed to save marksheet draft',
+        message: publicErrorMessage(error, 'Failed to save marksheet draft'),
       });
     }
   }
@@ -177,7 +178,7 @@ export class MarkSubmissionsController {
     } catch (error: any) {
       return res.status(400).json({
         success: false,
-        message: error.message || 'Failed to submit marksheet',
+        message: publicErrorMessage(error, 'Failed to submit marksheet'),
       });
     }
   }
@@ -209,7 +210,7 @@ export class MarkSubmissionsController {
     } catch (error: any) {
       return res.status(400).json({
         success: false,
-        message: error.message || 'Failed to submit correction request',
+        message: publicErrorMessage(error, 'Failed to submit correction request'),
       });
     }
   }
@@ -220,7 +221,7 @@ export class MarkSubmissionsController {
       const updated = await MarkSubmissionsService.approveSubmission(id, req.user!.id);
       return res.status(200).json({ success: true, data: updated, message: 'Marksheet approved successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to approve submission' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to approve submission') });
     }
   }
 
@@ -231,7 +232,7 @@ export class MarkSubmissionsController {
       const updated = await MarkSubmissionsService.requestCorrection(id, reason);
       return res.status(200).json({ success: true, data: updated, message: 'Correction request returned to subject teacher' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to request correction' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to request correction') });
     }
   }
 
@@ -241,7 +242,7 @@ export class MarkSubmissionsController {
       const updated = await MarkSubmissionsService.lockSubmission(id, req.user!.id, req.user?.roleName);
       return res.status(200).json({ success: true, data: updated, message: 'Marksheet locked successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to lock submission' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to lock submission') });
     }
   }
 
@@ -251,7 +252,7 @@ export class MarkSubmissionsController {
       const updated = await MarkSubmissionsService.unlockSubmission(id, req.user!.id, req.user?.roleName);
       return res.status(200).json({ success: true, data: updated, message: 'Marksheet unlocked for subject teacher editing' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to unlock submission' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to unlock submission') });
     }
   }
 }
