@@ -7,6 +7,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Precache the shell; cache route chunks when visited instead of downloading every role on first load.
+        globPatterns: ['**/*.{html,css,ico,png,svg}', '**/index-*.js'],
+        runtimeCaching: [{
+          urlPattern: ({ request, url }) => request.destination === 'script' && url.origin === self.location.origin,
+          handler: 'CacheFirst',
+          options: { cacheName: 'workspace-scripts', expiration: { maxEntries: 100, maxAgeSeconds: 7 * 86400 } },
+        }],
+      },
       devOptions: {
         enabled: true,
       },
