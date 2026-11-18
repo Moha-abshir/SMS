@@ -141,7 +141,7 @@ export const AllocationView: React.FC = () => {
     }));
 
     try {
-      const res = await apiClient.post('/api/allocations/subject', {
+      const res = await apiClient.post('/api/allocations/subject-teacher', {
         classId,
         subjectId,
         teacherId,
@@ -174,7 +174,7 @@ export const AllocationView: React.FC = () => {
     }));
 
     try {
-      const res = await apiClient.delete(`/api/allocations/subject/${allocationId}`);
+      const res = await apiClient.delete(`/api/allocations/subject-teacher/${allocationId}`);
       toast.success(res.data.message || 'Allocation removed successfully', { autoClose: 1500 });
       await fetchAllocations(false);
     } catch (error: any) {
