@@ -161,6 +161,7 @@ export class StaffService {
       address: data.address || null,
       tscNumber: data.tscNumber || null,
       roleId: data.roleId,
+      tokenVersion: sql`CASE WHEN ${users.roleId} <> ${data.roleId || sql`${users.roleId}`} OR ${users.email} <> ${data.email?.toLowerCase() || sql`${users.email}`} THEN ${users.tokenVersion} + 1 ELSE ${users.tokenVersion} END`,
       salaryAmount: data.salaryAmount ? data.salaryAmount.toString() : null,
       salaryPaymentDay: data.salaryPaymentDay ? parseInt(data.salaryPaymentDay) : null,
       dateOfEmployment: data.dateOfEmployment ? new Date(data.dateOfEmployment) : null,
@@ -176,6 +177,8 @@ export class StaffService {
       .where(eq(users.id, id))
       .returning();
 
+    invalidateUserSessionCache(id);
+
     // Update user subjects if subjectIds array is provided
     if (Array.isArray(data.subjectIds)) {
       await db.delete(userSubjects).where(eq(userSubjects.userId, id));
@@ -189,7 +192,9 @@ export class StaffService {
       }
     }
 
-    return updatedStaff[0];
+    if (!updatedStaff[0]) return undefined;
+    const { passwordHash, twoFactorOtp, twoFactorExpiresAt, ...publicStaff } = updatedStaff[0];
+    return publicStaff;
   }
 
   static async toggleStatus(id: string, isActive: boolean) {
@@ -221,7 +226,9 @@ export class StaffService {
       .returning();
 
     invalidateUserSessionCache(id);
-    return updatedStaff[0];
+    if (!updatedStaff[0]) return undefined;
+    const { passwordHash, twoFactorOtp, twoFactorExpiresAt, ...publicStaff } = updatedStaff[0];
+    return publicStaff;
   }
 
   static async resetPassword(id: string) {

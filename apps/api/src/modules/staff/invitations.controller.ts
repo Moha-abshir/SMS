@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { InvitationsService, InvitationError } from './invitations.service.js';
 import { resolveFrontendUrl } from '../../config/env.js';
@@ -17,7 +18,7 @@ export class InvitationsController {
       });
     } catch (error: any) {
       console.error('Error creating invitation:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to create invitation' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to create invitation') });
     }
   }
 
@@ -32,7 +33,7 @@ export class InvitationsController {
       });
     } catch (error: any) {
       console.error('Error resending invitation:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to resend invitation' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to resend invitation') });
     }
   }
 
@@ -42,7 +43,7 @@ export class InvitationsController {
       res.json({ success: true, message: 'Invitation cancelled successfully', data: result });
     } catch (error: any) {
       console.error('Error cancelling invitation:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to cancel invitation' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to cancel invitation') });
     }
   }
 
@@ -52,7 +53,7 @@ export class InvitationsController {
       res.json({ success: true, message: 'Staff invitation deleted successfully', data: result });
     } catch (error: any) {
       console.error('Error deleting invitation:', error);
-      res.status(400).json({ success: false, message: error.message || 'Failed to delete invitation' });
+      res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to delete invitation') });
     }
   }
 
@@ -75,7 +76,7 @@ export class InvitationsController {
       res.status(400).json({ 
         success: false, 
         code, 
-        message: error.message || 'Invalid or expired invitation',
+        message: publicErrorMessage(error, 'Invalid or expired invitation'),
         details: error.details || null 
       });
     }
@@ -108,7 +109,7 @@ export class InvitationsController {
       res.status(400).json({ 
         success: false, 
         code, 
-        message: error.message || 'Failed to accept invitation',
+        message: publicErrorMessage(error, 'Failed to accept invitation'),
         details: error.details || null 
       });
     }

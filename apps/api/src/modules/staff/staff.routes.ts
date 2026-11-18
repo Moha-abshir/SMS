@@ -1,3 +1,4 @@
+import { staffMutationScope } from '../../middleware/staffScope.js';
 import { Router } from 'express';
 import { InvitationsController } from './invitations.controller.js';
 import { StaffController } from './staff.controller.js';
@@ -11,8 +12,9 @@ const router = Router();
 // Apply auth middleware to all staff routes
 router.use(authenticate);
 
-router.get('/roles', StaffController.getRoles);
-router.get('/', StaffController.getAllStaff);
+router.get('/roles', authorizePermission('staff:manage'), StaffController.getRoles);
+router.get('/', authorizePermission(['staff:manage', 'exams:manage', 'marks:review']), StaffController.getAllStaff);
+router.use(authorizePermission('staff:manage'), staffMutationScope);
 router.post('/invitations', InvitationsController.createInvitation);
 router.post('/invitations/:id/resend', InvitationsController.resendInvitation);
 router.post('/invitations/:id/cancel', InvitationsController.cancelInvitation);

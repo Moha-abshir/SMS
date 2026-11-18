@@ -1,4 +1,6 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
+import { ROLE_DEFAULT_PERMISSIONS } from '../../middleware/auth.js';
 import { StaffService } from './staff.service.js';
 
 export class StaffController {
@@ -15,7 +17,13 @@ export class StaffController {
   static async getAllStaff(req: Request, res: Response) {
     try {
       const staff = await StaffService.getAllStaff();
-      res.json({ success: true, data: staff });
+      const canManage = req.user?.roleName === 'HEAD_TEACHER' || [...(req.user?.permissions || []), ...(ROLE_DEFAULT_PERMISSIONS[req.user?.roleName || ''] || [])].includes('staff:manage');
+      const data = canManage ? staff : staff.filter((person: any) => !person.isInvitation).map((person: any) => ({
+        id: person.id, firstName: person.firstName, lastName: person.lastName, email: person.email,
+        roleName: person.roleName, roleId: person.roleId, isActive: person.isActive,
+        qualifiedSubjects: person.qualifiedSubjects, assignedSubjects: person.assignedSubjects,
+      }));
+      res.json({ success: true, data });
     } catch (error) {
       console.error('Error fetching staff:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch staff' });
@@ -55,7 +63,7 @@ export class StaffController {
           assignedClasses: error.assignedClasses,
         });
       }
-      res.status(500).json({ success: false, message: error.message || 'Failed to toggle staff status' });
+      res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to toggle staff status') });
     }
   }
 
