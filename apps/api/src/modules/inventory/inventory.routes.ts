@@ -4,7 +4,7 @@ import { InventoryController } from './inventory.controller.js';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, authorizePermission(['inventory:manage', 'staff:manage']));
 
 router.get('/items', InventoryController.getItems);
 router.post('/items', authorizePermission(['inventory:manage', 'staff:manage']), InventoryController.createItem);

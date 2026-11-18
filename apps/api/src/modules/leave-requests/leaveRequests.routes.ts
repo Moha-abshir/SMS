@@ -4,7 +4,7 @@ import { LeaveRequestsController } from './leaveRequests.controller.js';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, authorizePermission(['leave:manage', 'staff:manage']));
 
 router.get('/form-data', LeaveRequestsController.getFormData);
 router.get('/', LeaveRequestsController.getLeaveRequests);

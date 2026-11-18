@@ -6,11 +6,11 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/guardians/search', AdmissionsController.searchGuardians);
+router.get('/guardians/search', authorizePermission('students:create'), AdmissionsController.searchGuardians);
 router.get('/classes', AdmissionsController.getClasses);
 router.get('/template.csv', AdmissionsController.getImportTemplateCsv);
 router.get('/pending', authorizePermission('students:approve'), AdmissionsController.getPendingAdmissions);
-router.get('/students', AdmissionsController.getStudents);
+router.get('/students', authorizePermission(['students:create', 'students:approve', 'finance:view']), AdmissionsController.getStudents);
 router.post('/bulk-import', authorizePermission('students:create'), AdmissionsController.bulkImportStudents);
 router.post('/students', authorizePermission('students:create'), AdmissionsController.admitStudent);
 router.put('/students/:id/approve', authorizePermission('students:approve'), AdmissionsController.approveAdmission);

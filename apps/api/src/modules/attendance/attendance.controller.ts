@@ -1,7 +1,8 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { AttendanceService } from './attendance.service.js';
 import { db } from '../../config/db.js';
-import { classes, eq } from '@school/shared';
+import { classes, students, guardians, eq } from '@school/shared';
 import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 
 export class AttendanceController {
@@ -11,7 +12,7 @@ export class AttendanceController {
       const data = await AttendanceService.getSchoolWideAttendance(dateStr);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch attendance oversight' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch attendance oversight') });
     }
   }
 
@@ -22,7 +23,7 @@ export class AttendanceController {
       const data = await AttendanceService.getClassRegister(classId, dateStr);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to fetch class register' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch class register') });
     }
   }
 
@@ -32,7 +33,7 @@ export class AttendanceController {
       const data = await AttendanceService.getClassAttendanceHistory(classId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to fetch class attendance history' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch class attendance history') });
     }
   }
 
@@ -64,17 +65,23 @@ export class AttendanceController {
       const data = await AttendanceService.saveClassRegister(classId, date, records, userId);
       return res.status(200).json({ success: true, data, message: 'Class register saved successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to save class register' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to save class register') });
     }
   }
 
   static async notifyParentOfAbsence(req: Request, res: Response) {
     try {
-      const { studentId, guardianId, guardianPhone, studentName } = req.body;
-      const log = await AttendanceService.notifyParentOfAbsence(studentId, guardianId, guardianPhone, studentName);
+      const { studentId } = req.body;
+      const [record] = await db.select({ student: students, guardian: guardians }).from(students)
+        .innerJoin(guardians, eq(students.primaryGuardianId, guardians.id)).where(eq(students.id, studentId));
+      if (!record) return res.status(404).json({ success: false, message: 'Learner not found' });
+      const leadership = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS', 'SECRETARY'].includes(req.user!.roleName);
+      if (!leadership && (req.user!.roleName !== 'TEACHER' || !await LeaveRequestsService.isEffectiveClassTeacher(req.user!.id, record.student.classId)))
+        return res.status(403).json({ success: false, message: 'Attendance access requires your assigned class' });
+      const log = await AttendanceService.notifyParentOfAbsence(studentId, record.guardian.id, record.guardian.phoneNumber, `${record.student.firstName} ${record.student.lastName}`);
       return res.status(200).json({ success: true, data: log, message: 'Absentee SMS alert sent to parent' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to send SMS' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to send SMS') });
     }
   }
 
@@ -88,7 +95,7 @@ export class AttendanceController {
         message: `Dispatched SMS to ${result.notifiedCount} absent learner parent(s)${result.errors.length ? ` with ${result.errors.length} error(s)` : ''}`,
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to notify absent parents' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to notify absent parents') });
     }
   }
 }

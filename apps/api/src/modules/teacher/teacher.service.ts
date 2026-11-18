@@ -1,3 +1,4 @@
+import type { AuthenticatedUser } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import {
   classes,
@@ -28,6 +29,12 @@ import { SmsService } from '../../services/sms.service.js';
 import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 
 export class TeacherService {
+  static async assertClassAccess(actor: AuthenticatedUser, classId: string) {
+    if (['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(actor.roleName)) return;
+    if (actor.roleName !== 'TEACHER' || !await LeaveRequestsService.isEffectiveClassTeacher(actor.id, classId))
+      throw Object.assign(new Error('Learner access denied for this class'), { status: 403 });
+  }
+
   /**
    * Aggregates live workstation overview data for the authenticated teacher:
    * 1. Assigned class as Class Teacher (if any) + today's attendance status
@@ -414,7 +421,7 @@ export class TeacherService {
    * Retrieves student roster for teacher's class with guardian contacts,
    * attendance history %, and recent academic standing
    */
-  static async getClassLearners(userId: string, requestedClassId?: string) {
+  static async getClassLearners(userId: string, requestedClassId: string | undefined, actor: AuthenticatedUser) {
     let targetClassId = requestedClassId;
 
     if (!targetClassId) {
@@ -444,6 +451,8 @@ export class TeacherService {
     if (!targetClass) {
       throw new Error('Class not found');
     }
+
+    await this.assertClassAccess(actor, targetClassId);
 
     // Fetch active students in class
     const classStudents = await db
@@ -554,7 +563,7 @@ export class TeacherService {
   /**
    * Retrieves a learner's comprehensive academic scorecard and performance trend across examinations
    */
-  static async getLearnerPerformance(studentId: string) {
+  static async getLearnerPerformance(studentId: string, actor: AuthenticatedUser) {
     const [studentData] = await db
       .select({
         student: students,
@@ -570,6 +579,7 @@ export class TeacherService {
       throw new Error('Student not found');
     }
 
+    await this.assertClassAccess(actor, studentData.student.classId);
     // Fetch all scores for this student
     const scores = await db
       .select({
@@ -663,7 +673,8 @@ export class TeacherService {
   static async sendLearnerControlledSms(
     studentId: string,
     templateType: 'ACADEMIC_PROGRESS' | 'ATTENDANCE_CONCERN' | 'COMMENDATION' | 'CUSTOM_CONTROLLED',
-    customNote?: string
+    customNote: string | undefined,
+    actor: AuthenticatedUser
   ) {
     const [studentData] = await db
       .select({
@@ -680,6 +691,7 @@ export class TeacherService {
       throw new Error('Student or guardian record not found');
     }
 
+    await this.assertClassAccess(actor, studentData.student.classId);
     const { student, guardian, class: studentClass } = studentData;
 
     // Fetch school name from settings
