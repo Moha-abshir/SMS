@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { LeaveRequestsService } from './leaveRequests.service.js';
 
@@ -7,7 +8,7 @@ export class LeaveRequestsController {
       const data = await LeaveRequestsService.getFormData();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch form data' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch form data') });
     }
   }
 
@@ -16,7 +17,7 @@ export class LeaveRequestsController {
       const data = await LeaveRequestsService.getLeaveRequests();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch leave requests' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch leave requests') });
     }
   }
 
@@ -25,7 +26,7 @@ export class LeaveRequestsController {
       const created = await LeaveRequestsService.createLeaveRequest(req.body, req.user!.id);
       return res.status(201).json({ success: true, data: created, message: 'Teacher leave-out recorded successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to record leave-out' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to record leave-out') });
     }
   }
 
@@ -36,7 +37,7 @@ export class LeaveRequestsController {
       const updated = await LeaveRequestsService.updateLeaveStatus(id, status, req.user!.id, notes);
       return res.status(200).json({ success: true, data: updated, message: `Leave request ${status.toLowerCase()}` });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update leave status' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update leave status') });
     }
   }
 
@@ -45,7 +46,7 @@ export class LeaveRequestsController {
       const data = await LeaveRequestsService.getLeaveSlipPrintData(req.params.id);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(404).json({ success: false, message: error.message || 'Leave request not found' });
+      return res.status(404).json({ success: false, message: publicErrorMessage(error, 'Leave request not found') });
     }
   }
 
@@ -59,7 +60,7 @@ export class LeaveRequestsController {
         message: 'Teacher marked as reported back. Class teacher roles restored.',
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to mark as reported back' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to mark as reported back') });
     }
   }
 }

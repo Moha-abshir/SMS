@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { ReportLocksService } from './reportLocks.service.js';
 
@@ -8,7 +9,7 @@ export class ReportLocksController {
       const data = await ReportLocksService.getReportLocks(termId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch report card locks' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch report card locks') });
     }
   }
 
@@ -21,7 +22,7 @@ export class ReportLocksController {
         message: updated.isLocked ? 'Report cards locked for class' : 'Report cards published & released for class',
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to toggle report lock' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to toggle report lock') });
     }
   }
 }

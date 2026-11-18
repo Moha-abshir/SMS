@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { ExamsService } from './exams.service.js';
 
@@ -7,7 +8,7 @@ export class ExamsController {
       const exams = await ExamsService.getExams();
       return res.status(200).json({ success: true, data: exams });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch exams' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch exams') });
     }
   }
 
@@ -16,7 +17,7 @@ export class ExamsController {
       const exam = await ExamsService.createExam(req.body);
       return res.status(201).json({ success: true, data: exam, message: 'Examination created successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to create exam' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to create exam') });
     }
   }
 
@@ -26,7 +27,7 @@ export class ExamsController {
       const updated = await ExamsService.updateExam(id, req.body);
       return res.status(200).json({ success: true, data: updated, message: 'Examination updated successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update exam' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update exam') });
     }
   }
 
@@ -36,7 +37,7 @@ export class ExamsController {
       await ExamsService.deleteExam(id);
       return res.status(200).json({ success: true, message: 'Examination series removed successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to delete exam' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to delete exam') });
     }
   }
 
@@ -47,7 +48,7 @@ export class ExamsController {
       const updated = await ExamsService.updateExamStatus(id, status);
       return res.status(200).json({ success: true, data: updated, message: `Exam status updated to ${status}` });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update exam status' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update exam status') });
     }
   }
 
@@ -57,7 +58,7 @@ export class ExamsController {
       const result = await ExamsService.terminateExamPeriod(examId);
       return res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to terminate exam period' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to terminate exam period') });
     }
   }
 
@@ -67,7 +68,7 @@ export class ExamsController {
       const result = await ExamsService.activateExamPeriod(examId);
       return res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to activate exam period' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to activate exam period') });
     }
   }
 
@@ -78,7 +79,7 @@ export class ExamsController {
       const sessions = await ExamsService.getExamSessions(id, classId);
       return res.status(200).json({ success: true, data: sessions });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch exam sessions' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch exam sessions') });
     }
   }
 
@@ -91,7 +92,7 @@ export class ExamsController {
         message: `Successfully generated ${result.sessionsCount} examination sessions across ${result.classesCount} classes`,
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to generate exam timetable' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to generate exam timetable') });
     }
   }
 
@@ -104,7 +105,7 @@ export class ExamsController {
       const result = await ExamsService.swapExamSessions(sessionAId, sessionBId);
       return res.status(200).json({ success: true, data: result, message: result.message });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to swap exam sessions' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to swap exam sessions') });
     }
   }
 
@@ -113,7 +114,7 @@ export class ExamsController {
       const session = await ExamsService.createExamSession(req.body);
       return res.status(201).json({ success: true, data: session, message: 'Exam timetable session scheduled' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to schedule session' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to schedule session') });
     }
   }
 
@@ -123,7 +124,7 @@ export class ExamsController {
       const session = await ExamsService.updateExamSession(id, req.body);
       return res.status(200).json({ success: true, data: session, message: 'Exam session updated successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update exam session' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update exam session') });
     }
   }
 
@@ -133,7 +134,7 @@ export class ExamsController {
       await ExamsService.deleteExamSession(id);
       return res.status(200).json({ success: true, message: 'Exam session removed' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to delete session' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to delete session') });
     }
   }
 
@@ -143,7 +144,7 @@ export class ExamsController {
       const progress = await ExamsService.getExamProgress(id);
       return res.status(200).json({ success: true, data: progress });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to load exam progress' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to load exam progress') });
     }
   }
 }

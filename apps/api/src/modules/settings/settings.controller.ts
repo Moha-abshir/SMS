@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { SettingsService } from './settings.service.js';
 import { R2Service } from '../../services/r2.service.js';
@@ -8,7 +9,7 @@ export class SettingsController {
       const settings = await SettingsService.getSettings();
       return res.status(200).json({ success: true, data: settings });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch settings' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch settings') });
     }
   }
 
@@ -30,7 +31,7 @@ export class SettingsController {
         },
       });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch public settings' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch public settings') });
     }
   }
 
@@ -39,7 +40,7 @@ export class SettingsController {
       const updated = await SettingsService.updateSettings(req.body);
       return res.status(200).json({ success: true, data: updated, message: 'School settings updated successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update settings' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update settings') });
     }
   }
 
@@ -62,7 +63,7 @@ export class SettingsController {
         message: 'School logo uploaded, compressed, and saved successfully',
       });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to upload school logo' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to upload school logo') });
     }
   }
 }

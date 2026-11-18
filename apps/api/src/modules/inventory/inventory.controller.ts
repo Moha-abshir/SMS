@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { InventoryService } from './inventory.service.js';
 
@@ -16,7 +17,7 @@ export class InventoryController {
         pagination: result.pagination,
       });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch inventory items' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch inventory items') });
     }
   }
 
@@ -25,7 +26,7 @@ export class InventoryController {
       const item = await InventoryService.createItem(req.body);
       return res.status(201).json({ success: true, data: item, message: 'Inventory item added successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to add inventory item' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to add inventory item') });
     }
   }
 
@@ -35,7 +36,7 @@ export class InventoryController {
       const item = await InventoryService.updateItem(id, req.body);
       return res.status(200).json({ success: true, data: item, message: 'Inventory item updated successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to update inventory item' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to update inventory item') });
     }
   }
 
@@ -44,7 +45,7 @@ export class InventoryController {
       const checkouts = await InventoryService.getCheckouts();
       return res.status(200).json({ success: true, data: checkouts });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch checkouts' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch checkouts') });
     }
   }
 
@@ -53,7 +54,7 @@ export class InventoryController {
       const checkout = await InventoryService.checkoutItem(req.body, req.user!.id);
       return res.status(201).json({ success: true, data: checkout, message: 'Item checked out successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to checkout item' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to checkout item') });
     }
   }
 
@@ -63,7 +64,7 @@ export class InventoryController {
       const updated = await InventoryService.returnItem(id);
       return res.status(200).json({ success: true, data: updated, message: 'Item returned to inventory' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to return item' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to return item') });
     }
   }
 }

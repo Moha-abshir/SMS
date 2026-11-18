@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { AdmissionsService } from './admissions.service.js';
 
@@ -8,7 +9,7 @@ export class AdmissionsController {
       const results = await AdmissionsService.searchGuardians(q || '');
       return res.status(200).json({ success: true, data: results });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to search guardians' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to search guardians') });
     }
   }
 
@@ -17,7 +18,7 @@ export class AdmissionsController {
       const classList = await AdmissionsService.seedClassesIfEmpty();
       return res.status(200).json({ success: true, data: classList });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch classes' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch classes') });
     }
   }
 
@@ -34,7 +35,7 @@ export class AdmissionsController {
         message: isDirectActive ? 'Student admitted successfully' : 'Student admission submitted for Head Teacher approval',
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to admit student' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to admit student') });
     }
   }
 
@@ -45,7 +46,7 @@ export class AdmissionsController {
       res.setHeader('Content-Disposition', 'attachment; filename="student_admission_template.csv"');
       return res.status(200).send(csv);
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to generate template' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to generate template') });
     }
   }
 
@@ -64,7 +65,7 @@ export class AdmissionsController {
         message: `Successfully imported ${result.insertedCount} student(s)${result.errors.length ? ` with ${result.errors.length} skipped row(s)` : ''}`,
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Bulk import failed' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Bulk import failed') });
     }
   }
 
@@ -73,7 +74,7 @@ export class AdmissionsController {
       const pending = await AdmissionsService.getPendingAdmissions();
       return res.status(200).json({ success: true, data: pending });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch pending admissions' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch pending admissions') });
     }
   }
 
@@ -83,7 +84,7 @@ export class AdmissionsController {
       const updated = await AdmissionsService.approveAdmission(id, req.user!.id);
       return res.status(200).json({ success: true, data: updated, message: 'Student admission approved' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to approve admission' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to approve admission') });
     }
   }
 
@@ -94,7 +95,7 @@ export class AdmissionsController {
       const updated = await AdmissionsService.rejectAdmission(id, reason || 'Admission rejected by administrator', req.user!.id);
       return res.status(200).json({ success: true, data: updated, message: 'Student admission rejected' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to reject admission' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to reject admission') });
     }
   }
 
@@ -108,7 +109,7 @@ export class AdmissionsController {
       const updated = await AdmissionsService.expelStudent(id, reason, req.user!.id);
       return res.status(200).json({ success: true, data: updated, message: 'Student expelled successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to expel student' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to expel student') });
     }
   }
 
@@ -119,7 +120,7 @@ export class AdmissionsController {
       const updated = await AdmissionsService.transferStudent(id, reason || 'Transferred to another institution', req.user!.id);
       return res.status(200).json({ success: true, data: updated, message: 'Student transfer approved and finalized' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to process student transfer' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to process student transfer') });
     }
   }
 
@@ -128,7 +129,7 @@ export class AdmissionsController {
       const studentsList = await AdmissionsService.getStudents();
       return res.status(200).json({ success: true, data: studentsList });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch students' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch students') });
     }
   }
 }

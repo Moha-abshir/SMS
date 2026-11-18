@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { SubjectsService } from './subjects.service.js';
 
@@ -32,7 +33,7 @@ export class SubjectsController {
       const newSubject = await SubjectsService.createSubject({ name, code, levelCategory });
       res.status(201).json({ success: true, message: 'Subject registered successfully', data: newSubject });
     } catch (error: any) {
-      const message = error.message || '';
+      const message = publicErrorMessage(error, '');
       if (message.includes('already exists') || error.code === '23505') {
         return res.status(409).json({ success: false, message: message || 'A subject with this code already exists' });
       }

@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { DosService } from './dos.service.js';
 
@@ -8,7 +9,7 @@ export class DosController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
-      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch subject analytics' });
+      return res.status(statusCode).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch subject analytics') });
     }
   }
 
@@ -20,7 +21,7 @@ export class DosController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
-      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch exam analysis' });
+      return res.status(statusCode).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch exam analysis') });
     }
   }
 
@@ -31,7 +32,7 @@ export class DosController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
-      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch academic insights' });
+      return res.status(statusCode).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch academic insights') });
     }
   }
 
@@ -45,7 +46,7 @@ export class DosController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
-      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to fetch subject performance' });
+      return res.status(statusCode).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch subject performance') });
     }
   }
 
@@ -56,7 +57,7 @@ export class DosController {
       return res.status(200).json(data);
     } catch (error: any) {
       const statusCode = error.statusCode || 500;
-      return res.status(statusCode).json({ success: false, message: error.message || 'Failed to save subject target mean' });
+      return res.status(statusCode).json({ success: false, message: publicErrorMessage(error, 'Failed to save subject target mean') });
     }
   }
 }

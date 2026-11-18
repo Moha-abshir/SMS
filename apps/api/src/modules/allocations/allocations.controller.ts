@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { AllocationsService } from './allocations.service.js';
 
@@ -8,7 +9,7 @@ export class AllocationsController {
       const data = await AllocationsService.getAllocations(year);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch allocations' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch allocations') });
     }
   }
 
@@ -23,7 +24,7 @@ export class AllocationsController {
         message: isAssigned ? 'Class teacher assigned successfully' : 'Class teacher unassigned successfully',
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to assign class teacher' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to assign class teacher') });
     }
   }
 
@@ -33,7 +34,7 @@ export class AllocationsController {
       const created = await AllocationsService.assignSubjectTeacher(classId, subjectId, teacherId, academicYear);
       return res.status(200).json({ success: true, data: created, message: 'Subject teacher allocated successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to allocate subject teacher' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to allocate subject teacher') });
     }
   }
 
@@ -43,7 +44,7 @@ export class AllocationsController {
       await AllocationsService.removeSubjectAllocation(id);
       return res.status(200).json({ success: true, message: 'Subject allocation removed' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to remove allocation' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to remove allocation') });
     }
   }
 }

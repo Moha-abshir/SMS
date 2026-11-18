@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { ClassWorkspaceService } from './class-workspace.service.js';
 
@@ -24,7 +25,7 @@ export class ClassWorkspaceController {
       const statusCode = error.statusCode || 500;
       return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Failed to fetch class workspace data',
+        message: publicErrorMessage(error, 'Failed to fetch class workspace data'),
       });
     }
   }
@@ -50,7 +51,7 @@ export class ClassWorkspaceController {
       const statusCode = error.statusCode || 500;
       return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Failed to fetch learner diagnostic profile',
+        message: publicErrorMessage(error, 'Failed to fetch learner diagnostic profile'),
       });
     }
   }
@@ -76,7 +77,7 @@ export class ClassWorkspaceController {
       const statusCode = error.statusCode || 500;
       return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Failed to save report card remark',
+        message: publicErrorMessage(error, 'Failed to save report card remark'),
       });
     }
   }
@@ -101,7 +102,7 @@ export class ClassWorkspaceController {
       const statusCode = error.statusCode || 500;
       return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Failed to save class target expectation',
+        message: publicErrorMessage(error, 'Failed to save class target expectation'),
       });
     }
   }

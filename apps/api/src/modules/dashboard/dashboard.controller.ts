@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { DashboardService } from './dashboard.service.js';
 
@@ -7,7 +8,7 @@ export class DashboardController {
       const data = await DashboardService.getHeadTeacherOverview();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch dashboard overview' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch dashboard overview') });
     }
   }
 
@@ -16,7 +17,7 @@ export class DashboardController {
       const data = await DashboardService.getDeputyOverview();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch deputy overview' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch deputy overview') });
     }
   }
 
@@ -26,7 +27,7 @@ export class DashboardController {
       const data = await DashboardService.getDosOverview(examId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch DoS overview' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch DoS overview') });
     }
   }
 }

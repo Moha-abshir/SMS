@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { SchoolwideOverviewService } from './schoolwide-overview.service.js';
 
@@ -13,7 +14,7 @@ export class SchoolwideOverviewController {
       const statusCode = error.statusCode || 500;
       return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Failed to fetch schoolwide performance overview',
+        message: publicErrorMessage(error, 'Failed to fetch schoolwide performance overview'),
       });
     }
   }
@@ -34,7 +35,7 @@ export class SchoolwideOverviewController {
       const statusCode = error.statusCode || 500;
       return res.status(statusCode).json({
         success: false,
-        message: error.message || 'Failed to fetch grade overview',
+        message: publicErrorMessage(error, 'Failed to fetch grade overview'),
       });
     }
   }

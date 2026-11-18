@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { TimetableService } from './timetable.service.js';
 
@@ -11,7 +12,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data: config });
     } catch (error: any) {
       console.error('Error fetching timetable config:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch timetable config' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch timetable config') });
     }
   }
 
@@ -25,7 +26,7 @@ export class TimetableController {
       });
     } catch (error: any) {
       console.error('Error saving timetable config:', error);
-      return res.status(400).json({ success: false, message: error.message || 'Failed to save timetable config' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to save timetable config') });
     }
   }
 
@@ -35,7 +36,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error fetching target classes:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch target classes' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch target classes') });
     }
   }
 
@@ -45,7 +46,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error fetching target teachers:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch target teachers' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch target teachers') });
     }
   }
 
@@ -56,7 +57,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error checking allocations status:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to check allocations status' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to check allocations status') });
     }
   }
 
@@ -73,7 +74,7 @@ export class TimetableController {
     } catch (error: any) {
       console.error('Error generating timetable:', error);
       const status = error.statusCode || 400;
-      return res.status(status).json({ success: false, message: error.message || 'Failed to generate timetable' });
+      return res.status(status).json({ success: false, message: publicErrorMessage(error, 'Failed to generate timetable') });
     }
   }
 
@@ -86,7 +87,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error fetching master timetable:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch master timetable' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch master timetable') });
     }
   }
 
@@ -100,7 +101,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error fetching class timetable:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch class timetable' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch class timetable') });
     }
   }
 
@@ -121,7 +122,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error fetching teacher timetable:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch teacher timetable' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch teacher timetable') });
     }
   }
 
@@ -132,7 +133,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data: validation });
     } catch (error: any) {
       console.error('Error validating movement:', error);
-      return res.status(400).json({ success: false, message: error.message || 'Failed to validate slot movement' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to validate slot movement') });
     }
   }
 
@@ -150,7 +151,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
       console.error('Error swapping slots:', error);
-      return res.status(400).json({ success: false, message: error.message || 'Failed to swap timetable slots' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to swap timetable slots') });
     }
   }
 
@@ -161,7 +162,7 @@ export class TimetableController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('Error fetching compatible swaps:', error);
-      return res.status(400).json({ success: false, message: error.message || 'Failed to get compatible swaps' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to get compatible swaps') });
     }
   }
 }

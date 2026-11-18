@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { FinanceService } from './finance.service.js';
 
@@ -11,7 +12,7 @@ export class FinanceController {
         message: `Payment recorded successfully. Receipt #${payment.receiptNumber}`,
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to record payment' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to record payment') });
     }
   }
 
@@ -33,7 +34,7 @@ export class FinanceController {
 
       return res.status(200).json({ success: true, data: payments });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch payments' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch payments') });
     }
   }
 
@@ -45,7 +46,7 @@ export class FinanceController {
       const summary = await FinanceService.getFinancialSummary(academicYear, termNumber);
       return res.status(200).json({ success: true, data: summary });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch financial summary' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch financial summary') });
     }
   }
 
@@ -63,7 +64,7 @@ export class FinanceController {
         message: 'Reversal request submitted for Head Teacher approval',
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to request payment reversal' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to request payment reversal') });
     }
   }
 
@@ -72,7 +73,7 @@ export class FinanceController {
       const pending = await FinanceService.getPendingReversals();
       return res.status(200).json({ success: true, data: pending });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch pending reversals' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch pending reversals') });
     }
   }
 
@@ -86,7 +87,7 @@ export class FinanceController {
         message: 'Payment reversal approved and student balance updated',
       });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to approve payment reversal' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to approve payment reversal') });
     }
   }
 
@@ -96,7 +97,7 @@ export class FinanceController {
       const result = await FinanceService.rejectReversal(id, req.user!.id);
       return res.status(200).json(result);
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to dismiss payment reversal' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to dismiss payment reversal') });
     }
   }
 
@@ -106,7 +107,7 @@ export class FinanceController {
       const statement = await FinanceService.getStudentStatement(studentId);
       return res.status(200).json({ success: true, data: statement });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch student statement' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch student statement') });
     }
   }
 }

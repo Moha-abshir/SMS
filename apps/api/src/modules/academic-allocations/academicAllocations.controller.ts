@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { AcademicAllocationsService } from './academicAllocations.service.js';
 
@@ -8,7 +9,7 @@ export class AcademicAllocationsController {
       const data = await AcademicAllocationsService.getInvigilators();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch invigilators' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch invigilators') });
     }
   }
 
@@ -21,7 +22,7 @@ export class AcademicAllocationsController {
       const data = await AcademicAllocationsService.getAvailableInvigilators(sessionId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch available invigilators' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch available invigilators') });
     }
   }
 
@@ -30,7 +31,7 @@ export class AcademicAllocationsController {
       const created = await AcademicAllocationsService.assignInvigilator(req.body);
       return res.status(201).json({ success: true, data: created, message: 'Invigilator assigned successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to assign invigilator' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to assign invigilator') });
     }
   }
 
@@ -39,7 +40,7 @@ export class AcademicAllocationsController {
       await AcademicAllocationsService.removeInvigilator(req.params.id);
       return res.status(200).json({ success: true, message: 'Invigilator assignment removed' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to remove invigilator' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to remove invigilator') });
     }
   }
 
@@ -49,7 +50,7 @@ export class AcademicAllocationsController {
       const data = await AcademicAllocationsService.getMarkingAllocations();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch marking allocations' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch marking allocations') });
     }
   }
 
@@ -58,7 +59,7 @@ export class AcademicAllocationsController {
       const data = await AcademicAllocationsService.getSelfContainedRoster();
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch self-contained roster' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch self-contained roster') });
     }
   }
 
@@ -79,7 +80,7 @@ export class AcademicAllocationsController {
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       console.error('getEligibleMarkingTeachers error:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to fetch eligible marking teachers' });
+      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch eligible marking teachers') });
     }
   }
 
@@ -88,7 +89,7 @@ export class AcademicAllocationsController {
       const created = await AcademicAllocationsService.assignMarking(req.body);
       return res.status(201).json({ success: true, data: created, message: 'Paper examiner assigned successfully' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to assign examiner' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to assign examiner') });
     }
   }
 
@@ -97,7 +98,7 @@ export class AcademicAllocationsController {
       await AcademicAllocationsService.removeMarking(req.params.id);
       return res.status(200).json({ success: true, message: 'Marking allocation removed' });
     } catch (error: any) {
-      return res.status(400).json({ success: false, message: error.message || 'Failed to remove marking allocation' });
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to remove marking allocation') });
     }
   }
 }
