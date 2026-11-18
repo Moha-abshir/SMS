@@ -7,3 +7,9 @@ export function publicErrorMessage(error: unknown, fallback: string): string {
   if (typeof value.message !== 'string' || /failed query:|postgres(?:ql)?:\/\/|password_hash|SQLSTATE/i.test(value.message)) return fallback;
   return value.message || fallback;
 }
+
+/** Log classification/context without SQL parameters, credentials, recovery links, or school records. */
+export function logServerError(context: string, error: unknown): void {
+  const value = error && typeof error === 'object' ? error as { name?: unknown; code?: unknown; cause?: { code?: unknown } } : {};
+  console.error(context, { name: typeof value.name === 'string' ? value.name : 'Error', code: value.code || value.cause?.code || 'UNKNOWN' });
+}

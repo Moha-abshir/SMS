@@ -1,4 +1,4 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { ROLE_DEFAULT_PERMISSIONS } from '../../middleware/auth.js';
 import { StaffService } from './staff.service.js';
@@ -9,7 +9,7 @@ export class StaffController {
       const roles = await StaffService.getAllRoles();
       res.json({ success: true, data: roles });
     } catch (error) {
-      console.error('Error fetching roles:', error);
+      logServerError('Error fetching roles:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch roles' });
     }
   }
@@ -25,7 +25,7 @@ export class StaffController {
       }));
       res.json({ success: true, data });
     } catch (error) {
-      console.error('Error fetching staff:', error);
+      logServerError('Error fetching staff:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch staff' });
     }
   }
@@ -40,7 +40,7 @@ export class StaffController {
       }
       res.json({ success: true, message: 'Staff updated successfully', data: staff });
     } catch (error) {
-      console.error('Error updating staff:', error);
+      logServerError('Error updating staff:', error);
       res.status(500).json({ success: false, message: 'Failed to update staff' });
     }
   }
@@ -54,7 +54,7 @@ export class StaffController {
       }
       res.json({ success: true, message: `Staff account ${isActive ? 'activated' : 'deactivated'}`, data: staff });
     } catch (error: any) {
-      console.error('Error toggling staff status:', error);
+      logServerError('Error toggling staff status:', error);
       if (error.code === 'CANNOT_DEACTIVATE_CLASS_TEACHER') {
         return res.status(400).json({
           success: false,
@@ -72,7 +72,7 @@ export class StaffController {
       const defaultPassword = await StaffService.resetPassword(req.params.id);
       res.json({ success: true, message: 'Password reset successfully', defaultPassword });
     } catch (error) {
-      console.error('Error resetting password:', error);
+      logServerError('Error resetting password:', error);
       res.status(500).json({ success: false, message: 'Failed to reset password' });
     }
   }

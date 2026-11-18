@@ -1,4 +1,4 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { randomInt } from 'node:crypto';
 import { Request, Response } from 'express';
 import argon2 from 'argon2';
@@ -55,7 +55,7 @@ export class AuthController {
       if (error.name === 'ZodError') {
         return res.status(400).json({ success: false, message: 'Validation failed', errors: error.issues });
       }
-      console.error('Login error:', error);
+      logServerError('Login error:', error);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
@@ -136,7 +136,7 @@ export class AuthController {
       if (error.name === 'ZodError') {
         return res.status(400).json({ success: false, message: 'Validation failed', errors: error.issues });
       }
-      console.error('Verify 2FA error:', error);
+      logServerError('Verify 2FA error:', error);
       return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Internal server error') });
     }
   }
@@ -177,7 +177,7 @@ export class AuthController {
 
       });
     } catch (error: any) {
-      console.error('Resend OTP error:', error);
+      logServerError('Resend OTP error:', error);
       return res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }

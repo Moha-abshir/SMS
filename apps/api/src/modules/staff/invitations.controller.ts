@@ -1,4 +1,4 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { InvitationsService, InvitationError } from './invitations.service.js';
 import { resolveFrontendUrl } from '../../config/env.js';
@@ -17,7 +17,7 @@ export class InvitationsController {
         emailSent: result.emailSent 
       });
     } catch (error: any) {
-      console.error('Error creating invitation:', error);
+      logServerError('Error creating invitation:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to create invitation') });
     }
   }
@@ -32,7 +32,7 @@ export class InvitationsController {
         emailSent: result.emailSent 
       });
     } catch (error: any) {
-      console.error('Error resending invitation:', error);
+      logServerError('Error resending invitation:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to resend invitation') });
     }
   }
@@ -42,7 +42,7 @@ export class InvitationsController {
       const result = await InvitationsService.cancelInvitation(req.params.id);
       res.json({ success: true, message: 'Invitation cancelled successfully', data: result });
     } catch (error: any) {
-      console.error('Error cancelling invitation:', error);
+      logServerError('Error cancelling invitation:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to cancel invitation') });
     }
   }
@@ -52,7 +52,7 @@ export class InvitationsController {
       const result = await InvitationsService.deleteInvitation(req.params.id);
       res.json({ success: true, message: 'Staff invitation deleted successfully', data: result });
     } catch (error: any) {
-      console.error('Error deleting invitation:', error);
+      logServerError('Error deleting invitation:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to delete invitation') });
     }
   }
@@ -71,7 +71,7 @@ export class InvitationsController {
       const staffDetails = await InvitationsService.validateInvitation(email, token);
       res.json({ success: true, data: staffDetails });
     } catch (error: any) {
-      console.error('Error validating invitation:', error);
+      logServerError('Error validating invitation:', error);
       const code = error instanceof InvitationError ? error.code : (error.code || 'INVITATION_INVALID');
       res.status(400).json({ 
         success: false, 
@@ -104,7 +104,7 @@ export class InvitationsController {
       const user = await InvitationsService.acceptInvitation(email, token, password);
       res.json({ success: true, message: 'Account created successfully', data: { id: user.id, email: user.email } });
     } catch (error: any) {
-      console.error('Error accepting invitation:', error);
+      logServerError('Error accepting invitation:', error);
       const code = error instanceof InvitationError ? error.code : (error.code || 'INVITATION_INVALID');
       res.status(400).json({ 
         success: false, 

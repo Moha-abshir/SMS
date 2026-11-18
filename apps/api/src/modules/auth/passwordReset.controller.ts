@@ -1,4 +1,4 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { PasswordResetService } from './passwordReset.service.js';
 import { resolveFrontendUrl } from '../../config/env.js';
@@ -20,7 +20,7 @@ export class PasswordResetController {
         message: 'If an account is associated with this email, a password reset link has been sent.',
       });
     } catch (error: any) {
-      console.error('Error requesting password reset:', error);
+      logServerError('Error requesting password reset:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to process password reset request') });
     }
   }
@@ -39,7 +39,7 @@ export class PasswordResetController {
         data: result,
       });
     } catch (error: any) {
-      console.error('Error initiating password reset:', error);
+      logServerError('Error initiating password reset:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to initiate password reset') });
     }
   }
@@ -54,7 +54,7 @@ export class PasswordResetController {
       const staffDetails = await PasswordResetService.validateToken(email, token);
       res.status(200).json({ success: true, data: staffDetails });
     } catch (error: any) {
-      console.error('Error verifying password reset token:', error);
+      logServerError('Error verifying password reset token:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Invalid or expired reset link') });
     }
   }
@@ -76,7 +76,7 @@ export class PasswordResetController {
         message: 'Password reset successful. You may now log in with your new password.',
       });
     } catch (error: any) {
-      console.error('Error completing password reset:', error);
+      logServerError('Error completing password reset:', error);
       res.status(400).json({ success: false, message: publicErrorMessage(error, 'Failed to reset password') });
     }
   }

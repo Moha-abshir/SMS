@@ -1,4 +1,4 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { CatsService } from './cats.service.js';
 
@@ -16,7 +16,7 @@ export class CatsController {
       const data = await CatsService.getTeacherCatAllocations(userId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      console.error('[CatsController] getTeacherAllocations error:', error);
+      logServerError('[CatsController] getTeacherAllocations error:', error);
       return res.status(error.status || 500).json({
         success: false,
         message: publicErrorMessage(error, 'Failed to load CAT teacher allocations'),
@@ -56,7 +56,7 @@ export class CatsController {
         data: created,
       });
     } catch (error: any) {
-      console.error('[CatsController] createCat error:', error);
+      logServerError('[CatsController] createCat error:', error);
       let status = 500;
       if (
         error.message?.includes('restricted') ||
@@ -88,7 +88,7 @@ export class CatsController {
       const data = await CatsService.getCatMarksheet(catId, req.user!);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      console.error('[CatsController] getCatMarksheet error:', error);
+      logServerError('[CatsController] getCatMarksheet error:', error);
       return res.status(error.status || 404).json({
         success: false,
         message: publicErrorMessage(error, 'Failed to fetch CAT marksheet'),
@@ -119,7 +119,7 @@ export class CatsController {
       const result = await CatsService.saveCatScores(catId, userId, { scores }, req.user!);
       return res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
-      console.error('[CatsController] saveCatScores error:', error);
+      logServerError('[CatsController] saveCatScores error:', error);
       return res.status(error.status || 400).json({
         success: false,
         message: publicErrorMessage(error, 'Failed to save CAT scores'),
@@ -145,7 +145,7 @@ export class CatsController {
       const result = await CatsService.deleteCat(catId, userId, req.user!);
       return res.status(200).json({ success: true, message: result.message, data: result });
     } catch (error: any) {
-      console.error('[CatsController] deleteCat error:', error);
+      logServerError('[CatsController] deleteCat error:', error);
       return res.status(error.status || 400).json({
         success: false,
         message: publicErrorMessage(error, 'Failed to delete CAT assessment'),
@@ -168,7 +168,7 @@ export class CatsController {
       const data = await CatsService.getClassCatsDetail(classId, req.user!, termId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      console.error('[CatsController] getClassCatsDetail error:', error);
+      logServerError('[CatsController] getClassCatsDetail error:', error);
       return res.status(error.status || 500).json({
         success: false,
         message: publicErrorMessage(error, 'Failed to fetch class CAT details'),

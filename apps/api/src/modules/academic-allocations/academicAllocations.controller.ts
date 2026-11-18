@@ -1,4 +1,4 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { AcademicAllocationsService } from './academicAllocations.service.js';
 
@@ -79,7 +79,7 @@ export class AcademicAllocationsController {
       const data = await AcademicAllocationsService.getEligibleMarkingTeachers(validSubjectId, validClassId);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
-      console.error('getEligibleMarkingTeachers error:', error);
+      logServerError('getEligibleMarkingTeachers error:', error);
       return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch eligible marking teachers') });
     }
   }

@@ -79,7 +79,7 @@ app.use(compression());
 app.use(express.json());
 app.use(pinoHttp({
   redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
-  transport: {
+  transport: process.env.NODE_ENV === 'production' ? undefined : {
     target: 'pino-pretty',
     options: { colorize: true, ignore: 'pid,hostname' }
   }
