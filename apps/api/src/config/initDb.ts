@@ -2,6 +2,9 @@ import { db } from './db.js';
 import { sql } from '@school/shared';
 
 export async function initializeDatabaseTables() {
+  // Required schema must be ready before the API accepts requests. Do not
+  // silently start a new deployment that cannot read its examination records.
+  await db.execute(sql`ALTER TABLE "examinations" ADD COLUMN IF NOT EXISTS "schedule_config" jsonb`);
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS "payment_reversals" (

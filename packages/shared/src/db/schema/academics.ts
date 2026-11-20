@@ -1,4 +1,5 @@
-import { pgTable, uuid, varchar, text, timestamp, date, integer, decimal, boolean, pgEnum, unique, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, date, integer, decimal, boolean, jsonb, pgEnum, unique, index } from 'drizzle-orm/pg-core';
+import type { ExamScheduleConfig } from '../../types/examSchedule.js';
 import { users } from './users.js';
 import { classes, students, subjects } from './admissions.js';
 
@@ -67,6 +68,7 @@ export const examinations = pgTable('examinations', {
   id: uuid('id').defaultRandom().primaryKey(),
   termId: uuid('term_id').notNull().references(() => academicTerms.id),
   title: varchar('title', { length: 100 }).notNull(),
+  scheduleConfig: jsonb('schedule_config').$type<ExamScheduleConfig>(),
   startDate: date('start_date'),
   endDate: date('end_date'),
   status: examStatusEnum('status').default('DRAFT').notNull(),

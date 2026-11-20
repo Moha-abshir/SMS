@@ -106,7 +106,7 @@ test('CAT object scopes, learner membership, marks locks and concurrent transiti
     await assert.rejects(() => AdmissionsService.bulkImportStudents([{ ...importRow, assessmentNumber: `BAD${suffix}`, guardianIdNumber: `ROLLBACK${suffix}`, admissionDate: 'invalid' }], teacher.id));
     assert.equal((await db.select().from(schema.guardians).where(schema.eq(schema.guardians.idNumber, `ROLLBACK${suffix}`))).length, 0);
     const [otherExam] = await db.insert(schema.examinations).values({ termId: term.id, title: 'Unrelated exam' }).returning();
-    const [otherSession] = await db.insert(schema.examSessions).values({ examId: otherExam.id, classId: cls.id, subjectId: subject.id, sessionDate: '2080-01-08', sessionTime: '08:00 - 09:00', durationMinutes: 60 }).returning();
+    const [otherSession] = await db.insert(schema.examSessions).values({ examId: otherExam.id, classId: cls.id, subjectId: subject.id, sessionDate: '2080-01-22', sessionTime: '08:00 - 09:00', durationMinutes: 60 }).returning();
     const [otherInvigilator] = await db.insert(schema.invigilatorAllocations).values({ examSessionId: otherSession.id, classId: cls.id, teacherId: teacher.id }).returning();
     const examSchedule = { examId: exam.id, startDate: '2080-01-08', endDate: '2080-01-12', dailyStartTime: '08:00', dailyEndTime: '16:00', breaks: [], classInvigilators: { [cls.id]: teacher.id } };
     await ExamsService.generateExamTimetable(examSchedule);

@@ -113,3 +113,5 @@ export function isNationalExamClass(classInfo?: { levelCategory?: string | null;
   return false;
 }
 
+
+export * from './examSchedule.js';

@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   X,
   BookOpen,
+  Settings,
+  Lock,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
@@ -27,6 +29,10 @@ import { RequestError } from '../../components/RequestError';
 import { Modal } from '../../components/Modal';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 import { ExamTimetableWizardModal } from './ExamTimetableWizardModal';
+import {
+  ExamPaperScheduleModal,
+  ExamScheduleSettingsModal,
+} from './ExamPaperScheduleModal';
 import { ExamTimetablePrintModal } from './ExamTimetablePrintModal';
 
 interface Paper {
@@ -62,6 +68,8 @@ export const ExamTimetableView: React.FC = () => {
   const [movingPaper, setMovingPaper] = useState<Paper | null>(null);
   const [swapPaper, setSwapPaper] = useState<Paper | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hoursOpen, setHoursOpen] = useState(false);
+  const [moveDate, setMoveDate] = useState<string | undefined>();
   const exams = Array.isArray(examsResource.data) ? examsResource.data : [];
   const classes = useMemo(
     () =>
@@ -78,6 +86,9 @@ export const ExamTimetableView: React.FC = () => {
     classes.find((row) => row.id === classSelection) || classes[0];
   const examId = selectedExam?.exam.id;
   const classId = selectedClass?.id;
+  useEffect(() => {
+    if (examId && !examSelection) setExamSelection(examId);
+  }, [examId, examSelection]);
   const timetable = useApiResource<Paper[]>(
     examId && classId
       ? `/api/exams/${examId}/sessions?classId=${classId}`
@@ -94,7 +105,7 @@ export const ExamTimetableView: React.FC = () => {
   );
   const sessions = Array.isArray(timetable.data) ? timetable.data : [];
   const error = examsResource.error || classesResource.error || timetable.error;
-  const hasActiveExams = exams.some((row) => row.exam.status === 'APPROVED');
+  const concluded = selectedExam?.exam.status === 'LOCKED';
   const byDate = useMemo(() => {
     const groups = new Map<string, Paper[]>();
     for (const paper of sessions) {
@@ -130,6 +141,8 @@ export const ExamTimetableView: React.FC = () => {
   useEffect(() => {
     setSwapPaper(null);
     setMovingPaper(null);
+    setHoursOpen(false);
+    setMoveDate(undefined);
     setPrintOpen(false);
   }, [examId, classId]);
   const refresh = () => {
@@ -159,59 +172,20 @@ export const ExamTimetableView: React.FC = () => {
       setBusy(false);
     }
   };
-  const move = (paper: Paper, date: string) => {
-    let sessionTime = paper.session.sessionTime;
-    const sameDay = (byDate.get(date) || []).filter(
-      (row) => row.session.id !== paper.session.id,
-    );
-    const minutes = (value: string) => {
-      const [hour, minute] = value.trim().split(':').map(Number);
-      return hour * 60 + minute;
-    };
-    const start = minutes(sessionTime.split('-')[0]);
-    const end = start + paper.session.durationMinutes;
-    const overlaps = sameDay.some((row) => {
-      const otherStart = minutes(row.session.sessionTime.split('-')[0]);
-      return (
-        start < otherStart + row.session.durationMinutes && end > otherStart
-      );
-    });
-    if (overlaps) {
-      const nextStart =
-        Math.max(
-          8 * 60,
-          ...sameDay.map(
-            (row) =>
-              minutes(row.session.sessionTime.split('-')[0]) +
-              row.session.durationMinutes,
-          ),
-        ) + 15;
-      const time = (value: number) =>
-        `${Math.floor(value / 60)
-          .toString()
-          .padStart(2, '0')}:${(value % 60).toString().padStart(2, '0')}`;
-      if (nextStart + paper.session.durationMinutes > 24 * 60 - 1) {
-        toast.error(
-          'There is no remaining time on this day. Choose another day.',
-        );
-        return;
-      }
-      sessionTime = `${time(nextStart)} - ${time(nextStart + paper.session.durationMinutes)}`;
+  const move = (paper: Paper, date?: string) => {
+    if (!selectedExam?.exam.scheduleConfig) {
+      setHoursOpen(true);
+      return;
     }
-    action(
-      () =>
-        apiClient.put(`/api/exams/sessions/${paper.session.id}`, {
-          sessionDate: date,
-          sessionTime,
-        }),
-      'Examination paper rescheduled.',
-      () => {
-        setMovingPaper(null);
-        setSwapPaper(null);
-      },
-    );
+    setMoveDate(date);
+    setMovingPaper(paper);
   };
   const swap = (paper: Paper) => {
+    if (concluded) return;
+    if (!selectedExam?.exam.scheduleConfig) {
+      setHoursOpen(true);
+      return;
+    }
     if (!swapPaper) {
       setSwapPaper(paper);
       return;
@@ -255,7 +229,8 @@ export const ExamTimetableView: React.FC = () => {
           onClick={() => setWizardOpen(true)}
           disabled={busy}
         >
-          <Sparkles className="h-4 w-4" /> Generate timetable
+          <Sparkles className="h-4 w-4" />{' '}
+          {concluded ? 'New examination' : 'Generate timetable'}
         </button>
       </WorkspaceHeader>
       {error && <RequestError message={error} onRetry={refresh} />}
@@ -374,27 +349,39 @@ export const ExamTimetableView: React.FC = () => {
                       >
                         <Printer className="h-4 w-4" /> Print
                       </button>
+                      {!concluded && (
+                        <button
+                          className="workspace-button-primary flex-1 sm:flex-none"
+                          disabled={
+                            busy || timetable.loading || !sessions.length
+                          }
+                          onClick={() =>
+                            action(
+                              () =>
+                                apiClient.put(`/api/exams/${examId}/status`, {
+                                  status:
+                                    selectedExam.exam.status === 'APPROVED'
+                                      ? 'DRAFT'
+                                      : 'APPROVED',
+                                }),
+                              'Timetable status updated.',
+                              examsResource.refresh,
+                            )
+                          }
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          {selectedExam.exam.status === 'APPROVED'
+                            ? 'Return to draft'
+                            : 'Publish'}
+                        </button>
+                      )}
                       <button
-                        className="workspace-button-primary flex-1 sm:flex-none"
-                        disabled={busy || timetable.loading || !sessions.length}
-                        onClick={() =>
-                          action(
-                            () =>
-                              apiClient.put(`/api/exams/${examId}/status`, {
-                                status:
-                                  selectedExam.exam.status === 'APPROVED'
-                                    ? 'DRAFT'
-                                    : 'APPROVED',
-                              }),
-                            'Timetable status updated.',
-                            examsResource.refresh,
-                          )
-                        }
+                        className="workspace-button-secondary"
+                        disabled={busy || concluded}
+                        onClick={() => setHoursOpen(true)}
                       >
-                        <CheckCircle2 className="h-4 w-4" />
-                        {selectedExam.exam.status === 'APPROVED'
-                          ? 'Return to draft'
-                          : 'Publish'}
+                        <Settings className="h-4 w-4" />
+                        Hours &amp; breaks
                       </button>
                     </div>
                   </div>
@@ -491,14 +478,14 @@ export const ExamTimetableView: React.FC = () => {
                                   <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
                                     <button
                                       className="min-h-9 flex-1 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-600 hover:border-sky-400 dark:border-slate-700 dark:text-slate-300 disabled:opacity-50"
-                                      disabled={busy}
-                                      onClick={() => setMovingPaper(paper)}
+                                      disabled={busy || concluded}
+                                      onClick={() => move(paper)}
                                     >
-                                      Move paper
+                                      Change date / time
                                     </button>
                                     <button
                                       className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-600 hover:border-sky-400 dark:border-slate-700 dark:text-slate-300 disabled:opacity-50"
-                                      disabled={busy}
+                                      disabled={busy || concluded}
                                       onClick={() => swap(paper)}
                                     >
                                       <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -537,33 +524,28 @@ export const ExamTimetableView: React.FC = () => {
                 </section>
                 <div className="workspace-panel flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
                   <div>
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                      Examination period
+                    <p className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {concluded && <Lock className="h-4 w-4" />}
+                      {concluded
+                        ? 'Examination concluded'
+                        : 'Examination period'}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                      {hasActiveExams
-                        ? 'Conclude the period when examination work is complete.'
-                        : 'Reactivate the period to resume examination work.'}
+                      {concluded
+                        ? 'This examination is closed. Its timetable remains available for reference and printing. Create a new examination for future work.'
+                        : 'Conclude this examination when its work is complete. Concluded examinations cannot be reactivated.'}
                     </p>
                   </div>
-                  <button
-                    className="workspace-button-secondary w-full sm:w-auto"
-                    disabled={busy}
-                    onClick={() =>
-                      hasActiveExams
-                        ? setTerminateOpen(true)
-                        : action(
-                            () => apiClient.post('/api/exams/activate-period'),
-                            'Examination period activated.',
-                            examsResource.refresh,
-                          )
-                    }
-                  >
-                    <Power className="h-4 w-4" />
-                    {hasActiveExams
-                      ? 'Conclude exam period'
-                      : 'Reactivate exam period'}
-                  </button>
+                  {!concluded && (
+                    <button
+                      className="workspace-button-secondary w-full sm:w-auto"
+                      disabled={busy}
+                      onClick={() => setTerminateOpen(true)}
+                    >
+                      <Power className="h-4 w-4" />
+                      Conclude examination
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -608,41 +590,29 @@ export const ExamTimetableView: React.FC = () => {
           )}
         </div>
       </Modal>
-      <Modal
-        isOpen={Boolean(movingPaper)}
-        onClose={() => {
-          if (!busy) setMovingPaper(null);
-        }}
-        title={`Move ${movingPaper?.subject?.name || 'examination paper'}`}
-      >
-        <p className="text-xs leading-relaxed text-slate-500">
-          Choose a day. If the original time overlaps another paper, this paper
-          will be placed 15 minutes after the last paper.
-        </p>
-        <div className="space-y-2">
-          {dates
-            .filter((date) => date !== movingPaper?.session.sessionDate)
-            .map((date) => (
-              <button
-                key={date}
-                disabled={busy}
-                className="flex min-h-12 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 text-left text-xs dark:border-slate-800"
-                onClick={() => movingPaper && move(movingPaper, date)}
-              >
-                <span>{dateLabel(date)}</span>
-                <span className="text-slate-400">
-                  {byDate.get(date)?.length || 0} papers
-                </span>
-              </button>
-            ))}
-          {dates.filter((date) => date !== movingPaper?.session.sessionDate)
-            .length === 0 && (
-            <p className="p-3 text-xs text-slate-500">
-              There are no other days in this examination period.
-            </p>
-          )}
-        </div>
-      </Modal>
+      {movingPaper && (
+        <ExamPaperScheduleModal
+          key={`${movingPaper.session.id}_${moveDate || ''}`}
+          paper={movingPaper}
+          exam={selectedExam.exam}
+          dates={dates}
+          sessions={sessions}
+          targetDate={moveDate}
+          onClose={() => setMovingPaper(null)}
+          onSaved={() => {
+            setSwapPaper(null);
+            timetable.refresh();
+          }}
+        />
+      )}
+      {hoursOpen && selectedExam && (
+        <ExamScheduleSettingsModal
+          key={examId}
+          exam={selectedExam.exam}
+          onClose={() => setHoursOpen(false)}
+          onSaved={examsResource.refresh}
+        />
+      )}
       <Modal
         isOpen={terminateOpen}
         onClose={() => {
@@ -667,7 +637,7 @@ export const ExamTimetableView: React.FC = () => {
             className="workspace-button-primary"
             onClick={() =>
               action(
-                () => apiClient.post('/api/exams/terminate-period'),
+                () => apiClient.post('/api/exams/terminate-period', { examId }),
                 'Examination period concluded.',
                 () => {
                   setTerminateOpen(false);
@@ -684,7 +654,7 @@ export const ExamTimetableView: React.FC = () => {
         <ExamTimetableWizardModal
           isOpen
           onClose={() => setWizardOpen(false)}
-          existingExamId={examId}
+          existingExamId={concluded ? undefined : examId}
           onGenerated={(id) => {
             if (id) setExamSelection(id);
             examsResource.refresh();
@@ -700,7 +670,7 @@ export const ExamTimetableView: React.FC = () => {
           term={selectedExam?.term}
           className={selectedClass?.name || 'Class'}
           sessions={sessions}
-          breaks={[]}
+          breaks={selectedExam?.exam.scheduleConfig?.breaks || []}
           schoolSettings={settings.data}
         />
       )}

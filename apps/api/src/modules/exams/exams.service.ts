@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { parseISO, format, isWeekend, eachDayOfInterval } from 'date-fns';
 import { db } from '../../config/db.js';
+import { lockExamSchedule, validatePaperEdits } from './examScheduling.js';
+import {
+  validateExamSchedule,
+  examTestingIntervals,
+  examTimeLabel,
+  examTimeRange,
+  type ExamScheduleConfig,
+} from '@school/shared';
 import {
   examinations,
   examSessions,
@@ -53,138 +61,189 @@ export class ExamsService {
     return created;
   }
 
-  static async updateExam(id: string, data: { title?: string; termId?: string; startDate?: string; endDate?: string }) {
-    const [existing] = await db
-      .select()
-      .from(examinations)
-      .where(and(eq(examinations.id, id), isNull(examinations.deletedAt)));
-
-    if (!existing) {
-      throw new Error('Examination series not found');
-    }
-
-    if (existing.status === 'LOCKED') {
-      throw new Error('Cannot edit a locked examination series.');
-    }
-
-    const updateFields: any = { updatedAt: new Date() };
-    if (data.title && data.title.trim()) {
-      updateFields.title = data.title.trim();
-    }
-    if (data.termId) {
-      updateFields.termId = data.termId;
-    }
-    if (data.startDate !== undefined) {
-      updateFields.startDate = data.startDate || null;
-    }
-    if (data.endDate !== undefined) {
-      updateFields.endDate = data.endDate || null;
-    }
-
-    const [updated] = await db
-      .update(examinations)
-      .set(updateFields)
-      .where(eq(examinations.id, id))
-      .returning();
-
-    return updated;
+  static async updateExam(
+    id: string,
+    data: {
+      title?: string;
+      termId?: string;
+      startDate?: string;
+      endDate?: string;
+      scheduleConfig?: ExamScheduleConfig;
+    },
+  ) {
+    return db.transaction(async (tx) => {
+      const existing = await lockExamSchedule(tx, id);
+      const fields: Partial<typeof examinations.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+      if (data.title !== undefined) {
+        if (!data.title.trim())
+          throw new Error('Examination title is required');
+        fields.title = data.title.trim();
+      }
+      if (data.termId) fields.termId = data.termId;
+      if (data.startDate !== undefined)
+        fields.startDate = data.startDate || null;
+      if (data.endDate !== undefined) fields.endDate = data.endDate || null;
+      if (data.scheduleConfig !== undefined)
+        fields.scheduleConfig = validateExamSchedule(data.scheduleConfig);
+      if (
+        existing.status === 'APPROVED' &&
+        (data.scheduleConfig !== undefined ||
+          data.startDate !== undefined ||
+          data.endDate !== undefined)
+      ) {
+        const papers = await tx
+          .select()
+          .from(examSessions)
+          .where(
+            and(eq(examSessions.examId, id), isNull(examSessions.deletedAt)),
+          );
+        await validatePaperEdits(
+          tx,
+          { ...existing, ...fields } as typeof existing,
+          papers,
+          papers.map((row) => row.id),
+        );
+      }
+      const [updated] = await tx
+        .update(examinations)
+        .set(fields)
+        .where(eq(examinations.id, id))
+        .returning();
+      return updated;
+    });
   }
 
   static async deleteExam(id: string) {
-    const [existingExam] = await db
-      .select()
-      .from(examinations)
-      .where(and(eq(examinations.id, id), isNull(examinations.deletedAt)));
+    return db.transaction(async (tx) => {
+      await lockExamSchedule(tx, id);
+      const [existingExam] = await tx
+        .select()
+        .from(examinations)
+        .where(and(eq(examinations.id, id), isNull(examinations.deletedAt)));
 
-    if (!existingExam) {
-      throw new Error('Examination not found');
-    }
+      if (!existingExam) {
+        throw new Error('Examination not found');
+      }
 
-    // Safeguard: Check if any mark submissions or exam scores exist for this exam
-    const [submissionsCount] = await db
-      .select({ total: count() })
-      .from(markSubmissions)
-      .where(and(eq(markSubmissions.examId, id), isNull(markSubmissions.deletedAt)));
+      // Safeguard: Check if any mark submissions or exam scores exist for this exam
+      const [submissionsCount] = await tx
+        .select({ total: count() })
+        .from(markSubmissions)
+        .where(
+          and(
+            eq(markSubmissions.examId, id),
+            isNull(markSubmissions.deletedAt),
+          ),
+        );
 
-    const [scoresCount] = await db
-      .select({ total: count() })
-      .from(examScores)
-      .where(and(eq(examScores.examId, id), isNull(examScores.deletedAt)));
+      const [scoresCount] = await tx
+        .select({ total: count() })
+        .from(examScores)
+        .where(and(eq(examScores.examId, id), isNull(examScores.deletedAt)));
 
-    if ((Number(submissionsCount?.total) || 0) > 0 || (Number(scoresCount?.total) || 0) > 0) {
-      throw new Error(
-        'Cannot delete this examination series because student scores or mark submissions are already recorded. Please archive or lock it instead.'
-      );
-    }
+      if (
+        (Number(submissionsCount?.total) || 0) > 0 ||
+        (Number(scoresCount?.total) || 0) > 0
+      ) {
+        throw new Error(
+          'Cannot delete this examination series because student scores or mark submissions are already recorded. Please archive or lock it instead.',
+        );
+      }
 
-    // Soft delete child sessions
-    await db
-      .update(examSessions)
-      .set({ deletedAt: new Date() })
-      .where(eq(examSessions.examId, id));
+      // Soft delete child sessions
+      await tx
+        .update(examSessions)
+        .set({ deletedAt: new Date() })
+        .where(eq(examSessions.examId, id));
 
-    // Soft delete the exam
-    const [deleted] = await db
-      .update(examinations)
-      .set({ deletedAt: new Date() })
-      .where(eq(examinations.id, id))
-      .returning();
+      // Soft delete the exam
+      const [deleted] = await tx
+        .update(examinations)
+        .set({ deletedAt: new Date() })
+        .where(eq(examinations.id, id))
+        .returning();
 
-    return deleted;
+      return deleted;
+    });
   }
 
-  static async updateExamStatus(id: string, status: any) {
-    const validStatuses = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'CORRECTION_REQUESTED', 'RESUBMITTED', 'APPROVED', 'LOCKED'];
-    if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
-    }
-
-    const [updated] = await db
-      .update(examinations)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(examinations.id, id))
-      .returning();
-
-    return updated;
+  static async updateExamStatus(id: string, status: unknown) {
+    if (status !== 'DRAFT' && status !== 'APPROVED' && status !== 'LOCKED')
+      throw new Error(
+        'Use Draft, Published or Concluded for an examination timetable.',
+      );
+    return db.transaction(async (tx) => {
+      const exam = await lockExamSchedule(tx, id);
+      if (status === 'APPROVED') {
+        validateExamSchedule(exam.scheduleConfig);
+        const papers = await tx
+          .select()
+          .from(examSessions)
+          .where(
+            and(eq(examSessions.examId, id), isNull(examSessions.deletedAt)),
+          );
+        if (!papers.length)
+          throw new Error('Schedule examination papers before publishing.');
+        await validatePaperEdits(
+          tx,
+          exam,
+          papers,
+          papers.map((row) => row.id),
+        );
+      }
+      const [updated] = await tx
+        .update(examinations)
+        .set({ status, updatedAt: new Date() })
+        .where(eq(examinations.id, id))
+        .returning();
+      return updated;
+    });
   }
 
   static async terminateExamPeriod(examId?: string) {
-    if (examId) {
-      await db
-        .update(examinations)
-        .set({ status: 'LOCKED', updatedAt: new Date() })
-        .where(eq(examinations.id, examId));
-    } else {
-      await db
-        .update(examinations)
-        .set({ status: 'LOCKED', updatedAt: new Date() })
-        .where(and(eq(examinations.status, 'APPROVED'), isNull(examinations.deletedAt)));
-    }
-    return { success: true, message: 'Examination period concluded successfully. Academic operations shifted to CATs mode.' };
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('exam-timetable-edit',0))`,
+      );
+      if (examId) {
+        const [exam] = await tx
+          .select()
+          .from(examinations)
+          .where(
+            and(eq(examinations.id, examId), isNull(examinations.deletedAt)),
+          );
+        if (!exam) throw new Error('Examination series not found');
+        await tx
+          .update(examinations)
+          .set({ status: 'LOCKED', updatedAt: new Date() })
+          .where(eq(examinations.id, examId));
+      } else {
+        await tx
+          .update(examinations)
+          .set({ status: 'LOCKED', updatedAt: new Date() })
+          .where(
+            and(
+              eq(examinations.status, 'APPROVED'),
+              isNull(examinations.deletedAt),
+            ),
+          );
+      }
+    });
+    return {
+      success: true,
+      message:
+        'Examination period concluded. It cannot be reopened; create a new examination for future work.',
+    };
   }
 
-  static async activateExamPeriod(examId?: string) {
-    if (examId) {
-      await db
-        .update(examinations)
-        .set({ status: 'APPROVED', updatedAt: new Date() })
-        .where(eq(examinations.id, examId));
-    } else {
-      const [latest] = await db
-        .select()
-        .from(examinations)
-        .where(isNull(examinations.deletedAt))
-        .orderBy(desc(examinations.createdAt))
-        .limit(1);
-
-      if (latest) {
-        await db
-          .update(examinations)
-          .set({ status: 'APPROVED', updatedAt: new Date() })
-          .where(eq(examinations.id, latest.id));
-      }
-    }
-    return { success: true, message: 'Examination period activated successfully.' };
+  static async activateExamPeriod(
+    _examId?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    throw new Error(
+      'Examination periods cannot be reactivated. Create and publish a new examination instead.',
+    );
   }
 
   static async getExamSessions(examId: string, classId?: string) {
@@ -230,8 +289,8 @@ export class ExamsService {
       .where(
         and(
           inArray(invigilatorAllocations.examSessionId, sessionIds),
-          isNull(invigilatorAllocations.deletedAt)
-        )
+          isNull(invigilatorAllocations.deletedAt),
+        ),
       );
 
     const invigMap = new Map<string, any>();
@@ -259,11 +318,23 @@ export class ExamsService {
     const [exam] = await db
       .select()
       .from(examinations)
-      .where(and(eq(examinations.id, data.examId), isNull(examinations.deletedAt)));
+      .where(
+        and(eq(examinations.id, data.examId), isNull(examinations.deletedAt)),
+      );
 
     if (!exam) {
       throw new Error('Examination series not found');
     }
+
+    if (exam.status === 'LOCKED')
+      throw new Error(
+        'This examination has concluded and cannot be regenerated.',
+      );
+    const scheduleConfig = validateExamSchedule({
+      dailyStartTime: data.dailyStartTime,
+      dailyEndTime: data.dailyEndTime,
+      breaks: data.breaks,
+    });
 
     // Parse and validate start/end dates using date-fns
     const start = parseISO(data.startDate);
@@ -275,7 +346,8 @@ export class ExamsService {
       throw new Error('Start date must be before or equal to end date.');
     }
 
-    if (end.getTime() - start.getTime() > 366 * 86400_000) throw new Error('Examination date range must not exceed one year');
+    if (end.getTime() - start.getTime() > 366 * 86400_000)
+      throw new Error('Examination date range must not exceed one year');
     // Extract all weekdays across the exam date interval using date-fns
     const allDays = eachDayOfInterval({ start, end });
     const examDates = allDays
@@ -286,55 +358,9 @@ export class ExamsService {
       throw new Error('The exam period must include at least one weekday.');
     }
 
-    const toMinutes = (timeStr: string) => {
-      const [h, m] = (timeStr || '08:00').split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-
-    const toTimeString = (minutes: number) => {
-      const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-      const m = (minutes % 60).toString().padStart(2, '0');
-      return `${h}:${m}`;
-    };
-
-    const dayStartMin = toMinutes(data.dailyStartTime || '08:00');
-    const dayEndMin = toMinutes(data.dailyEndTime || '15:30');
-
-    // Sort breaks by start time
-    const sortedBreaks = (data.breaks || [])
-      .map((b) => ({
-        name: b.name,
-        startMin: toMinutes(b.startTime),
-        endMin: toMinutes(b.endTime),
-      }))
-      .filter((b) => b.startMin >= dayStartMin && b.endMin <= dayEndMin && b.startMin < b.endMin)
-      .sort((a, b) => a.startMin - b.startMin);
-
-    // Compute non-break daily testing intervals
-    const testingIntervals: Array<{ startMin: number; endMin: number; duration: number }> = [];
-    let intervalStart = dayStartMin;
-
-    for (const brk of sortedBreaks) {
-      if (brk.startMin > intervalStart) {
-        testingIntervals.push({
-          startMin: intervalStart,
-          endMin: brk.startMin,
-          duration: brk.startMin - intervalStart,
-        });
-      }
-      intervalStart = Math.max(intervalStart, brk.endMin);
-    }
-    if (intervalStart < dayEndMin) {
-      testingIntervals.push({
-        startMin: intervalStart,
-        endMin: dayEndMin,
-        duration: dayEndMin - intervalStart,
-      });
-    }
-
-    if (testingIntervals.length === 0) {
-      throw new Error('Daily schedule does not have any available testing time between start/end and breaks.');
-    }
+    const testingIntervals = examTestingIntervals(scheduleConfig);
+    if (!testingIntervals.length)
+      throw new Error('Examination hours must include time outside breaks.');
 
     // Fetch all active school classes (PP1 to Grade 9)
     const schoolClasses = await db
@@ -346,78 +372,157 @@ export class ExamsService {
     // Soft delete existing sessions for this exam
     let totalSessionsGenerated = 0;
     const plannedSessions: Array<typeof examSessions.$inferInsert> = [];
-    const plannedInvigilators: Array<typeof invigilatorAllocations.$inferInsert> = [];
-    const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt)).orderBy(subjects.name);
-    const targetClasses = schoolClasses.filter((c) => c.name.toLowerCase() !== 'playgroup');
+    const plannedInvigilators: Array<
+      typeof invigilatorAllocations.$inferInsert
+    > = [];
+    const allSubjects = await db
+      .select()
+      .from(subjects)
+      .where(isNull(subjects.deletedAt))
+      .orderBy(subjects.name);
+    const targetClasses = schoolClasses.filter(
+      (c) => c.name.toLowerCase() !== 'playgroup',
+    );
 
-    // For each class, schedule subjects
+    // Fit every full paper into a testing window. Shared invigilators are booked
+    // across classes; papers never wrap back onto an occupied date or cross breaks.
+    const bookings = new Map<string, Array<{ start: number; end: number }>>();
+    const book = (key: string, range: { start: number; end: number }) => {
+      if (!bookings.has(key)) bookings.set(key, []);
+      bookings.get(key)!.push(range);
+    };
     for (const cls of targetClasses) {
-      const classSubjects = allSubjects.filter(subject => subject.levelCategory === cls.levelCategory);
-
-      if (classSubjects.length === 0) continue;
-
-      let dateIdx = 0;
-      let intervalIdx = 0;
-
+      const classSubjects = allSubjects.filter(
+        (subject) => subject.levelCategory === cls.levelCategory,
+      );
       for (const subj of classSubjects) {
-        let duration =
-          data.gradeSubjectDurations?.[cls.name]?.[subj.id] ||
-          data.gradeSubjectDurations?.[cls.levelCategory]?.[subj.id];
-
-        if (!duration) {
-          if (cls.levelCategory === 'PPE') duration = 45;
-          else if (cls.levelCategory === 'LOWER_PRIMARY') duration = 60;
-          else if (cls.levelCategory === 'UPPER_PRIMARY') duration = 80;
-          else duration = 90;
-        }
-
-        if (intervalIdx >= testingIntervals.length) {
-          intervalIdx = 0;
-          dateIdx++;
-        }
-
-        const sessionDate = examDates[dateIdx % examDates.length];
-        const block = testingIntervals[intervalIdx % testingIntervals.length];
-
-        const slotStart = block.startMin;
-        const slotEnd = Math.min(block.startMin + duration, block.endMin);
-        const sessionTime = `${toTimeString(slotStart)} - ${toTimeString(slotEnd)}`;
-
-        if (!Number.isFinite(duration) || duration <= 0 || duration > 1440) throw new Error('Invalid examination duration');
-        const sessionId = randomUUID();
-        plannedSessions.push({ id: sessionId, examId: data.examId, classId: cls.id, subjectId: subj.id,
-          sessionDate, sessionTime, durationMinutes: duration });
-
-        totalSessionsGenerated++;
-
+        const duration =
+          data.gradeSubjectDurations?.[cls.name]?.[subj.id] ??
+          data.gradeSubjectDurations?.[cls.levelCategory]?.[subj.id] ??
+          (cls.levelCategory === 'PPE'
+            ? 45
+            : cls.levelCategory === 'LOWER_PRIMARY'
+              ? 60
+              : cls.levelCategory === 'UPPER_PRIMARY'
+                ? 80
+                : 90);
+        if (!Number.isInteger(duration) || duration <= 0 || duration > 1440)
+          throw new Error('Invalid examination duration');
         const invigilatorId = data.classInvigilators?.[cls.id];
+        let placement: { date: string; start: number; end: number } | null =
+          null;
+        for (const date of examDates) {
+          for (const window of testingIntervals) {
+            let start = window.start;
+            const busy = [
+              ...(bookings.get(`class:${cls.id}:${date}`) || []),
+              ...(invigilatorId
+                ? bookings.get(`teacher:${invigilatorId}:${date}`) || []
+                : []),
+            ].sort((a, b) => a.start - b.start);
+            for (const occupied of busy) {
+              if (start + duration <= occupied.start) break;
+              if (start < occupied.end && start + duration > occupied.start)
+                start = occupied.end;
+            }
+            if (start + duration <= window.end) {
+              placement = { date, start, end: start + duration };
+              break;
+            }
+          }
+          if (placement) break;
+        }
+        if (!placement)
+          throw new Error(
+            `Not enough examination time for ${subj.name} in ${cls.name}. Extend the period or adjust hours, breaks or invigilators.`,
+          );
+        const id = randomUUID();
+        plannedSessions.push({
+          id,
+          examId: data.examId,
+          classId: cls.id,
+          subjectId: subj.id,
+          sessionDate: placement.date,
+          sessionTime: `${examTimeLabel(placement.start)} - ${examTimeLabel(placement.end)}`,
+          durationMinutes: duration,
+        });
+        book(`class:${cls.id}:${placement.date}`, placement);
         if (invigilatorId) {
+          book(`teacher:${invigilatorId}:${placement.date}`, placement);
           plannedInvigilators.push({
-            examSessionId: sessionId,
+            examSessionId: id,
             classId: cls.id,
             teacherId: invigilatorId,
           });
         }
-
-        intervalIdx++;
+        totalSessionsGenerated++;
       }
     }
 
-    await db.transaction(async tx => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-timetable:${data.examId}`}, 0))`);
-      const previous = await tx.select({ id: examSessions.id }).from(examSessions)
-        .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
+    await db.transaction(async (tx) => {
+      const freshExam = await lockExamSchedule(tx, data.examId);
+      const previous = await tx
+        .select({ id: examSessions.id })
+        .from(examSessions)
+        .where(
+          and(
+            eq(examSessions.examId, data.examId),
+            isNull(examSessions.deletedAt),
+          ),
+        );
+      await validatePaperEdits(
+        tx,
+        {
+          ...freshExam,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          scheduleConfig,
+        },
+        plannedSessions as Array<typeof examSessions.$inferSelect>,
+        previous.map((row) => row.id),
+        plannedInvigilators as Array<
+          typeof invigilatorAllocations.$inferSelect
+        >,
+      );
       if (previous.length) {
-        await tx.update(invigilatorAllocations).set({ deletedAt: new Date() })
-          .where(and(inArray(invigilatorAllocations.examSessionId, previous.map(session => session.id)), isNull(invigilatorAllocations.deletedAt)));
-        await tx.update(examSessions).set({ deletedAt: new Date() })
-          .where(and(eq(examSessions.examId, data.examId), isNull(examSessions.deletedAt)));
+        await tx
+          .update(invigilatorAllocations)
+          .set({ deletedAt: new Date() })
+          .where(
+            and(
+              inArray(
+                invigilatorAllocations.examSessionId,
+                previous.map((session) => session.id),
+              ),
+              isNull(invigilatorAllocations.deletedAt),
+            ),
+          );
+        await tx
+          .update(examSessions)
+          .set({ deletedAt: new Date() })
+          .where(
+            and(
+              eq(examSessions.examId, data.examId),
+              isNull(examSessions.deletedAt),
+            ),
+          );
       }
       for (let offset = 0; offset < plannedSessions.length; offset += 500)
-        await tx.insert(examSessions).values(plannedSessions.slice(offset, offset + 500));
+        await tx
+          .insert(examSessions)
+          .values(plannedSessions.slice(offset, offset + 500));
       for (let offset = 0; offset < plannedInvigilators.length; offset += 500)
-        await tx.insert(invigilatorAllocations).values(plannedInvigilators.slice(offset, offset + 500));
-      await tx.update(examinations).set({ startDate: data.startDate, endDate: data.endDate, updatedAt: new Date() })
+        await tx
+          .insert(invigilatorAllocations)
+          .values(plannedInvigilators.slice(offset, offset + 500));
+      await tx
+        .update(examinations)
+        .set({
+          startDate: data.startDate,
+          endDate: data.endDate,
+          scheduleConfig,
+          updatedAt: new Date(),
+        })
         .where(eq(examinations.id, data.examId));
     });
 
@@ -430,167 +535,152 @@ export class ExamsService {
   }
 
   static async swapExamSessions(sessionAId: string, sessionBId: string) {
-    const [sessA] = await db
-      .select({
-        session: examSessions,
-        subject: subjects,
-      })
-      .from(examSessions)
-      .innerJoin(subjects, eq(examSessions.subjectId, subjects.id))
-      .where(and(eq(examSessions.id, sessionAId), isNull(examSessions.deletedAt)));
-
-    const [sessB] = await db
-      .select({
-        session: examSessions,
-        subject: subjects,
-      })
-      .from(examSessions)
-      .innerJoin(subjects, eq(examSessions.subjectId, subjects.id))
-      .where(and(eq(examSessions.id, sessionBId), isNull(examSessions.deletedAt)));
-
-    if (!sessA || !sessB) {
-      throw new Error('One or both examination sessions could not be found.');
-    }
-
-    if (sessA.session.classId !== sessB.session.classId) {
-      throw new Error('Cannot swap exams between different classes. Timetables are class-independent.');
-    }
-
-    const durA = sessA.session.durationMinutes || 60;
-    const durB = sessB.session.durationMinutes || 60;
-
-    if (durA !== durB) {
-      throw new Error(
-        `Duration Mismatch: Cannot swap ${sessA.subject.name} (${durA} mins) with ${sessB.subject.name} (${durB} mins). Exams can only be moved between slots with matching duration.`
+    if (sessionAId === sessionBId)
+      throw new Error('Choose two different papers.');
+    return db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('exam-timetable-edit',0))`,
       );
-    }
-
-    await db
-      .update(examSessions)
-      .set({
-        sessionDate: sessB.session.sessionDate,
-        sessionTime: sessB.session.sessionTime,
-        updatedAt: new Date(),
-      })
-      .where(eq(examSessions.id, sessionAId));
-
-    await db
-      .update(examSessions)
-      .set({
-        sessionDate: sessA.session.sessionDate,
-        sessionTime: sessA.session.sessionTime,
-        updatedAt: new Date(),
-      })
-      .where(eq(examSessions.id, sessionBId));
-
-    return {
-      success: true,
-      message: `Successfully swapped ${sessA.subject.name} and ${sessB.subject.name}`,
-    };
+      const rows = await tx
+        .select()
+        .from(examSessions)
+        .where(
+          and(
+            inArray(examSessions.id, [sessionAId, sessionBId]),
+            isNull(examSessions.deletedAt),
+          ),
+        );
+      const a = rows.find((row) => row.id === sessionAId),
+        b = rows.find((row) => row.id === sessionBId);
+      if (!a || !b)
+        throw new Error('One or both examination papers were not found.');
+      if (a.examId !== b.examId || a.classId !== b.classId)
+        throw new Error(
+          'Only papers in the same examination and class can be swapped.',
+        );
+      const exam = await lockExamSchedule(tx, a.examId);
+      const durationA =
+        a.durationMinutes ??
+        examTimeRange(a.sessionTime).end - examTimeRange(a.sessionTime).start;
+      const durationB =
+        b.durationMinutes ??
+        examTimeRange(b.sessionTime).end - examTimeRange(b.sessionTime).start;
+      if (durationA !== durationB)
+        throw new Error('Papers must have the same duration to swap.');
+      const nextA = {
+        ...a,
+        sessionDate: b.sessionDate,
+        sessionTime: b.sessionTime,
+      };
+      const nextB = {
+        ...b,
+        sessionDate: a.sessionDate,
+        sessionTime: a.sessionTime,
+      };
+      await validatePaperEdits(tx, exam, [nextA, nextB], [a.id, b.id]);
+      await tx
+        .update(examSessions)
+        .set({
+          sessionDate: nextA.sessionDate,
+          sessionTime: nextA.sessionTime,
+          updatedAt: new Date(),
+        })
+        .where(eq(examSessions.id, a.id));
+      await tx
+        .update(examSessions)
+        .set({
+          sessionDate: nextB.sessionDate,
+          sessionTime: nextB.sessionTime,
+          updatedAt: new Date(),
+        })
+        .where(eq(examSessions.id, b.id));
+      return { success: true, message: 'Examination papers swapped.' };
+    });
   }
 
   static async createExamSession(data: {
     examId: string;
+    classId: string;
     subjectId: string;
     sessionDate: string;
     sessionTime: string;
+    durationMinutes?: number;
   }) {
-    // Conflict check: is this exact subject already scheduled on the same date for this exam?
-    const existing = await db
-      .select()
-      .from(examSessions)
-      .where(
-        and(
-          eq(examSessions.examId, data.examId),
-          eq(examSessions.subjectId, data.subjectId),
-          eq(examSessions.sessionDate, data.sessionDate),
-          isNull(examSessions.deletedAt)
-        )
-      );
-
-    if (existing.length > 0) {
-      throw new Error('This subject has already been scheduled for this date in the exam timetable.');
-    }
-
-    const [session] = await db
-      .insert(examSessions)
-      .values({
+    return db.transaction(async (tx) => {
+      const exam = await lockExamSchedule(tx, data.examId);
+      if (!data.classId)
+        throw new Error('A class is required for an examination paper.');
+      const range = examTimeRange(data.sessionTime);
+      const paper = {
+        id: randomUUID(),
         examId: data.examId,
+        classId: data.classId,
         subjectId: data.subjectId,
         sessionDate: data.sessionDate,
         sessionTime: data.sessionTime,
-      })
-      .returning();
-
-    return session;
+        durationMinutes: data.durationMinutes ?? range.end - range.start,
+      };
+      await validatePaperEdits(tx, exam, [paper], []);
+      const [created] = await tx.insert(examSessions).values(paper).returning();
+      return created;
+    });
   }
 
   static async updateExamSession(
     id: string,
-    data: {
-      subjectId?: string;
-      sessionDate?: string;
-      sessionTime?: string;
-    }
+    data: { subjectId?: string; sessionDate?: string; sessionTime?: string },
   ) {
-    const [existing] = await db
-      .select()
-      .from(examSessions)
-      .where(and(eq(examSessions.id, id), isNull(examSessions.deletedAt)));
-
-    if (!existing) {
-      throw new Error('Exam paper session not found');
-    }
-
-    const subjectId = data.subjectId || existing.subjectId;
-    const sessionDate = data.sessionDate || existing.sessionDate;
-    const sessionTime = data.sessionTime || existing.sessionTime;
-
-    // Check conflict if subject or date changed
-    if (subjectId !== existing.subjectId || sessionDate !== existing.sessionDate) {
-      const conflictWhere = [
-        eq(examSessions.examId, existing.examId),
-        eq(examSessions.subjectId, subjectId),
-        eq(examSessions.sessionDate, sessionDate),
-        ne(examSessions.id, id),
-        isNull(examSessions.deletedAt),
-      ];
-      if (existing.classId) {
-        conflictWhere.push(eq(examSessions.classId, existing.classId));
-      }
-
-      const conflict = await db
+    return db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('exam-timetable-edit',0))`,
+      );
+      const [paper] = await tx
         .select()
         .from(examSessions)
-        .where(and(...conflictWhere));
-
-      if (conflict.length > 0) {
-        throw new Error('This subject has already been scheduled for this date in this class examination timetable.');
-      }
-    }
-
-    const [updated] = await db
-      .update(examSessions)
-      .set({
-        subjectId,
-        sessionDate,
-        sessionTime,
-        updatedAt: new Date(),
-      })
-      .where(eq(examSessions.id, id))
-      .returning();
-
-    return updated;
+        .where(and(eq(examSessions.id, id), isNull(examSessions.deletedAt)));
+      if (!paper) throw new Error('Exam paper session not found');
+      const exam = await lockExamSchedule(tx, paper.examId);
+      if (data.subjectId && data.subjectId !== paper.subjectId)
+        throw new Error(
+          'Change the schedule of this paper without changing its learning area.',
+        );
+      const updated = {
+        ...paper,
+        sessionDate: data.sessionDate ?? paper.sessionDate,
+        sessionTime: data.sessionTime ?? paper.sessionTime,
+      };
+      await validatePaperEdits(tx, exam, [updated], [id]);
+      const [result] = await tx
+        .update(examSessions)
+        .set({
+          sessionDate: updated.sessionDate,
+          sessionTime: updated.sessionTime,
+          updatedAt: new Date(),
+        })
+        .where(eq(examSessions.id, id))
+        .returning();
+      return result;
+    });
   }
 
   static async deleteExamSession(id: string) {
-    const [deleted] = await db
-      .update(examSessions)
-      .set({ deletedAt: new Date() })
-      .where(eq(examSessions.id, id))
-      .returning();
-
-    return deleted;
+    return db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('exam-timetable-edit',0))`,
+      );
+      const [paper] = await tx
+        .select()
+        .from(examSessions)
+        .where(and(eq(examSessions.id, id), isNull(examSessions.deletedAt)));
+      if (!paper) throw new Error('Exam paper session not found');
+      await lockExamSchedule(tx, paper.examId);
+      const [deleted] = await tx
+        .update(examSessions)
+        .set({ deletedAt: new Date() })
+        .where(eq(examSessions.id, id))
+        .returning();
+      return deleted;
+    });
   }
 
   static async getExamProgress(examId: string) {
