@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 import { isSubjectTeacherClass } from '@school/shared/types';
 import { ExamMarkingAllocationSlideOver } from './ExamMarkingAllocationSlideOver';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
 export const MarkingAllocationView: React.FC = () => {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [markingList, setMarkingList] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [subjectsList, setSubjectsList] = useState<any[]>([]);
@@ -33,6 +35,7 @@ export const MarkingAllocationView: React.FC = () => {
   const activeClassId = searchParams.get('classId');
 
   const fetchData = async (showLoading = false) => {
+    setLoadError(null);
     try {
       if (showLoading) setLoading(true);
       const [mrkRes, exRes, sbRes, clsRes, stfRes] = await Promise.all([
@@ -50,7 +53,7 @@ export const MarkingAllocationView: React.FC = () => {
       setClassesList(clsRes.data.data || []);
       setTeachersList(Array.isArray(staffData) ? staffData : (staffData?.staff || []));
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load marking allocations');
+      setLoadError(error.response?.data?.message || 'Failed to load marking allocations');
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -285,6 +288,8 @@ export const MarkingAllocationView: React.FC = () => {
       return isSubjectTeacherClass(cls) && exId === activeExamId;
     }).length;
   }, [markingList, activeExamId]);
+
+  if (loadError && !loading) return <RequestError message={loadError} onRetry={() => fetchData(true)} />;
 
   return (
     <PageLoadingWrapper

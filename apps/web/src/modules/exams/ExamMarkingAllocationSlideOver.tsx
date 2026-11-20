@@ -14,7 +14,8 @@ import {
   Star,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { apiClient } from '../../lib/apiClient';
+import { useApiResource } from '../../hooks/useApiResource';
+import { RequestError } from '../../components/RequestError';
 import { SearchableSelect, SearchableSelectOption } from '../../components/SearchableSelect';
 
 interface SubjectItem {
@@ -98,8 +99,11 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
   const [removingAllocationIds, setRemovingAllocationIds] = useState<Record<string, boolean>>({});
 
   // Cache eligible teachers by subject ID
-  const [eligibleTeachersCache, setEligibleTeachersCache] = useState<Record<string, TeacherMeta[]>>({});
-  const [isLoadingBatch, setIsLoadingBatch] = useState(false);
+  const { data: eligibleData, loading: isLoadingBatch, error: eligibleError, refresh: refreshEligible } = useApiResource<{ bySubject: Record<string, TeacherMeta[]> }>(
+    isOpen && classId ? `/api/academic-allocations/marking/eligible-teachers?classId=${classId}` : null,
+    (value: any) => value?.bySubject && typeof value.bySubject === 'object' && !Array.isArray(value.bySubject) && Object.values(value.bySubject).every(Array.isArray)
+  );
+  const eligibleTeachersCache = eligibleData?.bySubject || {};
 
   // Prevent background scroll when open
   useEffect(() => {
@@ -162,91 +166,6 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
   const allocatedCount = classAllocations.length;
   const progressPercent = totalCount > 0 ? Math.round((allocatedCount / totalCount) * 100) : 0;
 
-  // Fetch eligible teachers for subjects when slide-over opens
-  useEffect(() => {
-    if (!isOpen || !classId) {
-      setEligibleTeachersCache({});
-      setIsLoadingBatch(false);
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingBatch(true);
-
-    const loadTeachers = async () => {
-      // Strategy 1: Attempt fast batch class load
-      try {
-        const res = await apiClient.get(
-          `/api/academic-allocations/marking/eligible-teachers?classId=${classId}`
-        );
-        if (!isMounted) return;
-        const resData = res.data?.data;
-        if (resData?.bySubject) {
-          const map: Record<string, TeacherMeta[]> = {};
-          Object.entries(resData.bySubject).forEach(([sId, teachers]: [string, any]) => {
-            map[sId] = (Array.isArray(teachers) ? teachers : []).filter(
-              (t: any) => t.isQualified !== false && t.priority !== 3
-            );
-          });
-          setEligibleTeachersCache(map);
-          setIsLoadingBatch(false);
-          return;
-        }
-      } catch (batchErr) {
-        // Fallback gracefully if batch endpoint is not supported by deployed backend version or returned 400
-        console.warn(
-          'Batch eligible-teachers endpoint returned 400 or is unsupported. Falling back to per-subject fetch:',
-          batchErr
-        );
-      }
-
-      // Strategy 2: Resilient per-subject fetch using subjectId & classId
-      // Guaranteed 200 OK across both older and newer backend versions
-      try {
-        if (!classSubjects.length) {
-          if (isMounted) setIsLoadingBatch(false);
-          return;
-        }
-
-        const results = await Promise.all(
-          classSubjects.map(async (subj) => {
-            try {
-              const res = await apiClient.get(
-                `/api/academic-allocations/marking/eligible-teachers?subjectId=${subj.id}&classId=${classId}`
-              );
-              const list = Array.isArray(res.data?.data) ? res.data.data : [];
-              return {
-                subjectId: subj.id,
-                teachers: list.filter((t: any) => t.isQualified !== false && t.priority !== 3),
-              };
-            } catch (err) {
-              console.error(`Failed to load teachers for subject ${subj.name}:`, err);
-              return { subjectId: subj.id, teachers: [] };
-            }
-          })
-        );
-
-        if (!isMounted) return;
-        const fallbackMap: Record<string, TeacherMeta[]> = {};
-        results.forEach((r) => {
-          fallbackMap[r.subjectId] = r.teachers;
-        });
-        setEligibleTeachersCache(fallbackMap);
-      } finally {
-        if (isMounted) {
-          setIsLoadingBatch(false);
-        }
-      }
-    };
-
-    loadTeachers();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, classId, classSubjects]);
-
-  // Filtered subjects list
   const filteredSubjects = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return classSubjects.filter((subj) => {
@@ -439,6 +358,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
 
             {/* Scrollable Subjects Roster */}
             <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-2.5">
+              {eligibleError && <RequestError message={eligibleError} onRetry={refreshEligible} />}
               {filteredSubjects.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 dark:text-slate-500 text-xs">
                   No subjects found matching your search.
@@ -451,7 +371,7 @@ export const ExamMarkingAllocationSlideOver: React.FC<ExamMarkingAllocationSlide
                   const eligibleList = (eligibleTeachersCache[subj.id] || []).filter(
                     (t) => t.isQualified !== false && t.priority !== 3
                   );
-                  const isLoadingTeachers = isLoadingBatch && !eligibleTeachersCache[subj.id];
+                  const isLoadingTeachers = isLoadingBatch;
                   const isSaving = Boolean(savingSubjectIds[subj.id]);
                   const isRemoving = Boolean(
                     currentAlloc && removingAllocationIds[currentAlloc.allocation.id]
