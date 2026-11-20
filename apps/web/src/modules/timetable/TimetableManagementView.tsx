@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 import { TimetableWizardModal } from './TimetableWizardModal';
 import { TimetablePrintModal } from './TimetablePrintModal';
 import { ConflictModal } from './ConflictModal';
@@ -345,6 +346,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
   // Filters & State
   const [loading, setLoading] = useState<boolean>(true);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [initialAttempt, setInitialAttempt] = useState(0);
+  const [initialError, setInitialError] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const scheduleRequest = useRef<AbortController | null>(null);
   const [academicYear, setAcademicYear] = useState<number>(2026);
   const [term, setTerm] = useState<number>(1);
   const [schoolName, setSchoolName] = useState<string>('Eldoret Muslim Academy');
@@ -400,17 +405,20 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
   // Initial load: Metadata & Allocation Readiness
   useEffect(() => {
+    const controller = new AbortController();
     const init = async () => {
       try {
         setInitialLoading(true);
-        const [settingsRes, classesRes, teachersRes, allocRes, statusRes] = await Promise.all([
-          apiClient.get('/api/settings/public'),
-          apiClient.get('/api/timetable/classes'),
-          apiClient.get('/api/timetable/teachers'),
-          apiClient.get('/api/allocations'),
-          apiClient.get('/api/timetable/status'),
+        setInitialError(null);
+        const [settingsRes, classesRes, teachersRes, configRes, statusRes] = await Promise.all([
+          apiClient.get('/api/settings/public', { signal: controller.signal }),
+          apiClient.get('/api/timetable/classes', { signal: controller.signal }),
+          apiClient.get('/api/timetable/teachers', { signal: controller.signal }),
+          apiClient.get('/api/timetable/config', { signal: controller.signal }),
+          apiClient.get('/api/timetable/status', { signal: controller.signal }),
         ]);
 
+        if (controller.signal.aborted) return;
         if (settingsRes.data?.data) {
           if (settingsRes.data.data.schoolName) setSchoolName(settingsRes.data.data.schoolName);
           if (settingsRes.data.data.logoUrl) setLogoUrl(settingsRes.data.data.logoUrl);
@@ -428,10 +436,12 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           setSelectedClassId(initialClassId);
         }
 
-        const yr = allocRes.data?.data?.academicYear || 2026;
-        if (allocRes.data?.data?.academicYear) {
-          setAcademicYear(yr);
-        }
+        // Resolve the active term from the API instead of silently loading Term 1.
+        const currentConfig = configRes.data?.data;
+        if (!currentConfig?.academicYear || !currentConfig?.term) throw new Error('The active timetable term could not be resolved.');
+        setAcademicYear(currentConfig.academicYear);
+        setTerm(currentConfig.term);
+        setConfig(currentConfig);
 
         const cleanTeachers = teachersRes.data?.data || [];
         setTeachersList(cleanTeachers);
@@ -443,44 +453,17 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           setSelectedTeacherId(initialTeacherId);
         }
 
-        // Optimistically pre-fetch timetable schedule before completing initial load
-        const targetTab = isDeputy ? 'class' : 'teacher';
-        if (targetTab === 'class' && initialClassId) {
-          try {
-            const ttRes = await apiClient.get(
-              `/api/timetable/classes/${initialClassId}?academicYear=${yr}&term=${term}`
-            );
-            if (ttRes.data?.data) {
-              setPeriodsGrid(ttRes.data.data.periodsGrid || {});
-              setSlotsList(ttRes.data.data.slots || []);
-              setConfig(ttRes.data.data.config);
-            }
-          } catch (_) {}
-        } else if (targetTab === 'teacher') {
-          const tId = isDeputy ? initialTeacherId : user?.id;
-          if (tId) {
-            try {
-              const ttRes = await apiClient.get(
-                `/api/timetable/teachers/${tId}?academicYear=${yr}&term=${term}`
-              );
-              if (ttRes.data?.data) {
-                setPeriodsGrid(ttRes.data.data.periodsGrid || {});
-                setSlotsList(ttRes.data.data.slots || []);
-                setConfig(ttRes.data.data.config);
-              }
-            } catch (_) {}
-          }
-        }
       } catch (err: any) {
-        console.error('Error fetching initial timetable metadata', err);
-        toast.error('Failed to initialize timetable view.');
+        if (controller.signal.aborted) return;
+        setInitialError(err.response?.data?.message || 'Failed to initialize timetable view.');
       } finally {
-        setInitialLoading(false);
+        if (!controller.signal.aborted) setInitialLoading(false);
       }
     };
 
     init();
-  }, [user?.id]);
+    return () => controller.abort();
+  }, [user?.id, initialAttempt]);
 
   // Tab change handler
   const handleTabChange = (tab: 'class' | 'teacher') => {
@@ -520,6 +503,11 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
   // Load Timetable Data based on active tab and selected filter
   const fetchTimetableData = async (silent: boolean = false) => {
+    scheduleRequest.current?.abort();
+    const controller = new AbortController();
+    scheduleRequest.current = controller;
+    setScheduleError(null);
+    if (!silent) { setSlotsList([]); setPeriodsGrid({}); }
     try {
       if (!silent) setLoading(true);
 
@@ -529,8 +517,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           return;
         }
         const res = await apiClient.get(
-          `/api/timetable/classes/${selectedClassId}?academicYear=${academicYear}&term=${term}`
+          `/api/timetable/classes/${selectedClassId}?academicYear=${academicYear}&term=${term}`,
+          { signal: controller.signal }
         );
+        if (controller.signal.aborted) return;
         if (res.data?.data) {
           const { periodsGrid, slots, config, academicYear: yr, term: t } = res.data.data;
           setPeriodsGrid(periodsGrid || {});
@@ -546,8 +536,10 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
           return;
         }
         const res = await apiClient.get(
-          `/api/timetable/teachers/${teacherIdToUse}?academicYear=${academicYear}&term=${term}`
+          `/api/timetable/teachers/${teacherIdToUse}?academicYear=${academicYear}&term=${term}`,
+          { signal: controller.signal }
         );
+        if (controller.signal.aborted) return;
         if (res.data?.data) {
           const { periodsGrid, slots, config, academicYear: yr, term: t } = res.data.data;
           setPeriodsGrid(periodsGrid || {});
@@ -558,18 +550,19 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         }
       }
     } catch (err: any) {
-      console.error('Error fetching timetable data:', err);
-      if (!silent) toast.error('Failed to load timetable schedule');
+      if (controller.signal.aborted) return;
+      setScheduleError(err.response?.data?.message || 'Failed to load timetable schedule');
     } finally {
-      if (!silent) setLoading(false);
+      if (!controller.signal.aborted && !silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!initialLoading) {
+    if (!initialLoading && !initialError) {
       fetchTimetableData();
     }
-  }, [activeTab, selectedClassId, selectedTeacherId, academicYear, term, initialLoading]);
+    return () => scheduleRequest.current?.abort();
+  }, [initialError, activeTab, selectedClassId, selectedTeacherId, academicYear, term, initialLoading]);
 
   // Slot click handler for manual swapping by Deputy
   const handleSlotClick = async (slot: any) => {
@@ -735,6 +728,8 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
         teachersList.find((t) => t.id === (isDeputy ? selectedTeacherId : user?.id))?.lastName
       }`
     : 'Teacher Schedule';
+
+  if (initialError && !initialLoading) return <RequestError message={initialError} onRetry={() => setInitialAttempt(value => value + 1)} />;
 
   return (
     <PageLoadingWrapper
@@ -1030,7 +1025,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
       )}
 
       {/* MAIN TIMETABLE VIEW */}
-      {loading ? (
+      {scheduleError ? <RequestError message={scheduleError} onRetry={() => fetchTimetableData()} /> : loading ? (
         <div className="py-24 text-center">
           <div className="w-8 h-8 border-3 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
