@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/performance', CatsController.getPerformance);
 router.get('/teacher-allocations', CatsController.getTeacherAllocations);
 router.get('/class/:classId', CatsController.getClassCatsDetail);
 router.post('/', CatsController.createCat);

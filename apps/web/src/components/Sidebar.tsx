@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   TrendingUp, Users, UserPlus, CalendarCheck, BookOpen, Calculator,
   Settings, FileText, Package, Clock, LogOut,
-  Menu, X, School, ClipboardCheck, Calendar, Layers, Award, BarChart3
+  Activity, Menu, X, School, ClipboardCheck, Calendar, Layers, Award, BarChart3
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { ThemeToggle } from './ThemeToggle';
@@ -171,6 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       isClassTeacherUpperFeature: true,
       roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
+    { path: '/cat-performance', label: 'CAT Performance', icon: Activity, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DOS'] },

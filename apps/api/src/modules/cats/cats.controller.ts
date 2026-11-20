@@ -1,8 +1,31 @@
 import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
+import { z } from 'zod';
+import { CatPerformanceService } from './catPerformance.service.js';
 import { CatsService } from './cats.service.js';
 
 export class CatsController {
+  static async getPerformance(req: Request, res: Response) {
+    try {
+      const filters = z.object({
+        termId: z.uuid().optional(),
+        classId: z.uuid().optional(),
+        subjectId: z.uuid().optional(),
+        catNumber: z.coerce.number().int().positive().max(2147483647).optional(),
+      }).parse(req.query);
+      const data = await CatPerformanceService.getPerformance(req.user!, filters);
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      logServerError('[CatsController] performance', error);
+      return res.status(error.status || (error.name === 'ZodError' ? 400 : 500)).json({
+        success: false,
+        message: error.name === 'ZodError'
+          ? 'Invalid CAT performance filters.'
+          : publicErrorMessage(error, 'Could not load CAT performance.'),
+      });
+    }
+  }
+
   /**
    * GET /api/cats/teacher-allocations
    */

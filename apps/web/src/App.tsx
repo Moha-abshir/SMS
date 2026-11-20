@@ -34,6 +34,7 @@ const ClassExamProgressView = lazy(() => import('./modules/marks/ClassExamProgre
 const SubjectPerformanceView = lazy(() => import('./modules/dos/SubjectPerformanceView').then(module => ({ default: module.SubjectPerformanceView })));
 const SchoolResultsView = lazy(() => import('./modules/dos/SchoolResultsView').then(module => ({ default: module.SchoolResultsView })));
 const ClassPerformanceView = lazy(() => import('./modules/class-performance/ClassPerformanceView').then(module => ({ default: module.ClassPerformanceView })));
+const CatPerformanceView = lazy(() => import('./modules/cats/CatPerformanceView').then(module => ({ default: module.CatPerformanceView })));
 const ExamTimetableView = lazy(() => import('./modules/exams/ExamTimetableView').then(module => ({ default: module.ExamTimetableView })));
 const MarkingAllocationView = lazy(() => import('./modules/exams/MarkingAllocationView').then(module => ({ default: module.MarkingAllocationView })));
 const TimetableManagementView = lazy(() => import('./modules/timetable/TimetableManagementView').then(module => ({ default: module.TimetableManagementView })));
@@ -289,6 +290,15 @@ const AppContent: React.FC = () => {
             element={
               <RoleGuard allowedRoles={['TEACHER', 'DEPUTY_HEAD', 'HEAD_TEACHER', 'DOS']} user={currentUser}>
                 <ClassExamProgressView />
+              </RoleGuard>
+            }
+          />
+
+          <Route
+            path="/cat-performance"
+            element={
+              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+                <CatPerformanceView />
               </RoleGuard>
             }
           />
