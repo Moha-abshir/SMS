@@ -42,6 +42,10 @@ jobs:
       - run: npm run build
         env:
           NODE_ENV: production
+      - name: Install browser for UI regressions
+        run: npx playwright install --with-deps chromium
+      - name: Check navigation and drawer loading
+        run: npm --workspace=@school/web run test:browser
       - name: Initialize disposable test schema
         run: npm --workspace=@school/shared run db:push -- --force
       - run: npm --workspace=@school/api test
