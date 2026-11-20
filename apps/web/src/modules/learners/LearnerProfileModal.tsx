@@ -5,7 +5,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Modal } from '../../components/Modal';
-import { apiClient } from '../../lib/apiClient';
+import { useApiResource } from '../../hooks/useApiResource';
+import { RequestError } from '../../components/RequestError';
 import { isJuniorSecondaryClass } from '@school/shared/types';
 
 interface LearnerProfileModalProps {
@@ -19,26 +20,10 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
   onClose,
   studentId,
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
-
-  useEffect(() => {
-    if (!studentId || !isOpen) return;
-
-    const fetchProfile = async () => {
-      setLoading(true);
-      try {
-        const res = await apiClient.get(`/api/teacher/learners/${studentId}/performance`);
-        setProfile(res.data?.data);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to load learner performance profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [studentId, isOpen]);
+  const { data: profile, loading, error, refresh } = useApiResource<any>(
+    isOpen && studentId ? `/api/teacher/learners/${studentId}/performance` : null,
+    (value: any) => value?.student?.id === studentId && Array.isArray(value?.examHistory)
+  );
 
   if (!isOpen) return null;
 
@@ -47,7 +32,7 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Learner Academic Profile & Performance History">
       <div className="space-y-5">
-        {loading ? (
+        {error ? <RequestError message={error} onRetry={refresh} /> : loading ? (
           <div className="p-16 text-center text-slate-400 text-sm">
             <div className="w-8 h-8 border-3 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
             Loading learner performance history...

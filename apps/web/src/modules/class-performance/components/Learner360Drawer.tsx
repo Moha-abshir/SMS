@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../../lib/apiClient';
+import { useApiResource } from '../../../hooks/useApiResource';
+import { RequestError } from '../../../components/RequestError';
 import { isNationalExamClass } from '@school/shared/types';
 
 export interface Learner360DrawerProps {
@@ -52,8 +54,10 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
   onSelectStudent,
   onRemarkSaved,
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>(null);
+  const { data, loading, error, refresh } = useApiResource<any>(
+    isOpen && classId && studentId ? `/api/examinations/class-workspace/${classId}/learners/${studentId}?${new URLSearchParams(examId ? { examId } : {})}` : null,
+    (value: any) => value?.studentProfile?.id === studentId && Array.isArray(value?.subjectComparison)
+  );
   const [remarkText, setRemarkText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isRequestingUnlock, setIsRequestingUnlock] = useState(false);
@@ -101,32 +105,11 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handlePrev, handleNext, onClose]);
 
-  // Fetch detailed diagnostic profile
-  const fetchDiagnostic = useCallback(async () => {
-    if (!classId || !studentId) return;
-    setLoading(true);
-    try {
-      const res = await apiClient.get(
-        `/api/examinations/class-workspace/${classId}/learners/${studentId}`,
-        { params: { examId } }
-      );
-      if (res.data?.success && res.data?.data) {
-        setData(res.data.data);
-        setRemarkText(res.data.data.reportCardState?.classTeacherRemark || '');
-      }
-    } catch (err: any) {
-      console.warn('Failed to load learner diagnostic:', err);
-      toast.error(err.response?.data?.message || 'Failed to load learner diagnostic profile');
-    } finally {
-      setLoading(false);
-    }
-  }, [classId, studentId, examId]);
-
   useEffect(() => {
-    if (isOpen && studentId) {
-      fetchDiagnostic();
-    }
-  }, [isOpen, studentId, fetchDiagnostic]);
+    setRemarkText(data?.reportCardState?.classTeacherRemark || '');
+    setShowUnlockModal(false);
+    setUnlockReason('');
+  }, [data, studentId]);
 
   const handleSaveRemark = async (advanceToNext: boolean = false) => {
     if (!classId || !studentId) return;
@@ -269,7 +252,7 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
 
         {/* Drawer Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-          {loading && !data ? (
+          {error ? <RequestError message={error} onRetry={refresh} /> : loading ? (
             <div className="space-y-4 animate-pulse">
               <div className="grid grid-cols-3 gap-2.5">
                 {[1, 2, 3].map((i) => (
@@ -298,7 +281,7 @@ export const Learner360Drawer: React.FC<Learner360DrawerProps> = ({
                       Term Attendance
                     </p>
                     <p className="text-xs font-black text-slate-900 dark:text-slate-100 truncate">
-                      {attendance ? `${attendance.attendancePct}% (${attendance.daysAbsent} absent)` : '100% (Regular)'}
+                      {attendance ? `${attendance.attendancePct}% (${attendance.daysAbsent} absent)` : 'Not recorded'}
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, BookOpen, Printer, Search, Sparkles, Layers, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { apiClient } from '../../../lib/apiClient';
+import { useApiResource } from '../../../hooks/useApiResource';
+import { RequestError } from '../../../components/RequestError';
 import { printElement } from '../../../lib/printElement';
 import { PageLoadingProgress } from '../../../components/PageLoadingProgress';
 import { calculateCbcRubric, calculateJuniorPoints } from '@school/shared/types';
@@ -28,34 +29,13 @@ export const SubjectCatDrilldownModal: React.FC<SubjectCatDrilldownModalProps> =
   teacherName,
   isJuniorSecondary,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [classCatsData, setClassCatsData] = useState<{
-    cats: any[];
-    learners: any[];
-    scores: any[];
-  } | null>(null);
+  const { data: classCatsData, loading, error, refresh } = useApiResource<{ cats: any[]; learners: any[]; scores: any[] }>(
+    isOpen && classId ? `/api/cats/class/${classId}` : null
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (isOpen && classId) {
-      const fetchData = async () => {
-        try {
-          setLoading(true);
-          const res = await apiClient.get(`/api/cats/class/${classId}`);
-          setClassCatsData(res.data?.data || null);
-        } catch (err) {
-          console.error('Failed to load class CATs details:', err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchData();
-    } else {
-      setClassCatsData(null);
-      setSearchQuery('');
-    }
-  }, [isOpen, classId]);
+  useEffect(() => { setSearchQuery(''); }, [classId, subjectId, isOpen]);
 
   if (!isOpen) return null;
 
@@ -189,7 +169,7 @@ export const SubjectCatDrilldownModal: React.FC<SubjectCatDrilldownModalProps> =
 
         {/* Table Content */}
         <div className="flex-1 overflow-y-auto" ref={printRef}>
-          {loading ? (
+          {error ? <RequestError message={error} onRetry={refresh} /> : loading ? (
             <div className="p-12 text-center">
               <PageLoadingProgress isLoading={true} />
             </div>

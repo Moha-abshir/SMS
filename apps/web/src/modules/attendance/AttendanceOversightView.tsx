@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 import { Modal } from '../../components/Modal';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
@@ -125,6 +126,9 @@ export const AttendanceOversightView: React.FC = () => {
   // Register inspection / edit modal state
   const [selectedClass, setSelectedClass] = useState<ClassSummary | null>(null);
   const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const registerRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => registerRequest.current?.abort(), []);
   const [registerSaving, setRegisterSaving] = useState(false);
   const [registerRecords, setRegisterRecords] = useState<AttendanceRecord[]>([]);
   const [registerSearch, setRegisterSearch] = useState('');
@@ -227,11 +231,17 @@ export const AttendanceOversightView: React.FC = () => {
   };
 
   const handleOpenRegisterModal = async (cls: ClassSummary) => {
+    registerRequest.current?.abort();
+    const controller = new AbortController();
+    registerRequest.current = controller;
+    setRegisterRecords([]);
+    setRegisterError(null);
     setSelectedClass(cls);
     setRegisterSearch('');
     try {
       setRegisterLoading(true);
-      const res = await apiClient.get(`/api/attendance/classes/${cls.classId}/register?date=${targetDate}`);
+      const res = await apiClient.get(`/api/attendance/classes/${cls.classId}/register?date=${targetDate}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       const rawRecords = res.data.data?.records || res.data.data?.students || [];
       const normalized: AttendanceRecord[] = rawRecords.map((r: any) => ({
         studentId: r.studentId,
@@ -256,9 +266,10 @@ export const AttendanceOversightView: React.FC = () => {
         );
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load class register');
+      if (controller.signal.aborted) return;
+      setRegisterError(error.response?.data?.message || 'Failed to load class register');
     } finally {
-      setRegisterLoading(false);
+      if (!controller.signal.aborted) setRegisterLoading(false);
     }
   };
 
@@ -749,7 +760,7 @@ export const AttendanceOversightView: React.FC = () => {
       {selectedClass && (
         <Modal
           isOpen={!!selectedClass}
-          onClose={() => setSelectedClass(null)}
+          onClose={() => { registerRequest.current?.abort(); setSelectedClass(null); }}
           title={
             selectedClass.isSubmitted
               ? `Register: ${selectedClass.className} (${formatToDdMmYy(targetDate)})`
@@ -830,7 +841,7 @@ export const AttendanceOversightView: React.FC = () => {
             </div>
 
             {/* Roster Table */}
-            {registerLoading ? (
+            {registerError ? <RequestError message={registerError} onRetry={() => selectedClass && handleOpenRegisterModal(selectedClass)} /> : registerLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-6 h-6 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
               </div>
@@ -957,7 +968,7 @@ export const AttendanceOversightView: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveRegister}
-                    disabled={registerSaving}
+                    disabled={registerLoading || Boolean(registerError) || registerSaving}
                     className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {registerSaving && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />}

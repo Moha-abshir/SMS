@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 import { ClassWorkspaceRibbon } from './components/ClassWorkspaceRibbon';
 import { ClassStudentBroadsheet } from './components/ClassStudentBroadsheet';
 import { ClassSubjectAnalysis } from './components/ClassSubjectAnalysis';
@@ -47,9 +48,16 @@ export const ClassPerformanceView: React.FC = () => {
   const [targetNotesInput, setTargetNotesInput] = useState<string>('');
   const [isSavingTarget, setIsSavingTarget] = useState<boolean>(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [resolutionAttempt, setResolutionAttempt] = useState(0);
+  const workspaceRequest = useRef<AbortController | null>(null);
+
   // 1. Initial resolution of user's role and class assignment
   useEffect(() => {
+    const controller = new AbortController();
     const resolveInitialClass = async () => {
+      setLoadError(null);
+      setLoading(true);
       try {
         const storedUser = localStorage.getItem('auth_user') || localStorage.getItem('user');
         let parsedRole = 'TEACHER';
@@ -65,7 +73,8 @@ export const ClassPerformanceView: React.FC = () => {
         }
 
         // Try getting assigned class from teacher workstation
-        const res = await apiClient.get('/api/teacher/workstation');
+        const res = await apiClient.get('/api/teacher/workstation', { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const ws = res.data?.data || res.data;
         if (ws?.classTeacher?.classId) {
           setSelectedClassId(ws.classTeacher.classId);
@@ -79,32 +88,42 @@ export const ClassPerformanceView: React.FC = () => {
           }
           return;
         }
-      } catch (err) {
-        console.warn('Could not resolve initial class assignment:', err);
+      } catch (err: any) {
+        if (controller.signal.aborted) return;
+        setLoadError(err.response?.data?.message || 'Could not load your class assignment.');
+        setLoading(false);
       }
     };
 
     resolveInitialClass();
-  }, [routeClassId, navigate]);
+    return () => controller.abort();
+  }, [routeClassId, navigate, resolutionAttempt]);
 
   // 2. Fetch workspace data
   const fetchWorkspace = useCallback(async (isDeltaOnly: boolean = false) => {
     if (!selectedClassId) return;
+    workspaceRequest.current?.abort();
+    const controller = new AbortController();
+    workspaceRequest.current = controller;
+    setLoadError(null);
 
     if (isDeltaOnly) {
       setDeltaLoading(true);
     } else {
+      setWorkspace(null);
       setLoading(true);
     }
 
     try {
       const res = await apiClient.get(`/api/examinations/class-workspace/${selectedClassId}`, {
+        signal: controller.signal,
         params: {
           examId: selectedExamId || undefined,
           compareExamId: compareExamId || undefined,
         },
       });
 
+      if (controller.signal.aborted) return;
       if (res.data?.success && res.data?.data) {
         setWorkspace(res.data.data);
         if (!selectedExamId && res.data.data.selectedExam?.id) {
@@ -119,11 +138,11 @@ export const ClassPerformanceView: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error('Failed to load class workspace:', err);
-      toast.error(err.response?.data?.message || 'Failed to load class performance workspace');
+      if (controller.signal.aborted) return;
+      setWorkspace(null);
+      setLoadError(err.response?.data?.message || 'Failed to load class performance workspace');
     } finally {
-      setLoading(false);
-      setDeltaLoading(false);
+      if (!controller.signal.aborted) { setLoading(false); setDeltaLoading(false); }
     }
   }, [selectedClassId, selectedExamId, compareExamId]);
 
@@ -131,6 +150,7 @@ export const ClassPerformanceView: React.FC = () => {
     if (selectedClassId) {
       fetchWorkspace();
     }
+    return () => workspaceRequest.current?.abort();
   }, [selectedClassId, selectedExamId, fetchWorkspace]);
 
   // Handle baseline comparison switch
@@ -141,10 +161,7 @@ export const ClassPerformanceView: React.FC = () => {
       n.set('compareExamId', newCompareId);
       return n;
     });
-    // Trigger lightweight fetch
-    setTimeout(() => {
-      fetchWorkspace(true);
-    }, 10);
+    // The request effect runs with the new comparison value.
   };
 
   const handleSelectExam = (newExamId: string) => {
@@ -366,6 +383,8 @@ export const ClassPerformanceView: React.FC = () => {
   const handlePrint = () => {
     window.print();
   };
+
+  if (loadError) return <RequestError message={loadError} onRetry={() => selectedClassId ? fetchWorkspace() : setResolutionAttempt(value => value + 1)} />;
 
   if (loading && !workspace) {
     return <ClassWorkspaceSkeleton />;

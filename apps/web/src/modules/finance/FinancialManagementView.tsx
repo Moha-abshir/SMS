@@ -1,6 +1,6 @@
 import { WorkspaceStats } from '../../components/WorkspaceStats';
 import { WorkspaceHeader } from '../../components/WorkspaceHeader';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 import { Modal } from '../../components/Modal';
 import { printElement } from '../../lib/printElement';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
@@ -257,18 +258,31 @@ export const FinancialManagementView: React.FC = () => {
     }
   };
 
+  const statementRequest = useRef<AbortController | null>(null);
+  const [statementError, setStatementError] = useState<string | null>(null);
+  const [statementStudentId, setStatementStudentId] = useState('');
+  useEffect(() => () => statementRequest.current?.abort(), []);
+
   // Handle Search Student Statement
   const handleSearchStatement = async (studentId: string) => {
+    statementRequest.current?.abort();
+    const controller = new AbortController();
+    statementRequest.current = controller;
+    setStatementStudentId(studentId);
+    setStatementData(null);
+    setStatementError(null);
     try {
       setLoadingStatement(true);
-      const res = await apiClient.get(`/api/finance/students/${studentId}/statement`);
+      const res = await apiClient.get(`/api/finance/students/${studentId}/statement`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       if (res.data.data) {
         setStatementData(res.data.data);
       }
     } catch (error: any) {
-      toast.error('Failed to load student fee statement');
+      if (controller.signal.aborted) return;
+      setStatementError(error.response?.data?.message || 'Failed to load student fee statement');
     } finally {
-      setLoadingStatement(false);
+      if (!controller.signal.aborted) setLoadingStatement(false);
     }
   };
 
@@ -963,7 +977,7 @@ export const FinancialManagementView: React.FC = () => {
             </div>
           </div>
 
-          {loadingStatement ? (
+          {statementError ? <RequestError message={statementError} onRetry={() => handleSearchStatement(statementStudentId)} /> : loadingStatement ? (
             <div className="py-12 text-center text-slate-400">Loading statement...</div>
           ) : statementData ? (
             <div className="workspace-panel space-y-5">

@@ -11,13 +11,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { useApiResource } from '../../hooks/useApiResource';
+import { RequestError } from '../../components/RequestError';
 import { SchoolwideSummaryRibbon, SummaryRibbonData } from './components/SchoolwideSummaryRibbon';
 import { GradePerformanceMatrix, GradeRowData } from './components/GradePerformanceMatrix';
 import { GradeDrilldownDrawer } from './components/GradeDrilldownDrawer';
 
 export const SchoolResultsView: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(true);
-  const [deltaLoading, setDeltaLoading] = useState<boolean>(false);
+
 
   // Exam Selection & Baseline Selection
   const [selectedExamId, setSelectedExamId] = useState<string>('');
@@ -29,16 +30,17 @@ export const SchoolResultsView: React.FC = () => {
   // Drawer state
   const [selectedDrawerClassId, setSelectedDrawerClassId] = useState<string | null>(null);
 
-  // Data state
-  const [availableExams, setAvailableExams] = useState<
-    Array<{ id: string; title: string; termNumber: number; year: number; label: string }>
-  >([]);
-  const [selectedExam, setSelectedExam] = useState<any | null>(null);
-  const [compareExam, setCompareExam] = useState<any | null>(null);
-  const [summaryRibbon, setSummaryRibbon] = useState<SummaryRibbonData | null>(null);
-  const [primaryClasses, setPrimaryClasses] = useState<GradeRowData[]>([]);
-  const [juniorClasses, setJuniorClasses] = useState<GradeRowData[]>([]);
-  const [allGradeRows, setAllGradeRows] = useState<GradeRowData[]>([]);
+  const { data: overview, loading, error, refresh: refreshOverview } = useApiResource<any>(
+    `/api/examinations/schoolwide-overview?${new URLSearchParams({ ...(selectedExamId ? { examId: selectedExamId } : {}), compareExamId })}`
+  );
+  const deltaLoading = loading;
+  const availableExams: Array<{ id: string; label: string }> = overview?.availableExams || [];
+  const selectedExam = overview?.selectedExam;
+  const compareExam = overview?.compareExam;
+  const summaryRibbon: SummaryRibbonData | null = overview?.summaryRibbon || null;
+  const primaryClasses: GradeRowData[] = overview?.primaryClasses || [];
+  const juniorClasses: GradeRowData[] = overview?.juniorClasses || [];
+  const allGradeRows: GradeRowData[] = overview?.allGradeRows || [];
 
   // Current logged in user info (to highlight assigned class and check permissions)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export const SchoolResultsView: React.FC = () => {
   // Fetch logged in user & workstation info once
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem('user');
+      const storedUser = localStorage.getItem('auth_user');
       if (storedUser) {
         const u = JSON.parse(storedUser);
         setCurrentUserId(u.id || null);
@@ -80,69 +82,11 @@ export const SchoolResultsView: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  // Fetch Schoolwide Overview
-  const fetchOverview = async (isDeltaOnly: boolean = false) => {
-    try {
-      if (isDeltaOnly) {
-        setDeltaLoading(true);
-      } else {
-        setLoading(true);
-      }
-
-      const params = new URLSearchParams();
-      if (selectedExamId) params.append('examId', selectedExamId);
-      if (compareExamId) params.append('compareExamId', compareExamId);
-
-      const res = await apiClient.get(`/api/examinations/schoolwide-overview?${params.toString()}`);
-      const payload = res.data?.data;
-
-      if (payload) {
-        setAvailableExams(payload.availableExams || []);
-        setSelectedExam(payload.selectedExam || null);
-        setCompareExam(payload.compareExam || null);
-        setSummaryRibbon(payload.summaryRibbon || null);
-        setPrimaryClasses(payload.primaryClasses || []);
-        setJuniorClasses(payload.juniorClasses || []);
-        setAllGradeRows(payload.allGradeRows || []);
-
-        if (payload.selectedExam && !selectedExamId) {
-          setSelectedExamId(payload.selectedExam.id);
-        }
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch schoolwide overview:', error);
-      toast.error(error.response?.data?.message || 'Failed to load schoolwide performance');
-    } finally {
-      setLoading(false);
-      setDeltaLoading(false);
-    }
-  };
-
-  // Initial fetch and exam change
-  useEffect(() => {
-    fetchOverview(false);
-  }, [selectedExamId]);
-
-  // Handle comparison change
-  const handleCompareChange = (newCompareId: string) => {
-    setCompareExamId(newCompareId);
-  };
-
-  useEffect(() => {
-    if (selectedExamId) {
-      fetchOverview(true);
-    }
-  }, [compareExamId]);
+  const handleCompareChange = (newCompareId: string) => setCompareExamId(newCompareId);
 
   const allGradesList = allGradeRows.map((g) => ({ id: g.classId, name: g.gradeName }));
 
-  const isLeadershipOrDos = [
-    'DOS',
-    'HEAD_TEACHER',
-    'DEPUTY_HEAD_TEACHER',
-    'ADMIN',
-    'DIRECTOR_OF_STUDIES',
-  ].includes(currentUserRole);
+  const isLeadershipOrDos = ['DOS', 'HEAD_TEACHER'].includes(currentUserRole);
 
   const handleTerminateExamPeriod = async () => {
     if (!selectedExam?.id) return;
@@ -154,8 +98,7 @@ export const SchoolResultsView: React.FC = () => {
       if (res.data?.success) {
         toast.success(res.data.message || 'Examination period concluded successfully.');
         setShowTerminateModal(false);
-        setSelectedExam((prev: any) => (prev ? { ...prev, status: 'LOCKED' } : prev));
-        fetchOverview(false);
+        refreshOverview();
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to conclude examination period');
@@ -165,7 +108,8 @@ export const SchoolResultsView: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
+    <div className="min-w-0 max-w-7xl mx-auto space-y-4">
+      {error && <RequestError message={error} onRetry={refreshOverview} />}
       {/* 1. Compact Header & Controls Bar (No extra CTAs) */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Left: Title & Subtitle */}
@@ -207,12 +151,12 @@ export const SchoolResultsView: React.FC = () => {
           )}
 
           {/* Primary Exam Selector */}
-          <div className="relative">
+          <div className="relative min-w-0 max-w-full">
             <label className="sr-only">Select Examination</label>
             <select
-              value={selectedExamId}
+              value={selectedExamId || selectedExam?.id || ''}
               onChange={(e) => setSelectedExamId(e.target.value)}
-              className="appearance-none text-xs font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 py-2 cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+              className="max-w-full appearance-none text-xs font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 py-2 cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
             >
               {availableExams.length === 0 ? (
                 <option value="">No examinations available</option>
@@ -228,12 +172,12 @@ export const SchoolResultsView: React.FC = () => {
           </div>
 
           {/* Comparison Baseline Selector */}
-          <div className="relative">
+          <div className="relative min-w-0 max-w-full">
             <label className="sr-only">Comparison Baseline</label>
             <select
               value={compareExamId}
               onChange={(e) => handleCompareChange(e.target.value)}
-              className="appearance-none text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 py-2 cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
+              className="max-w-full appearance-none text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-lg pl-3 pr-8 py-2 cursor-pointer shadow-xs focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
             >
               <option value="auto">
                 Compare: Auto (Preceding Exam)

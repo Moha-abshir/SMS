@@ -17,7 +17,8 @@ import {
   ArrowLeft,
   CheckCircle2,
 } from 'lucide-react';
-import { apiClient } from '../../../lib/apiClient';
+import { useApiResource } from '../../../hooks/useApiResource';
+import { RequestError } from '../../../components/RequestError';
 import { PrimaryDistribution, JuniorDistribution } from './DistributionMicroBar';
 
 interface GradeHeaderData {
@@ -89,13 +90,12 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
   onSelectGrade,
 }) => {
   const [activeTab, setActiveTab] = useState<'SUBJECTS' | 'BROADSHEET'>('SUBJECTS');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [data, setData] = useState<{
+  const { data, loading, error, refresh } = useApiResource<{
     gradeHeader: GradeHeaderData;
     subjectBreakdown: SubjectBreakdownItem[];
     broadsheet: StudentBroadsheetItem[];
     subjects: Array<{ id: string; name: string; code: string }>;
-  } | null>(null);
+  }>(isOpen && classId ? `/api/examinations/schoolwide-overview/classes/${classId}?${new URLSearchParams({ ...(examId ? { examId } : {}), ...(compareExamId ? { compareExamId } : {}) })}` : null);
 
   // Search & Filter state for broadsheet
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,35 +104,6 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
   // Single-Subject Focused View state
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [subjectFilter, setSubjectFilter] = useState<'ALL' | 'EE' | 'ME' | 'AE' | 'BE'>('ALL');
-
-  useEffect(() => {
-    if (!isOpen || !classId) return;
-
-    let isMounted = true;
-    setLoading(true);
-
-    const params = new URLSearchParams();
-    if (examId) params.append('examId', examId);
-    if (compareExamId) params.append('compareExamId', compareExamId);
-
-    apiClient
-      .get(`/api/examinations/schoolwide-overview/classes/${classId}?${params.toString()}`)
-      .then((res) => {
-        if (isMounted) {
-          setData(res.data.data);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load grade overview', err);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, classId, examId, compareExamId]);
 
   // When class changes, reset selected subject
   useEffect(() => {
@@ -462,8 +433,8 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
             </div>
 
             {/* 3. Drawer Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {loading ? (
+            <div className="flex-1 min-w-0 overflow-y-auto p-3 sm:p-5 space-y-4">
+              {error ? <RequestError message={error} onRetry={refresh} /> : loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="h-12 bg-slate-100 dark:bg-slate-800/60 rounded-xl animate-pulse" />
@@ -472,7 +443,7 @@ export const GradeDrilldownDrawer: React.FC<GradeDrilldownDrawerProps> = ({
               ) : activeTab === 'SUBJECTS' ? (
                 /* TAB 1: Learning Area Breakdown */
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-[#111827] shadow-xs overflow-hidden">
+                  <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-[#111827] shadow-xs overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">

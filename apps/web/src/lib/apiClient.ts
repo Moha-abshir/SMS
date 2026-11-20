@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { sanitizeErrorMessage } from './formatters';
 
 let apiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
@@ -12,11 +12,9 @@ if (!apiUrl && typeof window !== 'undefined' && window.location.hostname !== 'lo
 
 export const apiClient = axios.create({
   baseURL: apiUrl,
-  headers: {
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-  },
+  // A broken connection must settle instead of leaving pages/drawers loading forever.
+  timeout: 30_000,
+  timeoutErrorMessage: 'The server took too long to respond. Please try again.',
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -25,37 +23,25 @@ apiClient.interceptors.request.use((config) => {
     config.headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // Ensure request headers prevent 304 conditional cache validation
-  if (config.headers) {
-    if (typeof config.headers.set === 'function') {
-      config.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-      config.headers.set('Pragma', 'no-cache');
-      config.headers.set('Expires', '0');
-    } else {
-      config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-      config.headers['Pragma'] = 'no-cache';
-      config.headers['Expires'] = '0';
-    }
-    delete config.headers['If-None-Match'];
-    delete config.headers['if-none-match'];
-    delete config.headers['If-Modified-Since'];
-    delete config.headers['if-modified-since'];
-  }
-
-  // For GET requests, append a cache-busting timestamp to guarantee fresh 200 OK responses
-  const method = (config.method || 'get').toLowerCase();
-  if (method === 'get') {
-    config.params = {
-      ...config.params,
-      _t: Date.now(),
-    };
-  }
+  // The API sends Cache-Control: no-store and disables ETags. Keep stable GET
+  // URLs so browsers can reuse CORS preflight permission on later visits.
 
   return config;
 });
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const expectsJson = !response.config.responseType || response.config.responseType === 'json';
+    if (expectsJson && response.config.url?.includes('/api/') && response.status !== 204) {
+      if (!response.data || typeof response.data !== 'object') {
+        throw new AxiosError('The server returned an unexpected response. Please try again.', 'ERR_BAD_RESPONSE', response.config, response.request, response);
+      }
+      if (response.data.success === false) {
+        throw new AxiosError(sanitizeErrorMessage(response.data.message || 'The request could not be completed.'), 'ERR_BAD_RESPONSE', response.config, response.request, response);
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response) {
       if (error.response.status === 401) {
@@ -70,6 +56,7 @@ apiClient.interceptors.response.use(
         if (!isAuthRequest && !isActionAuthorization && !isPublicRequest && !isAuthPage) {
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_user');
+          localStorage.removeItem('teacher_workstation');
           window.location.href = '/login';
         }
       }

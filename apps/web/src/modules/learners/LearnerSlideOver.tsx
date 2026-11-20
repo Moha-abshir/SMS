@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { useApiResource } from '../../hooks/useApiResource';
+import { RequestError } from '../../components/RequestError';
 import { isJuniorSecondaryClass } from '@school/shared/types';
 
 interface LearnerSlideOverProps {
@@ -36,8 +38,10 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
   onPanelChange,
   preloadedLearner,
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
+  const { data: profile, loading, error, refresh } = useApiResource<any>(
+    isOpen && studentId ? `/api/teacher/learners/${studentId}/performance` : null,
+    (value: any) => value?.student?.id === studentId && Array.isArray(value?.examHistory)
+  );
 
   // Outreach / SMS state
   const [templateType, setTemplateType] = useState<
@@ -69,29 +73,12 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Fetch student performance profile when studentId changes
-  useEffect(() => {
-    if (!studentId || !isOpen) return;
-
-    const fetchProfile = async () => {
-      setLoading(true);
-      try {
-        const res = await apiClient.get(`/api/teacher/learners/${studentId}/performance`);
-        setProfile(res.data?.data);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to load learner academic profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [studentId, isOpen]);
+  useEffect(() => { setCustomNote(''); }, [studentId]);
 
   if (!isOpen) return null;
 
   // Resolve learner details (from API profile or preloaded table row)
-  const student = profile?.student || preloadedLearner || null;
+  const student = profile?.student || (preloadedLearner?.studentId === studentId ? preloadedLearner : null);
   const studentName = student?.fullName || 'Learner Profile';
   const className = student?.className || preloadedLearner?.className || 'Class';
   const assessNo = student?.assessmentNumber || preloadedLearner?.assessmentNumber || '—';
@@ -245,6 +232,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
             {/* Scrollable Slide-Over Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {/* TAB 1: ACADEMIC PROFILE */}
+              {error && <RequestError message={error} onRetry={refresh} />}
               {activePanel === 'profile' && (
                 <div className="space-y-4 min-w-0">
                   {loading ? (
