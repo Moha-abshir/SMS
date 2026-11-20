@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
 import { Modal } from '../../components/Modal';
 import { printElement } from '../../lib/printElement';
-import { PageLoadingProgress } from '../../components/PageLoadingProgress';
+import { RequestError } from '../../components/RequestError';
 import {
   calculateCbcRubric,
   calculateJuniorPoints,
@@ -184,7 +184,10 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const cachedKeyRef = useRef<string | null>(null);
+  const sheetRequestRef = useRef<AbortController | null>(null);
+  const activeSheet = useRef('');
+  activeSheet.current = isOpen ? `${examId}_${classId}_${subjectId}` : '';
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Prevent background scroll when slide-over is open
   useEffect(() => {
@@ -200,16 +203,27 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
   // Load entry sheet data when parameters change (isInitial = true only on drawer open/param change)
   const fetchSheet = async (isInitial: boolean = false) => {
-    if (!examId || !classId || !subjectId) return;
+    if (!examId || !classId || !subjectId || activeSheet.current !== `${examId}_${classId}_${subjectId}`) return;
+    sheetRequestRef.current?.abort();
+    const request = new AbortController();
+    sheetRequestRef.current = request;
+    setLoadError(null);
     if (isInitial) {
+      setSheetData(null);
+      setStudentRows([]);
       setLoading(true);
       setReadyToShow(false);
     }
     try {
       const res = await apiClient.get(
-        `/api/mark-submissions/entry-sheet?examId=${examId}&classId=${classId}&subjectId=${subjectId}`
+        `/api/mark-submissions/entry-sheet?examId=${examId}&classId=${classId}&subjectId=${subjectId}`,
+        { signal: request.signal }
       );
+      if (request.signal.aborted) return;
       const data = res.data?.data as MarksheetData;
+      if (!data || !Array.isArray(data.scores) || data.class?.id !== classId || data.subject?.id !== subjectId || data.examination?.id !== examId) {
+        throw new Error('The server returned an unexpected marksheet. Please retry.');
+      }
 
       const isJuniorExam =
         data?.isJunior !== undefined
@@ -284,41 +298,27 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
         setStudentRows(data.scores || []);
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to load marksheet details');
+      if (request.signal.aborted) return;
+      setLoadError(err.response?.data?.message || err.message || 'Failed to load marksheet details');
       if (isInitial) {
         setSheetData(null);
         setStudentRows([]);
       }
     } finally {
-      if (isInitial) {
+      if (!request.signal.aborted) {
         setLoading(false);
+        setReadyToShow(true);
       }
     }
   };
 
   useEffect(() => {
     if (isOpen && examId && classId && subjectId) {
-      const currentKey = `${examId}_${classId}_${subjectId}`;
-      const isSameSheet =
-        cachedKeyRef.current === currentKey &&
-        sheetData !== null &&
-        studentRows.length > 0;
-
-      if (isSameSheet) {
-        // Teacher reopened the exact same sheet (e.g. after accidental backdrop click)
-        // Zero reloading delay: keep readyToShow true so it renders immediately with 0ms delay!
-        setReadyToShow(true);
-      } else {
-        // Different sheet or first time opening:
-        cachedKeyRef.current = currentKey;
-        setReadyToShow(false);
-        fetchSheet(true);
-      }
-    } else if (!isOpen) {
-      // When closed, reset the search filter so all rows are visible next time
+      fetchSheet(true);
+    } else {
       setSearchQuery('');
-      // Do NOT reset readyToShow or cachedKeyRef so that reopening the same marksheet is instant!
     }
+    return () => sheetRequestRef.current?.abort();
   }, [isOpen, examId, classId, subjectId]);
 
   const isJunior =
@@ -700,7 +700,9 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
             {/* Scrollable drawer body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-              {!readyToShow ? (
+              {loadError ? (
+                <RequestError message={loadError} onRetry={() => fetchSheet(true)} />
+              ) : !readyToShow ? (
                 /* Structured Table Skeleton instead of generic loading box */
                 <div className="space-y-3">
                   <div className="workspace-table-scroll rounded-xl border border-sky-100 dark:border-[#162b4d] shadow-xs" role="region" aria-label="Loading learner marks" tabIndex={0}>
@@ -1056,7 +1058,7 @@ export const MarksheetEntrySlideOver: React.FC<MarksheetEntrySlideOverProps> = (
 
             {/* Sticky Bottom Actions Bar */}
             <div className="p-4 bg-white/95 dark:bg-[#081020]/95 backdrop-blur-md border-t border-sky-100 dark:border-[#112038] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-              {!readyToShow ? (
+              {!readyToShow || Boolean(loadError) ? (
                 <div className="flex items-center justify-end w-full">
                   <button
                     type="button"

@@ -542,7 +542,7 @@ export const MarksheetEntryView: React.FC = () => {
         {assessmentMode === 'cat' && (
           <div className="space-y-3">
             {/* CAT Header with Search */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-indigo-500" />
@@ -742,6 +742,7 @@ export const MarksheetEntryView: React.FC = () => {
 
         {/* Summative Slide-over Sheet Drawer */}
         <MarksheetEntrySlideOver
+          key={`${activeExamIdParam}_${activeClassIdParam}_${activeSubjectIdParam}`}
           isOpen={isSlideOverOpen}
           onClose={handleCloseSlideOver}
           examId={activeExamIdParam}
@@ -767,6 +768,7 @@ export const MarksheetEntryView: React.FC = () => {
 
         {/* CAT Marksheet Slide-over */}
         <CatMarksheetSlideOver
+          key={selectedCatId || 'closed-cat'}
           isOpen={selectedCatId !== null}
           onClose={() => setSelectedCatId(null)}
           catId={selectedCatId}

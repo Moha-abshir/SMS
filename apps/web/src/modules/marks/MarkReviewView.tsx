@@ -1,5 +1,5 @@
 import { WorkspaceHeader } from '../../components/WorkspaceHeader';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ClipboardCheck,
@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { useApiResource } from '../../hooks/useApiResource';
+import { RequestError } from '../../components/RequestError';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { isJuniorSecondaryClass, isSelfContainedClass } from '@school/shared/types';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
@@ -113,18 +115,31 @@ export const MarkReviewView: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassOverviewItem | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
-  const [subjectScoresLoading, setSubjectScoresLoading] = useState(false);
-  const [subjectScoresData, setSubjectScoresData] = useState<any | null>(null);
+  const submissionId = selectedClass?.papers.find(paper => paper.subjectId === selectedSubjectId)?.submissionId;
+  const { data: subjectScoresData, loading: subjectScoresLoading, error: scoresError, refresh: refreshScores } = useApiResource<any>(
+    drawerOpen && submissionId ? `/api/mark-submissions/${submissionId}/scores` : null
+  );
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
+
+  const overviewRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => overviewRequest.current?.abort(), []);
 
   // 1. Fetch Class Overview Data
   const fetchOverview = async (examId?: string) => {
+    overviewRequest.current?.abort();
+    const controller = new AbortController();
+    overviewRequest.current = controller;
+    setClassesOverview([]);
+    setDrawerOpen(false);
+    setSelectedClass(null);
     try {
       setLoading(true);
       const targetExamId = examId || selectedExamId;
       const res = await apiClient.get('/api/mark-submissions/classes-overview', {
+        signal: controller.signal,
         params: targetExamId ? { examId: targetExamId } : {},
       });
+      if (controller.signal.aborted) return;
       const data: ClassOverviewItem[] = res.data.data || [];
       setClassesOverview(data);
 
@@ -136,9 +151,10 @@ export const MarkReviewView: React.FC = () => {
         }
       }
     } catch (error: any) {
+      if (controller.signal.aborted) return;
       toast.error(error.response?.data?.message || 'Failed to load class review overview');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
 
@@ -191,14 +207,8 @@ export const MarkReviewView: React.FC = () => {
     const paperWithSubmission = item.papers.find((p) => p.submissionId) || item.papers[0];
     if (paperWithSubmission) {
       setSelectedSubjectId(paperWithSubmission.subjectId);
-      if (paperWithSubmission.submissionId) {
-        fetchSubjectScores(paperWithSubmission.submissionId);
-      } else {
-        setSubjectScoresData(null);
-      }
     } else {
       setSelectedSubjectId('');
-      setSubjectScoresData(null);
     }
   };
 
@@ -206,35 +216,12 @@ export const MarkReviewView: React.FC = () => {
     setDrawerOpen(false);
     setSelectedClass(null);
     setSelectedSubjectId('');
-    setSubjectScoresData(null);
     setStudentSearchQuery('');
-  };
-
-  // 4. Fetch Scores for Selected Subject in Drawer
-  const fetchSubjectScores = async (submissionId: string) => {
-    setSubjectScoresLoading(true);
-    try {
-      const res = await apiClient.get(`/api/mark-submissions/${submissionId}/scores`);
-      setSubjectScoresData(res.data.data || null);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to load scores for this subject marksheet');
-      setSubjectScoresData(null);
-    } finally {
-      setSubjectScoresLoading(false);
-    }
   };
 
   const handleSelectSubject = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
     setStudentSearchQuery('');
-    if (!selectedClass) return;
-
-    const paper = selectedClass.papers.find((p) => p.subjectId === subjectId);
-    if (paper?.submissionId) {
-      fetchSubjectScores(paper.submissionId);
-    } else {
-      setSubjectScoresData(null);
-    }
   };
 
   // Summary Metrics strictly for 2 states: Received (locked) vs Awaiting CT
@@ -678,7 +665,7 @@ export const MarkReviewView: React.FC = () => {
                   </div>
 
                   {/* Scores Table */}
-                  {subjectScoresLoading ? (
+                  {scoresError ? <RequestError message={scoresError} onRetry={refreshScores} /> : subjectScoresLoading ? (
                     <div className="py-16 text-center space-y-2">
                       <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto" />
                       <p className="text-xs text-slate-400">Loading student scores...</p>

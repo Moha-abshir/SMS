@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 import { printElement } from '../../lib/printElement';
 import { PageLoadingProgress } from '../../components/PageLoadingProgress';
 import { calculateCbcRubric, calculateJuniorPoints } from '@school/shared/types';
@@ -85,14 +86,28 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
   >({});
   const [isDirty, setIsDirty] = useState(false);
 
+  const requestRef = useRef<AbortController | null>(null);
+  const activeCat = useRef<string | null>(null);
+  activeCat.current = isOpen ? catId : null;
+  const [loadError, setLoadError] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchMarksheet = async (id: string) => {
+    if (activeCat.current !== id) return;
+    requestRef.current?.abort();
+    const request = new AbortController();
+    requestRef.current = request;
+    setLoadError(null);
+    setData(null);
+    setScoresState({});
+    setIsDirty(false);
     try {
       setLoading(true);
-      const res = await apiClient.get(`/api/cats/${id}/marksheet`);
+      const res = await apiClient.get(`/api/cats/${id}/marksheet`, { signal: request.signal });
       const payload: CatMarksheetData = res.data?.data || res.data;
+      if (request.signal.aborted) return;
+      if (payload?.cat?.id !== id || !Array.isArray(payload?.learners)) throw new Error('The server returned an unexpected CAT marksheet.');
       setData(payload);
 
       // Populate local input state
@@ -109,10 +124,10 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
       setScoresState(initialMap);
       setIsDirty(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to load CAT marksheet');
-      onClose();
+      if (request.signal.aborted) return;
+      setLoadError(err.response?.data?.message || err.message || 'Failed to load CAT marksheet');
     } finally {
-      setLoading(false);
+      if (!request.signal.aborted) setLoading(false);
     }
   };
 
@@ -125,6 +140,7 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
       setIsDirty(false);
       setShowDeleteConfirm(false);
     }
+    return () => requestRef.current?.abort();
   }, [isOpen, catId]);
 
   // Handle score change
@@ -403,7 +419,7 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
 
         {/* Learner Scores Table Body */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4" ref={printRef}>
-          {loading ? (
+          {loadError ? <RequestError message={loadError} onRetry={() => catId && fetchMarksheet(catId)} /> : loading ? (
             <div className="p-12 text-center">
               <PageLoadingProgress isLoading={true} />
             </div>
@@ -560,7 +576,7 @@ export const CatMarksheetSlideOver: React.FC<CatMarksheetSlideOverProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || loading || !data || Boolean(loadError)}
               className="flex items-center gap-2 px-5 py-2 text-xs font-bold bg-sky-500 hover:bg-sky-600 text-white rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving ? (
