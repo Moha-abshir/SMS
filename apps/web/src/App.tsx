@@ -173,7 +173,7 @@ const AppContent: React.FC = () => {
           <Route
             path="/fee-structures"
             element={
-              <RoleGuard allowedRoles={['HEAD_TEACHER']} user={currentUser}>
+              <RoleGuard allowedRoles={['HEAD_TEACHER', 'BURSAR']} user={currentUser}>
                 <FeeStructureView />
               </RoleGuard>
             }

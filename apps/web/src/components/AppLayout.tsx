@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary';
+import { RouteLoading } from './RouteLoading';
 import { Sidebar } from './Sidebar';
 
 interface AppLayoutProps {
@@ -19,18 +20,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ user, onLogout }) => {
       {/* Main Routed Content Area */}
       <main className="flex-1 flex flex-col min-w-0 lg:overflow-y-auto lg:h-full">
         <div className="flex-1 min-w-0 p-3 sm:p-4 lg:p-5 max-w-7xl w-full mx-auto space-y-4">
-          <AnimatePresence mode="wait">
-            <motion.div
-              className="min-w-0"
-              key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
+          <WorkspaceErrorBoundary key={location.pathname}>
+            <Suspense fallback={<RouteLoading />}>
               <Outlet />
-            </motion.div>
-          </AnimatePresence>
+            </Suspense>
+          </WorkspaceErrorBoundary>
         </div>
       </main>
     </div>
