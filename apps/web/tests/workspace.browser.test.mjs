@@ -10,7 +10,18 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const origin = 'http://127.0.0.1:4174';
 let server;
 let browser;
-const exam = { id: 'exam-1', title: 'Term examination', status: 'APPROVED' };
+const exam = {
+  id: 'exam-1',
+  title: 'Term examination',
+  status: 'APPROVED',
+  startDate: '2026-11-23',
+  endDate: '2026-11-27',
+  scheduleConfig: {
+    dailyStartTime: '08:00',
+    dailyEndTime: '16:00',
+    breaks: [{ name: 'Tea', startTime: '10:30', endTime: '11:00' }],
+  },
+};
 const cls = {
   id: 'class-1',
   name: 'Grade 7',
@@ -362,6 +373,415 @@ test('the CAT search and create controls fit a tablet viewport', async () => {
         () => document.documentElement.scrollWidth <= innerWidth + 1,
       ),
     );
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Friday paper can move to the morning only after an explicit valid time choice', async () => {
+  const { context, page } = await workspace('DOS');
+  let paper = {
+    session: {
+      id: 'paper-1',
+      examId: exam.id,
+      classId: cls.id,
+      sessionDate: '2026-11-27',
+      sessionTime: '14:30 - 15:15',
+      durationMinutes: 45,
+    },
+    subject: { id: 'subject-1', name: 'Mathematics', code: 'MATH' },
+  };
+  const writes = [];
+  try {
+    await page.route('**/api/exams/*/sessions?*', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [paper] }),
+      }),
+    );
+    await page.route('**/api/exams/sessions/paper-1', (route) => {
+      const body = route.request().postDataJSON();
+      writes.push(body);
+      paper = { ...paper, session: { ...paper.session, ...body } };
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: paper.session }),
+      });
+    });
+    await page.goto(origin + '/exams');
+    await page
+      .getByRole('button', { name: 'Change date / time', exact: true })
+      .click();
+    await page.getByLabel('Paper start time', { exact: true }).fill('10:15');
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Save date & time', exact: true })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(writes.length, 0);
+    await page.getByLabel('Paper start time', { exact: true }).fill('08:00');
+    assert.equal(writes.length, 0);
+    await page
+      .getByRole('button', { name: 'Save date & time', exact: true })
+      .click();
+    await page.getByText('08:00 - 08:45', { exact: true }).waitFor();
+    assert.deepEqual(writes, [
+      { sessionDate: '2026-11-27', sessionTime: '08:00 - 08:45' },
+    ]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('concluded examinations have no reactivation or publishing controls', async () => {
+  const { context, page } = await workspace('DOS');
+  try {
+    await page.route('**/api/exams', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [{ exam: { ...exam, status: 'LOCKED' }, term }],
+        }),
+      }),
+    );
+    await page.goto(origin + '/exams');
+    await page.getByText('Examination concluded', { exact: true }).waitFor();
+    assert.equal(
+      await page
+        .getByRole('button', { name: /Reactivate|Return to draft|^Publish$/i })
+        .count(),
+      0,
+    );
+    await page
+      .getByRole('button', { name: 'New examination', exact: true })
+      .waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+function catReport() {
+  const classId = 'grade-3',
+    common = {
+      classId,
+      className: 'Grade 3',
+      subjectId: 'math',
+      subjectName: 'Mathematics',
+      subjectCode: 'MATH',
+      enrolled: 3,
+    };
+  const a = {
+    ...common,
+    id: 'cat-1',
+    catNumber: 1,
+    maxMarks: 50,
+    mean: 25,
+    scored: 2,
+    missing: 1,
+    needsSupport: 1,
+    lowest: 0,
+    highest: 50,
+  };
+  const b = {
+    ...common,
+    id: 'cat-2',
+    catNumber: 2,
+    maxMarks: 100,
+    mean: 70,
+    scored: 2,
+    missing: 1,
+    needsSupport: 1,
+    lowest: 40,
+    highest: 100,
+  };
+  const c = {
+    ...common,
+    id: 'cat-3',
+    subjectId: 'science',
+    subjectName: 'Science',
+    catNumber: 1,
+    maxMarks: 100,
+    mean: 80,
+    scored: 1,
+    missing: 2,
+    needsSupport: 0,
+    lowest: 80,
+    highest: 80,
+  };
+  return {
+    terms: [{ id: 'term-1', year: 2026, termNumber: 3, isCurrent: true }],
+    selectedTerm: { id: 'term-1' },
+    filters: {
+      classes: [{ id: classId, name: 'Grade 3' }],
+      subjects: [
+        { id: 'math', name: 'Mathematics', code: 'MATH' },
+        { id: 'science', name: 'Science', code: 'SCI' },
+      ],
+      catNumbers: [1, 2],
+    },
+    summary: {
+      enrolled: 3,
+      assessments: 3,
+      scored: 5,
+      expected: 9,
+      mean: 54,
+      learnersAssessed: 2,
+      needsSupport: 1,
+      invalidScoreCount: 0,
+    },
+    grades: [
+      {
+        id: classId,
+        name: 'Grade 3',
+        mean: 54,
+        assessments: 3,
+        enrolled: 3,
+        scored: 5,
+        expected: 9,
+        needsSupport: 1,
+      },
+    ],
+    subjects: [
+      {
+        ...common,
+        subjectId: 'science',
+        subjectName: 'Science',
+        mean: 80,
+        scored: 1,
+        missing: 2,
+        needsSupport: 0,
+        assessments: 1,
+      },
+      {
+        ...common,
+        mean: 47.5,
+        scored: 4,
+        missing: 2,
+        needsSupport: 1,
+        assessments: 2,
+      },
+    ],
+    assessments: [a, b, c],
+    supportLearners: [
+      {
+        studentId: 'learner-1',
+        fullName: 'Aisha Review',
+        classId,
+        className: 'Grade 3',
+        admissionNumber: 'A1',
+        mean: 20,
+        concerns: [
+          {
+            catId: 'cat-1',
+            subjectName: 'Mathematics',
+            catNumber: 1,
+            percentage: 0,
+          },
+          {
+            catId: 'cat-2',
+            subjectName: 'Mathematics',
+            catNumber: 2,
+            percentage: 40,
+          },
+        ],
+      },
+    ],
+  };
+}
+for (const width of [390, 768, 1366])
+  test(`CAT analysis and learner results fit ${width}px and keep zero separate from missing`, async () => {
+    const { context, page } = await workspace('DOS', width);
+    const report = catReport();
+    try {
+      await page.route('**/api/cats/performance?*', (route) =>
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: report }),
+        }),
+      );
+      await page.route('**/api/cats/cat-1/marksheet*', (route) =>
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              cat: { id: 'cat-1', maxMarks: 50 },
+              learners: [
+                {
+                  studentId: 'learner-1',
+                  fullName: 'Aisha Review',
+                  marksObtained: 0,
+                  percentage: 0,
+                  rubric: 'BE',
+                },
+                {
+                  studentId: 'learner-2',
+                  fullName: 'Bilal Review',
+                  marksObtained: 25,
+                  percentage: 50,
+                  rubric: 'ME',
+                },
+                {
+                  studentId: 'learner-3',
+                  fullName: 'Caroline Review',
+                  marksObtained: null,
+                  percentage: null,
+                  rubric: null,
+                },
+              ],
+            },
+          }),
+        }),
+      );
+      await page.goto(origin + '/cat-performance');
+      await page
+        .getByRole('heading', { name: 'CAT Performance', exact: true })
+        .waitFor();
+      await page
+        .getByRole('button', { name: 'View learners', exact: true })
+        .first()
+        .click();
+      await page.getByText('0 / 50', { exact: true }).waitFor();
+      await page
+        .getByLabel('Filter CAT learner results', { exact: true })
+        .selectOption('MISSING');
+      await page.getByText('Caroline Review', { exact: true }).waitFor();
+      assert.equal(
+        await page.getByText('Aisha Review', { exact: true }).count(),
+        0,
+      );
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      );
+      await page
+        .getByRole('button', { name: 'Close dialog', exact: true })
+        .click();
+      await page
+        .getByRole('tab', { name: 'Needs support (1)', exact: true })
+        .click();
+      await page
+        .getByRole('heading', { name: 'Aisha Review', exact: true })
+        .waitFor();
+      await page
+        .getByRole('tab', { name: 'Subject comparison (2)', exact: true })
+        .click();
+      await page.getByText('47.5%', { exact: true }).waitFor();
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      );
+    } finally {
+      await context.close();
+    }
+  });
+
+test('CAT performance failures have a retry instead of fabricated empty results', async () => {
+  const { context, page } = await workspace('DOS');
+  const pattern = '**/api/cats/performance?*';
+  try {
+    await page.route(pattern, (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          message: 'Temporary CAT outage',
+        }),
+      }),
+    );
+    await page.goto(origin + '/cat-performance');
+    await page
+      .getByRole('button', { name: 'Try again', exact: true })
+      .waitFor();
+    await page.unroute(pattern);
+    await page.route(pattern, (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: catReport() }),
+      }),
+    );
+    await page.getByRole('button', { name: 'Try again', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'View learners', exact: true })
+      .first()
+      .waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test('older timetables require confirmed hours and breaks before a paper is edited', async () => {
+  const { context, page } = await workspace('DOS');
+  let stored = { ...exam, scheduleConfig: null };
+  const writes = [];
+  try {
+    await page.route('**/api/exams', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: [{ exam: stored, term }] }),
+      }),
+    );
+    await page.route('**/api/exams/exam-1', (route) => {
+      const body = route.request().postDataJSON();
+      writes.push(body);
+      stored = { ...stored, ...body };
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data: stored }),
+      });
+    });
+    await page.route('**/api/exams/*/sessions?*', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              session: {
+                id: 'paper-old',
+                examId: exam.id,
+                classId: cls.id,
+                sessionDate: '2026-11-27',
+                sessionTime: '14:30 - 15:15',
+                durationMinutes: 45,
+              },
+              subject: { name: 'Mathematics' },
+            },
+          ],
+        }),
+      }),
+    );
+    await page.goto(origin + '/exams');
+    await page
+      .getByRole('button', { name: 'Change date / time', exact: true })
+      .click();
+    await page
+      .getByRole('heading', { name: 'Examination hours & breaks', exact: true })
+      .waitFor();
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Save examination hours', exact: true })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(writes.length, 0);
+    await page.getByRole('checkbox').check();
+    await page
+      .getByRole('button', { name: 'Save examination hours', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Change date / time', exact: true })
+      .waitFor();
+    await page
+      .getByRole('button', { name: 'Change date / time', exact: true })
+      .click();
+    await page.getByLabel('Paper start time', { exact: true }).waitFor();
+    assert.equal(writes.length, 1);
   } finally {
     await context.close();
   }
