@@ -1,684 +1,513 @@
-import { WorkspaceHeader } from '../../components/WorkspaceHeader';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Layers, CheckCircle2, AlertCircle, Clock, Send, Users,
-  BookOpen, Search, Eye, AlertTriangle, ShieldCheck, CheckCheck, RefreshCw, Calendar, Phone, Lock
+  Layers,
+  BookOpen,
+  Search,
+  Eye,
+  Send,
+  RefreshCw,
+  Lock,
+  Phone,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
-import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
-import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
+import { useApiResource } from '../../hooks/useApiResource';
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
+import { RequestError } from '../../components/RequestError';
 import { Modal } from '../../components/Modal';
-import { isSelfContainedClass, isJuniorSecondaryClass } from '@school/shared/types';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
+import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
+import { isSelfContainedClass } from '@school/shared/types';
 
-interface SubjectPaperProgress {
+interface Teacher {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phoneNumber?: string | null;
+}
+interface Paper {
   subjectId: string;
   subjectName: string;
   subjectCode?: string;
-  submissionId?: string | null;
-  status: 'NOT_STARTED' | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'CORRECTION_REQUESTED' | 'APPROVED' | 'LOCKED';
-  submittedBy?: {
-    id?: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber?: string | null;
-  } | null;
-  allocatedTeacher?: {
-    id?: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber?: string | null;
-  } | null;
-  submittedAt?: string | null;
-  reviewedAt?: string | null;
+  status: string;
+  submittedBy?: Teacher | null;
+  allocatedTeacher?: Teacher | null;
   correctionReason?: string | null;
 }
+const statuses: Record<string, { label: string; style: string }> = {
+  NOT_STARTED: {
+    label: 'Not started',
+    style: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  },
+  DRAFT: {
+    label: 'In progress',
+    style:
+      'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  },
+  SUBMITTED: {
+    label: 'Submitted',
+    style: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+  },
+  UNDER_REVIEW: {
+    label: 'Under review',
+    style:
+      'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+  },
+  CORRECTION_REQUESTED: {
+    label: 'Unlock requested',
+    style:
+      'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  },
+  APPROVED: {
+    label: 'Approved',
+    style:
+      'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  },
+  LOCKED: {
+    label: 'Locked',
+    style:
+      'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  },
+};
+const submittedStatuses = new Set([
+  'SUBMITTED',
+  'UNDER_REVIEW',
+  'APPROVED',
+  'LOCKED',
+]);
 
 export const ClassExamProgressView: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [workstation, setWorkstation] = useState<any>(null);
-  const [exams, setExams] = useState<any[]>([]);
-  const [selectedExamId, setSelectedExamId] = useState<string>('');
-  const [classOverview, setClassOverview] = useState<any>(null);
-  const [submittingToDeputy, setSubmittingToDeputy] = useState(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Search parameters for inspecting mark sheet in slide-over
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeExamIdParam = searchParams.get('examId');
-  const activeClassIdParam = searchParams.get('classId');
-  const activeSubjectIdParam = searchParams.get('subjectId');
-  const isSlideOverOpen = Boolean(activeExamIdParam && activeClassIdParam && activeSubjectIdParam);
-
-  const fetchClassProgress = async (examIdToUse?: string) => {
-    const targetExamId = examIdToUse || selectedExamId;
-    const classId = workstation?.classTeacher?.classId;
-    if (!targetExamId || !classId) return;
-    try {
-      const res = await apiClient.get('/api/mark-submissions/classes-overview', {
-        params: { examId: targetExamId },
-      });
-      const data: any[] = res.data?.data || [];
-      const myClass = data.find((c) => c.class.id === classId);
-      setClassOverview(myClass || null);
-    } catch (err: any) {
-      console.warn('[ClassExamProgress] Failed to fetch classes overview:', err);
-    }
-  };
-
-  const handleSelectExam = async (examId: string) => {
-    setSelectedExamId(examId);
-    await fetchClassProgress(examId);
-  };
-
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      const [wsRes, examsRes] = await Promise.all([
-        apiClient.get('/api/teacher/workstation').catch(() => ({ data: { data: null } })),
-        apiClient.get('/api/exams').catch(() => ({ data: { data: [] } })),
-      ]);
-
-      const ws = wsRes?.data?.data || wsRes?.data || null;
-      const rawExams = Array.isArray(examsRes?.data?.data)
-        ? examsRes.data.data
-        : Array.isArray(examsRes?.data)
-        ? examsRes.data
-        : [];
-
-      const normalizedExams = rawExams.map((e: any) => {
-        const examObj = e.exam || e;
-        const termObj = typeof e.term === 'object' && e.term !== null ? e.term : null;
-        const termNum = termObj?.termNumber ?? (typeof e.term === 'number' ? e.term : (examObj?.termNumber ?? examObj?.term ?? 1));
-        const acadYear = termObj?.year ?? examObj?.academicYear ?? e.academicYear ?? 2026;
-        return {
-          id: examObj?.id || e.id,
-          title: examObj?.title || e.title || examObj?.name || 'Examination',
-          academicYear: typeof acadYear === 'object' ? 2026 : Number(acadYear) || 2026,
-          term: typeof termNum === 'object' ? 1 : Number(termNum) || 1,
-          status: examObj?.status || e.status || 'ACTIVE',
-        };
-      });
-
-      setWorkstation(ws);
-      setExams(normalizedExams);
-
-      let initialExamId = '';
-      if (normalizedExams.length > 0) {
-        const active = normalizedExams.find((ex: any) => ex.status === 'APPROVED' || ex.status === 'ACTIVE');
-        initialExamId = active ? active.id : normalizedExams[0].id;
-        setSelectedExamId(initialExamId);
-      }
-
-      // Optimistic & complete loading: Fetch class overview data RIGHT HERE before completing loading
-      if (initialExamId && ws?.classTeacher?.classId) {
-        try {
-          const overviewRes = await apiClient.get('/api/mark-submissions/classes-overview', {
-            params: { examId: initialExamId },
-          });
-          const overviewList: any[] = overviewRes.data?.data || [];
-          const myClass = overviewList.find((c) => c.class.id === ws.classTeacher.classId);
-          setClassOverview(myClass || null);
-        } catch (err: any) {
-          console.warn('[ClassExamProgress] Failed to fetch classes overview in initial load:', err);
-        }
-      }
-    } catch (err: any) {
-      toast.error('Failed to load initial class progress data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  const activeExam = exams.find((e) => e.id === selectedExamId);
-  const assignedClass = workstation?.classTeacher || null;
-  const isLowerOrPP = assignedClass ? isSelfContainedClass(assignedClass) : false;
-
-  const papers: SubjectPaperProgress[] = classOverview?.papers || [];
-
-  // Filter papers by search
-  const filteredPapers = useMemo(() => {
-    if (!searchQuery.trim()) return papers;
-    const q = searchQuery.toLowerCase();
-    return papers.filter(
-      (p) =>
-        p.subjectName.toLowerCase().includes(q) ||
-        (p.subjectCode && p.subjectCode.toLowerCase().includes(q)) ||
-        (p.submittedBy && `${p.submittedBy.firstName} ${p.submittedBy.lastName}`.toLowerCase().includes(q))
+  const [selection, setSelection] = useState(searchParams.get('examId') || '');
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('ALL');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const ws = useApiResource<any>('/api/teacher/workstation');
+  const examResource = useApiResource<any[]>('/api/exams', Array.isArray);
+  const assignedClass = ws.data?.classTeacher;
+  const exams = useMemo(
+    () =>
+      (Array.isArray(examResource.data) ? examResource.data : []).map(
+        (row) => ({ ...row.exam, term: row.term }),
+      ),
+    [examResource.data],
+  );
+  const activeExam =
+    exams.find((exam) => exam.id === selection) ||
+    exams.find((exam) => exam.status === 'APPROVED') ||
+    exams[0];
+  const examId = activeExam?.id || '';
+  const classId = assignedClass?.classId;
+  const overview = useApiResource<any[]>(
+    classId && examId
+      ? `/api/mark-submissions/classes-overview?examId=${examId}`
+      : null,
+    Array.isArray,
+  );
+  const classOverview = Array.isArray(overview.data)
+    ? overview.data.find((row) => row.class?.id === classId)
+    : null;
+  const papers: Paper[] = Array.isArray(classOverview?.papers)
+    ? classOverview.papers
+    : [];
+  const error = ws.error || examResource.error || overview.error;
+  const submitted = papers.filter((paper) =>
+    submittedStatuses.has(paper.status),
+  ).length;
+  const corrections = papers.filter(
+    (paper) => paper.status === 'CORRECTION_REQUESTED',
+  ).length;
+  const locked =
+    papers.length > 0 && papers.every((paper) => paper.status === 'LOCKED');
+  const forwarded =
+    papers.length > 0 &&
+    papers.every((paper) =>
+      ['LOCKED', 'APPROVED', 'UNDER_REVIEW'].includes(paper.status),
     );
-  }, [papers, searchQuery]);
-
-  // Overall statistics
-  const totalSubjects = papers.length;
-  const lockedCount = papers.filter((p) => p.status === 'LOCKED').length;
-  const underReviewCount = papers.filter((p) => p.status === 'UNDER_REVIEW').length;
-  const approvedCount = papers.filter((p) => p.status === 'APPROVED').length;
-  const submittedCount = papers.filter((p) => p.status === 'SUBMITTED').length;
-  const draftCount = papers.filter((p) => p.status === 'DRAFT').length;
-  const pendingCount = papers.filter((p) => p.status === 'NOT_STARTED').length;
-  const correctionCount = papers.filter((p) => p.status === 'CORRECTION_REQUESTED').length;
-
-  const isPermanentlyLocked = totalSubjects > 0 && lockedCount === totalSubjects;
-  const isSubmittedToDeputy =
-    totalSubjects > 0 && (lockedCount + approvedCount + underReviewCount) === totalSubjects;
-
-  const isAllSubmittedOrApproved =
-    totalSubjects > 0 &&
-    (lockedCount + approvedCount + underReviewCount + submittedCount) === totalSubjects &&
-    correctionCount === 0;
-
-  const totalFinishedCount = lockedCount + approvedCount + underReviewCount + submittedCount;
-  const completionPercent = totalSubjects > 0 ? Math.round((totalFinishedCount / totalSubjects) * 100) : 0;
-
-  // Open inspection slide-over
-  const handleOpenSlideOver = (paper: SubjectPaperProgress) => {
-    if (!assignedClass?.classId || !selectedExamId) return;
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set('examId', selectedExamId);
-    newParams.set('classId', assignedClass.classId);
-    newParams.set('subjectId', paper.subjectId);
-    setSearchParams(newParams);
+  const canSubmit =
+    papers.length > 0 &&
+    submitted === papers.length &&
+    !forwarded &&
+    !error &&
+    !overview.loading;
+  const percent = papers.length
+    ? Math.round((submitted / papers.length) * 100)
+    : 0;
+  const visible = papers.filter((paper) => {
+    const teacher = paper.submittedBy || paper.allocatedTeacher;
+    const matches =
+      `${paper.subjectName} ${paper.subjectCode || ''} ${teacher?.firstName || ''} ${teacher?.lastName || ''}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
+    return (
+      matches &&
+      (filter === 'ALL' ||
+        (filter === 'PENDING'
+          ? !submittedStatuses.has(paper.status)
+          : paper.status === filter))
+    );
+  });
+  const closeSheet = () => {
+    const params = new URLSearchParams(searchParams);
+    ['examId', 'classId', 'subjectId'].forEach((key) => params.delete(key));
+    setSearchParams(params, { replace: true });
+    overview.refresh();
   };
-
-  const handleCloseSlideOver = () => {
-    const newParams = new URLSearchParams(searchParams);
-    newParams.delete('examId');
-    newParams.delete('classId');
-    newParams.delete('subjectId');
-    setSearchParams(newParams);
-    fetchClassProgress();
+  const openSheet = (paper: Paper) => {
+    setSearchParams({ examId, classId, subjectId: paper.subjectId });
   };
-
-  // Open confirmation warning modal before submitting to Deputy Head
-  const handleOpenConfirmSubmit = () => {
-    if (!isAllSubmittedOrApproved) {
-      toast.warning('All subject teachers must submit their marks before the whole class can be forwarded to the Deputy Head.');
-      return;
-    }
-    setConfirmModalOpen(true);
-  };
-
-  // Confirm and submit entire class to Deputy Head (enters permanent lock state)
-  const handleConfirmSubmitToDeputy = async () => {
-    if (!assignedClass?.classId || !selectedExamId || submittingToDeputy) return;
-
+  const submit = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
     try {
-      setSubmittingToDeputy(true);
-      const res = await apiClient.put(`/api/mark-submissions/classes/${assignedClass.classId}/submit-to-deputy`, {
-        examId: selectedExamId,
-      });
-      toast.success(res.data?.message || `Class marksheet for ${assignedClass.className} permanently locked and submitted to Deputy Head!`);
-      setConfirmModalOpen(false);
-      await fetchClassProgress();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to submit class marksheet to Deputy Head');
+      const response = await apiClient.put(
+        `/api/mark-submissions/classes/${classId}/submit-to-deputy`,
+        { examId },
+      );
+      toast.success(
+        response.data?.message ||
+          'Class marksheet submitted to the Deputy Head.',
+      );
+      setConfirmOpen(false);
+      overview.refresh();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message || 'Could not submit class marksheet.',
+      );
     } finally {
-      setSubmittingToDeputy(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <PageLoadingWrapper
-      isLoading={loading}
-      title="Class Examination Oversight"
-      subtitle="Synchronizing learning areas, teacher submissions, and stream progress..."
-      icon={Layers}
-    >
-      {/* If user is not an allocated class teacher */}
-      {!assignedClass ? (
-        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4 min-w-0">
-          <div className="w-16 h-16 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs">
-            <AlertCircle className="w-8 h-8" />
-          </div>
-          <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
-            Class Teacher Oversight Unavailable
-          </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            You are currently not assigned as a Class Teacher for any stream. If you teach individual subjects, please use the <strong>Marksheet Entry</strong> tab in the sidebar to record your scores.
-          </p>
-        </div>
-      ) : isLowerOrPP ? (
-        /* If user is Class Teacher of PP1 - Grade 3 (Self-contained) */
-        <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4 min-w-0">
-          <div className="w-16 h-16 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto shadow-xs">
-            <BookOpen className="w-8 h-8" />
-          </div>
-          <h2 className="text-lg font-black text-slate-800 dark:text-slate-100">
-            Pre-Primary & Lower Primary Class Workflow
-          </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            As the Class Teacher for <strong>{assignedClass.className}</strong> (self-contained stream), you teach and mark all learning areas directly.
-            Please use <strong>Marksheet Entry</strong> to record marks and submit directly to the Deputy Head. Subject Teacher delegation applies only to Upper Primary and Junior Secondary (Grades 4–9).
-          </p>
-        </div>
-      ) : (
-        <div className="workspace-page pb-8">
-          {/* Top Header Card */}
-      <div className="space-y-3">
-        <WorkspaceHeader icon={Layers} title="Class Exam Progress" description="Review subject submissions before forwarding the class marksheet.">
-{/* Active Examination Pill */}
-          <div className="flex items-center gap-3 p-3 sm:px-4 sm:py-2.5 bg-sky-50/70 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-lg shrink-0 shadow-xs">
-            <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center font-black text-sm shrink-0">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block leading-tight">
-                {activeExam?.title || 'Academic Examination'}
-              </span>
-              <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider block mt-0.5">
-                Year {typeof activeExam?.academicYear === 'object' ? 2026 : activeExam?.academicYear || 2026} • Term {typeof activeExam?.term === 'object' ? (activeExam.term?.termNumber || 1) : activeExam?.term || 1}
-              </span>
-            </div>
-          </div>
-      </WorkspaceHeader>
-
-        {/* Examination Selector Tabs (if multiple exams exist) */}
-        {exams.length > 1 && (
-          <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#162b4d] flex items-center gap-2 overflow-x-auto pb-1 max-w-full overscroll-x-contain workspace-table-scroll" role="region" aria-label="Page sections" tabIndex={0}>
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0 mr-1">
-              Examination:
-            </span>
-            {exams.map((ex) => (
-              <button
-                key={ex.id}
-                onClick={() => handleSelectExam(ex.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                  selectedExamId === ex.id
-                    ? 'bg-sky-500 text-white shadow-xs'
-                    : 'bg-white dark:bg-[#0c1830] text-slate-600 dark:text-slate-300 border border-sky-100 dark:border-[#162b4d] hover:bg-sky-50 dark:hover:bg-[#122444]'
-                } `}
-              >
-                {typeof ex.title === 'string' ? ex.title : 'Examination'}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Progress & Submission Call-to-Action Bar */}
-      <div className="space-y-3 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
-                Class Submission Oversight
-              </span>
-              <span className="text-xs font-bold text-slate-300 dark:text-slate-600">•</span>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                {completionPercent}% Finalized
-              </span>
-            </div>
-
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
-              {isPermanentlyLocked
-                ? 'Class Marksheet Permanently Locked & Submitted'
-                : isAllSubmittedOrApproved
-                ? 'All Subject Marksheets Submitted!'
-                : `${totalFinishedCount} of ${totalSubjects} Subjects Submitted`}
-            </h2>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-              {isPermanentlyLocked
-                ? 'All examination marks for this class have been submitted to the Deputy Head and are under permanent lock. Scores are final and archived.'
-                : isAllSubmittedOrApproved
-                ? 'All subject teachers have submitted their marks for this class. You can now submit the entire class marksheet to the Deputy Head.'
-                : `Waiting for ${totalSubjects - totalFinishedCount} subject teacher(s) to finalize and submit marks before submission to Deputy Head.`}
-            </p>
-          </div>
-
-          {/* Action Button */}
-          <div className="shrink-0">
-            {isPermanentlyLocked ? (
-              <div className="px-5 py-3 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs">
-                <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                Permanently Locked & Submitted
-              </div>
-            ) : (
-              <button
-                onClick={handleOpenConfirmSubmit}
-                disabled={!isAllSubmittedOrApproved || submittingToDeputy}
-                className={`px-5 py-3 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs transition-all ${
-                  isAllSubmittedOrApproved
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-102 active:scale-98 cursor-pointer'
-                    : 'bg-slate-100 dark:bg-[#0c1830] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-[#162b4d] cursor-not-allowed opacity-75'
-                } `}
-              >
-                {submittingToDeputy ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                Submit Entire Class to Deputy Head
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Progress Bar with Percentage Metrics */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex items-center justify-between text-xs font-bold px-0.5">
-            <span className="text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider">
-              Stream Completion Track
-            </span>
-            <span className="font-mono text-sky-600 dark:text-sky-400">
-              {totalFinishedCount} / {totalSubjects} ({completionPercent}%)
-            </span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-[#0c1830] p-0.5 border border-sky-100/60 dark:border-[#162b4d] overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                isPermanentlyLocked || isSubmittedToDeputy || isAllSubmittedOrApproved
-                  ? 'bg-emerald-500'
-                  : 'bg-gradient-to-r from-sky-500 to-indigo-600'
-              } `}
-              style={{ width: `${completionPercent}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Breakdown Badges */}
-        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap text-xs pt-1 border-t border-slate-100 dark:border-[#112038]">
-          <span className="px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-[#0c1830] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-[#162b4d] font-semibold text-[11px]">
-            Total Subjects: <strong className="text-slate-900 dark:text-white font-bold">{totalSubjects}</strong>
+    <div className="workspace-page pb-6">
+      <WorkspaceHeader
+        icon={Layers}
+        title="Class Exam Progress"
+        description="Check each learning area, review marks, and forward your class marksheet."
+      >
+        {assignedClass && (
+          <span className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+            {assignedClass.className}
           </span>
-          {lockedCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 font-semibold text-[11px]">
-              🔒 Locked: <strong>{lockedCount}</strong>
-            </span>
-          )}
-          {underReviewCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 font-semibold text-[11px]">
-              Submitted to Deputy: <strong>{underReviewCount}</strong>
-            </span>
-          )}
-          {submittedCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 font-semibold text-[11px]">
-              Submitted: <strong>{submittedCount}</strong>
-            </span>
-          )}
-          {draftCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 font-semibold text-[11px]">
-              In Draft: <strong>{draftCount}</strong>
-            </span>
-          )}
-          {pendingCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-[#0c1830] text-slate-500 dark:text-slate-400 border border-slate-200/80 dark:border-slate-800 font-medium text-[11px]">
-              Not Started: <strong>{pendingCount}</strong>
-            </span>
-          )}
-          {correctionCount > 0 && (
-            <span className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/60 font-bold text-[11px] animate-pulse">
-              ⚠️ Corrections: <strong>{correctionCount}</strong>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Subject Papers Breakdown List */}
-      <div className="space-y-4 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              Learning Areas & Subject Teachers ({papers.length})
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Review submission progress and verify scores entered by each subject specialist.
-            </p>
-          </div>
-
-          <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search subject or teacher..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-[#091326] border border-sky-200 dark:border-[#162b4d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-sky-500 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Active Correction Requests Advisory Banner */}
-        {correctionCount > 0 && (
-          <div className="p-4 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 flex items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
-                  Action Required: {correctionCount} Subject Teacher{correctionCount > 1 ? 's' : ''} Requested Unlock
-                </h4>
-                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
-                  Review the highlighted subjects below and click <strong>"Review & Unlock"</strong> to permit editing.
-                </p>
-              </div>
-            </div>
-          </div>
         )}
-
-        {filteredPapers.length === 0 ? (
-          <div className="p-8 text-center bg-white dark:bg-[#091326] rounded-lg border border-slate-200 dark:border-[#162b4d] space-y-2">
-            <BookOpen className="w-8 h-8 text-slate-400 mx-auto" />
-            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              No subjects match your query
-            </h4>
+        <button
+          className="workspace-button-secondary"
+          onClick={() => {
+            ws.refresh();
+            examResource.refresh();
+            overview.refresh();
+          }}
+          disabled={ws.loading || examResource.loading || overview.loading}
+          aria-label="Refresh class progress"
+        >
+          <RefreshCw className="h-4 w-4" /> Refresh
+        </button>
+      </WorkspaceHeader>
+      {error && (
+        <RequestError
+          message={error}
+          onRetry={() => {
+            ws.refresh();
+            examResource.refresh();
+            overview.refresh();
+          }}
+        />
+      )}
+      <PageLoadingWrapper
+        isLoading={ws.loading || examResource.loading}
+        title="Class Exam Progress"
+        icon={Layers}
+      >
+        {!error && (!assignedClass || isSelfContainedClass(assignedClass)) ? (
+          <div className="workspace-panel p-6 text-sm text-slate-500 dark:text-slate-400">
+            <BookOpen className="mb-3 h-6 w-6 text-sky-600" />
+            {!assignedClass
+              ? 'You need an active class teacher assignment to review class submissions.'
+              : 'Your class uses the self-contained workflow. Use Marksheet Entry to record and submit all learning areas.'}
+          </div>
+        ) : !error && !exams.length ? (
+          <div className="workspace-panel p-6 text-sm text-slate-500">
+            No examinations have been created yet.
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredPapers.map((paper) => {
-              const teacherName = paper.submittedBy
-                ? `${paper.submittedBy.firstName} ${paper.submittedBy.lastName}`
-                : paper.allocatedTeacher
-                ? `${paper.allocatedTeacher.firstName} ${paper.allocatedTeacher.lastName}`
-                : 'Unassigned Specialist';
-
-              const teacherEmail = paper.submittedBy?.email || paper.allocatedTeacher?.email || null;
-              const teacherPhone = paper.submittedBy?.phoneNumber || paper.allocatedTeacher?.phoneNumber || null;
-              const isCorrectionRequested = paper.status === 'CORRECTION_REQUESTED';
-
-              const getStatusBadge = (status: string) => {
-                switch (status) {
-                  case 'APPROVED':
-                  case 'LOCKED':
-                    return (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shrink-0">
-                        <CheckCheck className="w-3 h-3 text-emerald-600" />
-                        Approved
+          !error && (
+            <div className="space-y-4">
+              <div className="workspace-panel flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between">
+                <label className="block w-full space-y-1.5 sm:max-w-sm">
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Examination
+                  </span>
+                  <select
+                    aria-label="Examination"
+                    className="workspace-input w-full"
+                    value={examId}
+                    onChange={(event) => {
+                      setSelection(event.target.value);
+                      setSearchParams({}, { replace: true });
+                    }}
+                  >
+                    {exams.map((exam) => (
+                      <option key={exam.id} value={exam.id}>
+                        {exam.title} · {exam.term?.year} / Term{' '}
+                        {exam.term?.termNumber}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {activeExam?.term?.year} · Term {activeExam?.term?.termNumber}{' '}
+                  · {papers.length} learning areas
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[
+                  {
+                    label: 'Learning areas',
+                    value: papers.length,
+                    icon: BookOpen,
+                  },
+                  { label: 'Submitted', value: submitted, icon: CheckCircle2 },
+                  {
+                    label: 'Awaiting submission',
+                    value: papers.length - submitted,
+                    icon: Clock,
+                  },
+                  {
+                    label: 'Unlock requests',
+                    value: corrections,
+                    icon: AlertCircle,
+                  },
+                ].map((item) => (
+                  <div key={item.label} className="workspace-panel p-3 sm:p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {item.label}
                       </span>
-                    );
-                  case 'SUBMITTED':
-                    return (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 flex items-center gap-1.5 shrink-0">
-                        <Clock className="w-3 h-3 text-sky-600" />
-                        Submitted
-                      </span>
-                    );
-                  case 'DRAFT':
-                    return (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1.5 shrink-0">
-                        <Clock className="w-3 h-3 text-amber-600" />
-                        In Progress
-                      </span>
-                    );
-                  case 'CORRECTION_REQUESTED':
-                    return (
-                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white shadow-xs flex items-center gap-1.5 shrink-0 animate-pulse">
-                        <AlertCircle className="w-3.5 h-3.5 text-white" />
-                        Correction Requested
-                      </span>
-                    );
-                  default:
-                    return (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 shrink-0">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        Not Started
-                      </span>
-                    );
-                }
-              };
-
-              return (
-                <div
-                  key={paper.subjectId}
-                  className={`p-4 sm:p-5 backdrop-blur-md rounded-lg border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs ${
-                    isCorrectionRequested
-                      ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700/80 ring-2 ring-amber-400/20'
-                      : 'bg-white/90 dark:bg-[#091326]/90 border-sky-100 dark:border-[#162b4d] hover:border-sky-300 dark:hover:border-sky-700'
-                  } `}
-                >
-                  {/* Left: Subject & Specialist Info */}
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-slate-100 truncate">
-                          {paper.subjectName}
-                        </h4>
-                        {paper.subjectCode && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
-                            {paper.subjectCode}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                          <Users className="w-3 h-3 text-slate-400" />
-                          {teacherName}
-                        </span>
-                        {teacherPhone && (
-                          <>
-                            <span>•</span>
-                            <a
-                              href={`tel:${teacherPhone.replace(/\s+/g, '')}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline transition-colors"
-                              title={`Call ${teacherName}`}
-                            >
-                              <Phone className="w-3 h-3 text-sky-500" />
-                              <span>{teacherPhone}</span>
-                            </a>
-                          </>
-                        )}
-                        {teacherEmail && (
-                          <>
-                            <span>•</span>
-                            <span className="text-[11px] text-slate-400">{teacherEmail}</span>
-                          </>
-                        )}
-                      </div>
+                      <item.icon className="h-4 w-4 shrink-0 text-slate-400" />
                     </div>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+                      {overview.loading ? '—' : item.value}
+                    </p>
                   </div>
-
-                  {/* Right: Status & Inspect CTA */}
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100 dark:border-[#112038]">
-                    {getStatusBadge(paper.status)}
-
-                    {paper.status === 'NOT_STARTED' || paper.status === 'DRAFT' ? (
-                      <span className="px-3 py-1.5 rounded-xl text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800 shrink-0">
-                        Awaiting Submission
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleOpenSlideOver(paper)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 ${
-                          isCorrectionRequested
-                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs active:scale-95'
-                            : 'bg-sky-50 hover:bg-sky-100 dark:bg-[#0c1830] dark:hover:bg-[#122444] text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-[#162b4d]'
-                        } `}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        {isCorrectionRequested ? 'Review & Unlock' : 'Inspect & Regulate'}
-                      </button>
-                    )}
+                ))}
+              </div>
+              <section className="workspace-panel p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {locked
+                        ? 'Class marksheet locked'
+                        : forwarded
+                          ? 'Forwarded for review'
+                          : canSubmit
+                            ? 'Ready to forward'
+                            : 'Submission progress'}
+                    </h2>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      {locked
+                        ? 'Scores are locked. Further changes require an explicit unlock.'
+                        : forwarded
+                          ? 'The Deputy Head can now review your class marksheet.'
+                          : 'Review submitted marks and follow up on outstanding learning areas.'}
+                    </p>
+                  </div>
+                  <button
+                    className="workspace-button-primary w-full sm:w-auto"
+                    disabled={!canSubmit || submitting}
+                    onClick={() => setConfirmOpen(true)}
+                  >
+                    <Send className="h-4 w-4" /> Forward to Deputy Head
+                  </button>
+                </div>
+                <div className="mt-4 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>
+                    {submitted} of {papers.length} submitted
+                  </span>
+                  <span>{percent}%</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Subjects submitted"
+                  aria-valuenow={percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+                >
+                  <div
+                    style={{ width: `${percent}%` }}
+                    className="h-full rounded-full bg-sky-500 transition-all"
+                  />
+                </div>
+              </section>
+              <section
+                className="workspace-panel overflow-hidden"
+                aria-busy={overview.loading}
+              >
+                <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Learning areas
+                  </h2>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <label className="relative">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                      <input
+                        aria-label="Search learning areas or teachers"
+                        className="workspace-input w-full pl-9"
+                        placeholder="Subject or teacher…"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                      />
+                    </label>
+                    <select
+                      aria-label="Filter submission status"
+                      className="workspace-input"
+                      value={filter}
+                      onChange={(event) => setFilter(event.target.value)}
+                    >
+                      <option value="ALL">All statuses</option>
+                      <option value="PENDING">Awaiting submission</option>
+                      <option value="SUBMITTED">Submitted</option>
+                      <option value="CORRECTION_REQUESTED">
+                        Unlock requested
+                      </option>
+                      <option value="LOCKED">Locked</option>
+                    </select>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Marksheet Entry Slide-Over Drawer for Inspecting / Verifying Scores */}
-      <MarksheetEntrySlideOver
-        isOpen={isSlideOverOpen}
-        onClose={handleCloseSlideOver}
-        onSaved={fetchClassProgress}
-        onSubmitted={fetchClassProgress}
-        examId={activeExamIdParam}
-        classId={activeClassIdParam}
-        subjectId={activeSubjectIdParam}
-        isClassTeacherOversight={true}
-      />
-
-      {/* Permanent Lock Warning & Confirmation Modal for Class Teacher */}
-      <Modal
-        isOpen={confirmModalOpen}
-        onClose={() => !submittingToDeputy && setConfirmModalOpen(false)}
-        title="Submit Class Marksheet to Deputy Head"
-        maxWidth="max-w-lg"
-      >
-        <div className="space-y-4 min-w-0">
-          <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-xs space-y-1.5">
-              <h4 className="font-bold text-amber-900 dark:text-amber-200">
-                Final Action: Permanent Lock Warning
-              </h4>
-              <p className="text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-                Submitting this class marksheet to the Deputy Head is <strong>final</strong> and immediately places the marksheet into a <strong>permanent lock state</strong>.
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-amber-800 dark:text-amber-300">
-                <li>All subject scores for <strong>{assignedClass?.className}</strong> will become strictly final and immutable.</li>
-                <li>Neither subject teachers nor you will be able to make further edits or request score corrections.</li>
-                <li>The Deputy Head will receive the final verified records immediately.</li>
-              </ul>
+                {overview.loading ? (
+                  <div role="status" className="p-6 text-sm text-slate-500">
+                    Loading learning areas…
+                  </div>
+                ) : !visible.length ? (
+                  <div className="p-8 text-center text-sm text-slate-500">
+                    {papers.length
+                      ? 'No learning areas match these filters.'
+                      : 'No learning areas are allocated to this class for this examination.'}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {visible.map((paper) => {
+                      const teacher =
+                        paper.submittedBy || paper.allocatedTeacher;
+                      const status = statuses[paper.status] || {
+                        label: 'Unknown status',
+                        style: statuses.NOT_STARTED.style,
+                      };
+                      return (
+                        <article
+                          key={paper.subjectId}
+                          className="grid min-w-0 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="break-words text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                {paper.subjectName}
+                              </h3>
+                              <span className="text-[11px] text-slate-400">
+                                {paper.subjectCode}
+                              </span>
+                            </div>
+                            <span
+                              className={`mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium ${status.style}`}
+                            >
+                              {paper.status === 'LOCKED' && (
+                                <Lock className="h-3 w-3" />
+                              )}
+                              {status.label}
+                            </span>
+                          </div>
+                          <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
+                            <p className="font-medium text-slate-700 dark:text-slate-200">
+                              {teacher
+                                ? `${teacher.firstName} ${teacher.lastName}`
+                                : 'No teacher allocated'}
+                            </p>
+                            {teacher?.email && (
+                              <p className="mt-1 break-all">{teacher.email}</p>
+                            )}
+                            {teacher?.phoneNumber && (
+                              <a
+                                href={`tel:${teacher.phoneNumber.replace(/\s+/g, '')}`}
+                                className="mt-1 inline-flex min-h-8 items-center gap-1 text-sky-600 dark:text-sky-400"
+                              >
+                                <Phone className="h-3 w-3" />
+                                {teacher.phoneNumber}
+                              </a>
+                            )}
+                            {paper.correctionReason && (
+                              <p className="mt-1 break-words text-amber-700 dark:text-amber-300">
+                                {paper.correctionReason}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            className="workspace-button-secondary w-full md:w-auto"
+                            onClick={() => openSheet(paper)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            {paper.status === 'CORRECTION_REQUESTED'
+                              ? 'Review & unlock'
+                              : 'Review marks'}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
-          </div>
-
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Please confirm that you have inspected all {totalSubjects} learning areas and that all learner marks are complete and accurate.
-          </p>
-
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-[#162b4d]">
-            <button
-              type="button"
-              onClick={() => setConfirmModalOpen(false)}
-              disabled={submittingToDeputy}
-              className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-[#0c1830] hover:bg-slate-200 dark:hover:bg-[#122444] text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
-            >
-              Cancel & Review Further
-            </button>
-
-            <button
-              type="button"
-              onClick={handleConfirmSubmitToDeputy}
-              disabled={submittingToDeputy}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
-            >
-              {submittingToDeputy ? (
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-              ) : (
-                <Lock className="w-3.5 h-3.5" />
-              )}
-              Confirm & Submit to Deputy
-            </button>
-          </div>
+          )
+        )}
+      </PageLoadingWrapper>
+      <MarksheetEntrySlideOver
+        key={`${examId}_${classId}_${searchParams.get('subjectId')}`}
+        isOpen={Boolean(
+          searchParams.get('subjectId') &&
+            searchParams.get('examId') === examId &&
+            searchParams.get('classId') === classId,
+        )}
+        examId={examId || null}
+        classId={classId || null}
+        subjectId={searchParams.get('subjectId')}
+        onClose={closeSheet}
+        onSubmitted={overview.refresh}
+        isClassTeacherOversight
+      />
+      <Modal
+        isOpen={confirmOpen}
+        onClose={() => {
+          if (!submitting) setConfirmOpen(false);
+        }}
+        title="Forward class marksheet?"
+      >
+        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+          Forward {assignedClass?.className} for {activeExam?.title} to the
+          Deputy Head. This locks the subject marksheets; further changes
+          require an explicit unlock.
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            className="workspace-button-secondary"
+            disabled={submitting}
+            onClick={() => setConfirmOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            className="workspace-button-primary"
+            disabled={!canSubmit || submitting}
+            onClick={submit}
+          >
+            {submitting ? 'Submitting…' : 'Confirm & forward'}
+          </button>
         </div>
       </Modal>
     </div>
-  )}
-</PageLoadingWrapper>
   );
 };
