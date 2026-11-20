@@ -16,6 +16,7 @@ import {
 } from 'date-fns';
 import { toast } from 'react-toastify';
 import { apiClient } from '../../lib/apiClient';
+import { RequestError } from '../../components/RequestError';
 
 interface ExamTimetableWizardModalProps {
   isOpen: boolean;
@@ -158,6 +159,8 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [generating, setGenerating] = useState<boolean>(false);
 
   // Metadata
@@ -187,17 +190,20 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
   // Load initial data
   useEffect(() => {
     if (!isOpen) return;
+    const controller = new AbortController();
 
     const loadData = async () => {
       try {
         setLoading(true);
+        setLoadError(null);
         const [termsRes, clsRes, subRes, stfRes] = await Promise.all([
-          apiClient.get('/api/academic-terms').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/api/admissions/classes').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/api/subjects').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/api/staff').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/api/academic-terms', { signal: controller.signal }),
+          apiClient.get('/api/admissions/classes', { signal: controller.signal }),
+          apiClient.get('/api/subjects', { signal: controller.signal }),
+          apiClient.get('/api/staff', { signal: controller.signal }),
         ]);
 
+        if (controller.signal.aborted) return;
         const terms = termsRes.data?.data || [];
         const currentTerm = terms.find((t: any) => t.isCurrent) || terms[0];
         setActiveTerm(currentTerm);
@@ -253,14 +259,16 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
         });
         setClassInvigilators(initialInvigs);
       } catch (err: any) {
-        toast.error('Failed to load timetable metadata');
+        if (controller.signal.aborted) return;
+        setLoadError(err.response?.data?.message || 'Failed to load timetable metadata');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     loadData();
-  }, [isOpen]);
+    return () => controller.abort();
+  }, [isOpen, loadAttempt]);
 
   // Start Date Analysis using date-fns
   const startDateObj = useMemo(() => {
@@ -388,7 +396,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
         breaks,
         gradeSubjectDurations: subjectDurations,
         classInvigilators,
-      });
+      }, { timeout: 120_000 });
 
       toast.success(genRes.data.message || 'Exam timetable generated successfully!');
       onGenerated(examId);
@@ -455,7 +463,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
 
         {/* Step Content */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
-          {loading ? (
+          {loadError ? <RequestError message={loadError} onRetry={() => setLoadAttempt(value => value + 1)} /> : loading ? (
             <div className="py-16 text-center">
               <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="text-xs text-slate-400 font-medium">Loading school metadata...</p>
@@ -1008,7 +1016,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
               )}
               <button
                 type="button"
-                disabled={isStep1Invalid}
+                disabled={loading || Boolean(loadError) || isStep1Invalid}
                 onClick={() => {
                   if (currentStep === 1) {
                     if (!startDate) {
@@ -1039,7 +1047,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
           ) : (
             <button
               type="button"
-              disabled={generating}
+              disabled={generating || loading || Boolean(loadError)}
               onClick={handleGenerate}
               className="px-5 py-2 rounded-xl border border-sky-600 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-glass disabled:opacity-60"
             >

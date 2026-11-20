@@ -1,1198 +1,709 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  BookOpen, Sparkles, Printer, CheckCircle2, ChevronRight,
-  Clock, UserCheck, ArrowLeftRight, Archive, AlertCircle,
-  HelpCircle, Calendar, RefreshCw, ChevronDown, Check, Search, X, Power
+  Calendar,
+  Sparkles,
+  Printer,
+  RefreshCw,
+  Clock,
+  ArrowLeftRight,
+  Archive,
+  Power,
+  CheckCircle2,
+  X,
+  BookOpen,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { parseISO, format, isWeekend, eachDayOfInterval } from 'date-fns';
+import {
+  parseISO,
+  format,
+  isWeekend,
+  eachDayOfInterval,
+  differenceInCalendarDays,
+} from 'date-fns';
 import { apiClient } from '../../lib/apiClient';
-import { formatDate } from '../../lib/formatters';
+import { useApiResource } from '../../hooks/useApiResource';
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
+import { RequestError } from '../../components/RequestError';
+import { Modal } from '../../components/Modal';
+import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 import { ExamTimetableWizardModal } from './ExamTimetableWizardModal';
 import { ExamTimetablePrintModal } from './ExamTimetablePrintModal';
-import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 
-// Reusable Custom Dropdown (No default select elements)
-const CustomSelect: React.FC<{
-  options: Array<{ id: string; label: string; sublabel?: string; badge?: string }>;
-  selectedId: string;
-  onSelect: (id: string) => void;
-  placeholder?: string;
-}> = ({ options, selectedId, onSelect, placeholder = 'Select...' }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  const selected = options.find((o) => o.id === selectedId);
-  const filtered = useMemo(() => {
-    if (!search.trim()) return options;
-    const q = search.toLowerCase();
-    return options.filter(
-      (o) => o.label.toLowerCase().includes(q) || (o.sublabel && o.sublabel.toLowerCase().includes(q))
-    );
-  }, [options, search]);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isOpen]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setSearch('');
-        }}
-        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs ${
-          isOpen
-            ? 'border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/50 dark:bg-[#0c1830]'
-            : 'border-slate-200 dark:border-[#162b4d] bg-white dark:bg-[#091326] hover:border-sky-300 dark:hover:border-sky-500/50'
-        } text-slate-800 dark:text-slate-100 min-w-[220px]`}
-      >
-        <span className="truncate">
-          {selected ? (
-            <span className="flex items-center gap-2">
-              <span>{selected.label}</span>
-              {selected.badge && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-50 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                  {selected.badge}
-                </span>
-              )}
-            </span>
-          ) : (
-            <span className="text-slate-400">{placeholder}</span>
-          )}
-        </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && ( 
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 left-0 right-0 mt-1.5 bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-2xl shadow-xl overflow-hidden backdrop-blur-xl max-h-56 overflow-y-auto"
-          >
-            {options.length > 5 && (
-              <div className="p-2 border-b border-slate-100 dark:border-slate-800">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="Search..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-[#091326] border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                  />
-                </div>
-              </div>
-            )}
-            <div className="p-1 divide-y divide-slate-100 dark:divide-slate-800/40">
-              {filtered.length === 0 ? (
-                <div className="p-2.5 text-center text-xs text-slate-400 italic">No matches found</div>
-              ) : (
-                filtered.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => {
-                      onSelect(opt.id);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer text-left ${
-                      opt.id === selectedId
-                        ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-bold'
-                        : 'hover:bg-slate-50 dark:hover:bg-[#142647] text-slate-700 dark:text-slate-200'
-                    }`}
-                  >
-                    <div>
-                      <div>{opt.label}</div>
-                      {opt.sublabel && <div className="text-[10px] text-slate-400">{opt.sublabel}</div>}
-                    </div>
-                    {opt.id === selectedId && <Check className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />}
-                  </button>
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+interface Paper {
+  session: {
+    id: string;
+    classId: string;
+    examId: string;
+    sessionDate: string;
+    sessionTime: string;
+    durationMinutes: number;
+  };
+  subject: { name: string; code?: string } | null;
+  invigilator?: { firstName: string; lastName: string } | null;
+}
+const dateLabel = (date: string, pattern = 'EEE, d MMM') => {
+  const parsed = parseISO(date);
+  return Number.isNaN(parsed.getTime()) ? date : format(parsed, pattern);
 };
 
 export const ExamTimetableView: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [exams, setExams] = useState<any[]>([]);
-  const [selectedExamId, setSelectedExamId] = useState<string>('');
-  const [classesList, setClassesList] = useState<any[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [schoolSettings, setSchoolSettings] = useState<any>(null);
-
-  // Modals
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [isPrintOpen, setIsPrintOpen] = useState(false);
-  const [showArchiveDrawer, setShowArchiveDrawer] = useState(false);
-  const [pickerTargetDate, setPickerTargetDate] = useState<string | null>(null);
-  const [reschedulingSession, setReschedulingSession] = useState<any | null>(null);
-
-  // Swapping State (Click-to-Move / Swap)
-  const [selectedSwapSlotA, setSelectedSwapSlotA] = useState<any | null>(null);
-  const [swapping, setSwapping] = useState(false);
-
-  // Terminate / Conclude Period Modal
-  const [showTerminateModal, setShowTerminateModal] = useState(false);
-  const [terminating, setTerminating] = useState(false);
-
-  // Fetch initial exam data
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [examsRes, classesRes, settingsRes] = await Promise.all([
-        apiClient.get('/api/exams'),
-        apiClient.get('/api/admissions/classes'),
-        apiClient.get('/api/settings').catch(() => ({ data: { data: null } })),
-      ]);
-
-      const exList = examsRes.data?.data || [];
-      const rawClsList = classesRes.data?.data || [];
-      const clsList = rawClsList.filter((c: any) => c.name.toLowerCase() !== 'playgroup');
-
-      setExams(exList);
-      setClassesList(clsList);
-      setSchoolSettings(settingsRes.data?.data || null);
-
-      if (exList.length > 0 && !selectedExamId) {
-        setSelectedExamId(exList[0].exam.id);
-      }
-      if (clsList.length > 0 && (!selectedClassId || !clsList.some((c: any) => c.id === selectedClassId))) {
-        setSelectedClassId(clsList[0].id);
-      }
-    } catch (err: any) {
-      toast.error('Failed to load examination timetable data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Fetch sessions for the selected exam and selected class
-  const fetchSessions = async () => {
-    if (!selectedExamId || !selectedClassId) {
-      setSessions([]);
-      return;
-    }
-    try {
-      const res = await apiClient.get(`/api/exams/${selectedExamId}/sessions?classId=${selectedClassId}`);
-      setSessions(res.data.data || []);
-    } catch (err) {
-      console.error('Failed to fetch class exam sessions', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchSessions();
-    setSelectedSwapSlotA(null);
-  }, [selectedExamId, selectedClassId]);
-
-  const selectedExamObj = useMemo(
-    () => exams.find((e) => e.exam.id === selectedExamId),
-    [exams, selectedExamId]
+  const examsResource = useApiResource<any[]>('/api/exams', Array.isArray);
+  const classesResource = useApiResource<any[]>(
+    '/api/admissions/classes',
+    Array.isArray,
   );
-
-  const selectedClassObj = useMemo(
-    () => classesList.find((c) => c.id === selectedClassId),
-    [classesList, selectedClassId]
-  );
-
-  // Group active vs previous exams in the academic year
-  const hasActiveExams = useMemo(
-    () => exams.some((e) => e.exam.status === 'APPROVED'),
-    [exams]
-  );
-
-  const activeExamOptions = useMemo(
+  const settings = useApiResource<any>('/api/settings/public');
+  const [examSelection, setExamSelection] = useState('');
+  const [classSelection, setClassSelection] = useState('');
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [movingPaper, setMovingPaper] = useState<Paper | null>(null);
+  const [swapPaper, setSwapPaper] = useState<Paper | null>(null);
+  const [busy, setBusy] = useState(false);
+  const exams = Array.isArray(examsResource.data) ? examsResource.data : [];
+  const classes = useMemo(
     () =>
-      exams.map((e) => ({
-        id: e.exam.id,
-        label: e.exam.title,
-        sublabel: `${e.term?.year || 2026} Term ${e.term?.termNumber || 1}`,
-        badge: e.exam.status,
-      })),
-    [exams]
+      (Array.isArray(classesResource.data) ? classesResource.data : []).filter(
+        (row) => row.name.toLowerCase() !== 'playgroup',
+      ),
+    [classesResource.data],
   );
-
-  // Group class sessions by exam date
-  const sessionsByDate = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    sessions.forEach((s) => {
-      const d = s.session.sessionDate;
-      if (!map[d]) map[d] = [];
-      map[d].push(s);
-    });
-
-    // Sort papers chronologically in each day
-    Object.keys(map).forEach((d) => {
-      map[d].sort((a, b) => a.session.sessionTime.localeCompare(b.session.sessionTime));
-    });
-
-    return map;
+  const selectedExam =
+    exams.find((row) => row.exam.id === examSelection) ||
+    exams.find((row) => row.exam.status === 'APPROVED') ||
+    exams[0];
+  const selectedClass =
+    classes.find((row) => row.id === classSelection) || classes[0];
+  const examId = selectedExam?.exam.id;
+  const classId = selectedClass?.id;
+  const timetable = useApiResource<Paper[]>(
+    examId && classId
+      ? `/api/exams/${examId}/sessions?classId=${classId}`
+      : null,
+    (value: any) =>
+      Array.isArray(value) &&
+      value.every(
+        (row) =>
+          row.session?.examId === examId &&
+          row.session?.classId === classId &&
+          typeof row.session?.sessionDate === 'string' &&
+          typeof row.session?.sessionTime === 'string',
+      ),
+  );
+  const sessions = Array.isArray(timetable.data) ? timetable.data : [];
+  const error = examsResource.error || classesResource.error || timetable.error;
+  const hasActiveExams = exams.some((row) => row.exam.status === 'APPROVED');
+  const byDate = useMemo(() => {
+    const groups = new Map<string, Paper[]>();
+    for (const paper of sessions) {
+      const date = paper.session.sessionDate;
+      if (!groups.has(date)) groups.set(date, []);
+      groups.get(date)!.push(paper);
+    }
+    for (const group of groups.values())
+      group.sort((a, b) =>
+        a.session.sessionTime.localeCompare(b.session.sessionTime),
+      );
+    return groups;
   }, [sessions]);
-
-  // Generate all weekdays across the entire exam series span, ensuring extra days are visible
-  const examDates = useMemo(() => {
-    const datesSet = new Set<string>();
-
-    if (selectedExamObj?.exam?.startDate && selectedExamObj?.exam?.endDate) {
-      try {
-        const start = parseISO(selectedExamObj.exam.startDate);
-        const end = parseISO(selectedExamObj.exam.endDate);
-        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
-          eachDayOfInterval({ start, end })
-            .filter((d) => !isWeekend(d))
-            .forEach((d) => datesSet.add(format(d, 'yyyy-MM-dd')));
-        }
-      } catch (e) {
-        console.error('Error generating series date range', e);
-      }
+  const dates = useMemo(() => {
+    const result = new Set(byDate.keys());
+    const start =
+      selectedExam?.exam.startDate && parseISO(selectedExam.exam.startDate);
+    const end =
+      selectedExam?.exam.endDate && parseISO(selectedExam.exam.endDate);
+    if (
+      start &&
+      end &&
+      !isNaN(start.getTime()) &&
+      !isNaN(end.getTime()) &&
+      start <= end &&
+      differenceInCalendarDays(end, start) <= 366
+    ) {
+      for (const date of eachDayOfInterval({ start, end }))
+        if (!isWeekend(date)) result.add(format(date, 'yyyy-MM-dd'));
     }
-
-    // Always include any dates that currently have sessions
-    Object.keys(sessionsByDate).forEach((d) => datesSet.add(d));
-
-    return Array.from(datesSet).sort();
-  }, [selectedExamObj, sessionsByDate]);
-
-  // Move an exam paper directly to a target day
-  const handleMovePaperToDate = async (sessionItem: any, targetDate: string) => {
-    if (!sessionItem || swapping) return;
-
-    // Snapshot current sessions for instant rollback if API fails
-    const previousSessions = [...sessions];
-
-    try {
-      setSwapping(true);
-      let sessionTime = sessionItem.session.sessionTime;
-
-      // Check if target day already has a paper with the exact same sessionTime
-      const existingOnDate = (sessionsByDate[targetDate] || []).filter(
-        (s) => s.session.id !== sessionItem.session.id
-      );
-
-      const hasExactConflict = existingOnDate.some((s) => s.session.sessionTime === sessionTime);
-      if (hasExactConflict) {
-        const duration = sessionItem.session.durationMinutes || 60;
-        let latestEndMin = 8 * 60; // 08:00 default
-        existingOnDate.forEach((s) => {
-          const parts = s.session.sessionTime.split('-');
-          if (parts.length === 2) {
-            const [endH, endM] = parts[1].trim().split(':').map(Number);
-            const endMin = (endH || 0) * 60 + (endM || 0);
-            if (endMin > latestEndMin) latestEndMin = endMin;
-          }
-        });
-        const newStartMin = latestEndMin + 15;
-        const newEndMin = newStartMin + duration;
-        const formatMin = (m: number) => {
-          const h = Math.floor(m / 60).toString().padStart(2, '0');
-          const min = (m % 60).toString().padStart(2, '0');
-          return `${h}:${min}`;
-        };
-        sessionTime = `${formatMin(newStartMin)} - ${formatMin(newEndMin)}`;
-      }
-
-      // 1. OPTIMISTIC UPDATE: instantly update UI in 0ms!
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.session.id === sessionItem.session.id
-            ? {
-                ...s,
-                session: {
-                  ...s.session,
-                  sessionDate: targetDate,
-                  sessionTime,
-                },
-              }
-            : s
-        )
-      );
-
-      // Close all modals / clear selection immediately
-      setSelectedSwapSlotA(null);
-      setPickerTargetDate(null);
-      setReschedulingSession(null);
-
-      // 2. Persist to API in background
-      await apiClient.put(`/api/exams/sessions/${sessionItem.session.id}`, {
-        sessionDate: targetDate,
-        sessionTime,
-      });
-
-      const targetFormatted = format(parseISO(targetDate), 'EEEE, dd/MM/yyyy');
-      toast.success(`Successfully moved ${sessionItem.subject?.name} to ${targetFormatted}!`);
-    } catch (err: any) {
-      // Revert optimistic update on failure
-      setSessions(previousSessions);
-      toast.error(err.response?.data?.message || 'Failed to move examination paper');
-    } finally {
-      setSwapping(false);
-    }
+    return [...result].sort();
+  }, [byDate, selectedExam]);
+  useEffect(() => {
+    setSwapPaper(null);
+    setMovingPaper(null);
+    setPrintOpen(false);
+  }, [examId, classId]);
+  const refresh = () => {
+    examsResource.refresh();
+    classesResource.refresh();
+    timetable.refresh();
   };
-
-  // Handle slot click for Move / Swap
-  const handleSlotClick = async (clickedSlot: any) => {
-    if (swapping) return;
-
-    // If none selected, select slot A
-    if (!selectedSwapSlotA) {
-      setSelectedSwapSlotA(clickedSlot);
-      return;
-    }
-
-    // If clicking same slot, deselect
-    if (selectedSwapSlotA.session.id === clickedSlot.session.id) {
-      setSelectedSwapSlotA(null);
-      return;
-    }
-
-    // Validate duration matching for swap
-    const durA = selectedSwapSlotA.session.durationMinutes || 60;
-    const durB = clickedSlot.session.durationMinutes || 60;
-
-    if (durA !== durB) {
+  const action = async (
+    request: () => Promise<unknown>,
+    message: string,
+    done?: () => void,
+  ) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await request();
+      toast.success(message);
+      done?.();
+      timetable.refresh();
+    } catch (error: any) {
       toast.error(
-        `Duration Mismatch: Cannot swap ${selectedSwapSlotA.subject?.name} (${durA}m) with ${clickedSlot.subject?.name} (${durB}m). Exam papers can only be swapped between slots of matching duration.`
+        error.response?.data?.message ||
+          error.message ||
+          'The change could not be saved.',
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const move = (paper: Paper, date: string) => {
+    let sessionTime = paper.session.sessionTime;
+    const sameDay = (byDate.get(date) || []).filter(
+      (row) => row.session.id !== paper.session.id,
+    );
+    const minutes = (value: string) => {
+      const [hour, minute] = value.trim().split(':').map(Number);
+      return hour * 60 + minute;
+    };
+    const start = minutes(sessionTime.split('-')[0]);
+    const end = start + paper.session.durationMinutes;
+    const overlaps = sameDay.some((row) => {
+      const otherStart = minutes(row.session.sessionTime.split('-')[0]);
+      return (
+        start < otherStart + row.session.durationMinutes && end > otherStart
+      );
+    });
+    if (overlaps) {
+      const nextStart =
+        Math.max(
+          8 * 60,
+          ...sameDay.map(
+            (row) =>
+              minutes(row.session.sessionTime.split('-')[0]) +
+              row.session.durationMinutes,
+          ),
+        ) + 15;
+      const time = (value: number) =>
+        `${Math.floor(value / 60)
+          .toString()
+          .padStart(2, '0')}:${(value % 60).toString().padStart(2, '0')}`;
+      if (nextStart + paper.session.durationMinutes > 24 * 60 - 1) {
+        toast.error(
+          'There is no remaining time on this day. Choose another day.',
+        );
+        return;
+      }
+      sessionTime = `${time(nextStart)} - ${time(nextStart + paper.session.durationMinutes)}`;
+    }
+    action(
+      () =>
+        apiClient.put(`/api/exams/sessions/${paper.session.id}`, {
+          sessionDate: date,
+          sessionTime,
+        }),
+      'Examination paper rescheduled.',
+      () => {
+        setMovingPaper(null);
+        setSwapPaper(null);
+      },
+    );
+  };
+  const swap = (paper: Paper) => {
+    if (!swapPaper) {
+      setSwapPaper(paper);
       return;
     }
-
-    // Snapshot for rollback
-    const previousSessions = [...sessions];
-    const slotAId = selectedSwapSlotA.session.id;
-    const slotBId = clickedSlot.session.id;
-    const dateA = selectedSwapSlotA.session.sessionDate;
-    const timeA = selectedSwapSlotA.session.sessionTime;
-    const dateB = clickedSlot.session.sessionDate;
-    const timeB = clickedSlot.session.sessionTime;
-    const subjectAName = selectedSwapSlotA.subject?.name;
-    const subjectBName = clickedSlot.subject?.name;
-
-    // Execute swap
-    try {
-      setSwapping(true);
-
-      // 1. OPTIMISTIC SWAP: instantly swap positions on screen (0ms latency!)
-      setSessions((prev) =>
-        prev.map((s) => {
-          if (s.session.id === slotAId) {
-            return {
-              ...s,
-              session: {
-                ...s.session,
-                sessionDate: dateB,
-                sessionTime: timeB,
-              },
-            };
-          }
-          if (s.session.id === slotBId) {
-            return {
-              ...s,
-              session: {
-                ...s.session,
-                sessionDate: dateA,
-                sessionTime: timeA,
-              },
-            };
-          }
-          return s;
-        })
-      );
-      setSelectedSwapSlotA(null);
-
-      // 2. Persist swap to API
-      await apiClient.post('/api/exams/sessions/swap', {
-        sessionAId: slotAId,
-        sessionBId: slotBId,
-      });
-
-      toast.success(`Successfully swapped ${subjectAName} and ${subjectBName}!`);
-    } catch (err: any) {
-      // Revert optimistic update on failure
-      setSessions(previousSessions);
-      toast.error(err.response?.data?.message || 'Failed to swap examination sessions');
-    } finally {
-      setSwapping(false);
+    if (swapPaper.session.id === paper.session.id) {
+      setSwapPaper(null);
+      return;
     }
-  };
-
-  // Status toggle
-  const handleTogglePublish = async () => {
-    if (!selectedExamObj) return;
-    const newStatus = selectedExamObj.exam.status === 'DRAFT' ? 'APPROVED' : 'DRAFT';
-    try {
-      await apiClient.put(`/api/exams/${selectedExamId}/status`, { status: newStatus });
-      toast.success(
-        newStatus === 'APPROVED'
-          ? 'Examination timetable published and approved!'
-          : 'Timetable reverted to Draft mode'
-      );
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update timetable status');
+    if (swapPaper.session.durationMinutes !== paper.session.durationMinutes) {
+      toast.error('Choose a paper with the same duration to swap.');
+      return;
     }
-  };
-
-  const handleTerminateExamPeriod = async () => {
-    try {
-      setTerminating(true);
-      const res = await apiClient.post('/api/exams/terminate-period');
-      toast.success(res.data?.message || 'Examination period concluded successfully.');
-      setShowTerminateModal(false);
-      await fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to conclude examination period');
-    } finally {
-      setTerminating(false);
-    }
-  };
-
-  const handleActivateExamPeriod = async () => {
-    try {
-      const res = await apiClient.post('/api/exams/activate-period');
-      toast.success(res.data?.message || 'Examination period activated.');
-      await fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to activate examination period');
-    }
+    action(
+      () =>
+        apiClient.post('/api/exams/sessions/swap', {
+          sessionAId: swapPaper.session.id,
+          sessionBId: paper.session.id,
+        }),
+      'Examination papers swapped.',
+      () => setSwapPaper(null),
+    );
   };
 
   return (
-    <PageLoadingWrapper
-      isLoading={loading}
-      title="Examination Timetable Schedules"
-      subtitle="Loading class examination sessions, invigilation slots, and time matrices..."
-      icon={Calendar}
-    >
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Top Banner & Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2.5">
-                {hasActiveExams && (
-                  <span className="relative flex h-2.5 w-2.5 shrink-0" title="Examination Period Active">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                )}
-                Examination Timetabling & Schedules
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Generate, inspect, and adjust independent class examination timetables • Eldoret Muslim Academy
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons & CTAs */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Conclude or Reactivate Exam Period Button */}
-          {hasActiveExams ? (
-            <button
-              type="button"
-              onClick={() => setShowTerminateModal(true)}
-              className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/80 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-            >
-              <Power className="w-3.5 h-3.5" />
-              <span>Conclude Exam Period</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleActivateExamPeriod}
-              className="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-              <span>Reactivate Exam Period</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsWizardOpen(true)}
-            className="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-800 dark:text-sky-200 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
-          >
-            <Sparkles className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            Generate Exam Timetable
-          </button>
-
-          <button
-            type="button"
-            disabled={sessions.length === 0}
-            onClick={() => setIsPrintOpen(true)}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b172e] hover:bg-slate-50 dark:hover:bg-[#112038] text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            A4 Print Timetable
-          </button>
-
-          {selectedExamObj && (
-            <button
-              type="button"
-              onClick={handleTogglePublish}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
-                selectedExamObj.exam.status === 'APPROVED'
-                  ? 'border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
-                  : 'border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {selectedExamObj.exam.status === 'APPROVED' ? 'Approved & Published' : 'Approve & Publish'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Standby Banner when Exam Period is Inactive / Concluded */}
-      {!hasActiveExams && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <h4 className="font-bold text-sm text-amber-950 dark:text-amber-100">
-                No Active Examination Period
-              </h4>
-              <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                The current term examination period is concluded or inactive. Academic operations are in Continuous Assessment Tests (CATs) or classroom instruction mode.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setIsWizardOpen(true)}
-            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs transition-colors self-start sm:self-auto"
-          >
-            Launch / Schedule Next Exam
-          </button>
-        </div>
-      )}
-
-      {/* Series Switcher & History Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <span className="text-xs font-bold text-slate-600 dark:text-slate-400 shrink-0">
-            Selected Examination Series:
-          </span>
-          <CustomSelect
-            options={activeExamOptions}
-            selectedId={selectedExamId}
-            onSelect={(id) => setSelectedExamId(id)}
-            placeholder="Select Examination..."
-          />
-        </div>
-
-        {/* Previous Timetables Archive Pill */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowArchiveDrawer(!showArchiveDrawer)}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0c1830] hover:bg-slate-100 dark:hover:bg-[#142647] text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Archive className="w-3.5 h-3.5 text-slate-400" />
-            Previous Timetables Archive ({exams.length})
-          </button>
-        </div>
-      </div>
-
-      {/* Archive Dropdown list if opened */}
-      <AnimatePresence>
-        {showArchiveDrawer && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="p-4 bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-2xl space-y-2 overflow-hidden text-xs"
-          >
-            <div className="font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-              <span>Academic Year Examinations Archive</span>
-              <span className="text-[11px] text-slate-400">Maintained until academic year ends</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              {exams.map((ex) => (
+    <div className="workspace-page pb-6">
+      <WorkspaceHeader
+        icon={Calendar}
+        title="Exam Timetabling"
+        description="Plan examination days, adjust papers, and publish a clear class schedule."
+      >
+        <button
+          className="workspace-button-secondary"
+          onClick={refresh}
+          disabled={busy || examsResource.loading || timetable.loading}
+          aria-label="Refresh exam timetable"
+        >
+          <RefreshCw className="h-4 w-4" /> Refresh
+        </button>
+        <button
+          className="workspace-button-primary"
+          onClick={() => setWizardOpen(true)}
+          disabled={busy}
+        >
+          <Sparkles className="h-4 w-4" /> Generate timetable
+        </button>
+      </WorkspaceHeader>
+      {error && <RequestError message={error} onRetry={refresh} />}
+      <PageLoadingWrapper
+        isLoading={examsResource.loading || classesResource.loading}
+        title="Exam Timetabling"
+        icon={Calendar}
+        variant="timetable"
+      >
+        {!error && (
+          <div className="space-y-4">
+            <section className="workspace-panel p-4 sm:p-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+                <label className="min-w-0 space-y-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Examination
+                  <select
+                    aria-label="Examination"
+                    className="workspace-input block w-full"
+                    value={examId || ''}
+                    disabled={busy || !exams.length}
+                    onChange={(event) => setExamSelection(event.target.value)}
+                  >
+                    {!exams.length && (
+                      <option value="">No examinations yet</option>
+                    )}
+                    {exams.map((row) => (
+                      <option key={row.exam.id} value={row.exam.id}>
+                        {row.exam.title} · {row.term?.year} / Term{' '}
+                        {row.term?.termNumber}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="min-w-0 space-y-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Class
+                  <select
+                    aria-label="Class"
+                    className="workspace-input block w-full"
+                    value={classId || ''}
+                    disabled={busy || !classes.length}
+                    onChange={(event) => setClassSelection(event.target.value)}
+                  >
+                    {!classes.length && (
+                      <option value="">No classes available</option>
+                    )}
+                    {classes.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
-                  key={ex.exam.id}
-                  onClick={() => {
-                    setSelectedExamId(ex.exam.id);
-                    setShowArchiveDrawer(false);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    ex.exam.id === selectedExamId
-                      ? 'border-sky-500 bg-sky-50 dark:bg-sky-950/50 text-sky-900 dark:text-sky-100'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                  }`}
+                  className="workspace-button-secondary w-full sm:col-span-2 lg:col-span-1 lg:w-auto"
+                  onClick={() => setArchiveOpen(true)}
+                  disabled={busy}
                 >
-                  <div className="font-black text-xs">{ex.exam.title}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                    {ex.term?.year} Term {ex.term?.termNumber} • Status: {ex.exam.status}
-                  </div>
+                  <Archive className="h-4 w-4" /> Exam archive
                 </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Grade Selector Bar (PP1 to Grade 9) */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-            Select Class Timetable to View & Adjust
-          </span>
-          {selectedClassObj && (
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Grade Tier: <strong className="text-slate-800 dark:text-slate-200">{selectedClassObj.levelCategory}</strong>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {classesList.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setSelectedClassId(c.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer shadow-xs ${
-                selectedClassId === c.id
-                  ? 'bg-sky-600 text-white border border-sky-600'
-                  : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#091326] text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0e1a33]'
-              }`}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Swapping Mode Helper Alert */}
-      <AnimatePresence>
-        {selectedSwapSlotA && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 flex items-center justify-between text-xs text-sky-900 dark:text-sky-200"
-          >
-            <div className="flex items-center gap-2">
-              <ArrowLeftRight className="w-4 h-4 text-sky-600 animate-pulse shrink-0" />
-              <span>
-                <strong>Swapping Mode Active:</strong> Selected{' '}
-                <strong className="underline">{selectedSwapSlotA.subject?.name}</strong> (
-                {selectedSwapSlotA.session.durationMinutes || 60} mins). Click another slot of matching duration to swap positions.
-              </span>
-            </div>
-            <button
-              onClick={() => setSelectedSwapSlotA(null)}
-              className="px-2.5 py-1 rounded-lg border border-sky-300 dark:border-sky-700 bg-white dark:bg-[#091326] text-sky-800 dark:text-sky-300 font-bold hover:bg-sky-100 transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Selected Class Timetable Display Board */}
-      <div className="p-5 sm:p-6 bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl sm:rounded-3xl shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <h2 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>{selectedClassObj ? selectedClassObj.name : 'Class'} Examination Timetable</span>
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                {sessions.length} Papers Scheduled
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Independent timetable • Altering papers here does not affect other classes
-            </p>
-          </div>
-
-          {/* Supervisor Information */}
-          {sessions.length > 0 && sessions[0].invigilator && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#0c1830] border border-slate-200 dark:border-slate-800 text-xs">
-              <UserCheck className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span className="text-slate-500">Class Invigilator:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">
-                {sessions[0].invigilator.firstName} {sessions[0].invigilator.lastName}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Empty State when no exam dates exist */}
-        {examDates.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 mx-auto">
-              <Calendar className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                No examination timetable generated yet for {selectedClassObj?.name || 'this class'}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
-                Click "Generate Exam Timetable" at the top right to run the automated timetable generator for all grades.
-              </p>
-            </div>
-            <button
-              onClick={() => setIsWizardOpen(true)}
-              className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              Open Generation Wizard
-            </button>
-          </div>
-        ) : (
-          /* Table Layout: Rows = Date & Day, Column = Exams */
-          <div className="overflow-x-auto -mx-5 sm:-mx-6 -mb-5 sm:-mb-6">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/90 dark:bg-[#0c1830] border-y border-slate-200 dark:border-[#162b4d]">
-                  <th
-                    scope="col"
-                    className="w-56 sm:w-64 px-5 sm:px-6 py-3.5 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 border-r border-slate-200/60 dark:border-[#162b4d]/60"
-                  >
-                    Date & Day
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-5 sm:px-6 py-3.5 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400"
-                  >
-                    Exams
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-[#162b4d]/60">
-                {examDates.map((dateStr, idx) => {
-                  const daySessions = sessionsByDate[dateStr] || [];
-                  let dateObj = parseISO(dateStr);
-                  if (isNaN(dateObj.getTime())) {
-                    dateObj = new Date(dateStr);
-                  }
-                  const dayOfWeek = !isNaN(dateObj.getTime()) ? format(dateObj, 'EEEE') : 'Exam Day';
-                  const formattedDate = !isNaN(dateObj.getTime()) ? format(dateObj, 'dd/MM/yyyy') : dateStr;
-                  const friendlyDate = !isNaN(dateObj.getTime()) ? format(dateObj, 'd MMMM yyyy') : dateStr;
-
-                  return (
-                    <tr
-                      key={dateStr}
-                      className="hover:bg-slate-50/40 dark:hover:bg-[#0c1830]/20 transition-colors"
-                    >
-                      {/* Row Title: Date plus the Day of the exam */}
-                      <th
-                        scope="row"
-                        className="w-56 sm:w-64 px-5 sm:px-6 py-5 align-top border-r border-slate-200/60 dark:border-[#162b4d]/60 bg-slate-50/30 dark:bg-[#0c1830]/20"
-                      >
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800">
-                              Day {idx + 1}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                daySessions.length > 0
-                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
-                              }`}
-                            >
-                              {daySessions.length} {daySessions.length === 1 ? 'Paper' : 'Papers'}
-                            </span>
-                          </div>
-                          <div className="text-sm font-black text-slate-900 dark:text-slate-100">
-                            {dayOfWeek}, {formattedDate}
-                          </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                            {friendlyDate}
-                          </div>
-                        </div>
-                      </th>
-
-                      {/* Column: Exams */}
-                      <td className="px-5 sm:px-6 py-5 align-top">
-                        {daySessions.length > 0 ? (
-                          <div className="flex flex-wrap items-stretch gap-3">
-                            {daySessions.map((row) => {
-                              const isSelected = selectedSwapSlotA?.session.id === row.session.id;
-                              const duration = row.session.durationMinutes || 60;
-                              const isCompatible =
-                                selectedSwapSlotA &&
-                                selectedSwapSlotA.session.id !== row.session.id &&
-                                (selectedSwapSlotA.session.durationMinutes || 60) === duration;
-                              const isMismatch =
-                                selectedSwapSlotA &&
-                                selectedSwapSlotA.session.id !== row.session.id &&
-                                (selectedSwapSlotA.session.durationMinutes || 60) !== duration;
-
-                              return (
-                                <div
-                                  key={row.session.id}
-                                  onClick={() => handleSlotClick(row)}
-                                  className={`min-w-[220px] max-w-[280px] flex-1 p-3.5 rounded-xl border transition-all cursor-pointer text-xs relative flex flex-col justify-between ${
-                                    isSelected
-                                      ? 'border-sky-500 ring-2 ring-sky-500 bg-sky-50 dark:bg-sky-950/60 shadow-md'
-                                      : isCompatible
-                                      ? 'border-dashed border-2 border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 hover:scale-[1.01]'
-                                      : isMismatch
-                                      ? 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#091326] opacity-60'
-                                      : 'border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#091326] hover:border-sky-300 dark:hover:border-sky-600 shadow-xs'
-                                  }`}
-                                >
-                                  <div>
-                                    <div className="flex items-center justify-between gap-2 mb-2">
-                                      <span className="font-mono text-[11px] font-bold text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
-                                        <Clock className="w-3.5 h-3.5 text-sky-500" />
-                                        {row.session.sessionTime}
-                                      </span>
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                        {duration}m
-                                      </span>
-                                    </div>
-
-                                    <div className="font-black text-slate-900 dark:text-slate-100 text-xs sm:text-sm line-clamp-1">
-                                      {row.subject?.name}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                      {row.subject?.code}
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/70 space-y-1.5">
-                                    {row.invigilator && (
-                                      <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                                        <span className="flex items-center gap-1 truncate">
-                                          <UserCheck className="w-3 h-3 text-sky-500 shrink-0" />
-                                          <span className="truncate">{row.invigilator.firstName} {row.invigilator.lastName}</span>
-                                        </span>
-                                        <span className="text-[9px] text-slate-400 uppercase shrink-0">Invigilator</span>
-                                      </div>
-                                    )}
-
-                                    {isCompatible && (
-                                      <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                                        Click to swap ({duration}m match)
-                                      </div>
-                                    )}
-
-                                    {isSelected && (
-                                      <div className="text-[10px] font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1">
-                                        <ArrowLeftRight className="w-3 h-3 shrink-0 animate-pulse" />
-                                        Selected • Click target slot or day
-                                      </div>
-                                    )}
-
-                                    {!selectedSwapSlotA && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setReschedulingSession(row);
-                                        }}
-                                        className="w-full mt-1 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-[#0c1830] hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-600 dark:hover:text-sky-300 text-[10px] font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                                      >
-                                        <ArrowLeftRight className="w-3 h-3" />
-                                        Move to another day
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-
-                            {/* Quick Move drop target if a paper from another day is selected */}
-                            {selectedSwapSlotA && selectedSwapSlotA.session.sessionDate !== dateStr && (
-                              <button
-                                type="button"
-                                onClick={() => handleMovePaperToDate(selectedSwapSlotA, dateStr)}
-                                className="min-w-[160px] p-3.5 rounded-xl border-2 border-dashed border-sky-300 dark:border-sky-700 bg-sky-50/50 dark:bg-sky-950/30 hover:bg-sky-100 dark:hover:bg-sky-900/40 text-sky-800 dark:text-sky-200 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-center group shadow-xs"
-                              >
-                                <ArrowLeftRight className="w-4 h-4 text-sky-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-xs font-bold">Move Exam Here</span>
-                                <span className="text-[10px] text-sky-600 dark:text-sky-400">
-                                  Add to {dayOfWeek}
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          /* Extra / Available Day (0 papers currently scheduled) */
-                          <div className="w-full">
-                            {selectedSwapSlotA ? (
-                              <button
-                                type="button"
-                                onClick={() => handleMovePaperToDate(selectedSwapSlotA, dateStr)}
-                                className="w-full p-4 rounded-xl border-2 border-dashed border-sky-400 dark:border-sky-500 bg-sky-50/70 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-800 dark:text-sky-200 transition-all cursor-pointer flex items-center justify-center gap-3 shadow-xs group"
-                              >
-                                <div className="w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
-                                  <ArrowLeftRight className="w-4 h-4" />
-                                </div>
-                                <div className="text-left">
-                                  <div className="text-xs font-black">
-                                    Allocate / Move "{selectedSwapSlotA.subject?.name}" to {dayOfWeek}, {formattedDate}
-                                  </div>
-                                  <div className="text-[11px] text-sky-600 dark:text-sky-400">
-                                    Click to confirm moving this paper to this open day ({selectedSwapSlotA.session.sessionTime})
-                                  </div>
-                                </div>
-                              </button>
-                            ) : (
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-[#0c1830]/30 text-slate-500 dark:text-slate-400">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
-                                    <Calendar className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                      No examination papers scheduled for {dayOfWeek}
-                                    </div>
-                                    <div className="text-[11px] text-slate-400">
-                                      This day is open within the exam series window. You can allocate or move exam papers here.
-                                    </div>
-                                  </div>
-                                </div>
-                                {sessions.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPickerTargetDate(dateStr)}
-                                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#091326] hover:border-sky-400 dark:hover:border-sky-500 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs"
-                                  >
-                                    <ArrowLeftRight className="w-3.5 h-3.5 text-sky-500" />
-                                    Move Paper Here
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Picker Modal: When user clicks "Move Paper Here" on a specific day */}
-      {pickerTargetDate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
-                  Move Exam to {format(parseISO(pickerTargetDate), 'EEEE, dd/MM/yyyy')}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Select which paper from {selectedClassObj?.name} to allocate to this day:
-                </p>
               </div>
-              <button
-                onClick={() => setPickerTargetDate(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 max-h-[320px] overflow-y-auto">
-              {sessions
-                .filter((s) => s.session.sessionDate !== pickerTargetDate)
-                .map((s) => (
-                  <div
-                    key={s.session.id}
-                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0c1830]/50 hover:border-sky-300 dark:hover:border-sky-700 transition-colors"
-                  >
-                    <div>
-                      <div className="text-xs font-black text-slate-800 dark:text-slate-200">
-                        {s.subject?.name}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        Current: {format(parseISO(s.session.sessionDate), 'EEE, dd/MM')} • {s.session.sessionTime} ({s.session.durationMinutes}m)
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={swapping}
-                      onClick={() => handleMovePaperToDate(s, pickerTargetDate)}
-                      className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      Move Here
-                    </button>
-                  </div>
-                ))}
-              {sessions.filter((s) => s.session.sessionDate !== pickerTargetDate).length === 0 && (
-                <div className="py-8 text-center text-xs text-slate-400">
-                  All scheduled papers are already on this day.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reschedule Modal: When user clicks "Move to another day" on a specific paper card */}
-      {reschedulingSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#091326] border border-slate-200 dark:border-[#162b4d] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">
-                  Move "{reschedulingSession.subject?.name}"
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Currently scheduled for {format(parseISO(reschedulingSession.session.sessionDate), 'EEEE, dd/MM/yyyy')}
-                </p>
-              </div>
-              <button
-                onClick={() => setReschedulingSession(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 max-h-[320px] overflow-y-auto">
-              {examDates
-                .filter((d) => d !== reschedulingSession.session.sessionDate)
-                .map((d) => {
-                  const dayPapers = sessionsByDate[d] || [];
-                  const dObj = parseISO(d);
-                  return (
+            </section>
+            {selectedExam && (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {[
+                    { label: 'Class', value: selectedClass?.name || '—' },
+                    {
+                      label: 'Scheduled papers',
+                      value: timetable.loading ? '—' : sessions.length,
+                    },
+                    { label: 'Exam days', value: dates.length },
+                    {
+                      label: 'Timetable status',
+                      value:
+                        selectedExam.exam.status === 'APPROVED'
+                          ? 'Published'
+                          : selectedExam.exam.status
+                              .toLowerCase()
+                              .replaceAll('_', ' '),
+                    },
+                  ].map((item) => (
                     <div
-                      key={d}
-                      className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0c1830]/50 hover:border-sky-300 dark:hover:border-sky-700 transition-colors"
+                      key={item.label}
+                      className="workspace-panel min-w-0 p-3 sm:p-4"
                     >
-                      <div>
-                        <div className="text-xs font-black text-slate-800 dark:text-slate-200">
-                          Day {examDates.indexOf(d) + 1} • {format(dObj, 'EEEE, dd/MM/yyyy')}
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          {dayPapers.length} {dayPapers.length === 1 ? 'Paper' : 'Papers'} currently scheduled
-                        </div>
-                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {item.label}
+                      </p>
+                      <p className="mt-2 break-words text-base font-semibold capitalize text-slate-900 dark:text-slate-100">
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <section
+                  className="workspace-panel overflow-hidden"
+                  aria-busy={timetable.loading}
+                >
+                  <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {selectedExam.exam.title}
+                      </h2>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {selectedExam.exam.startDate
+                          ? `${dateLabel(selectedExam.exam.startDate)} – ${dateLabel(selectedExam.exam.endDate || selectedExam.exam.startDate)}`
+                          : 'Dates will appear after generation'}{' '}
+                        · {selectedClass?.name}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       <button
-                        type="button"
-                        disabled={swapping}
-                        onClick={() => handleMovePaperToDate(reschedulingSession, d)}
-                        className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                        className="workspace-button-secondary flex-1 sm:flex-none"
+                        onClick={() => setPrintOpen(true)}
+                        disabled={busy || timetable.loading || !sessions.length}
                       >
-                        Move to Day {examDates.indexOf(d) + 1}
+                        <Printer className="h-4 w-4" /> Print
+                      </button>
+                      <button
+                        className="workspace-button-primary flex-1 sm:flex-none"
+                        disabled={busy || timetable.loading || !sessions.length}
+                        onClick={() =>
+                          action(
+                            () =>
+                              apiClient.put(`/api/exams/${examId}/status`, {
+                                status:
+                                  selectedExam.exam.status === 'APPROVED'
+                                    ? 'DRAFT'
+                                    : 'APPROVED',
+                              }),
+                            'Timetable status updated.',
+                            examsResource.refresh,
+                          )
+                        }
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {selectedExam.exam.status === 'APPROVED'
+                          ? 'Return to draft'
+                          : 'Publish'}
                       </button>
                     </div>
-                  );
-                })}
-              {examDates.filter((d) => d !== reschedulingSession.session.sessionDate).length === 0 && (
-                <div className="py-8 text-center text-xs text-slate-400">
-                  No other series days available.
+                  </div>
+                  {swapPaper && (
+                    <div className="flex items-start justify-between gap-3 border-b border-sky-100 bg-sky-50 p-4 text-xs text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
+                      <p>
+                        <strong>{swapPaper.subject?.name}</strong> selected.
+                        Choose “Swap here” on a paper with the same duration, or
+                        move it to an open day.
+                      </p>
+                      <button
+                        disabled={busy}
+                        aria-label="Cancel swap"
+                        onClick={() => setSwapPaper(null)}
+                        className="p-1"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {timetable.loading ? (
+                    <div
+                      role="status"
+                      className="p-8 text-center text-sm text-slate-500"
+                    >
+                      Loading this class schedule…
+                    </div>
+                  ) : !sessions.length ? (
+                    <div className="p-8 text-center">
+                      <BookOpen className="mx-auto mb-3 h-7 w-7 text-slate-400" />
+                      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        No papers scheduled for this class
+                      </h3>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                        Generate a timetable to arrange learning areas across
+                        the examination period.
+                      </p>
+                      <button
+                        className="workspace-button-primary mx-auto mt-4"
+                        onClick={() => setWizardOpen(true)}
+                      >
+                        Generate timetable
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {dates.map((date, index) => {
+                        const papers = byDate.get(date) || [];
+                        return (
+                          <section
+                            key={date}
+                            className="grid min-w-0 gap-3 p-4 lg:grid-cols-[140px_minmax(0,1fr)] lg:gap-5 lg:p-5"
+                          >
+                            <div className="flex items-center justify-between gap-2 lg:block">
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">
+                                  Day {index + 1}
+                                </p>
+                                <h3 className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                  {dateLabel(date, 'EEEE')}
+                                </h3>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                  {dateLabel(date, 'd MMM yyyy')}
+                                </p>
+                              </div>
+                              <span className="text-xs text-slate-400 lg:mt-3 lg:block">
+                                {papers.length}{' '}
+                                {papers.length === 1 ? 'paper' : 'papers'}
+                              </span>
+                            </div>
+                            <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                              {papers.map((paper) => (
+                                <article
+                                  key={paper.session.id}
+                                  className={`flex min-w-0 flex-col rounded-xl border p-3.5 ${swapPaper?.session.id === paper.session.id ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/30' : 'border-slate-200 bg-slate-50/40 dark:border-slate-800 dark:bg-slate-900/30'}`}
+                                >
+                                  <div className="flex items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                                    <span>{paper.session.sessionTime}</span>
+                                  </div>
+                                  <h4 className="mt-3 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    {paper.subject?.name || 'Learning area'}
+                                  </h4>
+                                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    {paper.subject?.code} ·{' '}
+                                    {paper.session.durationMinutes} minutes
+                                  </p>
+                                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                                    Invigilator:{' '}
+                                    {paper.invigilator
+                                      ? `${paper.invigilator.firstName} ${paper.invigilator.lastName}`
+                                      : 'Not assigned'}
+                                  </p>
+                                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+                                    <button
+                                      className="min-h-9 flex-1 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-600 hover:border-sky-400 dark:border-slate-700 dark:text-slate-300 disabled:opacity-50"
+                                      disabled={busy}
+                                      onClick={() => setMovingPaper(paper)}
+                                    >
+                                      Move paper
+                                    </button>
+                                    <button
+                                      className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-600 hover:border-sky-400 dark:border-slate-700 dark:text-slate-300 disabled:opacity-50"
+                                      disabled={busy}
+                                      onClick={() => swap(paper)}
+                                    >
+                                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                                      {swapPaper?.session.id ===
+                                      paper.session.id
+                                        ? 'Cancel'
+                                        : swapPaper
+                                          ? 'Swap here'
+                                          : 'Swap'}
+                                    </button>
+                                  </div>
+                                </article>
+                              ))}
+                              {!papers.length && (
+                                <div className="rounded-xl border border-dashed border-slate-200 p-4 text-xs text-slate-500 md:col-span-2 xl:col-span-3 dark:border-slate-700">
+                                  <p>
+                                    No papers scheduled. This day is available.
+                                  </p>
+                                  {swapPaper && (
+                                    <button
+                                      disabled={busy}
+                                      className="workspace-button-secondary mt-3"
+                                      onClick={() => move(swapPaper, date)}
+                                    >
+                                      Move {swapPaper.subject?.name} here
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+                <div className="workspace-panel flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      Examination period
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      {hasActiveExams
+                        ? 'Conclude the period when examination work is complete.'
+                        : 'Reactivate the period to resume examination work.'}
+                    </p>
+                  </div>
+                  <button
+                    className="workspace-button-secondary w-full sm:w-auto"
+                    disabled={busy}
+                    onClick={() =>
+                      hasActiveExams
+                        ? setTerminateOpen(true)
+                        : action(
+                            () => apiClient.post('/api/exams/activate-period'),
+                            'Examination period activated.',
+                            examsResource.refresh,
+                          )
+                    }
+                  >
+                    <Power className="h-4 w-4" />
+                    {hasActiveExams
+                      ? 'Conclude exam period'
+                      : 'Reactivate exam period'}
+                  </button>
                 </div>
-              )}
-            </div>
+              </>
+            )}
+            {!selectedExam && (
+              <div className="workspace-panel p-8 text-center text-sm text-slate-500">
+                Create your first examination timetable using “Generate
+                timetable”.
+              </div>
+            )}
           </div>
+        )}
+      </PageLoadingWrapper>
+      <Modal
+        isOpen={archiveOpen}
+        onClose={() => setArchiveOpen(false)}
+        title="Examination archive"
+        maxWidth="max-w-xl"
+      >
+        <div className="space-y-2">
+          {exams.map((row) => (
+            <button
+              key={row.exam.id}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-left text-xs dark:border-slate-800"
+              onClick={() => {
+                setExamSelection(row.exam.id);
+                setArchiveOpen(false);
+              }}
+            >
+              <span>
+                <strong className="block text-slate-800 dark:text-slate-100">
+                  {row.exam.title}
+                </strong>
+                <span className="mt-1 block text-slate-500">
+                  {row.term?.year} · Term {row.term?.termNumber}
+                </span>
+              </span>
+              <span className="text-slate-500">{row.exam.status}</span>
+            </button>
+          ))}
+          {!exams.length && (
+            <p className="text-sm text-slate-500">No examinations available.</p>
+          )}
         </div>
-      )}
-
-      {/* Generation Wizard Modal */}
-      {isWizardOpen && (
+      </Modal>
+      <Modal
+        isOpen={Boolean(movingPaper)}
+        onClose={() => {
+          if (!busy) setMovingPaper(null);
+        }}
+        title={`Move ${movingPaper?.subject?.name || 'examination paper'}`}
+      >
+        <p className="text-xs leading-relaxed text-slate-500">
+          Choose a day. If the original time overlaps another paper, this paper
+          will be placed 15 minutes after the last paper.
+        </p>
+        <div className="space-y-2">
+          {dates
+            .filter((date) => date !== movingPaper?.session.sessionDate)
+            .map((date) => (
+              <button
+                key={date}
+                disabled={busy}
+                className="flex min-h-12 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 text-left text-xs dark:border-slate-800"
+                onClick={() => movingPaper && move(movingPaper, date)}
+              >
+                <span>{dateLabel(date)}</span>
+                <span className="text-slate-400">
+                  {byDate.get(date)?.length || 0} papers
+                </span>
+              </button>
+            ))}
+          {dates.filter((date) => date !== movingPaper?.session.sessionDate)
+            .length === 0 && (
+            <p className="p-3 text-xs text-slate-500">
+              There are no other days in this examination period.
+            </p>
+          )}
+        </div>
+      </Modal>
+      <Modal
+        isOpen={terminateOpen}
+        onClose={() => {
+          if (!busy) setTerminateOpen(false);
+        }}
+        title="Conclude examination period?"
+      >
+        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+          This locks active examination papers and switches workstations to
+          continuous assessment (CAT) mode.
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            disabled={busy}
+            className="workspace-button-secondary"
+            onClick={() => setTerminateOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            disabled={busy}
+            className="workspace-button-primary"
+            onClick={() =>
+              action(
+                () => apiClient.post('/api/exams/terminate-period'),
+                'Examination period concluded.',
+                () => {
+                  setTerminateOpen(false);
+                  examsResource.refresh();
+                },
+              )
+            }
+          >
+            {busy ? 'Concluding…' : 'Conclude & switch to CATs'}
+          </button>
+        </div>
+      </Modal>
+      {wizardOpen && (
         <ExamTimetableWizardModal
-          isOpen={isWizardOpen}
-          onClose={() => setIsWizardOpen(false)}
-          onGenerated={async (newExamId) => {
-            if (newExamId) setSelectedExamId(newExamId);
-            await fetchData();
-            await fetchSessions();
+          isOpen
+          onClose={() => setWizardOpen(false)}
+          existingExamId={examId}
+          onGenerated={(id) => {
+            if (id) setExamSelection(id);
+            examsResource.refresh();
+            timetable.refresh();
           }}
-          existingExamId={selectedExamId}
         />
       )}
-
-      {/* A4 Print Modal */}
-      {isPrintOpen && (
+      {printOpen && (
         <ExamTimetablePrintModal
-          isOpen={isPrintOpen}
-          onClose={() => setIsPrintOpen(false)}
-          exam={selectedExamObj?.exam}
-          term={selectedExamObj?.term}
-          className={selectedClassObj?.name || 'Class'}
+          isOpen
+          onClose={() => setPrintOpen(false)}
+          exam={selectedExam?.exam}
+          term={selectedExam?.term}
+          className={selectedClass?.name || 'Class'}
           sessions={sessions}
           breaks={[]}
-          schoolSettings={schoolSettings}
+          schoolSettings={settings.data}
         />
       )}
-
-      {/* Termination Authorization Modal */}
-      {showTerminateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#0c1830] border border-slate-200 dark:border-[#162b4d] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
-                <Power className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900 dark:text-slate-100">Conclude Examination Period?</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Director of Studies Authorization</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Concluding the examination period will lock active examination papers, shift academic operations to <strong>Continuous Assessment (CAT) mode</strong>, and set exam workstations to standby.
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                disabled={terminating}
-                onClick={() => setShowTerminateModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#162b4d] cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={terminating}
-                onClick={handleTerminateExamPeriod}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                {terminating ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Power className="w-3.5 h-3.5" />
-                    <span>Conclude & Shift to CATs</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-    </PageLoadingWrapper>
+    </div>
   );
 };
