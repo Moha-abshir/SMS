@@ -150,13 +150,13 @@ export const DosDashboardView: React.FC<DosDashboardViewProps> = ({ onNavigate }
           </div>
 
           {/* Right: Merged Examination Scope Filter */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start lg:self-auto">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 self-start lg:self-auto">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
               <Calendar className="w-3.5 h-3.5 text-sky-500" />
               <span>Exam:</span>
             </div>
 
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#0c1830] p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+            <div className="flex max-w-full items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-[#0c1830] p-1 rounded-lg border border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => handleSelectExam('all')}

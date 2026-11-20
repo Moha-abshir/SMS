@@ -4,7 +4,7 @@ export const ClassWorkspaceSkeleton: React.FC<{
   className?: string;
 }> = () => {
   return (
-    <div className="w-full px-4 sm:px-5 py-3 space-y-3 animate-in fade-in duration-150">
+    <div className="w-full min-w-0 max-w-full overflow-hidden px-4 sm:px-5 py-3 space-y-3 animate-in fade-in duration-150">
       {/* 1. Flat Header Row Skeleton (Max Height: ~44px) */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
         <div className="flex items-center gap-2.5">
