@@ -636,63 +636,78 @@ export class FinanceService {
       recentPayments,
     };
   }
-
-  /**
-   * Request a payment reversal
-   */
   static async requestReversal(
-    originalPaymentId: string,
+    paymentId: string,
     reason: string,
-    reversedById: string,
+    actorId: string,
   ) {
+    if (!reason?.trim() || reason.trim().length > 2000)
+      throw new FinanceValidationError(
+        'Provide a reversal reason (up to 2000 characters).',
+      );
     return db.transaction(async (tx) => {
       const [payment] = await tx
         .select()
         .from(feePayments)
-        .where(eq(feePayments.id, originalPaymentId))
+        .where(
+          and(eq(feePayments.id, paymentId), isNull(feePayments.deletedAt)),
+        )
         .for('update');
-
-      if (!payment) {
-        throw new Error('Original payment record not found');
-      }
-      if (payment.isReversed) {
-        throw new Error('Payment is already reversed');
-      }
-
-      const [existingRequest] = await tx
+      if (!payment)
+        throw new FinanceValidationError('Original payment record not found.');
+      if (payment.isReversed)
+        throw new FinanceValidationError('Payment is already reversed.');
+      const [pending] = await tx
         .select()
         .from(paymentReversals)
         .where(
           and(
-            eq(paymentReversals.originalPaymentId, originalPaymentId),
+            eq(paymentReversals.originalPaymentId, paymentId),
             isNull(paymentReversals.approvedById),
+            isNull(paymentReversals.rejectedById),
           ),
         );
-
-      if (existingRequest) {
-        throw new Error(
-          'A pending reversal request already exists for this payment',
+      if (pending)
+        throw new FinanceValidationError(
+          'A pending reversal request already exists for this payment.',
         );
-      }
-
-      const [reversal] = await tx
+      const [saved] = await tx
         .insert(paymentReversals)
         .values({
-          originalPaymentId,
-          reason,
-          reversedById,
+          originalPaymentId: paymentId,
+          reason: reason.trim(),
+          reversedById: actorId,
         })
         .returning();
-
-      return reversal;
+      await financeAudit(
+        tx,
+        actorId,
+        'REVERSAL_REQUESTED',
+        'payment_reversals',
+        saved.id,
+        null,
+        saved,
+      );
+      return saved;
     });
   }
-
-  /**
-   * Get pending payment reversals queue
-   */
-  static async getPendingReversals() {
-    return await db
+  static async getPendingReversals(
+    year?: number,
+    termNumber?: number,
+    limit = 100,
+    offset = 0,
+  ) {
+    if (
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      !Number.isInteger(offset) ||
+      offset < 0 ||
+      offset > 1000000
+    )
+      throw new FinanceValidationError('Invalid reversal page.');
+    this.paymentConditions({ academicYear: year, termNumber });
+    return db
       .select({
         reversalId: paymentReversals.id,
         reason: paymentReversals.reason,
@@ -708,6 +723,7 @@ export class FinanceService {
         studentLastName: students.lastName,
         assessmentNumber: students.assessmentNumber,
         className: classes.name,
+        requestedById: paymentReversals.reversedById,
         requestedByFirstName: users.firstName,
         requestedByLastName: users.lastName,
       })
@@ -719,115 +735,125 @@ export class FinanceService {
       .innerJoin(students, eq(feePayments.studentId, students.id))
       .innerJoin(classes, eq(students.classId, classes.id))
       .innerJoin(users, eq(paymentReversals.reversedById, users.id))
-      .where(isNull(paymentReversals.approvedById))
-      .orderBy(desc(paymentReversals.createdAt));
+      .where(
+        and(
+          isNull(paymentReversals.approvedById),
+          isNull(paymentReversals.rejectedById),
+          year ? eq(feePayments.academicYear, year) : undefined,
+          termNumber ? eq(feePayments.termNumber, termNumber) : undefined,
+        ),
+      )
+      .orderBy(desc(paymentReversals.createdAt), desc(paymentReversals.id))
+      .limit(limit)
+      .offset(offset);
   }
-
-  /**
-   * Approve payment reversal (Head Teacher approval)
-   */
-  static async approveReversal(reversalId: string, approvedById: string) {
-    return await db.transaction(async (tx) => {
+  static async approveReversal(id: string, actorId: string, roleName?: string) {
+    return this.decideReversal(id, actorId, roleName, true, 'Approved');
+  }
+  static async rejectReversal(
+    id: string,
+    actorId: string,
+    reason: string,
+    roleName?: string,
+  ) {
+    return this.decideReversal(id, actorId, roleName, false, reason);
+  }
+  private static async decideReversal(
+    id: string,
+    actorId: string,
+    roleName: string | undefined,
+    approve: boolean,
+    reason: string,
+  ) {
+    if (roleName !== 'HEAD_TEACHER')
+      throw Object.assign(
+        new Error('Only the Head Teacher can decide payment reversals.'),
+        { status: 403 },
+      );
+    if (!reason?.trim() || reason.length > 2000)
+      throw new FinanceValidationError(
+        'Provide a decision reason (up to 2000 characters).',
+      );
+    return db.transaction(async (tx) => {
       const [reversal] = await tx
         .select()
         .from(paymentReversals)
-        .where(eq(paymentReversals.id, reversalId))
+        .where(eq(paymentReversals.id, id))
         .for('update');
-
-      if (!reversal) {
-        throw new Error('Reversal request not found');
-      }
-      if (reversal.approvedById) {
-        throw new Error('Reversal request has already been processed');
-      }
-
+      if (!reversal)
+        throw new FinanceValidationError('Reversal request not found.');
+      if (reversal.approvedById || reversal.rejectedById)
+        throw new FinanceValidationError(
+          'Reversal request has already been processed.',
+        );
+      if (reversal.reversedById === actorId)
+        throw new FinanceValidationError(
+          'You cannot decide your own reversal request. Another Head Teacher must review it.',
+        );
       const [payment] = await tx
         .select()
         .from(feePayments)
         .where(eq(feePayments.id, reversal.originalPaymentId))
         .for('update');
-
-      if (!payment) {
-        throw new Error('Original payment not found');
-      }
-      if (payment.isReversed) {
-        throw new Error('Payment has already been reversed');
-      }
-
-      // 1. Mark reversal approved
-      const [updatedReversal] = await tx
-        .update(paymentReversals)
-        .set({
-          approvedById,
-          updatedAt: new Date(),
-        })
-        .where(eq(paymentReversals.id, reversalId))
-        .returning();
-
-      // 2. Mark payment reversed
-      await tx
-        .update(feePayments)
-        .set({
-          isReversed: true,
-          updatedAt: new Date(),
-        })
-        .where(eq(feePayments.id, payment.id));
-
-      // 3. Rollback student bill paidAmount & balance
-      if (payment.billId) {
+      if (!payment || payment.isReversed || payment.deletedAt)
+        throw new FinanceValidationError(
+          'Original payment is unavailable or already reversed.',
+        );
+      if (approve) {
+        if (!payment.billId)
+          throw new FinanceValidationError(
+            'This legacy payment has no bill. Reconcile it before approving a reversal.',
+          );
         const [bill] = await tx
           .select()
           .from(studentBills)
           .where(eq(studentBills.id, payment.billId))
           .for('update');
-
-        if (bill) {
-          const reversedAmt = Number(payment.amountPaid);
-          const currentPaid = Number(bill.paidAmount);
-          const newPaid = Math.max(0, currentPaid - reversedAmt);
-          const newBalance = Number(bill.netAmount) - newPaid;
-
-          await tx
-            .update(studentBills)
-            .set({
-              paidAmount: newPaid.toFixed(2),
-              balance: newBalance.toFixed(2),
-              updatedAt: new Date(),
-            })
-            .where(eq(studentBills.id, bill.id));
-        }
+        if (!bill || bill.deletedAt || bill.studentId !== payment.studentId)
+          throw new FinanceValidationError(
+            'The linked bill is unavailable. Reconcile before reversal.',
+          );
+        await this.assertBillConsistent(tx, bill.id);
+        const paid = cents(bill.paidAmount, true) - cents(payment.amountPaid);
+        if (paid < 0)
+          throw new FinanceValidationError(
+            'Bill and payment totals disagree. Reconcile before reversal.',
+          );
+        await tx
+          .update(studentBills)
+          .set({
+            paidAmount: money(paid),
+            balance: money(cents(bill.netAmount, true) - paid),
+            updatedAt: new Date(),
+          })
+          .where(eq(studentBills.id, bill.id));
+        await tx
+          .update(feePayments)
+          .set({ isReversed: true, updatedAt: new Date() })
+          .where(eq(feePayments.id, payment.id));
       }
-
-      return updatedReversal;
+      const [saved] = await tx
+        .update(paymentReversals)
+        .set({
+          approvedById: approve ? actorId : null,
+          rejectedById: approve ? null : actorId,
+          decisionReason: reason.trim(),
+          decidedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(paymentReversals.id, id))
+        .returning();
+      await financeAudit(
+        tx,
+        actorId,
+        approve ? 'REVERSAL_APPROVED' : 'REVERSAL_REJECTED',
+        'payment_reversals',
+        id,
+        reversal,
+        saved,
+      );
+      return saved;
     });
-  }
-
-  /**
-   * Reject payment reversal request
-   */
-  static async rejectReversal(reversalId: string, rejectedById: string) {
-    const [reversal] = await db
-      .select()
-      .from(paymentReversals)
-      .where(eq(paymentReversals.id, reversalId));
-
-    if (!reversal) {
-      throw new Error('Reversal request not found');
-    }
-
-    // Delete pending reversal request so payment stays valid
-    const deleted = await db
-      .delete(paymentReversals)
-      .where(
-        and(
-          eq(paymentReversals.id, reversalId),
-          isNull(paymentReversals.approvedById),
-        ),
-      )
-      .returning();
-    if (!deleted.length)
-      throw new Error('Reversal request has already been processed');
-    return { success: true, message: 'Reversal request dismissed' };
   }
 
   /**

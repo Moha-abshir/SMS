@@ -131,7 +131,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'finance:view',
     'finance:record_payment',
     'finance:bill',
-    'finance:bill',
     'fees:structure-edit',
   ],
   SECRETARY: [

@@ -93,12 +93,10 @@ export class FinanceController {
     try {
       const { paymentId, reason } = req.body;
       if (!paymentId || !reason) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: 'Payment ID and reason are required',
-          });
+        return res.status(400).json({
+          success: false,
+          message: 'Payment ID and reason are required',
+        });
       }
 
       const reversal = await FinanceService.requestReversal(
@@ -112,72 +110,93 @@ export class FinanceController {
         message: 'Reversal request submitted for Head Teacher approval',
       });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: publicErrorMessage(
-            error,
-            'Failed to request payment reversal',
-          ),
-        });
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(
+          error,
+          'Failed to request payment reversal',
+        ),
+      });
     }
   }
 
   static async getPendingReversals(req: Request, res: Response) {
     try {
-      const pending = await FinanceService.getPendingReversals();
-      return res.status(200).json({ success: true, data: pending });
+      const offset = req.query.offset ? Number(req.query.offset) : 0;
+      const pending = await FinanceService.getPendingReversals(
+        Number(req.query.academicYear),
+        req.query.termNumber ? Number(req.query.termNumber) : undefined,
+        26,
+        offset,
+      );
+      return res.status(200).json({
+        success: true,
+        data: {
+          items: pending.slice(0, 25),
+          hasMore: pending.length > 25,
+          offset,
+        },
+      });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: publicErrorMessage(
-            error,
-            'Failed to fetch pending reversals',
-          ),
-        });
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(error, 'Failed to fetch pending reversals'),
+      });
     }
   }
 
   static async approveReversal(req: Request, res: Response) {
+    if (req.user?.roleName !== 'HEAD_TEACHER')
+      return res.status(403).json({
+        success: false,
+        message: 'Only the Head Teacher can decide reversals.',
+      });
     try {
       const { id } = req.params;
-      const approved = await FinanceService.approveReversal(id, req.user!.id);
+      const approved = await FinanceService.approveReversal(
+        id,
+        req.user!.id,
+        req.user!.roleName,
+      );
       return res.status(200).json({
         success: true,
         data: approved,
         message: 'Payment reversal approved and student balance updated',
       });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: publicErrorMessage(
-            error,
-            'Failed to approve payment reversal',
-          ),
-        });
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(
+          error,
+          'Failed to approve payment reversal',
+        ),
+      });
     }
   }
 
   static async rejectReversal(req: Request, res: Response) {
+    if (req.user?.roleName !== 'HEAD_TEACHER')
+      return res.status(403).json({
+        success: false,
+        message: 'Only the Head Teacher can decide reversals.',
+      });
     try {
       const { id } = req.params;
-      const result = await FinanceService.rejectReversal(id, req.user!.id);
+      const result = await FinanceService.rejectReversal(
+        id,
+        req.user!.id,
+        req.body.reason,
+        req.user!.roleName,
+      );
       return res.status(200).json(result);
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: publicErrorMessage(
-            error,
-            'Failed to dismiss payment reversal',
-          ),
-        });
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(
+          error,
+          'Failed to dismiss payment reversal',
+        ),
+      });
     }
   }
   static async previewBilling(req: Request, res: Response) {
