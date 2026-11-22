@@ -409,10 +409,8 @@ Notes
 Payment methods could include:
 
 M-Pesa
-Bank
 Cash
-Cheque
-Other
+
 
 For M-Pesa, the transaction/reference number should be recorded.
 
