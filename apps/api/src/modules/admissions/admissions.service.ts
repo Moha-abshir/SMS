@@ -50,7 +50,7 @@ export class AdmissionsService {
 
   static async admitStudent(
     studentData: {
-      assessmentNumber: string;
+      assessmentNumber?: string | null;
       firstName: string;
       middleName?: string;
       lastName: string;
@@ -71,6 +71,12 @@ export class AdmissionsService {
     admittedById: string,
     isDirectActive = true
   ) {
+    const [targetClass] = await db.select().from(classes).where(eq(classes.id, studentData.classId));
+    if (!targetClass || targetClass.deletedAt) throw new Error('Select a valid class for admission.');
+    const assessmentNumber = studentData.assessmentNumber?.trim() || null;
+    if (targetClass.numericOrder > 6 && !assessmentNumber)
+      throw new Error('KNEC assessment number is required for Grade 4 and above.');
+    if (assessmentNumber && assessmentNumber.length > 50) throw new Error('Assessment number must be at most 50 characters.');
     let targetGuardianId = guardianData.existingGuardianId;
 
     if (!targetGuardianId) {
@@ -108,7 +114,7 @@ export class AdmissionsService {
     const [newStudent] = await db
       .insert(students)
       .values({
-        assessmentNumber: studentData.assessmentNumber.trim(),
+        assessmentNumber,
         firstName: studentData.firstName.trim(),
         middleName: studentData.middleName?.trim(),
         lastName: studentData.lastName.trim(),
@@ -217,8 +223,9 @@ export class AdmissionsService {
       classMap.set(c.id, c.id);
     });
 
+    const classById = new Map(existingClasses.map(cls => [cls.id, cls]));
     const existingStudents = await db.select({ assessmentNumber: students.assessmentNumber }).from(students);
-    const existingAssessments = new Set(existingStudents.map((s) => s.assessmentNumber.trim().toLowerCase()));
+    const existingAssessments = new Set(existingStudents.map((s) => s.assessmentNumber?.trim().toLowerCase()));
 
     const seenInFile = new Set<string>();
     const errors: string[] = [];
@@ -244,19 +251,23 @@ export class AdmissionsService {
       const guardianAddress = (r.guardianAddress || r.guardian_address || '').toString().trim();
       const emergencyContact = (r.emergencyContact || r.emergency_contact || '').toString().trim();
 
-      if (!assessmentNo) {
+      if (!assessmentNo && classId && (classById.get(classId)?.numericOrder || 0) > 6) {
         errors.push(`Row ${lineNum}: Missing Assessment Number`);
         return;
       }
-      if (existingAssessments.has(assessmentNo.toLowerCase())) {
+      if (assessmentNo.length > 50) {
+        errors.push(`Row ${lineNum}: Assessment Number must be at most 50 characters`);
+        return;
+      }
+      if (assessmentNo && existingAssessments.has(assessmentNo.toLowerCase())) {
         errors.push(`Row ${lineNum}: Assessment Number '${assessmentNo}' already exists in database`);
         return;
       }
-      if (seenInFile.has(assessmentNo.toLowerCase())) {
+      if (assessmentNo && seenInFile.has(assessmentNo.toLowerCase())) {
         errors.push(`Row ${lineNum}: Duplicate Assessment Number '${assessmentNo}' within import file`);
         return;
       }
-      seenInFile.add(assessmentNo.toLowerCase());
+      if (assessmentNo) seenInFile.add(assessmentNo.toLowerCase());
 
       if (!firstName || !lastName) {
         errors.push(`Row ${lineNum}: First name and Last name are required for student '${assessmentNo}'`);
@@ -273,7 +284,7 @@ export class AdmissionsService {
 
       validRows.push({
         student: {
-          assessmentNumber: assessmentNo,
+          assessmentNumber: assessmentNo || null,
           firstName,
           middleName: middleName || null,
           lastName,

@@ -52,7 +52,7 @@ export const subjects = pgTable('subjects', {
 
 export const students = pgTable('students', {
   id: uuid('id').defaultRandom().primaryKey(),
-  assessmentNumber: varchar('assessment_number', { length: 50 }).notNull().unique(),
+  assessmentNumber: varchar('assessment_number', { length: 50 }).unique(),
   admissionNumber: varchar('admission_number', { length: 50 }), // Optional fallback
   firstName: varchar('first_name', { length: 100 }).notNull(),
   middleName: varchar('middle_name', { length: 100 }),

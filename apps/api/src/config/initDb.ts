@@ -5,6 +5,7 @@ export async function initializeDatabaseTables() {
   // Required schema must be ready before the API accepts requests. Do not
   // silently start a new deployment that cannot read its examination records.
   await db.execute(sql`ALTER TABLE "examinations" ADD COLUMN IF NOT EXISTS "schedule_config" jsonb`);
+  await db.execute(sql`ALTER TABLE "students" ALTER COLUMN "assessment_number" DROP NOT NULL`);
   await db.execute(sql`ALTER TABLE "mark_submissions" ADD COLUMN IF NOT EXISTS "forwarded_to_deputy_at" timestamptz`);
   try {
     await db.execute(sql`

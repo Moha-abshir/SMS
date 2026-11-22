@@ -11,7 +11,7 @@ export interface PerformanceLearner {
   middleName: string | null;
   lastName: string;
   admissionNumber: string | null;
-  assessmentNumber: string;
+  assessmentNumber: string | null;
 }
 export interface PerformanceCat {
   id: string;

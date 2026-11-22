@@ -33,6 +33,7 @@ interface ClassItem {
   id: string;
   name: string;
   levelCategory: string;
+  numericOrder: number;
 }
 
 interface GuardianItem {
@@ -683,7 +684,7 @@ export const StudentAdmissionView: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
-              <div>
+              {(classesList.find((cls: any) => cls.id === studentForm.classId)?.numericOrder ?? 0) > 6 && <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   KNEC Assessment Number *
                 </label>
@@ -695,7 +696,7 @@ export const StudentAdmissionView: React.FC = () => {
                   onChange={(e) => setStudentForm({ ...studentForm, assessmentNumber: e.target.value })}
                   className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                 />
-              </div>
+              </div>}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
