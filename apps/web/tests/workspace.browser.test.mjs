@@ -1147,3 +1147,442 @@ test('self-contained class teachers can explicitly forward their completed class
     await context.close();
   }
 });
+
+async function financeWorkspace(role = 'BURSAR', width = 390) {
+  const setup = await workspace(role, width);
+  const { page } = setup;
+  const requests = [];
+  const summary = {
+    academicYear: 2026,
+    termNumber: 1,
+    totalCollected: 100,
+    totalBilled: 200,
+    totalPaidFromBills: 100,
+    totalOutstanding: 100,
+    totalCredits: 0,
+    totalWaivers: 0,
+    totalTransactions: 1,
+    methodBreakdown: { CASH: { count: 1, total: 100 } },
+    pendingReversalsCount: 1,
+    recentPayments: [],
+  };
+  const learner = {
+    student: {
+      id: 'learner-finance',
+      firstName: 'Aisha',
+      lastName: 'Finance',
+      assessmentNumber: 'KNEC-FIN',
+    },
+    class: { name: 'Grade 6' },
+    guardian: { fullName: 'Parent Finance' },
+  };
+  await page.route('**/api/finance/**', (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url);
+    let data = {};
+    if (url.pathname.endsWith('/summary')) data = summary;
+    if (url.pathname.endsWith('/billing-preview'))
+      data = {
+        eligible: 2,
+        alreadyBilled: 2,
+        newBills: 0,
+        totalNewAmount: '0.00',
+        missingFeeClasses: [],
+        canGenerate: true,
+      };
+    if (url.pathname.endsWith('/reconciliation'))
+      data = { mismatchCount: 0, unlinkedPayments: 0, items: [], limit: 50 };
+    if (url.pathname.endsWith('/payments')) {
+      const offset = Number(url.searchParams.get('offset') || 0),
+        search = url.searchParams.get('search');
+      data = {
+        items: [
+          {
+            id: `payment-${offset}`,
+            receiptNumber: search ? 'REC-MATCH' : `REC-PAGE-${offset}`,
+            amountPaid: '100.00',
+            paymentMethod: 'CASH',
+            studentFirstName: 'Aisha',
+            studentLastName: 'Finance',
+            className: 'Grade 6',
+            paymentDate: '2026-11-22T08:00:00Z',
+            paidBy: 'Parent',
+            recordedByFirstName: 'Bursar',
+            recordedByLastName: 'Review',
+          },
+        ],
+        total: search ? 1 : 51,
+        limit: 25,
+        offset,
+      };
+    }
+    if (url.pathname.endsWith('/reversals/pending'))
+      data = {
+        items: [
+          {
+            reversalId: 'reversal-fixture',
+            receiptNumber: 'REC-REVIEW',
+            amountPaid: '100.00',
+            studentFirstName: 'Aisha',
+            studentLastName: 'Finance',
+            className: 'Grade 6',
+            reason: 'Wrong learner',
+            requestedById: 'requester',
+            requestedByFirstName: 'Bursar',
+            requestedByLastName: 'Review',
+            requestedAt: '2026-11-22T08:00:00Z',
+          },
+        ],
+        hasMore: false,
+        offset: 0,
+      };
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data }),
+    });
+  });
+  await page.route('**/api/admissions/students', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: [learner] }),
+    }),
+  );
+  return { ...setup, requests, learner };
+}
+
+for (const width of [390, 768, 1366])
+  test(`finance filters, paginated ledger and bursar review restrictions fit ${width}px`, async () => {
+    const { context, page, requests } = await financeWorkspace('BURSAR', width);
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    try {
+      await page.goto(origin + '/finance');
+      await page
+        .getByRole('heading', { name: 'Term billing', exact: true })
+        .waitFor();
+      if (process.env.UI_REVIEW_DIR) {
+        await page.getByText('0 bill mismatch(es)', { exact: false }).waitFor();
+        await page.screenshot({
+          path: `${process.env.UI_REVIEW_DIR}/finance-${width}.png`,
+          fullPage: true,
+        });
+      }
+      await page
+        .getByRole('button', { name: 'Payments Ledger', exact: true })
+        .click();
+      await page.getByText('REC-PAGE-0', { exact: true }).waitFor();
+      await page
+        .getByRole('button', { name: 'Next payments', exact: true })
+        .click();
+      await page.getByText('REC-PAGE-25', { exact: true }).waitFor();
+      await page
+        .getByPlaceholder('Search receipt #, student, ref code...')
+        .fill('match');
+      await page.getByText('REC-MATCH', { exact: true }).waitFor();
+      assert(requests.some((url) => url.searchParams.get('offset') === '25'));
+      assert(
+        requests.some(
+          (url) =>
+            url.searchParams.get('search') === 'match' &&
+            url.searchParams.get('offset') === '0',
+        ),
+      );
+      await page.getByLabel('Finance term', { exact: true }).selectOption('2');
+      await page.getByText('REC-MATCH', { exact: true }).waitFor();
+      assert(
+        requests.some(
+          (url) =>
+            url.pathname.endsWith('/payments') &&
+            url.searchParams.get('termNumber') === '2',
+        ),
+      );
+      await page.getByRole('button', { name: /Reversals Queue/ }).click();
+      await page
+        .getByText('Awaiting independent head teacher review', { exact: true })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByRole('button', { name: 'Approve Reversal', exact: true })
+          .count(),
+        0,
+      );
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      );
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  });
+
+for (const failure of ['NETWORK', 'SERVER'])
+  test(`a failed cash request (${failure}) retries with the same key and opens one receipt`, async () => {
+    const { context, page } = await financeWorkspace();
+    const writes = [];
+    try {
+      await page.route('**/api/finance/payments', (route) => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        writes.push(route.request().postDataJSON());
+        if (writes.length === 1)
+          return failure === 'NETWORK'
+            ? route.abort('failed')
+            : route.fulfill({
+                status: 503,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                  success: false,
+                  message:
+                    'Payment could not be confirmed. Retry the same request.',
+                }),
+              });
+        return route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              id: 'accepted-payment',
+              studentId: 'learner-finance',
+              academicYear: 2026,
+              termNumber: 1,
+              receiptNumber: 'REC-SAFE-1',
+              amountPaid: '100.00',
+              paymentMethod: 'CASH',
+              studentName: 'Aisha Finance',
+              assessmentNumber: 'KNEC-FIN',
+              className: 'Grade 6',
+              billTitle: 'Term 1 2026',
+              paidBy: 'Parent Finance',
+              paymentDate: '2026-11-22T08:00:00Z',
+            },
+          }),
+        });
+      });
+      await page.goto(origin + '/finance');
+      await page
+        .getByRole('button', { name: 'Record Fee Payment', exact: true })
+        .click();
+      await page
+        .getByPlaceholder('Type student name or KNEC assessment number...')
+        .fill('Aisha');
+      await page.getByText('Aisha Finance', { exact: true }).click();
+      await page.getByPlaceholder('e.g. 5000').fill('100.00');
+      await page.getByPlaceholder('e.g. Mary Kemboi').fill('Parent Finance');
+      await page
+        .getByRole('button', {
+          name: 'Confirm & Issue Official Receipt',
+          exact: true,
+        })
+        .click();
+      await page
+        .getByText('A payment attempt is unresolved.', { exact: false })
+        .waitFor();
+      await page
+        .getByRole('button', {
+          name: 'Confirm & Issue Official Receipt',
+          exact: true,
+        })
+        .click();
+      await page.getByText('REC-SAFE-1', { exact: true }).first().waitFor();
+      assert.equal(writes.length, 2);
+      assert.equal(writes[0].requestKey, writes[1].requestKey);
+      assert(writes[0].requestKey);
+      assert.equal(writes[1].academicYear, 2026);
+      assert.equal(writes[1].termNumber, 1);
+    } finally {
+      await context.close();
+    }
+  });
+
+test('fee approval reviews exact saved amounts and bursars cannot approve', async () => {
+  for (const role of ['BURSAR', 'HEAD_TEACHER']) {
+    const { context, page } = await workspace(role, 390);
+    const approvals = [];
+    try {
+      const rate = {
+        id: 'rate-one',
+        termId: 'term-one',
+        levelCategory: 'PPE',
+        totalAmount: '6000.00',
+        className: null,
+      };
+      const cell = {
+        id: 'rate-one',
+        termId: 'term-one',
+        amount: 6000,
+        approved: false,
+      };
+      await page.route('**/api/fee-structures?*', (route) =>
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: {
+              terms: [{ id: 'term-one', year: 2026, termNumber: 1 }],
+              savedRates: [rate],
+              matrix: [
+                {
+                  levelCategory: 'PPE',
+                  title: 'Pre-Primary',
+                  term1: cell,
+                  term2: {
+                    id: null,
+                    termId: null,
+                    amount: null,
+                    approved: false,
+                  },
+                  term3: {
+                    id: null,
+                    termId: null,
+                    amount: null,
+                    approved: false,
+                  },
+                },
+              ],
+            },
+          }),
+        }),
+      );
+      await page.route(
+        '**/api/fee-structures/terms/term-one/approve',
+        (route) => {
+          approvals.push(route.request().postDataJSON());
+          return route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({ success: true, data: [] }),
+          });
+        },
+      );
+      await page.goto(origin + '/fee-structures');
+      await page
+        .getByLabel('Pre-Primary Term 1 fee', { exact: true })
+        .waitFor();
+      const approve = page.getByRole('button', {
+        name: 'Review & approve Term 1',
+        exact: true,
+      });
+      if (role === 'BURSAR') assert.equal(await approve.count(), 0);
+      else {
+        await approve.click();
+        assert.equal(approvals.length, 0);
+        await page.getByText('PPE: KES 6,000', { exact: true }).waitFor();
+        await page
+          .getByRole('button', { name: 'Confirm fee approval', exact: true })
+          .click();
+        await page
+          .getByRole('heading', {
+            name: 'Approve term fee rates?',
+            exact: true,
+          })
+          .waitFor({ state: 'hidden' });
+        assert.deepEqual(approvals, [
+          { expected: [{ id: 'rate-one', totalAmount: '6000.00' }] },
+        ]);
+      }
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      );
+    } finally {
+      await context.close();
+    }
+  }
+});
+
+test('billing generation requires an explicit confirmation', async () => {
+  const { context, page } = await financeWorkspace();
+  const writes = [];
+  try {
+    await page.route('**/api/finance/billing-preview?*', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            eligible: 2,
+            alreadyBilled: 0,
+            newBills: 2,
+            totalNewAmount: '14000.00',
+            missingFeeClasses: [],
+            canGenerate: true,
+          },
+        }),
+      }),
+    );
+    await page.route('**/api/finance/billing', (route) => {
+      writes.push(route.request().postDataJSON());
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { created: 2, alreadyBilled: 0 },
+        }),
+      });
+    });
+    await page.goto(origin + '/finance');
+    await page
+      .getByRole('button', { name: 'Review term bills', exact: true })
+      .click();
+    assert.equal(writes.length, 0);
+    await page
+      .getByRole('button', { name: 'Confirm bill generation', exact: true })
+      .click();
+    await page
+      .getByRole('heading', { name: 'Generate term bills?', exact: true })
+      .waitFor({ state: 'hidden' });
+    assert.deepEqual(writes, [{ academicYear: 2026, termNumber: 1 }]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('finance failures show retry states without inventing zero balances or missing rates', async () => {
+  const { context, page } = await financeWorkspace();
+  try {
+    const pattern = '**/api/finance/summary?*';
+    await page.route(pattern, (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          message: 'Finance summary temporarily unavailable',
+        }),
+      }),
+    );
+    await page.goto(origin + '/finance');
+    await page
+      .getByText('Finance summary temporarily unavailable', { exact: true })
+      .waitFor();
+    assert.equal(await page.getByText('Collected', { exact: true }).count(), 0);
+    await page.unroute(pattern);
+    await page.getByRole('button', { name: 'Try again', exact: true }).click();
+    await page.getByText('Collected', { exact: true }).waitFor();
+    await page.route('**/api/fee-structures?*', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          message: 'Fee schedules temporarily unavailable',
+        }),
+      }),
+    );
+    await page.goto(origin + '/fee-structures');
+    await page
+      .getByText('Fee schedules temporarily unavailable', { exact: true })
+      .waitFor();
+    assert.equal(
+      await page.getByText('Term not configured.', { exact: true }).count(),
+      0,
+    );
+    assert.equal(
+      await page.getByPlaceholder('Enter an explicit amount').count(),
+      0,
+    );
+  } finally {
+    await context.close();
+  }
+});
