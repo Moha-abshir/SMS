@@ -130,7 +130,8 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
   BURSAR: [
     'finance:view',
     'finance:record_payment',
-    'finance:reversal_approve',
+    'finance:bill',
+    'finance:bill',
     'fees:structure-edit',
   ],
   SECRETARY: [

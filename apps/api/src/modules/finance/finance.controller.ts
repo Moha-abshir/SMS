@@ -1,4 +1,6 @@
-import { publicErrorMessage } from '../../utils/publicError.js';
+import { FinanceValidationError } from './financeRules.js';
+import { z } from 'zod';
+import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { FinanceService } from './finance.service.js';
 
@@ -171,6 +173,39 @@ export class FinanceController {
             'Failed to dismiss payment reversal',
           ),
         });
+    }
+  }
+  static async previewBilling(req: Request, res: Response) {
+    try {
+      return res.json({
+        success: true,
+        data: await FinanceService.previewBilling(
+          Number(req.query.academicYear),
+          Number(req.query.termNumber),
+        ),
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(error, 'Could not preview term bills.'),
+      });
+    }
+  }
+  static async generateBills(req: Request, res: Response) {
+    try {
+      return res.json({
+        success: true,
+        data: await FinanceService.generateBills(
+          req.body.academicYear,
+          req.body.termNumber,
+          req.user!.id,
+        ),
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(error, 'Could not generate term bills.'),
+      });
     }
   }
 

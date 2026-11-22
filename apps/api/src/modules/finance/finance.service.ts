@@ -1,6 +1,9 @@
+import { AcademicTermsService } from '../academic-terms/academicTerms.service.js';
+import { createHash } from 'node:crypto';
 import { db } from '../../config/db.js';
 import {
   feePayments,
+  paymentRequestKeys,
   studentBills,
   paymentReversals,
   students,
@@ -8,21 +11,24 @@ import {
   users,
   academicTerms,
   feeStructures,
+  systemSettings,
   eq,
   and,
   desc,
   sql,
   isNull,
+  inArray,
+  or,
+  ilike,
 } from '@school/shared';
-import { AcademicTermsService } from '../academic-terms/academicTerms.service.js';
-
-const DEFAULT_TERM_FEES: Record<string, number> = {
-  PPE: 6000,
-  LOWER_PRIMARY: 7000,
-  UPPER_PRIMARY: 7500,
-  JUNIOR: 11000,
-};
-
+import {
+  FinanceValidationError,
+  cents,
+  money,
+  termForFinance,
+  financeAudit,
+  type FinanceTransaction,
+} from './financeRules.js';
 export interface RecordPaymentInput {
   studentId: string;
   amountPaid: number | string;
@@ -33,15 +39,30 @@ export interface RecordPaymentInput {
     | 'BANK_DEPOSIT'
     | 'CHEQUE'
     | 'OTHER';
+  requestKey: string;
   mpesaRefCode?: string;
   bankRefNumber?: string;
   paidBy: string;
-  academicYear?: number;
-  termNumber?: number;
+  academicYear: number;
+  termNumber: number;
   notes?: string;
   paymentDate?: string | Date;
   billId?: string;
 }
+export interface PaymentFilters {
+  studentId?: string;
+  academicYear?: number;
+  termNumber?: number;
+  limit?: number;
+  offset?: number;
+  search?: string;
+}
+const DEFAULT_TERM_FEES: Record<string, number> = {
+  PPE: 6000,
+  LOWER_PRIMARY: 7000,
+  UPPER_PRIMARY: 7500,
+  JUNIOR: 11000,
+};
 
 export class FinanceService {
   /**
@@ -71,6 +92,153 @@ export class FinanceService {
     }
 
     return candidate;
+  }
+
+  private static async billingPlan(
+    year: number,
+    number: number,
+    reader: Pick<typeof db, 'select'> = db,
+  ) {
+    const term = await termForFinance(year, number, reader);
+    const [settings] = await reader
+      .select({ year: systemSettings.currentAcademicYear })
+      .from(systemSettings)
+      .where(isNull(systemSettings.deletedAt))
+      .limit(1);
+    if (!settings || settings.year !== year)
+      throw new FinanceValidationError(
+        'New bills can be generated only for the configured current academic year. Historical charges require a reviewed import.',
+      );
+    const [roster, structures, bills] = await Promise.all([
+      reader
+        .select({
+          student: { id: students.id },
+          class: {
+            id: classes.id,
+            name: classes.name,
+            levelCategory: classes.levelCategory,
+          },
+        })
+        .from(students)
+        .innerJoin(classes, eq(students.classId, classes.id))
+        .where(
+          and(
+            eq(students.status, 'ACTIVE'),
+            sql`${students.admissionDate} <= ${term.endDate}`,
+            isNull(students.deletedAt),
+            isNull(classes.deletedAt),
+          ),
+        ),
+      reader
+        .select()
+        .from(feeStructures)
+        .where(
+          and(
+            eq(feeStructures.termId, term.id),
+            isNull(feeStructures.deletedAt),
+          ),
+        ),
+      reader
+        .select({ studentId: studentBills.studentId })
+        .from(studentBills)
+        .where(
+          and(eq(studentBills.termId, term.id), isNull(studentBills.deletedAt)),
+        ),
+    ]);
+    const billed = new Set(bills.map((b) => b.studentId));
+    const byClass = new Map(
+      structures.filter((f) => f.classId).map((f) => [f.classId, f]),
+    );
+    const byLevel = new Map(
+      structures.filter((f) => !f.classId).map((f) => [f.levelCategory, f]),
+    );
+    const missing = new Set<string>();
+    const proposed = roster
+      .filter((row) => !billed.has(row.student.id))
+      .flatMap((row) => {
+        const fee =
+          byClass.get(row.class.id) || byLevel.get(row.class.levelCategory);
+        if (!fee?.approvedAt) {
+          missing.add(row.class.name);
+          return [];
+        }
+        const amount = money(cents(fee.totalAmount, true));
+        return [
+          {
+            studentId: row.student.id,
+            termId: term.id,
+            title: `Term ${number} ${year} Tuition & School Fees`,
+            billedAmount: amount,
+            netAmount: amount,
+            waiverAmount: '0.00',
+            paidAmount: '0.00',
+            balance: amount,
+          },
+        ];
+      });
+    return {
+      term,
+      eligible: roster.length,
+      alreadyBilled: roster.filter((row) => billed.has(row.student.id)).length,
+      missing: [...missing].sort(),
+      proposed,
+    };
+  }
+  static async previewBilling(year: number, number: number) {
+    const plan = await this.billingPlan(year, number);
+    return {
+      academicYear: year,
+      termNumber: number,
+      eligible: plan.eligible,
+      alreadyBilled: plan.alreadyBilled,
+      newBills: plan.proposed.length,
+      totalNewAmount: money(
+        plan.proposed.reduce((sum, row) => sum + cents(row.netAmount, true), 0),
+      ),
+      missingFeeClasses: plan.missing,
+      canGenerate: !plan.missing.length,
+    };
+  }
+  static async generateBills(year: number, number: number, actorId: string) {
+    return db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended('fee-configuration',0))`,
+      );
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`billing:${year}:${number}`},0))`,
+      );
+      const plan = await this.billingPlan(year, number, tx);
+      if (plan.missing.length)
+        throw new FinanceValidationError(
+          `Configure and approve fees for: ${plan.missing.join(', ')}.`,
+        );
+      for (let offset = 0; offset < plan.proposed.length; offset += 500)
+        await tx
+          .insert(studentBills)
+          .values(plan.proposed.slice(offset, offset + 500));
+      if (plan.proposed.length)
+        await financeAudit(
+          tx,
+          actorId,
+          'TERM_BILLS_GENERATED',
+          'academic_terms',
+          plan.term.id,
+          null,
+          {
+            count: plan.proposed.length,
+            totalAmount: money(
+              plan.proposed.reduce(
+                (sum, row) => sum + cents(row.netAmount, true),
+                0,
+              ),
+            ),
+          },
+        );
+      return {
+        created: plan.proposed.length,
+        alreadyBilled: plan.alreadyBilled,
+      };
+    });
   }
 
   /**
