@@ -1,3 +1,10 @@
+import { getPublicSettings } from '../../lib/publicSettings';
+import {
+  ReconciliationPanel,
+  ReversalHistoryPanel,
+} from './FinanceReviewPanels';
+import { useApiResource } from '../../hooks/useApiResource';
+import { TermBillingPanel } from './TermBillingPanel';
 import { WorkspaceStats } from '../../components/WorkspaceStats';
 import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useRef } from 'react';
@@ -28,6 +35,7 @@ interface FinancialSummary {
   totalPaidFromBills: number;
   totalOutstanding: number;
   totalWaivers: number;
+  totalCredits?: number;
   totalTransactions: number;
   methodBreakdown: Record<string, { count: number; total: number }>;
   pendingReversalsCount: number;
@@ -36,19 +44,65 @@ interface FinancialSummary {
 
 export const FinancialManagementView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'payment' | 'ledger' | 'reversals' | 'statements'
+    'overview' | 'payment' | 'ledger' | 'reversals' | 'statements' | 'history'
   >('overview');
-  const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState<FinancialSummary | null>(null);
+  const [year, setYear] = useState(new Date().getFullYear());
+  useEffect(() => {
+    let active = true;
+    getPublicSettings()
+      .then((res) => {
+        if (active && Number.isInteger(res.data?.data?.currentAcademicYear))
+          setYear(res.data.data.currentAcademicYear);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  const [term, setTerm] = useState('1');
+  const [reversalPage, setReversalPage] = useState(0);
+  const [ledgerPage, setLedgerPage] = useState(0),
+    [debouncedSearch, setDebouncedSearch] = useState('');
+  const authUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+  const isHead = (authUser.roleName || authUser.role) === 'HEAD_TEACHER';
+  const period = `academicYear=${year}${term ? `&termNumber=${term}` : ''}`;
+  const summaryResource = useApiResource<FinancialSummary>(
+    `/api/finance/summary?${period}`,
+    (v: any) =>
+      typeof v?.totalBilled === 'number' && Array.isArray(v?.recentPayments),
+  );
+  const summary = summaryResource.data,
+    loading = summaryResource.loading;
+  const ledgerResource = useApiResource<{
+    items: any[];
+    total: number;
+    limit: number;
+    offset: number;
+  }>(
+    activeTab === 'ledger'
+      ? `/api/finance/payments?${period}&limit=25&offset=${ledgerPage * 25}&search=${encodeURIComponent(debouncedSearch)}`
+      : null,
+    (v: any) => Array.isArray(v?.items) && typeof v?.total === 'number',
+  );
+  const payments = ledgerResource.data?.items || [],
+    loadingLedger = ledgerResource.loading;
+  const reversalsResource = useApiResource<{ items: any[]; hasMore: boolean }>(
+    activeTab === 'reversals'
+      ? `/api/finance/reversals/pending?${period}&offset=${reversalPage * 25}`
+      : null,
+    (value: any) =>
+      Array.isArray(value?.items) && typeof value?.hasMore === 'boolean',
+  );
+  const pendingReversals = reversalsResource.data?.items || [],
+    loadingReversals = reversalsResource.loading;
+  const [rejectId, setRejectId] = useState<string | null>(null),
+    [rejectReason, setRejectReason] = useState('');
+  const [attemptNotice, setAttemptNotice] = useState(false);
 
   // Payments Ledger State
-  const [payments, setPayments] = useState<any[]>([]);
   const [ledgerSearch, setLedgerSearch] = useState('');
-  const [loadingLedger, setLoadingLedger] = useState(false);
 
   // Pending Reversals State
-  const [pendingReversals, setPendingReversals] = useState<any[]>([]);
-  const [loadingReversals, setLoadingReversals] = useState(false);
   const [processingReversalId, setProcessingReversalId] = useState<
     string | null
   >(null);
@@ -74,7 +128,7 @@ export const FinancialManagementView: React.FC = () => {
     mpesaRefCode: '',
     paidBy: '',
     notes: '',
-    academicYear: 2026,
+    academicYear: new Date().getFullYear(),
     termNumber: 1,
   });
 
@@ -86,49 +140,20 @@ export const FinancialManagementView: React.FC = () => {
   const [statementData, setStatementData] = useState<any | null>(null);
   const [loadingStatement, setLoadingStatement] = useState(false);
 
-  // Fetch summary & initial data
-  const fetchOverview = async () => {
-    try {
-      setLoading(true);
-      const [sumRes, pndRes] = await Promise.all([
-        apiClient.get('/api/finance/summary'),
-        apiClient
-          .get('/api/finance/reversals/pending')
-          .catch(() => ({ data: { data: [] } })),
-      ]);
-
-      if (sumRes.data.data) setSummary(sumRes.data.data);
-      if (pndRes.data?.data) setPendingReversals(pndRes.data.data);
-    } catch (error: any) {
-      toast.error('Failed to load financial summary');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPayments = async () => {
-    try {
-      setLoadingLedger(true);
-      const res = await apiClient.get('/api/finance/payments?limit=100');
-      if (res.data.data) setPayments(res.data.data);
-    } catch (error: any) {
-      toast.error('Failed to fetch payments ledger');
-    } finally {
-      setLoadingLedger(false);
-    }
-  };
-
-  const fetchReversals = async () => {
-    try {
-      setLoadingReversals(true);
-      const res = await apiClient.get('/api/finance/reversals/pending');
-      if (res.data.data) setPendingReversals(res.data.data);
-    } catch (error: any) {
-      toast.error('Failed to load pending reversals queue');
-    } finally {
-      setLoadingReversals(false);
-    }
-  };
+  const fetchOverview = async () => summaryResource.refresh();
+  const fetchPayments = async () => ledgerResource.refresh();
+  const fetchReversals = async () => reversalsResource.refresh();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(ledgerSearch);
+      setLedgerPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ledgerSearch]);
+  useEffect(() => {
+    setLedgerPage(0);
+    setReversalPage(0);
+  }, [year, term]);
 
   const fetchStudentsForSearch = async () => {
     try {
@@ -140,14 +165,8 @@ export const FinancialManagementView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchOverview();
     fetchStudentsForSearch();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === 'ledger') fetchPayments();
-    if (activeTab === 'reversals') fetchReversals();
-  }, [activeTab]);
 
   // Handle Record Payment Submission
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -171,16 +190,62 @@ export const FinancialManagementView: React.FC = () => {
       setRecordingPayment(true);
       const payload = {
         studentId: selectedStudent.student.id,
-        amountPaid: amount,
+        amountPaid: paymentForm.amountPaid,
         paymentMethod: paymentForm.paymentMethod,
         mpesaRefCode: paymentForm.mpesaRefCode || undefined,
         paidBy: paymentForm.paidBy,
         notes: paymentForm.notes || undefined,
-        academicYear: paymentForm.academicYear,
-        termNumber: paymentForm.termNumber,
+        academicYear: year,
+        termNumber: Number(term),
       };
 
-      const res = await apiClient.post('/api/finance/payments', payload);
+      if (!term)
+        throw new Error('Select a specific term before recording a payment.');
+      const hash = Array.from(
+        new Uint8Array(
+          await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(JSON.stringify(payload)),
+          ),
+        ),
+      )
+        .map((n) => n.toString(16).padStart(2, '0'))
+        .join('');
+      const storageKey = `finance-payment-attempt:${authUser.id}`;
+      let attempt: any = null;
+      try {
+        attempt = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+      } catch {}
+      if (attempt && attempt.signature !== hash) {
+        setAttemptNotice(true);
+        throw new Error(
+          'A previous payment may have been recorded. Retry its original details or check the ledger before starting another payment.',
+        );
+      }
+      if (!attempt) {
+        attempt = { signature: hash, key: crypto.randomUUID() };
+        sessionStorage.setItem(storageKey, JSON.stringify(attempt));
+      }
+      const res = await apiClient.post('/api/finance/payments', {
+        ...payload,
+        requestKey: attempt.key,
+      });
+      const verified = res.data?.data;
+      if (
+        res.data?.success !== true ||
+        typeof verified?.id !== 'string' ||
+        typeof verified.receiptNumber !== 'string' ||
+        verified.studentId !== payload.studentId ||
+        Number(verified.amountPaid) !== Number(payload.amountPaid) ||
+        verified.paymentMethod !== payload.paymentMethod ||
+        verified.academicYear !== payload.academicYear ||
+        verified.termNumber !== payload.termNumber
+      )
+        throw new Error(
+          'The payment response could not be verified. Check the ledger or retry the same details.',
+        );
+      sessionStorage.removeItem(storageKey);
+      setAttemptNotice(false);
       const createdPayment = res.data.data;
       toast.success(res.data.message || 'Payment recorded successfully!');
 
@@ -196,13 +261,25 @@ export const FinancialManagementView: React.FC = () => {
         mpesaRefCode: '',
         paidBy: '',
         notes: '',
-        academicYear: 2026,
+        academicYear: new Date().getFullYear(),
         termNumber: 1,
       });
 
       fetchOverview();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to record payment');
+      if (
+        error.response?.status >= 400 &&
+        error.response?.status < 500 &&
+        error.response?.status !== 408 &&
+        error.response?.status !== 429
+      )
+        sessionStorage.removeItem(`finance-payment-attempt:${authUser.id}`);
+      else setAttemptNotice(true);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          'Failed to record payment',
+      );
     } finally {
       setRecordingPayment(false);
     }
@@ -263,8 +340,12 @@ export const FinancialManagementView: React.FC = () => {
     try {
       setProcessingReversalId(reversalId);
       setProcessingReversalAction('REJECT');
-      await apiClient.put(`/api/finance/reversals/${reversalId}/reject`);
-      toast.success('Reversal request dismissed');
+      await apiClient.put(`/api/finance/reversals/${reversalId}/reject`, {
+        reason: rejectReason,
+      });
+      setRejectId(null);
+      setRejectReason('');
+      toast.success('Reversal request rejected and retained in history.');
       await Promise.all([fetchReversals(), fetchOverview()]);
     } catch (error: any) {
       toast.error(
@@ -292,22 +373,36 @@ export const FinancialManagementView: React.FC = () => {
     try {
       setLoadingStatement(true);
       const res = await apiClient.get(
-        `/api/finance/students/${studentId}/statement`,
+        `/api/finance/students/${studentId}/statement?${period}`,
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
-      if (res.data.data) {
-        setStatementData(res.data.data);
-      }
+      if (
+        res.data?.success !== true ||
+        res.data.data?.student?.id !== studentId ||
+        !Array.isArray(res.data.data?.bills) ||
+        !Array.isArray(res.data.data?.payments) ||
+        typeof res.data.data?.summary?.totalBalance !== 'number'
+      )
+        throw new Error(
+          'The server returned an unexpected fee statement. Please retry.',
+        );
+      setStatementData(res.data.data);
     } catch (error: any) {
       if (controller.signal.aborted) return;
       setStatementError(
-        error.response?.data?.message || 'Failed to load student fee statement',
+        error.response?.data?.message ||
+          error.message ||
+          'Failed to load student fee statement',
       );
     } finally {
       if (!controller.signal.aborted) setLoadingStatement(false);
     }
   };
+
+  useEffect(() => {
+    if (statementStudentId) handleSearchStatement(statementStudentId);
+  }, [year, term]);
 
   // Filtered students for manual payment search
   const filteredStudents =
@@ -323,22 +418,7 @@ export const FinancialManagementView: React.FC = () => {
           .slice(0, 8)
       : [];
 
-  // Filtered payments ledger
-  const filteredPayments = payments.filter((p) => {
-    if (!ledgerSearch.trim()) return true;
-    const q = ledgerSearch.toLowerCase();
-    const rNo = (p.receiptNumber || '').toLowerCase();
-    const name =
-      `${p.studentFirstName || ''} ${p.studentLastName || ''}`.toLowerCase();
-    const mpesa = (p.mpesaRefCode || '').toLowerCase();
-    const paidBy = (p.paidBy || '').toLowerCase();
-    return (
-      rNo.includes(q) ||
-      name.includes(q) ||
-      mpesa.includes(q) ||
-      paidBy.includes(q)
-    );
-  });
+  const filteredPayments = payments;
 
   const collectionRate =
     summary?.totalBilled && summary.totalBilled > 0
@@ -370,7 +450,114 @@ export const FinancialManagementView: React.FC = () => {
           </div>
         </WorkspaceHeader>
 
+        <div className="workspace-panel flex flex-wrap items-end gap-3 p-4">
+          <label className="min-w-0 space-y-1 text-xs font-semibold">
+            Academic year
+            <input
+              aria-label="Finance academic year"
+              className="workspace-input w-32"
+              type="number"
+              min="2000"
+              max="2200"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+            />
+          </label>
+          <label className="min-w-0 space-y-1 text-xs font-semibold">
+            Term
+            <select
+              aria-label="Finance term"
+              className="workspace-input w-40"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+            >
+              <option value="">All terms</option>
+              {[1, 2, 3].map((n) => (
+                <option key={n} value={n}>
+                  Term {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {summaryResource.error && (
+          <RequestError
+            message={summaryResource.error}
+            onRetry={summaryResource.refresh}
+          />
+        )}
+        {activeTab === 'overview' && <ReconciliationPanel period={period} />}
+        {activeTab === 'history' && <ReversalHistoryPanel period={period} />}
+        {activeTab === 'overview' && summary && (
+          <TermBillingPanel
+            year={year}
+            term={term}
+            onGenerated={() => summaryResource.refresh()}
+          />
+        )}
+        {attemptNotice && (
+          <div className="workspace-panel space-y-2 p-4 text-sm text-amber-700 dark:text-amber-400">
+            <p>
+              A payment attempt is unresolved. Retrying the same details uses
+              the same request key. Check the payment ledger before starting a
+              different payment.
+            </p>
+            <button
+              className="workspace-button-secondary"
+              onClick={() => setActiveTab('ledger')}
+            >
+              Check payment ledger
+            </button>
+            <button
+              className="workspace-button-secondary"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Have you checked the ledger and confirmed that a new payment should be started?',
+                  )
+                ) {
+                  sessionStorage.removeItem(
+                    `finance-payment-attempt:${authUser.id}`,
+                  );
+                  setAttemptNotice(false);
+                }
+              }}
+            >
+              Start a new payment after review
+            </button>
+          </div>
+        )}
+
+        <Modal
+          isOpen={Boolean(rejectId)}
+          onClose={() => !processingReversalId && setRejectId(null)}
+          title="Reject reversal request"
+        >
+          <label className="block space-y-2 text-sm">
+            Decision reason
+            <textarea
+              aria-label="Reversal rejection reason"
+              className="workspace-input w-full"
+              value={rejectReason}
+              maxLength={2000}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+          </label>
+          <button
+            className="workspace-button-primary mt-4"
+            disabled={Boolean(processingReversalId) || !rejectReason.trim()}
+            onClick={() => rejectId && handleRejectReversal(rejectId)}
+          >
+            Confirm reversal rejection
+          </button>
+        </Modal>
         {/* Tabs Navigation */}
+        <button
+          className="workspace-button-secondary"
+          onClick={() => setActiveTab('history')}
+        >
+          Reversal decision history
+        </button>
         <div
           className="flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg shadow-xs overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll"
           role="region"
@@ -450,8 +637,13 @@ export const FinancialManagementView: React.FC = () => {
         </div>
 
         {/* TAB 1: FINANCIAL OVERVIEW */}
-        {activeTab === 'overview' && (
+        {activeTab === 'overview' && summary && (
           <div className="space-y-4 min-w-0">
+            <p className="text-xs text-slate-500">
+              Credits held on existing bills: KES{' '}
+              {(summary?.totalCredits || 0).toLocaleString()}. Credit transfers
+              and carry-forward are not automatic.
+            </p>
             <WorkspaceStats
               items={[
                 {
@@ -775,13 +967,8 @@ export const FinancialManagementView: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    value={paymentForm.academicYear}
-                    onChange={(e) =>
-                      setPaymentForm({
-                        ...paymentForm,
-                        academicYear: Number(e.target.value),
-                      })
-                    }
+                    value={year}
+                    onChange={(e) => setYear(Number(e.target.value))}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   />
                 </div>
@@ -791,13 +978,8 @@ export const FinancialManagementView: React.FC = () => {
                     Academic Term
                   </label>
                   <select
-                    value={paymentForm.termNumber}
-                    onChange={(e) =>
-                      setPaymentForm({
-                        ...paymentForm,
-                        termNumber: Number(e.target.value),
-                      })
-                    }
+                    value={term}
+                    onChange={(e) => setTerm(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   >
                     <option value={1}>Term 1</option>
@@ -826,7 +1008,7 @@ export const FinancialManagementView: React.FC = () => {
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={recordingPayment || !selectedStudent}
+                disabled={recordingPayment || !selectedStudent || !term}
                 className="w-full sm:w-auto px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] cursor-pointer"
               >
                 {recordingPayment && (
@@ -866,7 +1048,13 @@ export const FinancialManagementView: React.FC = () => {
               </div>
             </div>
 
-            {loadingLedger ? (
+            {ledgerResource.error && (
+              <RequestError
+                message={ledgerResource.error}
+                onRetry={ledgerResource.refresh}
+              />
+            )}
+            {ledgerResource.error ? null : loadingLedger ? (
               <div className="py-12 text-center text-slate-400">
                 Loading ledger records...
               </div>
@@ -968,6 +1156,32 @@ export const FinancialManagementView: React.FC = () => {
                 </table>
               </div>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span>
+                {ledgerResource.data ? ledgerResource.data.total : '—'} matching
+                payments · Page {ledgerPage + 1}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  className="workspace-button-secondary"
+                  disabled={loadingLedger || ledgerPage === 0}
+                  onClick={() => setLedgerPage((page) => page - 1)}
+                >
+                  Previous payments
+                </button>
+                <button
+                  className="workspace-button-secondary"
+                  disabled={
+                    loadingLedger ||
+                    !ledgerResource.data ||
+                    (ledgerPage + 1) * 25 >= ledgerResource.data.total
+                  }
+                  onClick={() => setLedgerPage((page) => page + 1)}
+                >
+                  Next payments
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -985,7 +1199,13 @@ export const FinancialManagementView: React.FC = () => {
               </p>
             </div>
 
-            {loadingReversals ? (
+            {reversalsResource.error && (
+              <RequestError
+                message={reversalsResource.error}
+                onRetry={reversalsResource.refresh}
+              />
+            )}
+            {reversalsResource.error ? null : loadingReversals ? (
               <div className="py-12 text-center text-slate-400">
                 Loading pending reversals...
               </div>
@@ -1044,50 +1264,65 @@ export const FinancialManagementView: React.FC = () => {
                           </p>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleApproveReversal(rev.reversalId)
-                              }
-                              disabled={!!processingReversalId}
-                              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {processingReversalId === rev.reversalId &&
-                              processingReversalAction === 'APPROVE' ? (
-                                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                              ) : (
-                                <Check className="w-3.5 h-3.5" />
-                              )}
-                              <span>
+                          {isHead && rev.requestedById !== authUser.id ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleApproveReversal(rev.reversalId)
+                                }
+                                disabled={
+                                  !!processingReversalId ||
+                                  !isHead ||
+                                  rev.requestedById === authUser.id
+                                }
+                                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
                                 {processingReversalId === rev.reversalId &&
-                                processingReversalAction === 'APPROVE'
-                                  ? 'Approving...'
-                                  : 'Approve Reversal'}
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleRejectReversal(rev.reversalId)
-                              }
-                              disabled={!!processingReversalId}
-                              className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                            >
-                              {processingReversalId === rev.reversalId &&
-                              processingReversalAction === 'REJECT' ? (
-                                <div className="w-3.5 h-3.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
-                              ) : (
-                                <X className="w-3.5 h-3.5" />
-                              )}
-                              <span>
+                                processingReversalAction === 'APPROVE' ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" />
+                                )}
+                                <span>
+                                  {processingReversalId === rev.reversalId &&
+                                  processingReversalAction === 'APPROVE'
+                                    ? 'Approving...'
+                                    : 'Approve Reversal'}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectId(rev.reversalId);
+                                  setRejectReason('');
+                                }}
+                                disabled={
+                                  !!processingReversalId ||
+                                  !isHead ||
+                                  rev.requestedById === authUser.id
+                                }
+                                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                              >
                                 {processingReversalId === rev.reversalId &&
-                                processingReversalAction === 'REJECT'
-                                  ? 'Dismissing...'
-                                  : 'Dismiss'}
-                              </span>
-                            </button>
-                          </div>
+                                processingReversalAction === 'REJECT' ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <X className="w-3.5 h-3.5" />
+                                )}
+                                <span>
+                                  {processingReversalId === rev.reversalId &&
+                                  processingReversalAction === 'REJECT'
+                                    ? 'Dismissing...'
+                                    : 'Reject with reason'}
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500">
+                              Awaiting independent head teacher review
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1095,6 +1330,27 @@ export const FinancialManagementView: React.FC = () => {
                 </table>
               </div>
             )}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span>Page {reversalPage + 1}</span>
+              <div className="flex gap-2">
+                <button
+                  className="workspace-button-secondary"
+                  disabled={loadingReversals || !reversalPage}
+                  onClick={() => setReversalPage((p) => p - 1)}
+                >
+                  Previous requests
+                </button>
+                <button
+                  className="workspace-button-secondary"
+                  disabled={
+                    loadingReversals || !reversalsResource.data?.hasMore
+                  }
+                  onClick={() => setReversalPage((p) => p + 1)}
+                >
+                  Next requests
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
