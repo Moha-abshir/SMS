@@ -235,11 +235,14 @@ export class TeacherService {
         subjectCode: subjects.code,
       })
       .from(markingAllocations)
+      .innerJoin(examinations, eq(markingAllocations.examId, examinations.id))
       .innerJoin(classes, eq(markingAllocations.classId, classes.id))
       .innerJoin(subjects, eq(markingAllocations.subjectId, subjects.id))
       .where(
         and(
           eq(markingAllocations.teacherId, userId),
+          inArray(examinations.status, ['APPROVED', 'LOCKED']),
+          isNull(examinations.deletedAt),
           isNull(markingAllocations.deletedAt),
           isNull(classes.deletedAt)
         )
@@ -270,7 +273,7 @@ export class TeacherService {
     const activeExams = await db
       .select()
       .from(examinations)
-      .where(isNull(examinations.deletedAt))
+      .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(examinations.createdAt));
 
     const markEntryTasks: any[] = [];

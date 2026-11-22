@@ -106,6 +106,10 @@ export const ExamTimetableView: React.FC = () => {
   const sessions = Array.isArray(timetable.data) ? timetable.data : [];
   const error = examsResource.error || classesResource.error || timetable.error;
   const concluded = selectedExam?.exam.status === 'LOCKED';
+  const readiness = useApiResource<{ canConclude: boolean; reason: string }>(
+    examId && !concluded ? `/api/exams/${examId}/termination-readiness` : null,
+    (value: any) => typeof value?.canConclude === 'boolean' && typeof value?.reason === 'string',
+  );
   const byDate = useMemo(() => {
     const groups = new Map<string, Paper[]>();
     for (const paper of sessions) {
@@ -149,6 +153,7 @@ export const ExamTimetableView: React.FC = () => {
     examsResource.refresh();
     classesResource.refresh();
     timetable.refresh();
+    readiness.refresh();
   };
   const action = async (
     request: () => Promise<unknown>,
@@ -533,13 +538,13 @@ export const ExamTimetableView: React.FC = () => {
                     <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                       {concluded
                         ? 'This examination is closed. Its timetable remains available for reference and printing. Create a new examination for future work.'
-                        : 'Conclude this examination when its work is complete. Concluded examinations cannot be reactivated.'}
+                        : readiness.error ? 'Could not check class forwarding. Refresh to try again.' : readiness.data?.reason || 'Checking publication and class forwarding…'}
                     </p>
                   </div>
                   {!concluded && (
                     <button
                       className="workspace-button-secondary w-full sm:w-auto"
-                      disabled={busy}
+                      disabled={busy || readiness.loading || !readiness.data?.canConclude}
                       onClick={() => setTerminateOpen(true)}
                     >
                       <Power className="h-4 w-4" />
@@ -633,7 +638,7 @@ export const ExamTimetableView: React.FC = () => {
             Cancel
           </button>
           <button
-            disabled={busy}
+            disabled={busy || !readiness.data?.canConclude}
             className="workspace-button-primary"
             onClick={() =>
               action(

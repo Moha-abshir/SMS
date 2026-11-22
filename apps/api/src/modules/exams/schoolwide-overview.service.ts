@@ -1,3 +1,4 @@
+import { publishedExam } from './examAccess.js';
 import { db } from '../../config/db.js';
 import {
   classes,
@@ -67,6 +68,8 @@ export class SchoolwideOverviewService {
    * Resolves target and preceding comparison examination
    */
   static async resolveExams(examId?: string, compareExamId?: string) {
+    if (examId && examId !== 'latest') await publishedExam(examId);
+    if (compareExamId && !['auto', 'none'].includes(compareExamId)) await publishedExam(compareExamId);
     const allExams = await db
       .select({
         id: examinations.id,
@@ -82,7 +85,7 @@ export class SchoolwideOverviewService {
       })
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
-      .where(isNull(examinations.deletedAt))
+      .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(academicTerms.year), desc(academicTerms.termNumber), desc(examinations.createdAt));
 
     if (allExams.length === 0) {

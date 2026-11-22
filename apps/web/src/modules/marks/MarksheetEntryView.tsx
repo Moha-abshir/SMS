@@ -67,10 +67,7 @@ export const MarksheetEntryView: React.FC = () => {
   // Selected exam ID
   const [selectedExamId, setSelectedExamId] = useState<string>('');
 
-  const hasActiveExams = useMemo(
-    () => exams.some((e: any) => e.status === 'APPROVED' || e.exam?.status === 'APPROVED'),
-    [exams]
-  );
+  const selectedExamStatus = exams.find(e => e.id === selectedExamId)?.status;
 
   // Active slide-over state
   const activeExamIdParam = searchParams.get('examId');
@@ -88,7 +85,7 @@ export const MarksheetEntryView: React.FC = () => {
           console.warn('[Marksheet] Failed to load workstation:', err);
           return { data: { data: null } };
         }),
-        apiClient.get('/api/exams').catch((err) => {
+        apiClient.get('/api/exams?publishedOnly=true').catch((err) => {
           console.warn('[Marksheet] Failed to load exams:', err);
           return { data: { data: [] } };
         }),
@@ -349,7 +346,7 @@ export const MarksheetEntryView: React.FC = () => {
         </div>
 
         {/* Standby Banner when Examination Period is Inactive (Summative Mode Only) */}
-        {assessmentMode === 'summative' && !hasActiveExams && (
+        {assessmentMode === 'summative' && selectedExamStatus !== 'APPROVED' && (
           <div className="p-3.5 rounded-xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-xs">
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
@@ -357,7 +354,7 @@ export const MarksheetEntryView: React.FC = () => {
                 Examination Score Entry Closed
               </h4>
               <p className="mt-0.5 text-amber-800 dark:text-amber-300">
-                There is currently no active examination period in session.{' '}
+                {selectedExamStatus === 'LOCKED' ? 'This examination has concluded. Its marksheets are read-only.' : 'Select a published examination to enter marks.'}{' '}
                 <button
                   type="button"
                   onClick={() => {

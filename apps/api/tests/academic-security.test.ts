@@ -49,7 +49,7 @@ test('CAT object scopes, learner membership, marks locks and concurrent transiti
     await CatsService.saveCatScores(cat.id, teacher.id, { scores: [{ studentId: learner.id, marksObtained: 0 }] }, actor);
     assert.equal((await CatsService.getCatMarksheet(cat.id, actor)).learners.length, 1);
     await assert.rejects(() => CatsService.getCatMarksheet(cat.id, { ...other, roleName: 'BURSAR' }), /access denied/);
-    const [exam] = await db.insert(schema.examinations).values({ termId: term.id, title: 'Test' }).returning();
+    const [exam] = await db.insert(schema.examinations).values({ termId: term.id, title: 'Test', status: 'APPROVED' }).returning();
     const more = await db.insert(schema.students).values(Array.from({ length: 29 }, (_, i) => ({ assessmentNumber: `${suffix}-${i}`, firstName: 'Learner', lastName: 'Test', gender: 'MALE' as const, classId: cls.id, primaryGuardianId: guardian.id, admissionDate: '2080-01-01', status: 'ACTIVE' as const }))).returning();
     const scores = [learner, ...more].map(row => ({ studentId: row.id, marksObtained: 75 }));
     let before = queries;

@@ -1,3 +1,4 @@
+import { publishedExam } from './examAccess.js';
 import { publicErrorMessage } from '../../utils/publicError.js';
 import { Request, Response } from 'express';
 import { ExamsService } from './exams.service.js';
@@ -5,10 +6,19 @@ import { ExamsService } from './exams.service.js';
 export class ExamsController {
   static async getExams(req: Request, res: Response) {
     try {
-      const exams = await ExamsService.getExams();
+      const exams = await ExamsService.getExams(req.user!, req.query.publishedOnly === 'true');
       return res.status(200).json({ success: true, data: exams });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch exams') });
+    }
+  }
+
+  static async getTerminationReadiness(req: Request, res: Response) {
+    try {
+      const data = await ExamsService.terminationReadiness(req.params.id);
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: publicErrorMessage(error, 'Could not check class forwarding.') });
     }
   }
 
@@ -76,10 +86,11 @@ export class ExamsController {
     try {
       const { id } = req.params;
       const classId = req.query.classId as string | undefined;
+      if (req.user?.roleName !== 'DOS') await publishedExam(id);
       const sessions = await ExamsService.getExamSessions(id, classId);
       return res.status(200).json({ success: true, data: sessions });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch exam sessions') });
+      return res.status(error.status || 500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch exam sessions') });
     }
   }
 
@@ -141,10 +152,11 @@ export class ExamsController {
   static async getExamProgress(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      await publishedExam(id);
       const progress = await ExamsService.getExamProgress(id);
       return res.status(200).json({ success: true, data: progress });
     } catch (error: any) {
-      return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to load exam progress') });
+      return res.status(error.status || 500).json({ success: false, message: publicErrorMessage(error, 'Failed to load exam progress') });
     }
   }
 }

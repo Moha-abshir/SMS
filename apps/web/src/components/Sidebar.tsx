@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       path: '/class-exam-progress',
       label: 'Class Exam Progress',
       icon: Layers,
-      isClassTeacherUpperFeature: true,
+      isClassTeacherFeature: true,
       roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
     { path: '/cat-performance', label: 'CAT Performance', icon: Activity, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },

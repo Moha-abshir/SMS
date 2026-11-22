@@ -1,3 +1,4 @@
+import { publishedExam } from './examAccess.js';
 import { db } from '../../config/db.js';
 import {
   classes,
@@ -1082,7 +1083,7 @@ export class ClassWorkspaceService {
       })
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
-      .where(isNull(examinations.deletedAt))
+      .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(academicTerms.year), desc(academicTerms.termNumber), desc(examinations.createdAt))
       .limit(4);
 
@@ -1517,6 +1518,7 @@ export class ClassWorkspaceService {
       throw err;
     }
 
+    await publishedExam(body.examId);
     // Verify examination exists and has not started yet
     const [targetExam] = await db
       .select({

@@ -21,7 +21,6 @@ import { RequestError } from '../../components/RequestError';
 import { Modal } from '../../components/Modal';
 import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
 import { MarksheetEntrySlideOver } from './MarksheetEntrySlideOver';
-import { isSelfContainedClass } from '@school/shared/types';
 
 interface Teacher {
   firstName: string;
@@ -34,6 +33,7 @@ interface Paper {
   subjectName: string;
   subjectCode?: string;
   status: string;
+  forwardedToDeputyAt?: string | null;
   submittedBy?: Teacher | null;
   allocatedTeacher?: Teacher | null;
   correctionReason?: string | null;
@@ -88,7 +88,10 @@ export const ClassExamProgressView: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const ws = useApiResource<any>('/api/teacher/workstation');
-  const examResource = useApiResource<any[]>('/api/exams', Array.isArray);
+  const examResource = useApiResource<any[]>(
+    '/api/exams?publishedOnly=true',
+    Array.isArray,
+  );
   const assignedClass = ws.data?.classTeacher;
   const exams = useMemo(
     () =>
@@ -126,10 +129,13 @@ export const ClassExamProgressView: React.FC = () => {
     papers.length > 0 && papers.every((paper) => paper.status === 'LOCKED');
   const forwarded =
     papers.length > 0 &&
-    papers.every((paper) =>
-      ['LOCKED', 'APPROVED', 'UNDER_REVIEW'].includes(paper.status),
+    papers.every(
+      (paper) =>
+        Boolean(paper.forwardedToDeputyAt) &&
+        ['LOCKED', 'APPROVED'].includes(paper.status),
     );
   const canSubmit =
+    activeExam?.status === 'APPROVED' &&
     papers.length > 0 &&
     submitted === papers.length &&
     !forwarded &&
@@ -224,16 +230,15 @@ export const ClassExamProgressView: React.FC = () => {
         title="Class Exam Progress"
         icon={Layers}
       >
-        {!error && (!assignedClass || isSelfContainedClass(assignedClass)) ? (
+        {!error && !assignedClass ? (
           <div className="workspace-panel p-6 text-sm text-slate-500 dark:text-slate-400">
             <BookOpen className="mb-3 h-6 w-6 text-sky-600" />
-            {!assignedClass
-              ? 'You need an active class teacher assignment to review class submissions.'
-              : 'Your class uses the self-contained workflow. Use Marksheet Entry to record and submit all learning areas.'}
+            You need an active class teacher assignment to review class
+            submissions.
           </div>
         ) : !error && !exams.length ? (
           <div className="workspace-panel p-6 text-sm text-slate-500">
-            No examinations have been created yet.
+            No published examinations are available yet.
           </div>
         ) : (
           !error && (
@@ -469,8 +474,8 @@ export const ClassExamProgressView: React.FC = () => {
         key={`${examId}_${classId}_${searchParams.get('subjectId')}`}
         isOpen={Boolean(
           searchParams.get('subjectId') &&
-            searchParams.get('examId') === examId &&
-            searchParams.get('classId') === classId,
+          searchParams.get('examId') === examId &&
+          searchParams.get('classId') === classId,
         )}
         examId={examId || null}
         classId={classId || null}

@@ -19,7 +19,7 @@ import {
 
 export class AcademicAllocationsService {
   // --- Invigilators ---
-  static async getInvigilators(examSessionId?: string) {
+  static async getInvigilators(roleName?: string) {
     let query = db
       .select({
         allocation: invigilatorAllocations,
@@ -34,9 +34,10 @@ export class AcademicAllocationsService {
       })
       .from(invigilatorAllocations)
       .innerJoin(examSessions, eq(invigilatorAllocations.examSessionId, examSessions.id))
+      .innerJoin(examinations, eq(examSessions.examId, examinations.id))
       .innerJoin(classes, eq(invigilatorAllocations.classId, classes.id))
       .innerJoin(users, eq(invigilatorAllocations.teacherId, users.id))
-      .where(isNull(invigilatorAllocations.deletedAt))
+      .where(and(isNull(invigilatorAllocations.deletedAt), isNull(examSessions.deletedAt), isNull(examinations.deletedAt), roleName === 'DOS' ? undefined : inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(invigilatorAllocations.createdAt));
 
     return await query;
@@ -151,7 +152,7 @@ export class AcademicAllocationsService {
   }
 
   // --- Marking Allocations ---
-  static async getMarkingAllocations() {
+  static async getMarkingAllocations(roleName?: string) {
     return await db
       .select({
         allocation: markingAllocations,
@@ -170,7 +171,7 @@ export class AcademicAllocationsService {
       .innerJoin(subjects, eq(markingAllocations.subjectId, subjects.id))
       .innerJoin(classes, eq(markingAllocations.classId, classes.id))
       .innerJoin(users, eq(markingAllocations.teacherId, users.id))
-      .where(isNull(markingAllocations.deletedAt))
+      .where(and(isNull(markingAllocations.deletedAt), isNull(examinations.deletedAt), roleName === 'DOS' ? undefined : inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(markingAllocations.createdAt));
   }
 

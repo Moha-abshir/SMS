@@ -1,3 +1,4 @@
+import type { AuthenticatedUser } from '../../middleware/auth.js';
 import { randomUUID } from 'node:crypto';
 import { parseISO, format, isWeekend, eachDayOfInterval } from 'date-fns';
 import { db } from '../../config/db.js';
@@ -32,7 +33,7 @@ import {
 } from '@school/shared';
 
 export class ExamsService {
-  static async getExams() {
+  static async getExams(actor?: Pick<AuthenticatedUser, 'roleName'>, publishedOnly = false) {
     const list = await db
       .select({
         exam: examinations,
@@ -40,7 +41,7 @@ export class ExamsService {
       })
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
-      .where(isNull(examinations.deletedAt))
+      .where(and(isNull(examinations.deletedAt), actor?.roleName === 'DOS' && !publishedOnly ? undefined : inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(examinations.createdAt));
 
     return list;
@@ -174,8 +175,14 @@ export class ExamsService {
       throw new Error(
         'Use Draft, Published or Concluded for an examination timetable.',
       );
+    if (status === 'LOCKED') {
+      await this.terminateExamPeriod(id);
+      const [closed] = await db.select().from(examinations).where(eq(examinations.id, id));
+      return closed;
+    }
     return db.transaction(async (tx) => {
       const exam = await lockExamSchedule(tx, id);
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-lifecycle:${id}`}, 0))`);
       if (status === 'APPROVED') {
         validateExamSchedule(exam.scheduleConfig);
         const papers = await tx
@@ -202,40 +209,39 @@ export class ExamsService {
     });
   }
 
+  static async terminationReadiness(examId: string, reader: Pick<typeof db, 'select'> = db) {
+    const [exam] = await reader.select().from(examinations).where(and(eq(examinations.id, examId), isNull(examinations.deletedAt)));
+    if (!exam) throw new Error('Examination series not found');
+    const papers = await reader.select({ classId: examSessions.classId, subjectId: examSessions.subjectId })
+      .from(examSessions).where(and(eq(examSessions.examId, examId), isNull(examSessions.deletedAt)));
+    const submissions = await reader.select().from(markSubmissions)
+      .where(and(eq(markSubmissions.examId, examId), isNull(markSubmissions.deletedAt)));
+    const byPair = new Map(submissions.map(row => [`${row.classId}:${row.subjectId}`, row]));
+    const pending = new Set<string>();
+    for (const paper of papers) {
+      if (!paper.classId) continue;
+      const submission = byPair.get(`${paper.classId}:${paper.subjectId}`);
+      if (!submission?.forwardedToDeputyAt || !['LOCKED', 'APPROVED'].includes(submission.status)) pending.add(paper.classId);
+    }
+    const canConclude = exam.status === 'APPROVED' && papers.some(paper => paper.classId) && pending.size === 0;
+    const reason = exam.status === 'LOCKED' ? 'This examination has already concluded.'
+      : exam.status !== 'APPROVED' ? 'Publish the examination before concluding it.'
+      : !papers.length ? 'Schedule and publish examination papers first.'
+      : pending.size ? `Waiting for ${pending.size} class marksheet(s) to be forwarded to the Deputy Head.`
+      : 'All class marksheets have been forwarded to the Deputy Head.';
+    return { canConclude, reason, pendingClassIds: [...pending] };
+  }
+
   static async terminateExamPeriod(examId?: string) {
+    if (!examId) throw new Error('Select the examination to conclude.');
     await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended('exam-timetable-edit',0))`,
-      );
-      if (examId) {
-        const [exam] = await tx
-          .select()
-          .from(examinations)
-          .where(
-            and(eq(examinations.id, examId), isNull(examinations.deletedAt)),
-          );
-        if (!exam) throw new Error('Examination series not found');
-        await tx
-          .update(examinations)
-          .set({ status: 'LOCKED', updatedAt: new Date() })
-          .where(eq(examinations.id, examId));
-      } else {
-        await tx
-          .update(examinations)
-          .set({ status: 'LOCKED', updatedAt: new Date() })
-          .where(
-            and(
-              eq(examinations.status, 'APPROVED'),
-              isNull(examinations.deletedAt),
-            ),
-          );
-      }
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended('exam-timetable-edit',0))`);
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`exam-lifecycle:${examId}`}, 0))`);
+      const readiness = await this.terminationReadiness(examId, tx);
+      if (!readiness.canConclude) throw new Error(readiness.reason);
+      await tx.update(examinations).set({ status: 'LOCKED', updatedAt: new Date() }).where(eq(examinations.id, examId));
     });
-    return {
-      success: true,
-      message:
-        'Examination period concluded. It cannot be reopened; create a new examination for future work.',
-    };
+    return { success: true, message: 'Examination concluded. It cannot be reopened.' };
   }
 
   static async activateExamPeriod(

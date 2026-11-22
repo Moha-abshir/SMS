@@ -1,3 +1,4 @@
+import { publishedExam, writableExam } from '../exams/examAccess.js';
 import type { AuthenticatedUser } from '../../middleware/auth.js';
 import { db } from '../../config/db.js';
 import {
@@ -10,6 +11,7 @@ import {
   students,
   teacherSubjectAllocations,
   markingAllocations,
+  examSessions,
   calculateCbcRubric,
   calculateJuniorPoints,
   isJuniorSecondaryClass,
@@ -75,10 +77,11 @@ export class MarkSubmissionsService {
         },
       })
       .from(markSubmissions)
+      .innerJoin(examinations, eq(markSubmissions.examId, examinations.id))
       .innerJoin(classes, eq(markSubmissions.classId, classes.id))
       .innerJoin(subjects, eq(markSubmissions.subjectId, subjects.id))
       .innerJoin(users, eq(markSubmissions.teacherId, users.id))
-      .where(isNull(markSubmissions.deletedAt))
+      .where(and(isNull(markSubmissions.deletedAt), isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(markSubmissions.updatedAt));
 
     return list;
@@ -89,6 +92,14 @@ export class MarkSubmissionsService {
    * Lists each class stream, assigned Class Teacher, and submission status of all subject papers.
    */
   static async getClassesReviewOverview(examId: string | undefined, actor: AuthenticatedUser) {
+    if (!examId) {
+      const [latest] = await db.select({ id: examinations.id }).from(examinations)
+        .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
+        .orderBy(desc(examinations.createdAt)).limit(1);
+      if (!latest) return [];
+      examId = latest.id;
+    }
+    const examination = await publishedExam(examId);
     const leadership = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(actor.roleName);
     if (!leadership && actor.roleName !== 'TEACHER') throw Object.assign(new Error('Review access denied'), { status: 403 });
     const assigned = leadership ? [] : await db.select({ id: classes.id }).from(classes).where(eq(classes.classTeacherId, actor.id));
@@ -202,14 +213,15 @@ export class MarkSubmissionsService {
       allocMap.set(`${ma.classId}-${ma.subjectId}`, ma.teacher);
     }
 
+    const scheduled = await db.select({ classId: examSessions.classId, subjectId: examSessions.subjectId })
+      .from(examSessions).where(and(eq(examSessions.examId, examId), isNull(examSessions.deletedAt)));
+    const expectedPairs = new Set(scheduled.map(row => `${row.classId}:${row.subjectId}`));
     // Combine into class overview
     return allClasses.map(({ class: cls, classTeacher }) => {
       // Subjects for this class's levelCategory
       const classSubjects = allSubjects.filter(
         (sub) =>
-          sub.levelCategory === cls.levelCategory ||
-          (cls.levelCategory === 'PRIMARY' &&
-            (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
+          expectedPairs.has(`${cls.id}:${sub.id}`)
       );
 
       const classSubs = subMapByClass.get(cls.id) || [];
@@ -228,6 +240,7 @@ export class MarkSubmissionsService {
           submittedBy: subData?.submittedBy || allocatedTeacher || null,
           allocatedTeacher: subData?.submittedBy || allocatedTeacher || null,
           submittedAt: subData?.submission?.submittedAt || null,
+          forwardedToDeputyAt: subData?.submission?.forwardedToDeputyAt || null,
           reviewedAt: subData?.submission?.reviewedAt || null,
           correctionReason: subData?.submission?.correctionReason || null,
         };
@@ -235,7 +248,9 @@ export class MarkSubmissionsService {
 
       const totalExpected = classSubjects.length;
       const lockedCount = papers.filter((p) => p.status === 'LOCKED').length;
-      const isReceived = totalExpected > 0 && lockedCount === totalExpected;
+      // Archived exams predate explicit forwarding records; keep their locked papers readable.
+      const isReceived = totalExpected > 0 && papers.every(p =>
+        (examination.status === 'LOCKED' || p.forwardedToDeputyAt) && ['LOCKED', 'APPROVED'].includes(p.status));
 
       const overallStatus: 'AWAITING' | 'RECEIVED' = isReceived ? 'RECEIVED' : 'AWAITING';
 
@@ -259,13 +274,14 @@ export class MarkSubmissionsService {
 
   static async submitClassToDeputy(classId: string, examId: string, userId: string, userRole?: string) {
     return db.transaction(async tx => {
+      await writableExam(tx, examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
       const isPrivileged = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(userRole || '');
       const isClassTeacher = await LeaveRequestsService.isEffectiveClassTeacher(userId, classId, tx);
 
-      if (!isPrivileged && !isClassTeacher) {
+      if (!isClassTeacher) {
         throw new Error('Only the assigned Class Teacher can submit the class marksheet to the Deputy Head');
       }
 
@@ -274,13 +290,9 @@ export class MarkSubmissionsService {
         throw new Error('Class stream not found');
       }
 
-      const allSubjects = await tx.select().from(subjects).where(isNull(subjects.deletedAt));
-      const classSubjects = allSubjects.filter(
-        (sub) =>
-          sub.levelCategory === cls.levelCategory ||
-          (cls.levelCategory === 'PRIMARY' &&
-            (sub.levelCategory === 'LOWER_PRIMARY' || sub.levelCategory === 'UPPER_PRIMARY'))
-      );
+      const classSubjects = await tx.select({ id: examSessions.subjectId }).from(examSessions)
+        .where(and(eq(examSessions.examId, examId), eq(examSessions.classId, classId), isNull(examSessions.deletedAt)));
+      if (!classSubjects.length) throw new Error('This class has no published examination papers.');
 
       const existingSubs = await tx
         .select()
@@ -312,6 +324,7 @@ export class MarkSubmissionsService {
         .update(markSubmissions)
         .set({
           status: 'LOCKED',
+          forwardedToDeputyAt: new Date(),
           submittedAt: new Date(),
           reviewedAt: new Date(),
           reviewedById: userId,
@@ -333,6 +346,7 @@ export class MarkSubmissionsService {
 
   static async lockClassSubmissions(classId: string, examId: string, reviewedById: string, userRole?: string) {
     return db.transaction(async tx => {
+      await writableExam(tx, examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
@@ -365,6 +379,7 @@ export class MarkSubmissionsService {
 
   static async approveClassSubmissions(classId: string, examId: string, reviewedById: string) {
     return db.transaction(async tx => {
+      await writableExam(tx, examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
@@ -434,6 +449,7 @@ export class MarkSubmissionsService {
       )
       .orderBy(students.firstName, students.lastName);
 
+    await publishedExam(subData.submission.examId);
     // Fetch exam scores for this exam and subject
     const scores = await db
       .select()
@@ -614,8 +630,7 @@ export class MarkSubmissionsService {
       throw new Error('You are not authorized to view or enter marks for this class and subject');
     }
 
-    const [examination] = await db.select().from(examinations).where(eq(examinations.id, examId));
-    if (!examination) throw new Error('Examination not found');
+    const examination = await publishedExam(examId);
 
     const [targetClass] = await db.select().from(classes).where(eq(classes.id, classId));
     if (!targetClass) throw new Error('Class not found');
@@ -652,7 +667,7 @@ export class MarkSubmissionsService {
 
     // Only allocated subject teacher (or privileged leadership) can edit, and strictly only when draft (NOT when submitted, locked, or awaiting CT unlock)
     const canEdit =
-      (isAllocatedSubjectTeacher || isPrivileged) &&
+      examination.status === 'APPROVED' && (isAllocatedSubjectTeacher || isPrivileged) &&
       (currentStatus === 'DRAFT' || !submission);
 
     // Fetch Class Teacher details (name & phone) to provide contact info to Subject Teacher
@@ -865,6 +880,7 @@ export class MarkSubmissionsService {
     userRole?: string
   ) {
     return db.transaction(async tx => {
+      await writableExam(tx, examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
@@ -942,6 +958,7 @@ export class MarkSubmissionsService {
     userRole?: string
   ) {
     return db.transaction(async tx => {
+      await writableExam(tx, examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
@@ -1048,6 +1065,7 @@ export class MarkSubmissionsService {
     userId: string
   ) {
     return db.transaction(async tx => {
+      await writableExam(tx, examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${examId}:${classId}`}, 0))`);
 
@@ -1097,6 +1115,7 @@ export class MarkSubmissionsService {
     if (!scope) throw new Error('Marksheet submission not found');
 
     return db.transaction(async tx => {
+      await writableExam(tx, scope.examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
       const [state] = await tx.select().from(markSubmissions).where(eq(markSubmissions.id, id));
@@ -1123,6 +1142,7 @@ export class MarkSubmissionsService {
     if (!scope) throw new Error('Marksheet submission not found');
 
     return db.transaction(async tx => {
+      await writableExam(tx, scope.examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
       const [state] = await tx.select().from(markSubmissions).where(eq(markSubmissions.id, id));
@@ -1148,6 +1168,7 @@ export class MarkSubmissionsService {
     if (!scope) throw new Error('Marksheet submission not found');
 
     return db.transaction(async tx => {
+      await writableExam(tx, scope.examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
 
@@ -1184,6 +1205,7 @@ export class MarkSubmissionsService {
     if (!scope) throw new Error('Marksheet submission not found');
 
     return db.transaction(async tx => {
+      await writableExam(tx, scope.examId);
       // Shared class/exam lock serializes entry, review and lock transitions across instances.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope.examId}:${scope.classId}`}, 0))`);
 
@@ -1203,6 +1225,7 @@ export class MarkSubmissionsService {
         .update(markSubmissions)
         .set({
           status: 'DRAFT',
+          forwardedToDeputyAt: null,
           reviewedById,
           reviewedAt: new Date(),
           correctionReason: sub.correctionReason || 'UNLOCKED_FOR_CORRECTION',

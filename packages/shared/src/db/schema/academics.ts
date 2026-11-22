@@ -88,6 +88,7 @@ export const markSubmissions = pgTable('mark_submissions', {
   teacherId: uuid('teacher_id').notNull().references(() => users.id),
   status: examStatusEnum('status').default('DRAFT').notNull(),
   submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'date' }),
+  forwardedToDeputyAt: timestamp('forwarded_to_deputy_at', { withTimezone: true, mode: 'date' }),
   reviewedById: uuid('reviewed_by_id').references(() => users.id),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true, mode: 'date' }),
   correctionReason: text('correction_reason'),

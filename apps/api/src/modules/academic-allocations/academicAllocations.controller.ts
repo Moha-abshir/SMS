@@ -6,7 +6,7 @@ export class AcademicAllocationsController {
   // --- Invigilators ---
   static async getInvigilators(req: Request, res: Response) {
     try {
-      const data = await AcademicAllocationsService.getInvigilators();
+      const data = await AcademicAllocationsService.getInvigilators(req.user?.roleName);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch invigilators') });
@@ -47,7 +47,7 @@ export class AcademicAllocationsController {
   // --- Marking Allocations ---
   static async getMarkingAllocations(req: Request, res: Response) {
     try {
-      const data = await AcademicAllocationsService.getMarkingAllocations();
+      const data = await AcademicAllocationsService.getMarkingAllocations(req.user?.roleName);
       return res.status(200).json({ success: true, data });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: publicErrorMessage(error, 'Failed to fetch marking allocations') });
