@@ -1,5 +1,11 @@
 import { db } from '../../config/db.js';
-import { feeStructures, academicTerms, eq, inArray, isNull } from '@school/shared';
+import {
+  feeStructures,
+  academicTerms,
+  eq,
+  inArray,
+  isNull,
+} from '@school/shared';
 import { AcademicTermsService } from '../academic-terms/academicTerms.service.js';
 
 const DEFAULT_TERM_FEES: Record<string, number> = {
@@ -10,10 +16,22 @@ const DEFAULT_TERM_FEES: Record<string, number> = {
 };
 
 const LEVEL_LABELS: Record<string, { title: string; subtitle: string }> = {
-  PPE: { title: 'Pre-Primary Education (PPE)', subtitle: 'Playgroup, PP1, PP2' },
-  LOWER_PRIMARY: { title: 'Lower Primary Education', subtitle: 'Grades 1, 2, and 3' },
-  UPPER_PRIMARY: { title: 'Upper Primary Education', subtitle: 'Grades 4, 5, and 6' },
-  JUNIOR: { title: 'Junior Secondary School (JSS)', subtitle: 'Grades 7, 8, and 9' },
+  PPE: {
+    title: 'Pre-Primary Education (PPE)',
+    subtitle: 'Playgroup, PP1, PP2',
+  },
+  LOWER_PRIMARY: {
+    title: 'Lower Primary Education',
+    subtitle: 'Grades 1, 2, and 3',
+  },
+  UPPER_PRIMARY: {
+    title: 'Upper Primary Education',
+    subtitle: 'Grades 4, 5, and 6',
+  },
+  JUNIOR: {
+    title: 'Junior Secondary School (JSS)',
+    subtitle: 'Grades 7, 8, and 9',
+  },
 };
 
 export class FeeStructuresService {
@@ -29,13 +47,17 @@ export class FeeStructuresService {
       .where(inArray(feeStructures.termId, termIds));
 
     const categories = ['PPE', 'LOWER_PRIMARY', 'UPPER_PRIMARY', 'JUNIOR'];
-    const newEntries: Array<{ termId: string; levelCategory: any; totalAmount: string }> = [];
+    const newEntries: Array<{
+      termId: string;
+      levelCategory: any;
+      totalAmount: string;
+    }> = [];
 
     // Ensure every category has an entry for all 3 terms
     for (const cat of categories) {
       for (const term of terms) {
         const found = existing.find(
-          (e) => e.levelCategory === cat && e.termId === term.id
+          (e) => e.levelCategory === cat && e.termId === term.id,
         );
         if (!found) {
           newEntries.push({
@@ -60,13 +82,13 @@ export class FeeStructuresService {
     // Build 3-Term Matrix
     const matrix = categories.map((cat) => {
       const term1Obj = allStructures.find(
-        (s) => s.levelCategory === cat && s.termId === terms[0]?.id
+        (s) => s.levelCategory === cat && s.termId === terms[0]?.id,
       );
       const term2Obj = allStructures.find(
-        (s) => s.levelCategory === cat && s.termId === terms[1]?.id
+        (s) => s.levelCategory === cat && s.termId === terms[1]?.id,
       );
       const term3Obj = allStructures.find(
-        (s) => s.levelCategory === cat && s.termId === terms[2]?.id
+        (s) => s.levelCategory === cat && s.termId === terms[2]?.id,
       );
 
       const t1Fee = parseFloat(term1Obj?.totalAmount || '0');
@@ -116,7 +138,9 @@ export class FeeStructuresService {
     return updated;
   }
 
-  static async batchUpdate(updates: Array<{ id: string; totalAmount: number }>) {
+  static async batchUpdate(
+    updates: Array<{ id: string; totalAmount: number }>,
+  ) {
     const results = [];
     for (const update of updates) {
       if (!update.id || isNaN(update.totalAmount)) continue;

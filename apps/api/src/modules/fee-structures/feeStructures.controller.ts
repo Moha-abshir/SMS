@@ -8,7 +8,12 @@ export class FeeStructuresController {
       const data = await FeeStructuresService.getFeeMatrix(year);
       res.json({ success: true, data });
     } catch (error: any) {
-      res.status(500).json({ success: false, message: 'Failed to fetch fee structure matrix' });
+      res
+        .status(500)
+        .json({
+          success: false,
+          message: 'Failed to fetch fee structure matrix',
+        });
     }
   }
 
@@ -18,13 +23,24 @@ export class FeeStructuresController {
       const { totalAmount } = req.body;
 
       if (totalAmount === undefined || isNaN(parseFloat(totalAmount))) {
-        return res.status(400).json({ success: false, message: 'Valid totalAmount is required' });
+        return res
+          .status(400)
+          .json({ success: false, message: 'Valid totalAmount is required' });
       }
 
-      const updated = await FeeStructuresService.updateFeeStructure(id, parseFloat(totalAmount));
-      res.json({ success: true, message: 'Fee structure updated successfully', data: updated });
+      const updated = await FeeStructuresService.updateFeeStructure(
+        id,
+        parseFloat(totalAmount),
+      );
+      res.json({
+        success: true,
+        message: 'Fee structure updated successfully',
+        data: updated,
+      });
     } catch (error: any) {
-      res.status(400).json({ success: false, message: 'Failed to update fee structure' });
+      res
+        .status(400)
+        .json({ success: false, message: 'Failed to update fee structure' });
     }
   }
 
@@ -32,13 +48,27 @@ export class FeeStructuresController {
     try {
       const { updates } = req.body;
       if (!Array.isArray(updates)) {
-        return res.status(400).json({ success: false, message: 'Updates must be an array of objects' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: 'Updates must be an array of objects',
+          });
       }
 
       const updated = await FeeStructuresService.batchUpdate(updates);
-      res.json({ success: true, message: 'All fee structures updated successfully', data: updated });
+      res.json({
+        success: true,
+        message: 'All fee structures updated successfully',
+        data: updated,
+      });
     } catch (error: any) {
-      res.status(400).json({ success: false, message: 'Failed to batch update fee structures' });
+      res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Failed to batch update fee structures',
+        });
     }
   }
 }
