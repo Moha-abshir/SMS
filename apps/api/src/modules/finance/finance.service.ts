@@ -1,4 +1,3 @@
-import { AcademicTermsService } from '../academic-terms/academicTerms.service.js';
 import { createHash } from 'node:crypto';
 import { db } from '../../config/db.js';
 import {
@@ -57,41 +56,18 @@ export interface PaymentFilters {
   offset?: number;
   search?: string;
 }
-const DEFAULT_TERM_FEES: Record<string, number> = {
-  PPE: 6000,
-  LOWER_PRIMARY: 7000,
-  UPPER_PRIMARY: 7500,
-  JUNIOR: 11000,
-};
-
 export class FinanceService {
-  /**
-   * Helper to format receipt number e.g. REC-2026-0001
-   */
-  private static async generateReceiptNumber(
-    year: number,
-    executor: Pick<typeof db, 'select'> = db,
-  ): Promise<string> {
-    const [{ count }] = await executor
-      .select({ count: sql<number>`count(*)` })
-      .from(feePayments)
-      .where(eq(feePayments.academicYear, year));
-
-    const nextSeq = Number(count) + 1;
-    const padded = String(nextSeq).padStart(4, '0');
-    let candidate = `REC-${year}-${padded}`;
-
-    // Verify uniqueness
-    const [existing] = await executor
-      .select({ id: feePayments.id })
-      .from(feePayments)
-      .where(eq(feePayments.receiptNumber, candidate));
-
-    if (existing) {
-      candidate = `REC-${year}-${padded}-${Math.floor(100 + Math.random() * 900)}`;
-    }
-
-    return candidate;
+  private static async assertBillConsistent(
+    tx: FinanceTransaction,
+    billId: string,
+  ) {
+    const [row] = await tx.execute(
+      sql`SELECT (b.paid_amount=(SELECT coalesce(sum(p.amount_paid),0) FROM fee_payments p WHERE p.bill_id=b.id AND p.is_reversed=false AND p.deleted_at IS NULL) AND b.balance=b.net_amount-b.paid_amount AND b.net_amount=b.billed_amount-b.waiver_amount) AS consistent FROM student_bills b WHERE b.id=${billId}`,
+    );
+    if (!row?.consistent)
+      throw new FinanceValidationError(
+        'Bill totals do not match the payment ledger. Ask the Head Teacher to reconcile this bill before changing it.',
+      );
   }
 
   private static async billingPlan(
@@ -240,245 +216,298 @@ export class FinanceService {
       };
     });
   }
-
-  /**
-   * Record fee payment and update student bill balance
-   */
-  static async recordPayment(input: RecordPaymentInput, recordedById: string) {
-    const terms = await AcademicTermsService.ensureThreeTerms(
-      input.academicYear || 2026,
-    );
+  static async recordPayment(input: RecordPaymentInput, actorId: string) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        input.requestKey || '',
+      )
+    )
+      throw new FinanceValidationError(
+        'A unique payment request key is required.',
+      );
+    const amount = cents(input.amountPaid);
+    if (
+      !['CASH', 'MANUAL_MPESA', 'BANK_DEPOSIT', 'CHEQUE', 'OTHER'].includes(
+        input.paymentMethod,
+      )
+    )
+      throw new FinanceValidationError(
+        'Select a supported manual payment method. STK payments require verified provider confirmation.',
+      );
+    const mpesa = input.mpesaRefCode?.trim().toUpperCase() || null,
+      bank = input.bankRefNumber?.trim().toUpperCase() || null;
+    if (input.paymentMethod === 'MANUAL_MPESA' && !mpesa)
+      throw new FinanceValidationError('An M-Pesa reference is required.');
+    if (['BANK_DEPOSIT', 'CHEQUE'].includes(input.paymentMethod) && !bank)
+      throw new FinanceValidationError(
+        'A bank or cheque reference is required.',
+      );
+    if (
+      (mpesa && input.paymentMethod !== 'MANUAL_MPESA') ||
+      (bank && !['BANK_DEPOSIT', 'CHEQUE'].includes(input.paymentMethod))
+    )
+      throw new FinanceValidationError(
+        'The reference must match the payment method.',
+      );
+    if ((mpesa?.length || 0) > 50 || (bank?.length || 0) > 50)
+      throw new FinanceValidationError(
+        'Payment references must be at most 50 characters.',
+      );
+    if (!input.paidBy?.trim() || input.paidBy.trim().length > 100)
+      throw new FinanceValidationError(
+        'Provide the payer name (up to 100 characters).',
+      );
+    const paymentDate = input.paymentDate ? new Date(input.paymentDate) : null;
+    if (paymentDate && isNaN(paymentDate.getTime()))
+      throw new FinanceValidationError('Invalid payment date.');
+    const fingerprint = createHash('sha256')
+      .update(
+        JSON.stringify([
+          input.studentId,
+          input.academicYear,
+          input.termNumber,
+          input.billId || null,
+          amount,
+          input.paymentMethod,
+          mpesa,
+          bank,
+          input.paidBy.trim(),
+          input.notes?.trim() || null,
+          paymentDate?.toISOString() || null,
+        ]),
+      )
+      .digest('hex');
     return db.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`finance:${input.academicYear || 2026}`}, 0))`,
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`payment-key:${input.requestKey}`},0))`,
       );
-
-      const year = input.academicYear || 2026;
-      const numAmount = Number(input.amountPaid);
-      if (
-        !Number.isFinite(numAmount) ||
-        numAmount <= 0 ||
-        numAmount > 99999999.99 ||
-        Math.abs(numAmount * 100 - Math.round(numAmount * 100)) > 0.00001
-      ) {
-        throw new Error(
-          'Payment amount must be positive with at most two decimal places',
-        );
-      }
-
-      // 1. Ensure academic terms exist
-
-      let targetTerm = input.termNumber
-        ? terms.find((t) => t.termNumber === input.termNumber)
-        : null;
-      if (!targetTerm) {
-        targetTerm = terms.find((t) => t.isCurrent) || terms[0];
-      }
-      if (!targetTerm) {
-        throw new Error(
-          'Academic term not found for specified year and term number',
-        );
-      }
-
-      // 2. Fetch student and class details
-      const [studentInfo] = await tx
-        .select({
-          student: students,
-          class: classes,
-        })
-        .from(students)
-        .innerJoin(classes, eq(students.classId, classes.id))
-        .where(eq(students.id, input.studentId));
-
-      if (!studentInfo) {
-        throw new Error('Student not found');
-      }
-
-      // 3. Find or auto-create student bill for this term
-      let targetBill: any = null;
-      if (input.billId) {
-        const [b] = await tx
-          .select()
-          .from(studentBills)
-          .where(eq(studentBills.id, input.billId));
-        if (
-          !b ||
-          b.studentId !== input.studentId ||
-          b.termId !== targetTerm.id ||
-          b.deletedAt
-        )
-          throw new Error('Bill does not belong to this learner and term');
-        targetBill = b;
-      }
-
-      if (!targetBill) {
-        // Look for existing bill for this student & term
-        const [existingBill] = await tx
-          .select()
-          .from(studentBills)
-          .where(
-            and(
-              eq(studentBills.studentId, input.studentId),
-              eq(studentBills.termId, targetTerm.id),
-              isNull(studentBills.deletedAt),
-            ),
+      const [retry] = await tx
+        .select()
+        .from(paymentRequestKeys)
+        .where(eq(paymentRequestKeys.requestKey, input.requestKey));
+      if (retry) {
+        if (retry.actorId !== actorId || retry.fingerprint !== fingerprint)
+          throw new FinanceValidationError(
+            'This payment request key was already used with different details.',
           );
-
-        if (existingBill) {
-          targetBill = existingBill;
-        } else {
-          // Resolve fee structure for this class's level category
-          const [feeStruct] = await tx
-            .select()
-            .from(feeStructures)
-            .where(
-              and(
-                eq(feeStructures.termId, targetTerm.id),
-                eq(
-                  feeStructures.levelCategory,
-                  studentInfo.class.levelCategory,
-                ),
-              ),
-            );
-
-          const feeAmount = feeStruct
-            ? Number(feeStruct.totalAmount)
-            : DEFAULT_TERM_FEES[studentInfo.class.levelCategory] || 7000;
-
-          const [createdBill] = await tx
-            .insert(studentBills)
-            .values({
-              studentId: input.studentId,
-              termId: targetTerm.id,
-              title: `Term ${targetTerm.termNumber} ${year} Tuition & School Fees`,
-              billedAmount: feeAmount.toFixed(2),
-              waiverAmount: '0.00',
-              netAmount: feeAmount.toFixed(2),
-              paidAmount: '0.00',
-              balance: feeAmount.toFixed(2),
-            })
-            .returning();
-
-          targetBill = createdBill;
-        }
+        const [original] = await tx
+          .select()
+          .from(feePayments)
+          .where(eq(feePayments.id, retry.paymentId));
+        if (!original)
+          throw new FinanceValidationError(
+            'Original receipt is unavailable. Contact the Head Teacher.',
+          );
+        if (original.isReversed || original.deletedAt)
+          throw new FinanceValidationError(
+            'The original payment has been reversed or archived. This request key cannot be reused.',
+          );
+        return this.receipt(original, tx, true);
       }
-
-      const reference = (input.mpesaRefCode || input.bankRefNumber || '')
-        .trim()
-        .toUpperCase();
+      const term = await termForFinance(
+        input.academicYear,
+        input.termNumber,
+        tx,
+      );
+      const reference = mpesa || bank;
       if (reference) {
-        const mpesa = Boolean(input.mpesaRefCode);
         await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`payment-ref:${mpesa ? 'mpesa' : 'bank'}:${reference}`}, 0))`,
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`payment-ref:${mpesa ? 'mpesa' : 'bank'}:${reference}`},0))`,
         );
         const column = mpesa
           ? feePayments.mpesaRefCode
           : feePayments.bankRefNumber;
-        const [existing] = await tx
+        const referenced = await tx
           .select()
           .from(feePayments)
-          .where(sql`upper(trim(${column})) = ${reference}`);
+          .where(sql`upper(trim(${column}))=${reference}`);
+        if (referenced.length > 1)
+          throw new FinanceValidationError(
+            'Multiple existing payments use this reference. Reconcile them before proceeding.',
+          );
+        const existing = referenced[0];
         if (existing) {
           if (
             existing.studentId !== input.studentId ||
-            existing.billId !== targetBill.id ||
-            Number(existing.amountPaid) !== numAmount ||
-            existing.isReversed
+            existing.academicYear !== input.academicYear ||
+            existing.termNumber !== input.termNumber ||
+            cents(existing.amountPaid) !== amount ||
+            existing.paymentMethod !== input.paymentMethod ||
+            existing.isReversed ||
+            existing.deletedAt ||
+            (input.billId && existing.billId !== input.billId)
           )
-            throw new Error(
-              'Payment reference has already been recorded with different details or reversed',
+            throw new FinanceValidationError(
+              'Payment reference has already been recorded with different details or reversed.',
             );
-          return {
-            ...existing,
-            studentName: `${studentInfo.student.firstName} ${studentInfo.student.lastName}`,
-            assessmentNumber: studentInfo.student.assessmentNumber,
-            className: studentInfo.class.name,
-            billTitle: targetBill.title,
-          };
+          await tx.insert(paymentRequestKeys).values({
+            requestKey: input.requestKey,
+            paymentId: existing.id,
+            actorId,
+            fingerprint,
+          });
+          return this.receipt(existing, tx, true);
         }
-        input = {
-          ...input,
-          ...(mpesa
-            ? { mpesaRefCode: reference }
-            : { bankRefNumber: reference }),
-        };
       }
-
-      // 4. Generate receipt number
-      const receiptNumber = await this.generateReceiptNumber(year, tx);
-
-      // 5. Transaction: record payment & update student bill
-      const payment = await tx.transaction(async (tx) => {
-        const [lockedBill] = await tx
-          .select()
-          .from(studentBills)
-          .where(eq(studentBills.id, targetBill.id))
-          .for('update');
-        targetBill = lockedBill;
-        const [newPayment] = await tx
-          .insert(feePayments)
-          .values({
-            receiptNumber,
-            studentId: input.studentId,
-            billId: targetBill.id,
-            amountPaid: numAmount.toFixed(2),
-            paymentMethod: input.paymentMethod,
-            mpesaRefCode: input.mpesaRefCode || null,
-            bankRefNumber: input.bankRefNumber || null,
-            paidBy: input.paidBy,
-            academicYear: year,
-            termNumber: targetTerm!.termNumber,
-            notes: input.notes || null,
-            isReversed: false,
-            recordedById,
-            paymentDate: input.paymentDate
-              ? new Date(input.paymentDate)
-              : new Date(),
-          })
-          .returning();
-
-        const newPaidAmount = Number(targetBill.paidAmount) + numAmount;
-        const newBalance = Number(targetBill.netAmount) - newPaidAmount;
-
-        await tx
-          .update(studentBills)
-          .set({
-            paidAmount: newPaidAmount.toFixed(2),
-            balance: newBalance.toFixed(2),
-            updatedAt: new Date(),
-          })
-          .where(eq(studentBills.id, targetBill.id));
-
-        return newPayment;
+      // A former learner can still settle an existing bill; only generation uses the active roster.
+      const [learner] = await tx
+        .select({ id: students.id })
+        .from(students)
+        .where(eq(students.id, input.studentId));
+      if (!learner) throw new FinanceValidationError('Learner not found.');
+      const [bill] = await tx
+        .select()
+        .from(studentBills)
+        .where(
+          and(
+            eq(studentBills.studentId, input.studentId),
+            eq(studentBills.termId, term.id),
+            isNull(studentBills.deletedAt),
+            input.billId ? eq(studentBills.id, input.billId) : undefined,
+          ),
+        )
+        .for('update');
+      if (!bill)
+        throw new FinanceValidationError(
+          'No bill exists for this learner and term. Generate approved term bills first.',
+        );
+      await this.assertBillConsistent(tx, bill.id);
+      // Receipt numbering is serialized, while bill balances are locked per learner.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`receipts:${input.academicYear}`},0))`,
+      );
+      const [{ sequence }] = await tx
+        .select({
+          sequence: sql<number>`coalesce(max((substring(${feePayments.receiptNumber} from '^REC-[0-9]+-([0-9]+)'))::bigint),0)::int+1`,
+        })
+        .from(feePayments)
+        .where(eq(feePayments.academicYear, input.academicYear));
+      const [payment] = await tx
+        .insert(feePayments)
+        .values({
+          receiptNumber: `REC-${input.academicYear}-${String(sequence).padStart(4, '0')}`,
+          requestKey: input.requestKey,
+          requestFingerprint: fingerprint,
+          studentId: input.studentId,
+          billId: bill.id,
+          amountPaid: money(amount),
+          paymentMethod: input.paymentMethod,
+          mpesaRefCode: mpesa,
+          bankRefNumber: bank,
+          paidBy: input.paidBy.trim(),
+          academicYear: input.academicYear,
+          termNumber: term.termNumber,
+          notes: input.notes?.trim() || null,
+          recordedById: actorId,
+          paymentDate: paymentDate || new Date(),
+        })
+        .returning();
+      const paid = cents(bill.paidAmount, true) + amount;
+      await tx
+        .update(studentBills)
+        .set({
+          paidAmount: money(paid),
+          balance: money(cents(bill.netAmount, true) - paid),
+          updatedAt: new Date(),
+        })
+        .where(eq(studentBills.id, bill.id));
+      await tx.insert(paymentRequestKeys).values({
+        requestKey: input.requestKey,
+        paymentId: payment.id,
+        actorId,
+        fingerprint,
       });
-
-      return {
-        ...payment,
-        studentName: `${studentInfo.student.firstName} ${studentInfo.student.lastName}`,
-        assessmentNumber: studentInfo.student.assessmentNumber,
-        className: studentInfo.class.name,
-        billTitle: targetBill.title,
-      };
+      await financeAudit(
+        tx,
+        actorId,
+        'PAYMENT_RECORDED',
+        'fee_payments',
+        payment.id,
+        null,
+        payment,
+      );
+      return this.receipt(payment, tx);
     });
   }
-
-  /**
-   * Get payments with student and recorder details
-   */
-  static async getPayments(
-    filters: {
-      studentId?: string;
-      academicYear?: number;
-      termNumber?: number;
-      limit?: number;
-      offset?: number;
-    } = {},
+  private static async receipt(
+    payment: typeof feePayments.$inferSelect,
+    reader: Pick<typeof db, 'select'>,
+    alreadyRecorded = false,
   ) {
-    const year = filters.academicYear || 2026;
-    const limit = Math.min(filters.limit || 50, 100);
-    const offset = filters.offset || 0;
-
-    const query = db
+    const [info] = await reader
+      .select({ student: students, class: classes, bill: studentBills })
+      .from(students)
+      .innerJoin(classes, eq(students.classId, classes.id))
+      .leftJoin(studentBills, eq(studentBills.id, payment.billId!))
+      .where(eq(students.id, payment.studentId));
+    return {
+      ...payment,
+      alreadyRecorded,
+      studentName: info
+        ? `${info.student.firstName} ${info.student.lastName}`
+        : 'Learner',
+      assessmentNumber: info?.student.assessmentNumber,
+      className: info?.class.name,
+      billTitle: info?.bill?.title,
+    };
+  }
+  private static paymentConditions(filters: PaymentFilters) {
+    if (
+      filters.academicYear !== undefined &&
+      (!Number.isInteger(filters.academicYear) ||
+        filters.academicYear < 2000 ||
+        filters.academicYear > 2200)
+    )
+      throw new FinanceValidationError('Invalid academic year.');
+    if (
+      filters.termNumber !== undefined &&
+      ![1, 2, 3].includes(filters.termNumber)
+    )
+      throw new FinanceValidationError('Invalid academic term.');
+    const search = filters.search?.trim();
+    if (search && search.length > 100)
+      throw new FinanceValidationError(
+        'Search must be at most 100 characters.',
+      );
+    const pattern = search
+      ? `%${search.replace(/[\\%_]/g, '\\$&')}%`
+      : undefined;
+    return and(
+      isNull(feePayments.deletedAt),
+      filters.studentId
+        ? eq(feePayments.studentId, filters.studentId)
+        : undefined,
+      filters.academicYear
+        ? eq(feePayments.academicYear, filters.academicYear)
+        : undefined,
+      filters.termNumber
+        ? eq(feePayments.termNumber, filters.termNumber)
+        : undefined,
+      pattern
+        ? or(
+            ilike(feePayments.receiptNumber, pattern),
+            ilike(feePayments.paidBy, pattern),
+            sql`concat_ws(' ',${students.firstName},nullif(trim(${students.middleName}),''),${students.lastName}) ILIKE ${pattern}`,
+            ilike(students.assessmentNumber, pattern),
+            ilike(feePayments.mpesaRefCode, pattern),
+            ilike(feePayments.bankRefNumber, pattern),
+          )
+        : undefined,
+    );
+  }
+  static async getPayments(filters: PaymentFilters = {}) {
+    const limit = filters.limit ?? 50,
+      offset = filters.offset ?? 0;
+    if (
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      !Number.isInteger(offset) ||
+      offset < 0 ||
+      offset > 1000000
+    )
+      throw new FinanceValidationError('Invalid payment page.');
+    return db
       .select({
         id: feePayments.id,
         receiptNumber: feePayments.receiptNumber,
@@ -505,16 +534,26 @@ export class FinanceService {
       .innerJoin(students, eq(feePayments.studentId, students.id))
       .innerJoin(classes, eq(students.classId, classes.id))
       .innerJoin(users, eq(feePayments.recordedById, users.id))
-      .where(
-        filters.studentId
-          ? eq(feePayments.studentId, filters.studentId)
-          : eq(feePayments.academicYear, year),
-      )
-      .orderBy(desc(feePayments.paymentDate))
+      .where(this.paymentConditions(filters))
+      .orderBy(desc(feePayments.paymentDate), desc(feePayments.id))
       .limit(limit)
       .offset(offset);
-
-    return await query;
+  }
+  static async paymentPage(filters: PaymentFilters) {
+    const [items, [{ total }]] = await Promise.all([
+      this.getPayments(filters),
+      db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(feePayments)
+        .innerJoin(students, eq(feePayments.studentId, students.id))
+        .where(this.paymentConditions(filters)),
+    ]);
+    return {
+      items,
+      total,
+      limit: filters.limit ?? 50,
+      offset: filters.offset ?? 0,
+    };
   }
 
   /**

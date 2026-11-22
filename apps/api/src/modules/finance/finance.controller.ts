@@ -8,52 +8,57 @@ export class FinanceController {
   static async recordPayment(req: Request, res: Response) {
     try {
       const payment = await FinanceService.recordPayment(
-        req.body,
+        {
+          ...req.body,
+          requestKey: z.uuid().parse(req.body.requestKey),
+          studentId: z.uuid().parse(req.body.studentId),
+        },
         req.user!.id,
       );
-      return res.status(201).json({
+      return res.status(payment.alreadyRecorded ? 200 : 201).json({
         success: true,
         data: payment,
-        message: `Payment recorded successfully. Receipt #${payment.receiptNumber}`,
+        message: `${payment.alreadyRecorded ? 'Payment already recorded. Original receipt' : 'Payment recorded successfully. Receipt'} #${payment.receiptNumber}`,
       });
     } catch (error: any) {
+      const validation =
+        error instanceof FinanceValidationError || error instanceof z.ZodError;
+      if (!validation) logServerError('Payment outcome unconfirmed', error);
       return res
-        .status(400)
+        .status(validation ? 400 : 503)
         .json({
           success: false,
-          message: publicErrorMessage(error, 'Failed to record payment'),
+          message: validation
+            ? error instanceof z.ZodError
+              ? 'Invalid payment details. Reload the payment form and try again.'
+              : publicErrorMessage(error, 'Invalid payment details.')
+            : 'Payment could not be confirmed. Check the ledger or retry the same payment request; do not create a new attempt.',
         });
     }
   }
 
   static async getPayments(req: Request, res: Response) {
     try {
-      const studentId = req.query.studentId as string;
-      const academicYear = req.query.academicYear
-        ? Number(req.query.academicYear)
-        : undefined;
-      const termNumber = req.query.termNumber
-        ? Number(req.query.termNumber)
-        : undefined;
-      const limit = req.query.limit ? Number(req.query.limit) : undefined;
-      const offset = req.query.offset ? Number(req.query.offset) : undefined;
-
-      const payments = await FinanceService.getPayments({
-        studentId,
-        academicYear,
-        termNumber,
-        limit,
-        offset,
-      });
-
+      const filters = z
+        .object({
+          studentId: z.uuid().optional(),
+          academicYear: z.coerce.number().int().min(2000).max(2200),
+          termNumber: z.coerce.number().int().min(1).max(3).optional(),
+          limit: z.coerce.number().int().min(1).max(100).optional(),
+          offset: z.coerce.number().int().min(0).max(1000000).optional(),
+          search: z.string().max(100).optional(),
+        })
+        .parse(req.query);
+      const payments = await FinanceService.paymentPage(filters);
       return res.status(200).json({ success: true, data: payments });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: publicErrorMessage(error, 'Failed to fetch payments'),
-        });
+      return res.status(error instanceof z.ZodError ? 400 : 500).json({
+        success: false,
+        message:
+          error instanceof z.ZodError
+            ? 'Invalid payment filters.'
+            : publicErrorMessage(error, 'Failed to fetch payments'),
+      });
     }
   }
 
