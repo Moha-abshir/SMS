@@ -6,7 +6,8 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', FeeStructuresController.getFeeStructures);
+router.get('/', authorizePermission('finance:view'), FeeStructuresController.getFeeStructures);
+router.post('/terms/:termId/approve', FeeStructuresController.approveTerm);
 router.put('/batch', authorizePermission('fees:structure-edit'), FeeStructuresController.batchUpdateFeeStructures);
 router.put('/:id', authorizePermission('fees:structure-edit'), FeeStructuresController.updateFeeStructure);
 

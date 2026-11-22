@@ -1,351 +1,269 @@
-import { WorkspaceHeader } from '../../components/WorkspaceHeader';
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Calculator, Save, ShieldAlert } from 'lucide-react';
+import { getPublicSettings } from '../../lib/publicSettings';
+import React, { useEffect, useState } from 'react';
+import { Calculator } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useApiResource } from '../../hooks/useApiResource';
 import { apiClient } from '../../lib/apiClient';
-import { PageLoadingWrapper } from '../../components/PageLoadingProgress';
-
-interface MatrixRow {
+import { WorkspaceHeader } from '../../components/WorkspaceHeader';
+import { RequestError } from '../../components/RequestError';
+import { Modal } from '../../components/Modal';
+type Cell = {
+  id: string | null;
+  termId: string | null;
+  amount: number | null;
+  approved: boolean;
+};
+type Row = {
   levelCategory: string;
   title: string;
-  targetGrades: string;
-  term1: { id: string; termId: string; amount: number };
-  term2: { id: string; termId: string; amount: number };
-  term3: { id: string; termId: string; amount: number };
-  annualTotal: number;
-}
-
+  term1: Cell;
+  term2: Cell;
+  term3: Cell;
+};
 export const FeeStructureView: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [savingRowCat, setSavingRowCat] = useState<string | null>(null);
-
-  const [matrix, setMatrix] = useState<MatrixRow[]>([]);
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
-
-  const fetchMatrix = async () => {
-    try {
-      setLoading(true);
-      const res = await apiClient.get('/api/fee-structures');
-      const data = res.data.data;
-      if (data) {
-        setMatrix(data.matrix || []);
-
-        const initialMap: Record<string, string> = {};
-        (data.matrix || []).forEach((row: MatrixRow) => {
-          if (row.term1?.id)
-            initialMap[row.term1.id] = row.term1.amount.toString();
-          if (row.term2?.id)
-            initialMap[row.term2.id] = row.term2.amount.toString();
-          if (row.term3?.id)
-            initialMap[row.term3.id] = row.term3.amount.toString();
-        });
-        setAmounts(initialMap);
-      }
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || 'Failed to load fee structures matrix',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const [year, setYear] = useState(new Date().getFullYear());
   useEffect(() => {
-    fetchMatrix();
+    let active = true;
+    getPublicSettings()
+      .then((res) => {
+        if (active && Number.isInteger(res.data?.data?.currentAcademicYear))
+          setYear(res.data.data.currentAcademicYear);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
-
-  const handleAmountChange = (id: string, value: string) => {
-    setAmounts((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const handleSaveRow = async (row: MatrixRow) => {
-    if (savingRowCat) return;
-    const updates = [];
-    if (row.term1?.id)
-      updates.push({
-        id: row.term1.id,
-        totalAmount: parseFloat(amounts[row.term1.id] || '0'),
+  const resource = useApiResource<{
+    terms: any[];
+    matrix: Row[];
+    savedRates: any[];
+  }>(
+    `/api/fee-structures?year=${year}`,
+    (v: any) =>
+      Array.isArray(v?.matrix) &&
+      Array.isArray(v?.terms) &&
+      Array.isArray(v?.savedRates),
+  );
+  const [amounts, setAmounts] = useState<Record<string, string>>({}),
+    [busy, setBusy] = useState(false),
+    [approveTerm, setApproveTerm] = useState<any>(null);
+  const role = JSON.parse(localStorage.getItem('auth_user') || '{}');
+  const isHead = (role.roleName || role.role) === 'HEAD_TEACHER';
+  const key = (row: Row, index: number) => `${row.levelCategory}:${index}`;
+  useEffect(() => {
+    const values: Record<string, string> = {};
+    for (const row of resource.data?.matrix || [])
+      [row.term1, row.term2, row.term3].forEach((cell, index) => {
+        values[key(row, index)] =
+          cell.amount == null ? '' : String(cell.amount);
       });
-    if (row.term2?.id)
-      updates.push({
-        id: row.term2.id,
-        totalAmount: parseFloat(amounts[row.term2.id] || '0'),
-      });
-    if (row.term3?.id)
-      updates.push({
-        id: row.term3.id,
-        totalAmount: parseFloat(amounts[row.term3.id] || '0'),
-      });
-
+    setAmounts(values);
+  }, [resource.data]);
+  const save = async () => {
+    const updates = (resource.data?.matrix || []).flatMap((row) =>
+      [row.term1, row.term2, row.term3].flatMap((cell, index) => {
+        const value = amounts[key(row, index)] ?? '';
+        if (!cell.termId || value === '') return [];
+        if (cell.amount !== null && Number(value) === cell.amount) return [];
+        return [
+          {
+            ...(cell.id
+              ? { id: cell.id }
+              : { termId: cell.termId, levelCategory: row.levelCategory }),
+            totalAmount: value,
+          },
+        ];
+      }),
+    );
+    if (!updates.length) {
+      toast.info('There are no fee changes to save.');
+      return;
+    }
+    setBusy(true);
     try {
-      setSavingRowCat(row.levelCategory);
       await apiClient.put('/api/fee-structures/batch', { updates });
-      toast.success(`${row.title} fee structures saved successfully`);
-      await fetchMatrix();
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || 'Failed to save fee structures',
+      toast.success(
+        'Fees saved for head teacher approval. Existing bills were not changed.',
       );
+      resource.refresh();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Could not save fees.');
     } finally {
-      setSavingRowCat(null);
+      setBusy(false);
     }
   };
-
-  const handleSaveAll = async () => {
-    if (submitting) return;
-    const updates: Array<{ id: string; totalAmount: number }> = [];
-    Object.entries(amounts).forEach(([id, val]) => {
-      const num = parseFloat(val);
-      if (!isNaN(num)) {
-        updates.push({ id, totalAmount: num });
-      }
-    });
-
-    if (updates.length === 0) return;
-
-    try {
-      setSubmitting(true);
-      await apiClient.put('/api/fee-structures/batch', { updates });
-      toast.success('All 3-term fee structures saved successfully!');
-      await fetchMatrix();
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || 'Failed to batch save fee structures',
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+  const dirty = (resource.data?.matrix || []).some((row) =>
+    [row.term1, row.term2, row.term3].some(
+      (cell, index) =>
+        (amounts[key(row, index)] ?? '') !==
+        (cell.amount == null ? '' : String(cell.amount)),
+    ),
+  );
   return (
-    <PageLoadingWrapper
-      isLoading={loading}
-      title="Tuition & Fee Structures Matrix"
-      subtitle="Loading 3-term fee schedules and pedagogical tier matrices..."
-      icon={Calculator}
-    >
-      <div className="workspace-page max-w-5xl mx-auto">
-        {/* Header Banner */}
-        <WorkspaceHeader
-          icon={Calculator}
-          title="Fee Structures"
-          description="Set term fees for each education level."
+    <div className="workspace-page space-y-4">
+      <WorkspaceHeader
+        icon={Calculator}
+        title="Fee Structures"
+        description="Prepare term rates, approve them, then generate learner bills."
+      >
+        <button
+          className="workspace-button-primary"
+          disabled={busy || resource.loading || !resource.data || !dirty}
+          onClick={save}
         >
-          <button
-            onClick={handleSaveAll}
-            disabled={submitting}
-            className="w-full sm:w-auto justify-center min-h-[42px] px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all shrink-0 cursor-pointer"
-          >
-            {submitting ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            <span>{submitting ? 'Saving Changes...' : 'Save Fee Matrix'}</span>
-          </button>
-        </WorkspaceHeader>
-
-        {/* Notice Banner */}
-        <div className="p-3.5 sm:p-4 bg-sky-50/70 border border-slate-200 rounded-xl sm:rounded-lg flex items-center gap-3 text-xs text-sky-900">
-          <ShieldAlert className="w-5 h-5 shrink-0 text-sky-600" />
-          <span>
-            <strong>Head Teacher Authority Notice:</strong> Modifying fee
-            structures updates term billing rates for all students across
-            Pre-Primary, Lower Primary, Upper Primary, and JSS.
-          </span>
-        </div>
-
-        {/* 3-Term Matrix Fee Table across All 4 Levels */}
-        <div className="workspace-panel space-y-4 min-w-0">
-          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-            <Calculator className="w-4 h-4 text-sky-600" />
-            3-Term Fee Structure Matrix
-          </h3>
-
-          <div className="space-y-3 sm:hidden">
-            {matrix.map((row) => (
+          {busy ? 'Saving…' : 'Save fee changes'}
+        </button>
+      </WorkspaceHeader>
+      <label className="block max-w-xs space-y-1 text-xs font-semibold">
+        Academic year
+        <input
+          aria-label="Fee academic year"
+          type="number"
+          min="2000"
+          max="2200"
+          className="workspace-input w-full"
+          value={year}
+          onChange={(e) => setYear(Number(e.target.value))}
+        />
+      </label>
+      <p className="workspace-panel p-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+        Bursars prepare rates; the head teacher approves each term. Saving a
+        changed amount removes its approval. Approved rates apply to newly
+        generated bills; existing bills keep their original amounts.
+      </p>
+      {resource.error && (
+        <RequestError message={resource.error} onRetry={resource.refresh} />
+      )}
+      {resource.loading && <p role="status">Loading fee schedules…</p>}
+      {resource.data && !resource.data.terms.length && (
+        <p className="workspace-panel p-4 text-sm">
+          No academic terms exist for {year}. Ask the head teacher to configure
+          the academic year in settings before entering fees.
+        </p>
+      )}
+      {resource.data && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[1, 2, 3].map((number) => {
+            const term = resource.data?.terms.find(
+              (t) => t.termNumber === number,
+            );
+            return (
               <section
-                key={row.levelCategory}
-                className="rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+                key={number}
+                className="workspace-panel min-w-0 space-y-4 p-4"
               >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {row.title}
-                    </h4>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {row.targetGrades}
-                    </p>
-                  </div>
+                <h2 className="text-sm font-semibold">Term {number}</h2>
+                {!term ? (
+                  <p className="text-sm text-slate-500">Term not configured.</p>
+                ) : (
+                  (resource.data?.matrix || []).map((row) => {
+                    const cell = [row.term1, row.term2, row.term3][number - 1];
+                    return (
+                      <label
+                        key={row.levelCategory}
+                        className="block space-y-1 text-xs"
+                      >
+                        <span className="flex flex-wrap justify-between gap-1">
+                          <span>{row.title} (KES)</span>
+                          <span
+                            className={
+                              cell.approved
+                                ? 'text-emerald-600'
+                                : 'text-amber-600'
+                            }
+                          >
+                            {cell.approved
+                              ? 'Approved'
+                              : cell.id
+                                ? 'Needs approval'
+                                : 'Not configured'}
+                          </span>
+                        </span>
+                        <input
+                          aria-label={`${row.title} Term ${number} fee`}
+                          type="number"
+                          min="0"
+                          max="99999999.99"
+                          step="0.01"
+                          className="workspace-input w-full"
+                          value={amounts[key(row, number - 1)] ?? ''}
+                          disabled={busy || resource.loading}
+                          onChange={(e) =>
+                            setAmounts((current) => ({
+                              ...current,
+                              [key(row, number - 1)]: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter an explicit amount"
+                        />
+                      </label>
+                    );
+                  })
+                )}
+                {isHead && term && (
                   <button
-                    onClick={() => handleSaveRow(row)}
-                    disabled={savingRowCat !== null}
-                    className="min-h-11 rounded-lg bg-sky-600 px-3 text-xs font-semibold text-white disabled:opacity-50"
+                    className="workspace-button-secondary w-full"
+                    disabled={busy || dirty || resource.loading}
+                    onClick={() => setApproveTerm(term)}
                   >
-                    {savingRowCat === row.levelCategory
-                      ? 'Saving…'
-                      : 'Save level'}
+                    Review & approve Term {number}
                   </button>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {[row.term1, row.term2, row.term3].map((term, index) => (
-                    <label
-                      key={index}
-                      className="min-w-0 text-xs text-slate-500"
-                    >
-                      Term {index + 1} (KES)
-                      <input
-                        type="number"
-                        min="0"
-                        aria-label={`${row.title} Term ${index + 1} fee`}
-                        value={amounts[term?.id] ?? term?.amount}
-                        onChange={(event) =>
-                          handleAmountChange(term.id, event.target.value)
-                        }
-                        className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold tabular-nums text-slate-900 dark:border-slate-700 dark:bg-[#081020] dark:text-slate-100"
-                      />
-                    </label>
-                  ))}
-                </div>
-                <p className="mt-3 text-xs text-slate-500">
-                  Annual total{' '}
-                  <strong className="float-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                    KES{' '}
-                    {[row.term1, row.term2, row.term3]
-                      .reduce(
-                        (sum, term) =>
-                          sum + (parseFloat(amounts[term?.id] || '0') || 0),
-                        0,
-                      )
-                      .toLocaleString()}
-                  </strong>
-                </p>
+                )}
               </section>
-            ))}
-          </div>
-          <div
-            className="hidden sm:block overflow-x-auto max-w-full overscroll-x-contain workspace-table-scroll"
-            role="region"
-            aria-label="Fee structures by level and term"
-            tabIndex={0}
-          >
-            <table className="w-full text-left text-xs min-w-[760px]">
-              <thead className="bg-sky-50/80 text-sky-900 font-bold uppercase tracking-wider border-b border-slate-200">
-                <tr>
-                  <th className="py-2.5 px-4">Education Level</th>
-                  <th className="py-2.5 px-4">Target Grades</th>
-                  <th className="py-2.5 px-4 text-center">Term 1 Fee (KES)</th>
-                  <th className="py-2.5 px-4 text-center">Term 2 Fee (KES)</th>
-                  <th className="py-2.5 px-4 text-center">Term 3 Fee (KES)</th>
-                  <th className="py-2.5 px-4 text-right">Annual Total (KES)</th>
-                  <th className="py-2.5 px-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {matrix.map((row) => {
-                  const t1Val = parseFloat(amounts[row.term1?.id] || '0') || 0;
-                  const t2Val = parseFloat(amounts[row.term2?.id] || '0') || 0;
-                  const t3Val = parseFloat(amounts[row.term3?.id] || '0') || 0;
-                  const annualSum = t1Val + t2Val + t3Val;
-
-                  const isSaving = savingRowCat === row.levelCategory;
-
-                  return (
-                    <tr
-                      key={row.levelCategory}
-                      className="hover:bg-sky-50/40 transition-colors"
-                    >
-                      <td className="py-3 px-4 font-bold text-slate-800">
-                        {row.title}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500 font-semibold">
-                        {row.targetGrades}
-                      </td>
-
-                      {/* Term 1 Input */}
-                      <td className="py-3 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5">
-                          <span className="text-[11px] font-bold text-slate-400">
-                            KES
-                          </span>
-                          <input
-                            type="number"
-                            value={amounts[row.term1?.id] ?? row.term1?.amount}
-                            onChange={(e) =>
-                              handleAmountChange(row.term1.id, e.target.value)
-                            }
-                            className="w-24 text-right bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Term 2 Input */}
-                      <td className="py-3 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5">
-                          <span className="text-[11px] font-bold text-slate-400">
-                            KES
-                          </span>
-                          <input
-                            type="number"
-                            value={amounts[row.term2?.id] ?? row.term2?.amount}
-                            onChange={(e) =>
-                              handleAmountChange(row.term2.id, e.target.value)
-                            }
-                            className="w-24 text-right bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Term 3 Input */}
-                      <td className="py-3 px-4 text-center">
-                        <div className="inline-flex items-center gap-1.5">
-                          <span className="text-[11px] font-bold text-slate-400">
-                            KES
-                          </span>
-                          <input
-                            type="number"
-                            value={amounts[row.term3?.id] ?? row.term3?.amount}
-                            onChange={(e) =>
-                              handleAmountChange(row.term3.id, e.target.value)
-                            }
-                            className="w-24 text-right bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 font-bold text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
-                          />
-                        </div>
-                      </td>
-
-                      {/* Computed Annual Total */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-sm text-sky-600">
-                        KES{' '}
-                        {annualSum.toLocaleString('en-US', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-
-                      {/* Row Action */}
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => handleSaveRow(row)}
-                          disabled={isSaving}
-                          className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1 mx-auto transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isSaving ? (
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
-                          ) : (
-                            <Save className="w-3.5 h-3.5" />
-                          )}
-                          <span>{isSaving ? 'Saving...' : 'Save'}</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            );
+          })}
         </div>
-      </div>
-    </PageLoadingWrapper>
+      )}
+      <Modal
+        isOpen={Boolean(approveTerm)}
+        onClose={() => !busy && setApproveTerm(null)}
+        title="Approve term fee rates?"
+      >
+        <p className="text-sm leading-relaxed">
+          Approve the saved {year} Term {approveTerm?.termNumber} rates shown
+          below for billing. Unconfigured levels will still block billing for
+          their learners.
+        </p>
+        <ul className="my-4 space-y-2 text-sm">
+          {(resource.data?.savedRates || [])
+            .filter((row) => row.termId === approveTerm?.id)
+            .map((row) => (
+              <li key={row.id}>
+                {row.className || row.levelCategory}: KES{' '}
+                {Number(row.totalAmount).toLocaleString()}
+              </li>
+            ))}
+        </ul>
+        <button
+          className="workspace-button-primary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await apiClient.post(
+                `/api/fee-structures/terms/${approveTerm.id}/approve`,
+                {
+                  expected: (resource.data?.savedRates || [])
+                    .filter((row) => row.termId === approveTerm.id)
+                    .map(({ id, totalAmount }) => ({ id, totalAmount })),
+                },
+              );
+              toast.success('Term fees approved.');
+              setApproveTerm(null);
+              resource.refresh();
+            } catch (e: any) {
+              toast.error(
+                e.response?.data?.message || 'Could not approve fees.',
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Confirm fee approval
+        </button>
+      </Modal>
+    </div>
   );
 };
