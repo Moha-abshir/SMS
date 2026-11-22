@@ -555,45 +555,31 @@ export class FinanceService {
       offset: filters.offset ?? 0,
     };
   }
-
-  /**
-   * Financial Summary overview for Head Teacher and Bursar
-   */
-  static async getFinancialSummary(year: number = 2026, termNumber?: number) {
+  static async getFinancialSummary(year: number, termNumber?: number) {
+    this.paymentConditions({ academicYear: year, termNumber });
     const paymentTotals = await db
       .select({
         method: feePayments.paymentMethod,
-        total: sql<string>`coalesce(sum(${feePayments.amountPaid}), 0)`,
+        total: sql<string>`coalesce(sum(${feePayments.amountPaid}),0)`,
         count: sql<number>`count(*)::int`,
       })
       .from(feePayments)
       .where(
         and(
           eq(feePayments.academicYear, year),
+          termNumber ? eq(feePayments.termNumber, termNumber) : undefined,
           eq(feePayments.isReversed, false),
           isNull(feePayments.deletedAt),
-          termNumber ? eq(feePayments.termNumber, termNumber) : undefined,
         ),
       )
       .groupBy(feePayments.paymentMethod);
-    let totalCollected = 0;
-    let totalTransactions = 0;
-    const methodCounts: Record<string, { count: number; total: number }> = {
-      CASH: { count: 0, total: 0 },
-      MANUAL_MPESA: { count: 0, total: 0 },
-    };
-    for (const row of paymentTotals) {
-      const total = Number(row.total);
-      methodCounts[row.method] = { count: Number(row.count), total };
-      totalCollected += total;
-      totalTransactions += Number(row.count);
-    }
-    const [billTotals] = await db
+    const [totals] = await db
       .select({
-        billed: sql<string>`coalesce(sum(${studentBills.billedAmount}), 0)`,
-        paid: sql<string>`coalesce(sum(${studentBills.paidAmount}), 0)`,
-        outstanding: sql<string>`coalesce(sum(${studentBills.balance}), 0)`,
-        waivers: sql<string>`coalesce(sum(${studentBills.waiverAmount}), 0)`,
+        billed: sql<string>`coalesce(sum(${studentBills.billedAmount}),0)`,
+        paid: sql<string>`coalesce(sum(${studentBills.paidAmount}),0)`,
+        outstanding: sql<string>`coalesce(sum(greatest(${studentBills.balance},0)),0)`,
+        credits: sql<string>`coalesce(sum(greatest(-${studentBills.balance},0)),0)`,
+        waivers: sql<string>`coalesce(sum(${studentBills.waiverAmount}),0)`,
       })
       .from(studentBills)
       .innerJoin(academicTerms, eq(studentBills.termId, academicTerms.id))
@@ -604,36 +590,48 @@ export class FinanceService {
           termNumber ? eq(academicTerms.termNumber, termNumber) : undefined,
         ),
       );
-    const totalBilled = Number(billTotals.billed),
-      totalPaidFromBills = Number(billTotals.paid),
-      totalOutstanding = Number(billTotals.outstanding),
-      totalWaivers = Number(billTotals.waivers);
-
-    // 3. Count pending reversals
     const [{ pendingCount }] = await db
-      .select({ pendingCount: sql<number>`count(*)` })
+      .select({ pendingCount: sql<number>`count(*)::int` })
       .from(paymentReversals)
-      .where(isNull(paymentReversals.approvedById));
-
-    // 4. Recent payments
-    const recentPayments = await this.getPayments({
-      academicYear: year,
-      termNumber,
-      limit: 10,
-    });
-
+      .innerJoin(
+        feePayments,
+        eq(paymentReversals.originalPaymentId, feePayments.id),
+      )
+      .where(
+        and(
+          isNull(paymentReversals.approvedById),
+          isNull(paymentReversals.rejectedById),
+          eq(feePayments.academicYear, year),
+          termNumber ? eq(feePayments.termNumber, termNumber) : undefined,
+        ),
+      );
+    const methodBreakdown = Object.fromEntries(
+      paymentTotals.map((row) => [
+        row.method,
+        { count: row.count, total: Number(row.total) },
+      ]),
+    );
     return {
       academicYear: year,
       termNumber: termNumber || 'All Terms',
-      totalCollected,
-      totalBilled,
-      totalPaidFromBills,
-      totalOutstanding,
-      totalWaivers,
-      totalTransactions,
-      methodBreakdown: methodCounts,
-      pendingReversalsCount: Number(pendingCount),
-      recentPayments,
+      totalCollected:
+        paymentTotals.reduce(
+          (sum, row) => sum + Math.round(Number(row.total) * 100),
+          0,
+        ) / 100,
+      totalTransactions: paymentTotals.reduce((sum, row) => sum + row.count, 0),
+      totalBilled: Number(totals.billed),
+      totalPaidFromBills: Number(totals.paid),
+      totalOutstanding: Number(totals.outstanding),
+      totalCredits: Number(totals.credits),
+      totalWaivers: Number(totals.waivers),
+      methodBreakdown,
+      pendingReversalsCount: pendingCount,
+      recentPayments: await this.getPayments({
+        academicYear: year,
+        termNumber,
+        limit: 10,
+      }),
     };
   }
   static async requestReversal(
@@ -747,6 +745,39 @@ export class FinanceService {
       .limit(limit)
       .offset(offset);
   }
+  static async reversalHistory(
+    year: number,
+    termNumber: number | undefined,
+    offset = 0,
+  ) {
+    this.paymentConditions({ academicYear: year, termNumber });
+    if (!Number.isInteger(offset) || offset < 0 || offset > 1000000)
+      throw new FinanceValidationError('Invalid history page.');
+    const rows = await db.execute(
+      sql`SELECT r.id, r.reason, r.created_at AS "requestedAt", r.decision_reason AS "decisionReason", r.decided_at AS "decidedAt", p.receipt_number AS "receiptNumber", p.amount_paid AS amount, concat(requester.first_name,' ',requester.last_name) AS "requestedBy", concat(decider.first_name,' ',decider.last_name) AS "decidedBy", CASE WHEN r.approved_by_id IS NOT NULL THEN 'APPROVED' ELSE 'REJECTED' END AS status, count(*) OVER()::int AS total FROM payment_reversals r JOIN fee_payments p ON p.id=r.original_payment_id JOIN users requester ON requester.id=r.reversed_by_id LEFT JOIN users decider ON decider.id=coalesce(r.approved_by_id,r.rejected_by_id) WHERE p.academic_year=${year} AND (${termNumber || null}::int IS NULL OR p.term_number=${termNumber || null}) AND (r.approved_by_id IS NOT NULL OR r.rejected_by_id IS NOT NULL) ORDER BY r.created_at DESC,r.id DESC LIMIT 25 OFFSET ${offset}`,
+    );
+    return {
+      items: rows,
+      total: Number(rows[0]?.total || 0),
+      limit: 25,
+      offset,
+    };
+  }
+  static async reconciliation(year: number, termNumber?: number) {
+    this.paymentConditions({ academicYear: year, termNumber });
+    const mismatches = await db.execute(
+      sql`WITH received AS (SELECT bill_id,sum(amount_paid) AS amount FROM fee_payments WHERE is_reversed=false AND deleted_at IS NULL GROUP BY bill_id) SELECT b.id AS "billId", b.student_id AS "studentId", b.paid_amount AS "storedPaid", coalesce(p.amount,0) AS "recordedPayments", b.balance, b.net_amount AS "netAmount", count(*) OVER()::int AS total FROM student_bills b JOIN academic_terms t ON t.id=b.term_id LEFT JOIN received p ON p.bill_id=b.id WHERE b.deleted_at IS NULL AND t.year=${year} AND (${termNumber || null}::int IS NULL OR t.term_number=${termNumber || null}) AND (b.paid_amount<>coalesce(p.amount,0) OR b.balance<>b.net_amount-b.paid_amount OR b.net_amount<>b.billed_amount-b.waiver_amount) ORDER BY b.id LIMIT 50`,
+    );
+    const [unlinked] = await db.execute(
+      sql`SELECT count(*)::int AS count FROM fee_payments p LEFT JOIN student_bills b ON b.id=p.bill_id LEFT JOIN academic_terms t ON t.id=b.term_id WHERE p.deleted_at IS NULL AND p.is_reversed=false AND p.academic_year=${year} AND (${termNumber || null}::int IS NULL OR p.term_number=${termNumber || null}) AND (b.id IS NULL OR b.deleted_at IS NOT NULL OR b.student_id<>p.student_id OR t.year<>p.academic_year OR t.term_number<>p.term_number)`,
+    );
+    return {
+      mismatchCount: Number(mismatches[0]?.total || 0),
+      unlinkedPayments: Number(unlinked.count),
+      items: mismatches,
+      limit: 50,
+    };
+  }
   static async approveReversal(id: string, actorId: string, roleName?: string) {
     return this.decideReversal(id, actorId, roleName, true, 'Approved');
   }
@@ -855,11 +886,13 @@ export class FinanceService {
       return saved;
     });
   }
-
   /**
    * Get student fee statement
    */
-  static async getStudentStatement(studentId: string) {
+  static async getStudentStatement(
+    studentId: string,
+    filters: Pick<PaymentFilters, 'academicYear' | 'termNumber'> = {},
+  ) {
     const [student] = await db
       .select({
         student: students,
@@ -870,9 +903,24 @@ export class FinanceService {
       .where(eq(students.id, studentId));
 
     if (!student) {
-      throw new Error('Student not found');
+      throw new FinanceValidationError('Student not found');
     }
 
+    this.paymentConditions(filters);
+    const selectedTerms = await db
+      .select({ id: academicTerms.id })
+      .from(academicTerms)
+      .where(
+        and(
+          isNull(academicTerms.deletedAt),
+          filters.academicYear
+            ? eq(academicTerms.year, filters.academicYear)
+            : undefined,
+          filters.termNumber
+            ? eq(academicTerms.termNumber, filters.termNumber)
+            : undefined,
+        ),
+      );
     const bills = await db
       .select()
       .from(studentBills)
@@ -880,6 +928,10 @@ export class FinanceService {
         and(
           eq(studentBills.studentId, studentId),
           isNull(studentBills.deletedAt),
+          inArray(
+            studentBills.termId,
+            selectedTerms.map((row) => row.id),
+          ),
         ),
       )
       .orderBy(desc(studentBills.createdAt));
@@ -887,7 +939,18 @@ export class FinanceService {
     const payments = await db
       .select()
       .from(feePayments)
-      .where(eq(feePayments.studentId, studentId))
+      .where(
+        and(
+          eq(feePayments.studentId, studentId),
+          isNull(feePayments.deletedAt),
+          filters.academicYear
+            ? eq(feePayments.academicYear, filters.academicYear)
+            : undefined,
+          filters.termNumber
+            ? eq(feePayments.termNumber, filters.termNumber)
+            : undefined,
+        ),
+      )
       .orderBy(desc(feePayments.paymentDate));
 
     let totalBilled = 0;
@@ -895,9 +958,9 @@ export class FinanceService {
     let totalBalance = 0;
 
     bills.forEach((b) => {
-      totalBilled += Number(b.billedAmount) || 0;
-      totalPaid += Number(b.paidAmount) || 0;
-      totalBalance += Number(b.balance) || 0;
+      totalBilled += Math.round(Number(b.billedAmount) * 100);
+      totalPaid += Math.round(Number(b.paidAmount) * 100);
+      totalBalance += Math.round(Number(b.balance) * 100);
     });
 
     return {
@@ -911,9 +974,9 @@ export class FinanceService {
         className: student.class.name,
       },
       summary: {
-        totalBilled,
-        totalPaid,
-        totalBalance,
+        totalBilled: totalBilled / 100,
+        totalPaid: totalPaid / 100,
+        totalBalance: totalBalance / 100,
       },
       bills,
       payments,

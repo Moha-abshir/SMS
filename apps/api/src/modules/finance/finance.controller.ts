@@ -64,9 +64,7 @@ export class FinanceController {
 
   static async getFinancialSummary(req: Request, res: Response) {
     try {
-      const academicYear = req.query.academicYear
-        ? Number(req.query.academicYear)
-        : 2026;
+      const academicYear = Number(req.query.academicYear);
       const termNumber = req.query.termNumber
         ? Number(req.query.termNumber)
         : undefined;
@@ -77,15 +75,10 @@ export class FinanceController {
       );
       return res.status(200).json({ success: true, data: summary });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: publicErrorMessage(
-            error,
-            'Failed to fetch financial summary',
-          ),
-        });
+      return res.status(500).json({
+        success: false,
+        message: publicErrorMessage(error, 'Failed to fetch financial summary'),
+      });
     }
   }
 
@@ -199,6 +192,43 @@ export class FinanceController {
       });
     }
   }
+
+  static async reversalHistory(req: Request, res: Response) {
+    try {
+      return res.json({
+        success: true,
+        data: await FinanceService.reversalHistory(
+          Number(req.query.academicYear),
+          req.query.termNumber ? Number(req.query.termNumber) : undefined,
+          req.query.offset ? Number(req.query.offset) : 0,
+        ),
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(error, 'Could not load reversal history.'),
+      });
+    }
+  }
+  static async reconciliation(req: Request, res: Response) {
+    try {
+      return res.json({
+        success: true,
+        data: await FinanceService.reconciliation(
+          Number(req.query.academicYear),
+          req.query.termNumber ? Number(req.query.termNumber) : undefined,
+        ),
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: publicErrorMessage(
+          error,
+          'Could not reconcile financial records.',
+        ),
+      });
+    }
+  }
   static async previewBilling(req: Request, res: Response) {
     try {
       return res.json({
@@ -236,18 +266,23 @@ export class FinanceController {
   static async getStudentStatement(req: Request, res: Response) {
     try {
       const { studentId } = req.params;
-      const statement = await FinanceService.getStudentStatement(studentId);
+      const statement = await FinanceService.getStudentStatement(studentId, {
+        academicYear: z.coerce
+          .number()
+          .int()
+          .min(2000)
+          .max(2200)
+          .parse(req.query.academicYear),
+        termNumber: req.query.termNumber
+          ? z.coerce.number().int().min(1).max(3).parse(req.query.termNumber)
+          : undefined,
+      });
       return res.status(200).json({ success: true, data: statement });
     } catch (error: any) {
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: publicErrorMessage(
-            error,
-            'Failed to fetch student statement',
-          ),
-        });
+      return res.status(500).json({
+        success: false,
+        message: publicErrorMessage(error, 'Failed to fetch student statement'),
+      });
     }
   }
 }

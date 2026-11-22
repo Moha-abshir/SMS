@@ -12,9 +12,6 @@ router.get('/summary', authorizePermission('finance:view'), FinanceController.ge
 router.get('/billing-preview', authorizePermission('finance:view'), FinanceController.previewBilling);
 router.post('/billing', authorizePermission('finance:bill'), FinanceController.generateBills);
 
-router.get('/billing-preview', authorizePermission('finance:view'), FinanceController.previewBilling);
-router.post('/billing', authorizePermission('finance:bill'), FinanceController.generateBills);
-
 // Fee payments
 router.get('/payments', authorizePermission('finance:view'), FinanceController.getPayments);
 router.post('/payments', authorizePermission('finance:record_payment'), FinanceController.recordPayment);
