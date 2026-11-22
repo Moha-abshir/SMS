@@ -786,3 +786,364 @@ test('older timetables require confirmed hours and breaks before a paper is edit
     await context.close();
   }
 });
+
+function personalSubjectReport() {
+  return {
+    selectedExam: { ...exam, status: 'LOCKED' },
+    examsList: [{ ...exam, status: 'LOCKED' }],
+    selectedClass: { ...cls, levelCategory: 'UPPER_PRIMARY', isJunior: false },
+    selectedSubject: { id: 'phe', name: 'Physical & Health Education (PHE)' },
+    teacherAllocations: [
+      {
+        allocationId: 'class-1:phe',
+        classId: cls.id,
+        subjectId: 'phe',
+        className: 'Grade 6',
+        subjectName: 'Physical & Health Education (PHE)',
+        subjectCode: 'PHE',
+        averageScore: 75,
+        rubricOrPointsLabel: 'ME',
+        deltaScore: null,
+        totalSat: 1,
+        proficiencyRate: 100,
+      },
+    ],
+    subjectMetrics: {
+      totalSat: 1,
+      totalEnrolled: 1,
+      averageScore: 75,
+      deltaScore: null,
+      proficiencyRate: 100,
+      remedialCount: 0,
+      submissionStatus: 'LOCKED',
+      rubricDistribution: { EE: 1 },
+      rubricPercentages: { EE: 100 },
+    },
+    studentsMarksheet: [
+      {
+        studentId: 'learner-1',
+        studentName: 'Aisha Review',
+        assessmentNumber: 'KNEC-12345',
+        marksObtained: 75,
+        rank: 1,
+        deltaRank: null,
+        deltaMarks: null,
+        rubric: 'EE',
+        rubricLabel: 'Exceeding expectations',
+        remarks: 'Good progress',
+        isPending: false,
+        isAbsent: false,
+      },
+    ],
+  };
+}
+
+for (const width of [390, 768, 1366]) {
+  test(`personal subject results show assessment numbers and fit ${width}px`, async () => {
+    const { context, page } = await workspace('DEPUTY_HEAD', width);
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    try {
+      await page.route('**/api/dos/subject-performance?*', (route) =>
+        route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: personalSubjectReport(),
+          }),
+        }),
+      );
+      await page.goto(origin + '/subject-performance');
+      await page
+        .getByText('Assessment: KNEC-12345', { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      if (process.env.UI_REVIEW_DIR)
+        await page.screenshot({
+          path: `${process.env.UI_REVIEW_DIR}/subject-results-${width}.png`,
+          fullPage: true,
+        });
+      await page
+        .getByPlaceholder('Search learner or assessment number...')
+        .fill('KNEC-12345');
+      await page
+        .getByText('Aisha Review', { exact: true })
+        .filter({ visible: true })
+        .waitFor();
+      assert.equal(await page.getByText('Adm:', { exact: false }).count(), 0);
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      );
+      if (width < 768)
+        assert(await page.locator('article').first().isVisible());
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+for (const role of ['HEAD_TEACHER', 'DEPUTY_HEAD']) {
+  test(`${role} has no CAT performance navigation or direct-page access`, async () => {
+    const { context, page } = await workspace(role, 1366);
+    try {
+      await page.goto(origin + '/cat-performance');
+      await page
+        .getByRole('heading', { name: 'Permission Denied', exact: true })
+        .waitFor();
+      assert.equal(await page.locator('a[href="/cat-performance"]').count(), 0);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+test('subject teachers can open their scoped CAT report', async () => {
+  const { context, page } = await workspace('TEACHER');
+  try {
+    await page.route('**/api/cats/performance?*', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { ...catReport(), scope: 'SUBJECT_TEACHER' },
+        }),
+      }),
+    );
+    await page.goto(origin + '/cat-performance');
+    await page
+      .getByText('Follow CAT results for the subjects and classes you teach.', {
+        exact: true,
+      })
+      .waitFor();
+    await page
+      .getByRole('button', { name: 'View learners', exact: true })
+      .first()
+      .waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
+test('the marksheet closed warning follows the selected examination', async () => {
+  const { context, page } = await workspace('DEPUTY_HEAD', 1366);
+  try {
+    await page.route('**/api/exams?publishedOnly=true', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            { exam, term },
+            {
+              exam: {
+                ...exam,
+                id: 'closed-exam',
+                title: 'Previous examination',
+                status: 'LOCKED',
+              },
+              term,
+            },
+          ],
+        }),
+      }),
+    );
+    await page.goto(origin + '/marks-entry');
+    await page.locator('select').first().waitFor();
+    assert.equal(
+      await page
+        .getByText('Examination Score Entry Closed', { exact: true })
+        .count(),
+      0,
+    );
+    await page.locator('select').first().selectOption('closed-exam');
+    await page
+      .getByText(
+        'This examination has concluded. Its marksheets are read-only.',
+        { exact: false },
+      )
+      .waitFor();
+    await page.locator('select').first().selectOption(exam.id);
+    await page
+      .getByText('Examination Score Entry Closed', { exact: true })
+      .waitFor({ state: 'hidden' });
+  } finally {
+    await context.close();
+  }
+});
+
+test('conclusion waits for publication and class forwarding', async () => {
+  const { context, page } = await workspace('DOS', 768);
+  let allowed = false;
+  try {
+    await page.route('**/api/exams/exam-1/termination-readiness', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            canConclude: allowed,
+            reason: allowed
+              ? 'All class marksheets have been forwarded to the Deputy Head.'
+              : 'Waiting for 1 class marksheet(s) to be forwarded to the Deputy Head.',
+          },
+        }),
+      }),
+    );
+    await page.goto(origin + '/exams');
+    await page
+      .getByText(
+        'Waiting for 1 class marksheet(s) to be forwarded to the Deputy Head.',
+        { exact: true },
+      )
+      .waitFor();
+    assert(
+      await page
+        .getByRole('button', { name: 'Conclude examination', exact: true })
+        .isDisabled(),
+    );
+    allowed = true;
+    await page
+      .getByRole('button', { name: 'Refresh exam timetable', exact: true })
+      .click();
+    await page
+      .getByText(
+        'All class marksheets have been forwarded to the Deputy Head.',
+        { exact: true },
+      )
+      .waitFor();
+    assert(
+      await page
+        .getByRole('button', { name: 'Conclude examination', exact: true })
+        .isEnabled(),
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test('assessment-number admission field appears only above Grade 3', async () => {
+  const { context, page } = await workspace('HEAD_TEACHER', 390);
+  try {
+    await page.route('**/api/admissions/classes', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'grade3',
+              name: 'Grade 3',
+              numericOrder: 6,
+              levelCategory: 'LOWER_PRIMARY',
+            },
+            {
+              id: 'grade4',
+              name: 'Grade 4',
+              numericOrder: 7,
+              levelCategory: 'UPPER_PRIMARY',
+            },
+          ],
+        }),
+      }),
+    );
+    await page.goto(origin + '/admissions');
+    await page
+      .getByRole('button', { name: 'New Learner Admission', exact: true })
+      .click();
+    assert.equal(await page.getByPlaceholder('e.g. 26701004012').count(), 0);
+    await page
+      .getByRole('button', { name: '-- Select Placement --', exact: false })
+      .click();
+    await page.getByRole('button', { name: 'Grade 4', exact: false }).click();
+    const assessment = page.getByPlaceholder('e.g. 26701004012');
+    await assessment.waitFor();
+    assert.equal(await assessment.getAttribute('required'), '');
+    await page.getByRole('button', { name: 'Grade 4', exact: false }).click();
+    await page.getByRole('button', { name: 'Grade 3', exact: false }).click();
+    await assessment.waitFor({ state: 'hidden' });
+  } finally {
+    await context.close();
+  }
+});
+
+test('self-contained class teachers can explicitly forward their completed class', async () => {
+  const { context, page } = await workspace('TEACHER', 390);
+  const lower = {
+    id: 'pp1',
+    name: 'PP1',
+    numericOrder: 2,
+    levelCategory: 'PPE',
+  };
+  let forwarded = false;
+  try {
+    await page.route('**/api/teacher/workstation', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            classTeacher: {
+              ...lower,
+              classId: lower.id,
+              className: lower.name,
+            },
+            subjectAllocations: [],
+          },
+        }),
+      }),
+    );
+    await page.route('**/api/mark-submissions/classes-overview?*', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              class: lower,
+              papers: [
+                {
+                  ...paper,
+                  status: forwarded ? 'LOCKED' : 'SUBMITTED',
+                  forwardedToDeputyAt: forwarded
+                    ? '2026-11-22T08:00:00Z'
+                    : null,
+                },
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route(
+      '**/api/mark-submissions/classes/pp1/submit-to-deputy',
+      (route) => {
+        assert.equal(route.request().method(), 'PUT');
+        assert.deepEqual(route.request().postDataJSON(), { examId: exam.id });
+        forwarded = true;
+        return route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: [] }),
+        });
+      },
+    );
+    await page.goto(origin + '/class-exam-progress');
+    const forward = page.getByRole('button', {
+      name: 'Forward to Deputy Head',
+      exact: true,
+    });
+    await page.getByText('Ready to forward', { exact: true }).waitFor();
+    assert(await forward.isEnabled());
+    await forward.click();
+    await page
+      .getByRole('button', { name: 'Confirm & forward', exact: true })
+      .click();
+    await page.getByText('Class marksheet locked', { exact: true }).waitFor();
+    assert(forwarded);
+    assert(await forward.isDisabled());
+  } finally {
+    await context.close();
+  }
+});
