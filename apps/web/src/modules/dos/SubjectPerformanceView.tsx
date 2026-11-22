@@ -58,6 +58,7 @@ export const SubjectPerformanceView: React.FC = () => {
 
     try {
       setLoading(true);
+      setData(null);
       setAccessDeniedMessage(null);
       const params = new URLSearchParams();
       if (examId && examId !== 'latest') params.append('examId', examId);
@@ -90,6 +91,7 @@ export const SubjectPerformanceView: React.FC = () => {
             'Access denied: You do not have an active subject teaching allocation.'
         );
       } else {
+        setAccessDeniedMessage(error.response?.data?.message || 'Could not load subject performance. Please reload to retry.');
         toast.error(error.response?.data?.message || 'Failed to load subject performance');
       }
     } finally {
@@ -263,7 +265,6 @@ export const SubjectPerformanceView: React.FC = () => {
     return list.filter(
       (s: any) =>
         s.studentName.toLowerCase().includes(q) ||
-        (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q)) ||
         (s.assessmentNumber && s.assessmentNumber.toLowerCase().includes(q))
     );
   }, [data?.studentsMarksheet, quickFilter, searchQuery, isJunior]);
@@ -295,7 +296,6 @@ export const SubjectPerformanceView: React.FC = () => {
 
     const headers = [
       'Rank',
-      'Admission No',
       'Assessment Number',
       'Student Name',
       'Exam Score (%)',
@@ -305,7 +305,6 @@ export const SubjectPerformanceView: React.FC = () => {
     ];
     const rows = data.studentsMarksheet.map((s: any) => [
       s.rank ?? '—',
-      `"${s.admissionNumber || '—'}"`,
       `"${s.assessmentNumber || '—'}"`,
       `"${s.studentName}"`,
       s.marksObtained !== null ? `${s.marksObtained}%` : 'Absent',
@@ -369,7 +368,7 @@ export const SubjectPerformanceView: React.FC = () => {
   }
 
   return (
-    <div className="w-full px-4 sm:px-5 py-3 space-y-3">
+    <div className="w-full min-w-0 px-3 sm:px-5 py-3 space-y-3">
       <div id="subject-performance-printable-area" className="space-y-3">
         {/* Step 1: Full-Width Flat Top Header Row (Max Height: ~44px) */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
@@ -384,8 +383,8 @@ export const SubjectPerformanceView: React.FC = () => {
 
             {/* Active Allocation Pill */}
             {(activeAllocInfo || (selectedSubject && selectedClass)) && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 whitespace-nowrap">
-                <span>{activeAllocInfo?.subjectName || selectedSubject?.name}</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 max-w-full flex-wrap">
+                <span className="break-words">{activeAllocInfo?.subjectName || selectedSubject?.name}</span>
                 <span className="opacity-60">·</span>
                 <span>{activeAllocInfo?.className || selectedClass?.name}</span>
               </span>
@@ -445,12 +444,12 @@ export const SubjectPerformanceView: React.FC = () => {
 
             {/* Exam Selector */}
             {data?.examsList && data.examsList.length > 0 && (
-              <div className="relative">
+              <div className="relative min-w-0 max-w-full">
                 <select
                   disabled={loading}
                   value={selectedExamId}
                   onChange={(e) => handleExamChange(e.target.value)}
-                  className={`h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
+                  className={`h-10 w-full max-w-full sm:w-auto sm:h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
                     loading ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
                   }`}
                 >
@@ -466,12 +465,12 @@ export const SubjectPerformanceView: React.FC = () => {
 
             {/* Baseline Compare Selector */}
             {data?.examsList && (
-              <div className="relative">
+              <div className="relative min-w-0 max-w-full">
                 <select
                   disabled={loading}
                   value={compareExamId}
                   onChange={(e) => handleCompareChange(e.target.value)}
-                  className={`h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
+                  className={`h-10 w-full max-w-full sm:w-auto sm:h-8 text-xs font-medium pl-2.5 pr-7 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none ${
                     loading ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
                   }`}
                 >
@@ -581,22 +580,22 @@ export const SubjectPerformanceView: React.FC = () => {
         {/* Step 3: Sleek Single-Line Summary & Spread Ribbon (Max Height: ~44px) */}
         {loading ? (
           /* Lazy Loading Skeleton for the Ribbon */
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs animate-pulse">
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs animate-pulse">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between px-3">
+              <div key={i} className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-900/50">
                 <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800/80 rounded" />
                 <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800/80 rounded" />
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-slate-200 dark:divide-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3 rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 px-3 py-2 text-xs shadow-xs">
             {/* Slot 1: Target Mean (Conditions: set before exam started; Met/Missed when marks entered) */}
-            <div className="flex items-center justify-between px-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-900/50">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Target Mean
               </span>
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {data?.targetMean?.targetMeanPercentage !== null &&
                 data?.targetMean?.targetMeanPercentage !== undefined &&
                 data?.targetMean?.wasSetBeforeExamStarted ? (
@@ -643,7 +642,7 @@ export const SubjectPerformanceView: React.FC = () => {
             </div>
 
             {/* Slot 2: Subject Mean & Delta */}
-            <div className="flex items-center justify-between px-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-900/50">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Subject Mean
               </span>
@@ -695,7 +694,7 @@ export const SubjectPerformanceView: React.FC = () => {
             </div>
 
             {/* Slot 3: Candidacy & Submission Status */}
-            <div className="flex items-center justify-between px-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-900/50">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Candidacy
               </span>
@@ -720,7 +719,7 @@ export const SubjectPerformanceView: React.FC = () => {
             </div>
 
             {/* Slot 4: Proficiency Mastery */}
-            <div className="flex items-center justify-between px-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-900/50">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Proficiency
               </span>
@@ -742,7 +741,7 @@ export const SubjectPerformanceView: React.FC = () => {
             </div>
 
             {/* Slot 5: Spread Micro-Bar / CAT Gap */}
-            <div className="flex items-center justify-between px-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-900/50">
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 Spread
               </span>
@@ -842,13 +841,13 @@ export const SubjectPerformanceView: React.FC = () => {
           </div>
 
           {/* Search Box */}
-          <div className="relative">
+          <div className="relative min-w-0 max-w-full">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search learner or Adm No..."
+              placeholder="Search learner or assessment number..."
               className="h-8 w-56 pl-8 pr-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a]/70 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
             />
           </div>
@@ -856,7 +855,26 @@ export const SubjectPerformanceView: React.FC = () => {
 
         {/* Step 5: High-Density Subject Marksheet Table */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="grid gap-3 p-3 md:hidden print:hidden">
+            {loading ? <p className="p-3 text-sm text-slate-500">Loading learner results…</p> : !filteredMarksheet.length ? <p className="p-3 text-sm text-slate-500">No learners match these filters.</p> : filteredMarksheet.map((student: any) => (
+              <article key={student.studentId} className="min-w-0 space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-semibold text-slate-900 dark:text-slate-100">{student.studentName}</p>
+                    <p className="mt-1 break-all text-xs text-slate-500">Assessment: {student.assessmentNumber || 'Not assigned'}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-slate-500">{student.rank ? `#${student.rank}` : '—'}</span>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-xs">
+                  <div><dt className="text-slate-500">Exam score</dt><dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{student.isPending ? 'Awaiting marks' : student.isAbsent ? 'Absent' : `${student.marksObtained}%`}</dd></div>
+                  <div><dt className="text-slate-500">Previous exam change</dt><dd className="mt-1 font-semibold">{student.deltaMarks == null ? '—' : `${student.deltaMarks > 0 ? '+' : ''}${student.deltaMarks}%`}</dd></div>
+                  <div className="col-span-2"><dt className="text-slate-500">{isJunior ? 'Points' : 'CBC rating'}</dt><dd className="mt-1">{student.isPending || student.isAbsent ? '—' : isJunior ? student.pointsLabel : `${student.rubric || '—'} · ${student.rubricLabel || ''}`}</dd></div>
+                </dl>
+                {student.remarks && !student.isPending && <p className="break-words border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500 dark:border-slate-800">{student.remarks}</p>}
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block print:block">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -953,7 +971,7 @@ export const SubjectPerformanceView: React.FC = () => {
                             {student.studentName}
                           </div>
                           <div className="text-[11px] text-slate-400 font-mono">
-                            Adm: {student.admissionNumber || '—'}
+                            Assessment: {student.assessmentNumber || 'Not assigned'}
                           </div>
                         </td>
 

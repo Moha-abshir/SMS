@@ -1,3 +1,5 @@
+import { teachingScope } from '../academic-access/teachingScope.js';
+import { publishedExam } from '../exams/examAccess.js';
 import { db } from '../../config/db.js';
 import {
   examScores,
@@ -213,6 +215,7 @@ export class DosService {
   }
 
   static async getExamAnalysis(examId?: string, classId?: string, user?: AuthenticatedUser) {
+    if (examId) await publishedExam(examId);
     const isLeadership = !user || ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
 
     const managedClassIds = new Set<string>();
@@ -314,7 +317,7 @@ export class DosService {
       const [latestExam] = await db
         .select()
         .from(examinations)
-        .where(isNull(examinations.deletedAt))
+        .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
         .orderBy(desc(examinations.createdAt))
         .limit(1);
       if (latestExam) {
@@ -329,7 +332,7 @@ export class DosService {
       })
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
-      .where(isNull(examinations.deletedAt))
+      .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(examinations.createdAt));
 
     const targetExamRecord = allExams.find((e) => e.exam.id === targetExamId);
@@ -1088,68 +1091,20 @@ export class DosService {
       return raw.replace(/^(UP-|LP-|JSS-|PPE-)/i, '').trim() || raw;
     };
 
-    // 2. Resolve teacher's allocations (Source of Truth: teacher_subject_allocations & marking_allocations)
-    let userAllocations: Array<{ classId: string; subjectId: string }> = [];
-
-    if (user) {
-      const [teacherAllocs, markingAllocs] = await Promise.all([
-        db
-          .select({
-            classId: teacherSubjectAllocations.classId,
-            subjectId: teacherSubjectAllocations.subjectId,
-          })
-          .from(teacherSubjectAllocations)
-          .where(
-            and(
-              eq(teacherSubjectAllocations.teacherId, user.id),
-              isNull(teacherSubjectAllocations.deletedAt)
-            )
-          ),
-        db
-          .select({
-            classId: markingAllocations.classId,
-            subjectId: markingAllocations.subjectId,
-          })
-          .from(markingAllocations)
-          .where(
-            and(
-              eq(markingAllocations.teacherId, user.id),
-              isNull(markingAllocations.deletedAt)
-            )
-          ),
-      ]);
-
-      const pairSet = new Set<string>();
-      for (const a of [...teacherAllocs, ...markingAllocs]) {
-        const key = `${a.classId}:${a.subjectId}`;
-        if (!pairSet.has(key) && classMap.has(a.classId) && subjectMap.has(a.subjectId)) {
-          pairSet.add(key);
-          userAllocations.push({ classId: a.classId, subjectId: a.subjectId });
-        }
+    // Only current teaching ownership belongs on this personal performance page.
+    if (!user) throw Object.assign(new Error('Authentication required'), { statusCode: 401 });
+    const scope = await teachingScope(user.id);
+    const pairMap = new Map(scope.allocations.map(a => [`${a.classId}:${a.subjectId}`, a]));
+    for (const cls of scope.managedClasses) {
+      if (!['PPE', 'LOWER_PRIMARY'].includes(cls.levelCategory)) continue;
+      for (const subject of allSubjects) {
+        if (subject.levelCategory === cls.levelCategory)
+          pairMap.set(`${cls.id}:${subject.id}`, { classId: cls.id, subjectId: subject.id });
       }
     }
-
-    if (userAllocations.length === 0) {
-      if (isLeadership) {
-        // Fallback for leadership without direct subject allocations:
-        // Use first subject with active allocations in the school
-        const [anyAlloc] = await db
-          .select({ classId: teacherSubjectAllocations.classId, subjectId: teacherSubjectAllocations.subjectId })
-          .from(teacherSubjectAllocations)
-          .where(isNull(teacherSubjectAllocations.deletedAt))
-          .limit(1);
-
-        if (anyAlloc && classMap.has(anyAlloc.classId) && subjectMap.has(anyAlloc.subjectId)) {
-          userAllocations.push({ classId: anyAlloc.classId, subjectId: anyAlloc.subjectId });
-        } else if (allClasses.length > 0 && allSubjects.length > 0) {
-          userAllocations.push({ classId: allClasses[0].id, subjectId: allSubjects[0].id });
-        }
-      } else {
-        const forbiddenError = new Error('Access denied: You do not have any active subject allocations.');
-        (forbiddenError as any).statusCode = 403;
-        throw forbiddenError;
-      }
-    }
+    const userAllocations = [...pairMap.values()].filter(a => classMap.has(a.classId) && subjectMap.has(a.subjectId));
+    if (!userAllocations.length)
+      throw Object.assign(new Error('You do not have any active teaching allocations. Subject Performance shows only the learners you teach.'), { statusCode: 403 });
 
     // Sort allocations by class numeric order ascending, then subject name
     userAllocations.sort((a, b) => {
@@ -1163,6 +1118,9 @@ export class DosService {
       return subA.localeCompare(subB);
     });
 
+    if (examId && examId !== 'latest') await publishedExam(examId);
+    if (compareExamId && !['auto', 'none'].includes(compareExamId)) await publishedExam(compareExamId);
+
     // 3. Resolve Target Exam & Baseline Exam
     const allExams = await db
       .select({
@@ -1171,7 +1129,7 @@ export class DosService {
       })
       .from(examinations)
       .innerJoin(academicTerms, eq(examinations.termId, academicTerms.id))
-      .where(isNull(examinations.deletedAt))
+      .where(and(isNull(examinations.deletedAt), inArray(examinations.status, ['APPROVED', 'LOCKED'])))
       .orderBy(desc(academicTerms.year), desc(academicTerms.termNumber), desc(examinations.createdAt));
 
     // Query which exams have recorded scores
@@ -1232,6 +1190,9 @@ export class DosService {
       const found = userAllocations.find((a) => a.subjectId === subjectId);
       if (found) selectedAlloc = found;
     }
+
+    if ((classId && selectedAlloc.classId !== classId) || (subjectId && selectedAlloc.subjectId !== subjectId))
+      throw Object.assign(new Error('This class and subject are outside your teaching allocations.'), { statusCode: 403 });
 
     const selectedClass = classMap.get(selectedAlloc.classId) || allClasses[0];
     const selectedSubject = subjectMap.get(selectedAlloc.subjectId) || allSubjects[0];
@@ -1868,27 +1829,11 @@ export class DosService {
       throw err;
     }
 
-    const isLeadership = ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(user.roleName || '');
-    if (!isLeadership) {
-      const [alloc] = await db
-        .select()
-        .from(teacherSubjectAllocations)
-        .where(
-          and(
-            eq(teacherSubjectAllocations.teacherId, user.id),
-            eq(teacherSubjectAllocations.classId, classId),
-            eq(teacherSubjectAllocations.subjectId, subjectId),
-            isNull(teacherSubjectAllocations.deletedAt)
-          )
-        )
-        .limit(1);
-
-      if (!alloc) {
-        const err: any = new Error('Access denied: You are not assigned as the Subject Teacher for this class.');
-        err.statusCode = 403;
-        throw err;
-      }
-    }
+    const scope = await teachingScope(user.id);
+    const [subject] = await db.select().from(subjects).where(and(eq(subjects.id, subjectId), isNull(subjects.deletedAt)));
+    const allowed = scope.allocations.some(a => a.classId === classId && a.subjectId === subjectId)
+      || scope.managedClasses.some(c => c.id === classId && ['PPE', 'LOWER_PRIMARY'].includes(c.levelCategory) && subject?.levelCategory === c.levelCategory);
+    if (!allowed) throw Object.assign(new Error('This subject is outside your teaching allocations.'), { statusCode: 403 });
 
     if (!body.examId || body.targetMeanPercentage === undefined || isNaN(Number(body.targetMeanPercentage))) {
       const err: any = new Error('Valid Exam ID and Target Mean Percentage are required.');
@@ -1896,21 +1841,7 @@ export class DosService {
       throw err;
     }
 
-    const [targetExam] = await db
-      .select({
-        id: examinations.id,
-        title: examinations.title,
-        startDate: examinations.startDate,
-        status: examinations.status,
-      })
-      .from(examinations)
-      .where(and(eq(examinations.id, body.examId), isNull(examinations.deletedAt)));
-
-    if (!targetExam) {
-      const err: any = new Error('Specified examination was not found.');
-      err.statusCode = 404;
-      throw err;
-    }
+    const targetExam = await publishedExam(body.examId);
 
     const now = new Date();
     const examStart = targetExam.startDate ? new Date(targetExam.startDate) : null;

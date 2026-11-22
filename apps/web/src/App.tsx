@@ -297,7 +297,7 @@ const AppContent: React.FC = () => {
           <Route
             path="/cat-performance"
             element={
-              <RoleGuard allowedRoles={['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS']} user={currentUser}>
+              <RoleGuard allowedRoles={['DOS', 'TEACHER']} user={currentUser}>
                 <CatPerformanceView />
               </RoleGuard>
             }

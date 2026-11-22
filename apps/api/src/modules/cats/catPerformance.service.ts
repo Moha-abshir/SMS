@@ -1,3 +1,4 @@
+import { catPerformanceScope } from './catPerformanceScope.js';
 import { db } from '../../config/db.js';
 import {
   academicTerms,
@@ -24,20 +25,10 @@ export interface CatPerformanceFilters {
 }
 export class CatPerformanceService {
   static async getPerformance(
-    actor: Pick<AuthenticatedUser, 'roleName'>,
+    actor: Pick<AuthenticatedUser, 'id' | 'roleName'>,
     filters: CatPerformanceFilters,
   ) {
-    if (
-      !['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'].includes(
-        actor.roleName,
-      )
-    )
-      throw Object.assign(
-        new Error(
-          'Schoolwide CAT performance is available to academic leadership only.',
-        ),
-        { status: 403 },
-      );
+    const scope = await catPerformanceScope(actor);
     const [terms, schoolClasses] = await Promise.all([
       db
         .select()
@@ -55,7 +46,7 @@ export class CatPerformanceService {
         .where(isNull(classes.deletedAt))
         .orderBy(asc(classes.numericOrder), asc(classes.name)),
     ]);
-    const eligible = schoolClasses.filter(isNationalExamClass);
+    const eligible = schoolClasses.filter(cls => isNationalExamClass(cls) && scope.allows(cls.id));
     const term = filters.termId
       ? terms.find((row) => row.id === filters.termId)
       : terms.find((row) => row.isCurrent) || terms[0] || null;
@@ -73,12 +64,13 @@ export class CatPerformanceService {
     const classIds = selectedClasses.map((row) => row.id);
     if (!term || !classIds.length)
       return {
+        scope: scope.kind,
         terms,
         selectedTerm: term,
         filters: { classes: eligible, subjects: [], catNumbers: [] },
         ...summarizeCatPerformance(selectedClasses, [], [], []),
       };
-    const [catalog, roster] = await Promise.all([
+    const [rawCatalog, roster] = await Promise.all([
       db
         .select({
           id: catAssessments.id,
@@ -127,6 +119,9 @@ export class CatPerformanceService {
           ),
         ),
     ]);
+    const catalog = rawCatalog.filter(row => scope.allows(row.classId, row.subjectId));
+    if (filters.subjectId && !catalog.some(row => row.subjectId === filters.subjectId))
+      throw Object.assign(new Error('This subject is outside the available CAT assessments for your assignments.'), { status: 403 });
     const selected = catalog.filter(
       (row) =>
         classIds.includes(row.classId) &&
@@ -172,6 +167,7 @@ export class CatPerformanceService {
       ).values(),
     ];
     return {
+      scope: scope.kind,
       terms,
       selectedTerm: term,
       filters: {

@@ -171,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       isClassTeacherFeature: true,
       roles: ['TEACHER', 'HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS'],
     },
-    { path: '/cat-performance', label: 'CAT Performance', icon: Activity, roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DOS'] },
+    { path: '/cat-performance', label: 'CAT Performance', icon: Activity, roles: ['DOS', 'TEACHER'] },
     { path: '/exams', label: 'Exam Timetabling', icon: BookOpen, roles: ['DOS'] },
     { path: '/marking-allocations', label: 'Marking Allocations', icon: BookOpen, roles: ['DOS'] },
     { path: '/mark-review', label: 'Exam Mark Review', icon: ClipboardCheck, roles: ['DOS'] },
@@ -223,6 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
 
     // 3. Specific contextual rules for TEACHER role
     if (userRole === 'TEACHER') {
+      if (item.path === '/cat-performance' && !isClassTeacher && !hasSubjectAllocations) return false;
       // Class Performance: strictly visible ONLY for active Class Teachers
       if (item.path === '/class-performance' && !isClassTeacher) {
         return false;

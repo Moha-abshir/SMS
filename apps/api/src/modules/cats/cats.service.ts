@@ -1,3 +1,4 @@
+import { catPerformanceScope } from './catPerformanceScope.js';
 import type { AuthenticatedUser } from '../../middleware/auth.js';
 import { LeaveRequestsService } from '../leave-requests/leaveRequests.service.js';
 import { db } from '../../config/db.js';
@@ -442,7 +443,12 @@ export class CatsService {
     if (!cat) {
       throw new Error('CAT assessment not found or has been deleted.');
     }
-    await this.assertAccess(actor, cat.classId, cat.subjectId);
+    if (actor.roleName === 'TEACHER') {
+      const scope = await catPerformanceScope(actor);
+      if (!scope.allows(cat.classId, cat.subjectId)) throw Object.assign(new Error('CAT access denied: results are outside your assigned classes and subjects.'), { status: 403 });
+    } else {
+      await this.assertAccess(actor, cat.classId, cat.subjectId);
+    }
 
     const isJunior = isJuniorSecondaryClass({
       name: cat.className,

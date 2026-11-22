@@ -141,7 +141,11 @@ export const CatPerformanceView: React.FC = () => {
       <WorkspaceHeader
         icon={Activity}
         title="CAT Performance"
-        description="Follow every continuous assessment across Grades 3, 6 and 9."
+        description={data?.scope === 'CLASS_TEACHER'
+          ? 'Review your class across subjects, plus the subjects you teach in other CAT cohorts.'
+          : data?.scope === 'SUBJECT_TEACHER'
+            ? 'Follow CAT results for the subjects and classes you teach.'
+            : 'Follow continuous assessments across Grades 3, 6 and 9.'}
       >
         <button
           className="workspace-button-secondary"
@@ -512,8 +516,7 @@ export const CatPerformanceView: React.FC = () => {
                           </h3>
                           <p className="mt-1 text-xs text-slate-500">
                             {learner.className} ·{' '}
-                            {learner.admissionNumber ||
-                              learner.assessmentNumber}
+                            {learner.assessmentNumber || 'Assessment number not assigned'}
                           </p>
                         </div>
                         <span className="text-xs text-slate-500">
@@ -629,7 +632,7 @@ function CatResultModal({ cat, onClose }: { cat: any; onClose: () => void }) {
                   {row.fullName}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {row.admissionNumber || row.assessmentNumber || '—'}
+                  {row.assessmentNumber || 'Assessment number not assigned'}
                 </p>
               </div>
               <div className="shrink-0 text-right">
