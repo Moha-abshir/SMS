@@ -1,3 +1,4 @@
+import {financeChecks} from './helpers/financeChecks.js';
 import { AllocationsService } from '../src/modules/allocations/allocations.service.js';
 import { ExamsService } from '../src/modules/exams/exams.service.js';
 import { AdmissionsService } from '../src/modules/admissions/admissions.service.js';
@@ -6,6 +7,7 @@ import { TeacherService } from '../src/modules/teacher/teacher.service.js';
 import app from '../src/app.js';
 import jwt from 'jsonwebtoken';
 import { env } from '../src/config/env.js';
+import { FeeStructuresService } from '../src/modules/fee-structures/feeStructures.service.js';
 import { FinanceService } from '../src/modules/finance/finance.service.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -74,20 +76,25 @@ test('CAT object scopes, learner membership, marks locks and concurrent transiti
     await MarkSubmissionsService.unlockSubmission(sub.id, teacher.id, 'HEAD_TEACHER');
     const outcomes = await Promise.allSettled([1,2].map(() => MarkSubmissionsService.submitMarksheet(exam.id, cls.id, subject.id, scores, teacher.id, 'HEAD_TEACHER')));
     assert.equal(outcomes.filter(r => r.status === 'fulfilled').length, 1);
-    const paymentInput = { studentId: learner.id, amountPaid: 10, paymentMethod: 'CASH' as const, paidBy: 'Test', academicYear: term.year, termNumber: 1 };
-    const payments = await Promise.all([10,20].map(amountPaid => FinanceService.recordPayment({ ...paymentInput, amountPaid }, teacher.id)));
+    const [schoolSettings]=await db.select().from(schema.systemSettings).limit(1);
+    if(schoolSettings) await db.update(schema.systemSettings).set({currentAcademicYear:term.year}).where(schema.eq(schema.systemSettings.id,schoolSettings.id));
+    else await db.insert(schema.systemSettings).values({currentAcademicYear:term.year});
+    const configuredFees=await db.insert(schema.feeStructures).values(['PPE','LOWER_PRIMARY','UPPER_PRIMARY','JUNIOR'].map(levelCategory=>({termId:term.id,levelCategory:levelCategory as any,totalAmount:'7000.00',approvedById:outsider.id,approvedAt:new Date()}))).returning();
+    await FinanceService.generateBills(term.year,1,outsider.id);
+    const paymentInput = { requestKey:randomUUID(), studentId: learner.id, amountPaid: 10, paymentMethod: 'CASH' as const, paidBy: 'Test', academicYear: term.year, termNumber: 1 };
+    const payments = await Promise.all([10,20].map(amountPaid => FinanceService.recordPayment({ ...paymentInput, requestKey:randomUUID(), amountPaid }, teacher.id)));
     assert.notEqual(payments[0].receiptNumber, payments[1].receiptNumber);
     const [bill] = await db.select().from(schema.studentBills).where(schema.eq(schema.studentBills.id, payments[0].billId!));
     assert.equal(Number(bill.paidAmount), 30);
     const reversal = await FinanceService.requestReversal(payments[0].id, 'Test', teacher.id);
-    const reversed = await Promise.allSettled([1,2].map(() => FinanceService.approveReversal(reversal.id, teacher.id)));
+    const reversed = await Promise.allSettled([1,2].map(() => FinanceService.approveReversal(reversal.id, outsider.id, 'HEAD_TEACHER')));
     assert.equal(reversed.filter(r => r.status === 'fulfilled').length, 1);
     const [afterReversal] = await db.select().from(schema.studentBills).where(schema.eq(schema.studentBills.id, bill.id));
     assert.equal(Number(afterReversal.paidAmount), 20);
-    const referenced = { ...paymentInput, amountPaid: 50, paymentMethod: 'MANUAL_MPESA' as const, mpesaRefCode: `REF${suffix}` };
+    const referenced = { ...paymentInput, requestKey:randomUUID(), amountPaid: 50, paymentMethod: 'MANUAL_MPESA' as const, mpesaRefCode: `REF${suffix}` };
     const retried = await Promise.all([1,2].map(() => FinanceService.recordPayment(referenced, teacher.id)));
     assert.equal(retried[0].id, retried[1].id);
-    await assert.rejects(() => FinanceService.recordPayment({ ...referenced, amountPaid: 51 }, teacher.id), /reference/);
+    await assert.rejects(() => FinanceService.recordPayment({ ...referenced, requestKey:randomUUID(), amountPaid: 51 }, teacher.id), /reference/);
     const [afterRetry] = await db.select().from(schema.studentBills).where(schema.eq(schema.studentBills.id, bill.id));
     assert.equal(Number(afterRetry.paidAmount), 70);
 
@@ -105,6 +112,7 @@ test('CAT object scopes, learner membership, marks locks and concurrent transiti
     assert.equal(importedChildren[0].primaryGuardianId, importedChildren[1].primaryGuardianId);
     await assert.rejects(() => AdmissionsService.bulkImportStudents([{ ...importRow, assessmentNumber: `BAD${suffix}`, guardianIdNumber: `ROLLBACK${suffix}`, admissionDate: 'invalid' }], teacher.id));
     assert.equal((await db.select().from(schema.guardians).where(schema.eq(schema.guardians.idNumber, `ROLLBACK${suffix}`))).length, 0);
+    await financeChecks({teacherId:teacher.id,headId:outsider.id,learnerId:learner.id,classId:cls.id,term,suffix,billId:bill.id,fees:configuredFees});
     const [otherExam] = await db.insert(schema.examinations).values({ termId: term.id, title: 'Unrelated exam' }).returning();
     const [otherSession] = await db.insert(schema.examSessions).values({ examId: otherExam.id, classId: cls.id, subjectId: subject.id, sessionDate: '2080-01-22', sessionTime: '08:00 - 09:00', durationMinutes: 60 }).returning();
     const [otherInvigilator] = await db.insert(schema.invigilatorAllocations).values({ examSessionId: otherSession.id, classId: cls.id, teacherId: teacher.id }).returning();
@@ -134,6 +142,18 @@ test('CAT object scopes, learner membership, marks locks and concurrent transiti
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
       const denied = await fetch(`http://127.0.0.1:${port}/api/mark-submissions/${sub.id}/scores`, { headers: { authorization: `Bearer ${token}` } });
       assert.equal(denied.status, 403);
+      const bursarToken=jwt.sign({...other,roleName:'BURSAR',email:outsider.email,tokenVersion:1,permissions:['*','finance:reversal_approve']},env.JWT_SECRET,{expiresIn:'5m'});
+      for(const path of [`/api/finance/reversals/${reversal.id}/approve`,`/api/fee-structures/terms/${term.id}/approve`]){
+        const reply=await fetch(`http://127.0.0.1:${port}${path}`,{method:path.endsWith('/terms/'+term.id+'/approve')?'POST':'PUT',headers:{authorization:`Bearer ${bursarToken}`,'content-type':'application/json'},body:JSON.stringify({})});
+        assert.equal(reply.status,403,path);await reply.json();
+      }
+      const savedPaymentTransaction=db.transaction;
+      try {
+        (db as any).transaction=()=>{throw Object.assign(new Error('Synthetic connection loss near commit'),{code:'ECONNRESET'});};
+        const uncertain=await fetch(`http://127.0.0.1:${port}/api/finance/payments`,{method:'POST',headers:{authorization:`Bearer ${bursarToken}`,'content-type':'application/json'},body:JSON.stringify({...paymentInput,requestKey:randomUUID()})});
+        assert.equal(uncertain.status,503);
+        assert.match((await uncertain.json() as any).message,/retry the same payment request/);
+      } finally {db.transaction=savedPaymentTransaction;}
       const escalation = await fetch(`http://127.0.0.1:${port}/api/staff/${outsider.id}`, {
         method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ roleId: role.id }),
       });
