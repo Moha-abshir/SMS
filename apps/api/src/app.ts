@@ -1,3 +1,4 @@
+import bursarRoutes from './modules/bursar/bursar.routes.js';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -113,6 +114,7 @@ app.use('/api/academic-allocations', academicAllocationsRoutes);
 app.use('/api/report-card-locks', reportLocksRoutes);
 app.use('/api/dos', dosRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/bursar', bursarRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/cats', catsRoutes);
