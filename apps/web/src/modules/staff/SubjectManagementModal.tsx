@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, Trash2, Edit2, Check, X, Layers, ListPlus } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -401,7 +402,7 @@ export const SubjectManagementModal: React.FC<SubjectManagementModalProps> = ({
 
         {/* Subjects List by Category — Minimal Ultra-Compact Row Design */}
         {loading ? (
-          <div className="py-8 text-center text-slate-400">Loading subject catalog...</div>
+          <ContentSkeleton layout="table" rows={4}/>
         ) : (
           <div className="space-y-5">
             {categories.map((cat, idx) => (

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1026,12 +1027,7 @@ export const TimetableManagementView: React.FC<TimetableManagementViewProps> = (
 
       {/* MAIN TIMETABLE VIEW */}
       {scheduleError ? <RequestError message={scheduleError} onRetry={() => fetchTimetableData()} /> : loading ? (
-        <div className="py-24 text-center">
-          <div className="w-8 h-8 border-3 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-            Loading timetable schedule...
-          </p>
-        </div>
+        <ContentSkeleton layout="timetable" rows={4}/>
       ) : slotsList.length === 0 ? (
         /* Empty State / First-Time Deputy Onboarding */
         <div className="py-16 text-center p-8 rounded-lg border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-[#091326] max-w-2xl mx-auto">

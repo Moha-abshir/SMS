@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -793,10 +794,7 @@ export const ClassRegisterView: React.FC = () => {
           {/* History Table */}
           <div className="bg-white dark:bg-[#0c1830] rounded-lg border border-slate-200 dark:border-[#1a335a] shadow-xs overflow-hidden">
             {historyLoading ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                <div className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                Loading attendance history...
-              </div>
+              <ContentSkeleton layout="table" rows={4}/>
             ) : filteredHistory.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">
                 No attendance history records available for this class.

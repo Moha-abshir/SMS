@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Calendar,
@@ -240,6 +241,7 @@ export const ExamTimetableView: React.FC = () => {
       </WorkspaceHeader>
       {error && <RequestError message={error} onRetry={refresh} />}
       <PageLoadingWrapper
+        header={false}
         isLoading={examsResource.loading || classesResource.loading}
         title="Exam Timetabling"
         icon={Calendar}
@@ -408,12 +410,7 @@ export const ExamTimetableView: React.FC = () => {
                     </div>
                   )}
                   {timetable.loading ? (
-                    <div
-                      role="status"
-                      className="p-8 text-center text-sm text-slate-500"
-                    >
-                      Loading this class schedule…
-                    </div>
+                    <ContentSkeleton layout="timetable" rows={4}/>
                   ) : !sessions.length ? (
                     <div className="p-8 text-center">
                       <BookOpen className="mx-auto mb-3 h-7 w-7 text-slate-400" />

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Download,
@@ -856,7 +857,7 @@ export const SubjectPerformanceView: React.FC = () => {
         {/* Step 5: High-Density Subject Marksheet Table */}
         <div className="rounded-lg border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#0f172a]/70 shadow-xs overflow-hidden">
           <div className="grid gap-3 p-3 md:hidden print:hidden">
-            {loading ? <p className="p-3 text-sm text-slate-500">Loading learner results…</p> : !filteredMarksheet.length ? <p className="p-3 text-sm text-slate-500">No learners match these filters.</p> : filteredMarksheet.map((student: any) => (
+            {loading ? <ContentSkeleton layout="cards" rows={4}/> : !filteredMarksheet.length ? <p className="p-3 text-sm text-slate-500">No learners match these filters.</p> : filteredMarksheet.map((student: any) => (
               <article key={student.studentId} className="min-w-0 space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

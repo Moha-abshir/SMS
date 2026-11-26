@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -768,7 +769,7 @@ export const TimetableWizardModal: React.FC<TimetableWizardModalProps> = ({
           {/* Modal Scrollable Body */}
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
             {loading ? (
-              <div className="py-16 text-center text-slate-400">Loading timetable configuration...</div>
+              <ContentSkeleton layout="form" rows={4}/>
             ) : (
               <>
                 {/* STEP 1: School Hours & Days */}

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -464,10 +465,7 @@ export const ExamTimetableWizardModal: React.FC<ExamTimetableWizardModalProps> =
         {/* Step Content */}
         <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-5">
           {loadError ? <RequestError message={loadError} onRetry={() => setLoadAttempt(value => value + 1)} /> : loading ? (
-            <div className="py-16 text-center">
-              <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-xs text-slate-400 font-medium">Loading school metadata...</p>
-            </div>
+            <ContentSkeleton layout="form" rows={4}/>
           ) : (
             <>
               {/* STEP 1: Exam Timing & Breaks */}

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect } from 'react';
 import {
   TrendingUp, TrendingDown, Minus, Award, Calendar, BookOpen,
@@ -33,10 +34,7 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Learner Academic Profile & Performance History">
       <div className="space-y-5">
         {error ? <RequestError message={error} onRetry={refresh} /> : loading ? (
-          <div className="p-16 text-center text-slate-400 text-sm">
-            <div className="w-8 h-8 border-3 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            Loading learner performance history...
-          </div>
+          <ContentSkeleton layout="dashboard" rows={4}/>
         ) : !profile ? (
           <div className="p-12 text-center text-slate-400 text-sm">
             No profile data found for this learner.

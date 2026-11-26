@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -145,10 +146,7 @@ export const MarkSubmissionProgressTracker: React.FC<MarkSubmissionProgressTrack
       </div>
 
       {loading ? (
-        <div className="py-16 text-center">
-          <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          <p className="text-xs text-slate-400">Loading submission audit data...</p>
-        </div>
+        <ContentSkeleton layout="dashboard" rows={4}/>
       ) : (
         <>
           {/* KPI Summary Cards */}

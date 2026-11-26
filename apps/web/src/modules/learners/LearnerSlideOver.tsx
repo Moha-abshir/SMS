@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -236,10 +237,7 @@ export const LearnerSlideOver: React.FC<LearnerSlideOverProps> = ({
               {activePanel === 'profile' && (
                 <div className="space-y-4 min-w-0">
                   {loading ? (
-                    <div className="p-16 text-center text-slate-400 text-sm">
-                      <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                      Loading academic performance records...
-                    </div>
+                    <ContentSkeleton layout="dashboard" rows={4}/>
                   ) : !profile ? (
                     <div className="p-12 text-center text-slate-400 text-sm">
                       No profile data available for this learner.

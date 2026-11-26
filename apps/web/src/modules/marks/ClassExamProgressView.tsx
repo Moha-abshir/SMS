@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -226,6 +227,7 @@ export const ClassExamProgressView: React.FC = () => {
         />
       )}
       <PageLoadingWrapper
+        header={false}
         isLoading={ws.loading || examResource.loading}
         title="Class Exam Progress"
         icon={Layers}
@@ -386,9 +388,7 @@ export const ClassExamProgressView: React.FC = () => {
                   </div>
                 </div>
                 {overview.loading ? (
-                  <div role="status" className="p-6 text-sm text-slate-500">
-                    Loading learning areas…
-                  </div>
+                  <ContentSkeleton layout="cards" rows={4}/>
                 ) : !visible.length ? (
                   <div className="p-8 text-center text-sm text-slate-500">
                     {papers.length

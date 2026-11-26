@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -666,10 +667,7 @@ export const MarkReviewView: React.FC = () => {
 
                   {/* Scores Table */}
                   {scoresError ? <RequestError message={scoresError} onRetry={refreshScores} /> : subjectScoresLoading ? (
-                    <div className="py-16 text-center space-y-2">
-                      <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                      <p className="text-xs text-slate-400">Loading student scores...</p>
-                    </div>
+                    <ContentSkeleton layout="table" rows={4}/>
                   ) : !activePaper?.submissionId ? (
                     <div className="py-16 text-center bg-slate-50/50 dark:bg-[#0c1830] rounded-lg border border-slate-200 dark:border-[#162b4d] space-y-2">
                       <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />

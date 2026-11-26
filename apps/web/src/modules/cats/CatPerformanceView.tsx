@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -246,12 +247,7 @@ export const CatPerformanceView: React.FC = () => {
       </p>
       {error && <RequestError message={error} onRetry={refresh} />}
       {loading ? (
-        <div
-          role="status"
-          className="workspace-panel p-6 text-sm text-slate-500"
-        >
-          Loading CAT results…
-        </div>
+        <ContentSkeleton layout="table" stats={4} rows={4}/>
       ) : (
         data &&
         !error && (
@@ -617,9 +613,7 @@ function CatResultModal({ cat, onClose }: { cat: any; onClose: () => void }) {
       {error ? (
         <RequestError message={error} onRetry={refresh} />
       ) : loading ? (
-        <p role="status" className="p-5 text-sm text-slate-500">
-          Loading learner results…
-        </p>
+        <ContentSkeleton layout="cards" rows={4}/>
       ) : (
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {learners.slice((current - 1) * 20, current * 20).map((row: any) => (

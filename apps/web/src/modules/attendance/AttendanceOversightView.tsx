@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import { WorkspaceStats } from '../../components/WorkspaceStats';
 import { WorkspaceHeader } from '../../components/WorkspaceHeader';
 import React, { useState, useEffect, useRef } from 'react';
@@ -842,9 +843,7 @@ export const AttendanceOversightView: React.FC = () => {
 
             {/* Roster Table */}
             {registerError ? <RequestError message={registerError} onRetry={() => selectedClass && handleOpenRegisterModal(selectedClass)} /> : registerLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-3 border-sky-500 border-t-transparent rounded-full animate-spin" />
-              </div>
+              <ContentSkeleton layout="table" rows={6}/>
             ) : (
               <div className="max-h-96 overflow-y-auto border border-slate-200 dark:border-[#1a335a] rounded-xl">
                 <table className="w-full text-left text-xs">
