@@ -101,12 +101,12 @@ after(async () => {
   server?.kill('SIGTERM');
 });
 
-async function workspace(role = 'TEACHER', width = 390) {
+async function workspace(role = 'TEACHER', width = 390, roleField = 'roleName') {
   const context = await browser.newContext({
     viewport: { width, height: 844 },
     serviceWorkers: 'block',
   });
-  await context.addInitScript((roleName) => {
+  await context.addInitScript(({roleName,roleField}) => {
     if (!location.protocol.startsWith('http')) return;
     localStorage.setItem(
       'auth_user',
@@ -114,11 +114,11 @@ async function workspace(role = 'TEACHER', width = 390) {
         id: 'test-user',
         firstName: 'Review',
         lastName: 'Teacher',
-        roleName,
+        [roleField]:roleName,
       }),
     );
     localStorage.setItem('auth_token', 'browser-fixture-only');
-  }, role);
+  }, {roleName:role,roleField});
   await context.route('**/api/**', (route) => {
     const path = new URL(route.request().url()).pathname;
     let data = [];
@@ -1181,6 +1181,7 @@ async function financeWorkspace(role = 'BURSAR', width = 390) {
     requests.push(url);
     let data = {};
     if (url.pathname.endsWith('/summary')) data = summary;
+    if (url.pathname.endsWith('/learners')) data = [learner];
     if (url.pathname.endsWith('/billing-preview'))
       data = {
         eligible: 2,
@@ -1582,6 +1583,197 @@ test('finance failures show retry states without inventing zero balances or miss
       await page.getByPlaceholder('Enter an explicit amount').count(),
       0,
     );
+  } finally {
+    await context.close();
+  }
+});
+
+async function bursarWorkspace(role = 'BURSAR', width = 390) {
+  const setup = await workspace(role, width, 'role');
+  const opts = {
+    classes: [
+      { id: 'class-1', name: 'Grade 6', levelCategory: 'UPPER_PRIMARY' },
+    ],
+    categories: [{ id: 'category-1', name: 'Stationery' }],
+    terms: [{ id: 'term-1', year: 2026, termNumber: 1, isCurrent: true }],
+    school: { schoolName: 'Test Academy', currentAcademicYear: 2026 },
+  };
+  const report = {
+    collections: '200.00',
+    otherIncome: '50.00',
+    totalIncome: '250.00',
+    totalExpenses: '75.00',
+    netPosition: '175.00',
+    cashCollections: '200.00',
+    daily: [{ date: '2026-01-15', amount: '200.00', count: 1 }],
+    methods: [{ method: 'CASH', amount: '200.00', count: 1 }],
+    expenseCategories: [{ category: 'Stationery', amount: '75.00', count: 1 }],
+    outstanding: { outstanding: '100.00', credits: '20.00', learners: 1 },
+    basis: 'Recorded income less expenses.',
+  };
+  await setup.page.route('**/api/bursar/**', (route) => {
+    const url = new URL(route.request().url());
+    let data = { items: [], total: 0 };
+    if (url.pathname.endsWith('/options')) data = opts;
+    if (url.pathname.endsWith('/reports')) data = report;
+    if (url.pathname.endsWith('/dashboard'))
+      data = {
+        ...report,
+        today: '200.00',
+        week: '200.00',
+        month: '200.00',
+        paymentsToday: 1,
+        recentPayments: [],
+        recentExpenses: [],
+      };
+    if (url.pathname.endsWith('/balances'))
+      data = {
+        items: [
+          {
+            id: 'learner-1',
+            learnerName: 'Aisha Finance',
+            assessmentNumber: 'KNEC-123',
+            className: 'Grade 6',
+            guardianName: 'Parent Finance',
+            expected: '300.00',
+            paid: '200.00',
+            outstanding: '100.00',
+            credit: '0.00',
+            status: 'ACTIVE',
+            billCount: 1,
+          },
+        ],
+        total: 1,
+      };
+    return route.fulfill({ json: { success: true, data } });
+  });
+  return setup;
+}
+for (const width of [390, 768, 1366]) {
+  test(`bursar dashboard, balances, expenses and reports fit ${width}px`, async () => {
+    const { context, page } = await bursarWorkspace('BURSAR', width);
+    try {
+      for (const [path, title, content] of [
+        ['/overview', 'Finance Dashboard', 'Selected period collections'],
+        ['/learner-balances', 'Learner Balances', 'KNEC-123'],
+        ['/outstanding-fees', 'Outstanding Fees', 'KNEC-123'],
+        ['/expenses', 'Expenses', 'No records in this period.'],
+        ['/other-income', 'Other Income', 'No records in this period.'],
+        [
+          '/financial-reports',
+          'Financial Reports',
+          'Income and Expense Report',
+        ],
+        ['/finance-audit', 'Finance Audit', 'No audit events.'],
+      ]) {
+        await page.goto(origin + path);
+        await page
+          .getByRole('heading', { name: title, exact: true, level: 1 })
+          .waitFor();
+        await page.getByText(content, { exact: true }).first().waitFor();
+        assert.ok(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+          `overflow on ${path}`,
+        );
+      }
+      await page.goto(origin + '/expenses');
+      await page
+        .getByRole('button', { name: 'Record expense', exact: true })
+        .click();
+      await page.getByRole('dialog').waitFor();
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      );
+      await page
+        .getByRole('button', { name: 'Close', exact: true })
+        .last()
+        .click();
+    } finally {
+      await context.close();
+    }
+  });
+}
+test('Head Teacher sees expense history without bursar write controls', async () => {
+  const { context, page } = await bursarWorkspace('HEAD_TEACHER');
+  try {
+    await page.goto(origin + '/expenses');
+    await page
+      .getByText('No records in this period.', { exact: true })
+      .waitFor();
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Record expense', exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Manage categories', exact: true })
+        .count(),
+      0,
+    );
+  } finally {
+    await context.close();
+  }
+});
+test('expense outcome failure retains request key and excludes private details from retry journal', async () => {
+  const { context, page } = await bursarWorkspace();
+  const keys = [];
+  try {
+    await page.route('**/api/bursar/expenses', async (route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      const body = route.request().postDataBuffer().toString();
+      keys.push(body.match(/name="requestKey"\r\n\r\n([^\r]+)/)?.[1]);
+      await route.fulfill({
+        status: keys.length === 1 ? 503 : 201,
+        json:
+          keys.length === 1
+            ? {
+                success: false,
+                message: 'Outcome uncertain. Retry the same request.',
+              }
+            : {
+                success: true,
+                data: { id: 'expense-1', number: 'VCH-TEST-1' },
+              },
+      });
+    });
+    await page.goto(origin + '/expenses');
+    await page
+      .getByRole('button', { name: 'Record expense', exact: true })
+      .click();
+    await page
+      .getByLabel('Description', { exact: true })
+      .fill('Office supplies');
+    await page.getByLabel('Amount (KES)', { exact: true }).fill('123.45');
+    await page
+      .getByLabel('Supplier / recipient', { exact: true })
+      .fill('Private supplier');
+    await page
+      .getByLabel('Category', { exact: true })
+      .selectOption('category-1');
+    await page
+      .getByRole('button', { name: 'Record transaction', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Retry same transaction', exact: true })
+      .waitFor();
+    const journal = await page.evaluate(() =>
+      sessionStorage.getItem('bursar-pending-expense'),
+    );
+    assert.ok(journal);
+    assert.equal(journal.includes('Private supplier'), false);
+    await page
+      .getByRole('button', { name: 'Retry same transaction', exact: true })
+      .click();
+    await page.getByText('Recorded VCH-TEST-1', { exact: true }).waitFor();
+    assert.equal(keys.length, 2);
+    assert.ok(keys[0]);
+    assert.equal(keys[0], keys[1]);
   } finally {
     await context.close();
   }
