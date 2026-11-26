@@ -197,7 +197,7 @@ for (const width of [390, 1366])
         .getByRole('link', { name: 'School Settings', exact: true })
         .click();
       await page
-        .getByText('Opening page…', { exact: true })
+        .getByRole('status', { name: 'Loading content' })
         .waitFor({ timeout: 1500 });
       assert.equal(new URL(page.url()).pathname, '/settings');
       if (width < 1024)
@@ -1776,5 +1776,60 @@ test('expense outcome failure retains request key and excludes private details f
     assert.equal(keys[0], keys[1]);
   } finally {
     await context.close();
+  }
+});
+
+for (const width of [390, 768, 1366]) {
+  test(`finance loading keeps one layout skeleton through metadata and dashboard requests (${width}px)`, async () => {
+    const { context, page } = await bursarWorkspace('BURSAR', width);
+    let releaseOptions, releaseDashboard;
+    const optionsGate = new Promise(resolve => { releaseOptions = resolve; });
+    const dashboardGate = new Promise(resolve => { releaseDashboard = resolve; });
+    try {
+      await page.route('**/api/bursar/options', async route => { await optionsGate; await route.fallback(); });
+      await page.route('**/api/bursar/dashboard?*', async route => { await dashboardGate; await route.fallback(); });
+      await page.goto(origin + '/overview');
+      await page.getByRole('heading', { name: 'Finance Dashboard', exact: true }).waitFor();
+      await page.locator('[data-skeleton-layout="dashboard"]').waitFor();
+      assert.equal(await page.getByRole('status', { name: 'Loading content' }).count(), 1);
+      assert.equal(await page.getByText('Loading finance records…', { exact: true }).count(), 0);
+      assert.equal(await page.locator('.animate-spin').count(), 0);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      if (process.env.UI_REVIEW_DIR) await page.screenshot({path: `${process.env.UI_REVIEW_DIR}/loading-${width}.png`,fullPage:true});
+      releaseOptions();
+      await page.getByRole('combobox', { name: 'Academic year', exact: true }).waitFor();
+      assert.equal(await page.getByRole('status', { name: 'Loading content' }).count(), 1);
+      assert.equal(await page.getByRole('heading', { name: 'Finance Dashboard', exact: true }).count(), 1);
+      releaseDashboard();
+      await page.getByText('Selected period collections', { exact: true }).waitFor();
+      assert.equal(await page.getByRole('status', { name: 'Loading content' }).count(), 0);
+    } finally {
+      releaseOptions(); releaseDashboard(); await context.close();
+    }
+  });
+}
+
+test('finance metadata placeholders match each destination layout', async () => {
+  for (const [path, title, layout] of [
+    ['/learner-balances', 'Learner Balances', 'table'],
+    ['/outstanding-fees', 'Outstanding Fees', 'table'],
+    ['/expenses', 'Expenses', 'cards'],
+    ['/other-income', 'Other Income', 'cards'],
+    ['/financial-reports', 'Financial Reports', 'report'],
+    ['/finance-audit', 'Finance Audit', 'audit'],
+  ]) {
+    const {context, page} = await bursarWorkspace();
+    let release;
+    const gate = new Promise(resolve => {release = resolve;});
+    try {
+      await page.route('**/api/bursar/options', async route => {await gate; await route.fallback().catch(() => {});});
+      await page.goto(origin + path);
+      await page.getByRole('heading', {name:title, exact:true, level:1}).waitFor();
+      await page.locator(`[data-skeleton-layout="${layout}"]`).waitFor();
+      assert.equal(await page.getByRole('status', {name:'Loading content'}).count(), 1);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      release();
+      await page.getByRole('combobox', {name:'Academic year', exact:true}).waitFor();
+    } finally {release(); await context.close();}
   }
 });
