@@ -195,6 +195,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onLogout }) => {
       icon: BarChart3,
       roles: ['HEAD_TEACHER', 'DEPUTY_HEAD', 'DEPUTY_HEAD_TEACHER', 'DOS', 'TEACHER'],
     },
+    { path: '/learner-balances', label: 'Learner Balances', icon: Users, roles: ['HEAD_TEACHER', 'BURSAR'] },
+    { path: '/expenses', label: 'Expenses', icon: FileText, roles: ['HEAD_TEACHER', 'BURSAR'] },
+    { path: '/other-income', label: 'Other Income', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
+    { path: '/outstanding-fees', label: 'Outstanding Fees', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
+    { path: '/financial-reports', label: 'Financial Reports', icon: BarChart3, roles: ['HEAD_TEACHER', 'BURSAR'] },
+    { path: '/finance-audit', label: 'Finance Audit', icon: ClipboardCheck, roles: ['HEAD_TEACHER', 'BURSAR'] },
     { path: '/finance', label: 'Financial Management', icon: Calculator, roles: ['HEAD_TEACHER', 'BURSAR'] },
   ];
 

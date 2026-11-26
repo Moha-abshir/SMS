@@ -22,6 +22,7 @@ const StaffManagementView = lazy(() => import('./modules/staff/StaffManagementVi
 const StudentAdmissionView = lazy(() => import('./modules/admissions/StudentAdmissionView').then(module => ({ default: module.StudentAdmissionView })));
 const OfficialLetterView = lazy(() => import('./modules/letters/OfficialLetterView').then(module => ({ default: module.OfficialLetterView })));
 const FeeStructureView = lazy(() => import('./modules/finance/FeeStructureView').then(module => ({ default: module.FeeStructureView })));
+const BursarWorkspace = lazy(() => import('./modules/finance/BursarWorkspace').then(module => ({ default: module.BursarWorkspace })));
 const FinancialManagementView = lazy(() => import('./modules/finance/FinancialManagementView').then(module => ({ default: module.FinancialManagementView })));
 const AllocationView = lazy(() => import('./modules/allocations/AllocationView').then(module => ({ default: module.AllocationView })));
 const InventoryView = lazy(() => import('./modules/inventory/InventoryView').then(module => ({ default: module.InventoryView })));
@@ -46,6 +47,7 @@ const OverviewDispatcher: React.FC<{ user: any }> = ({ user }) => {
   if (userRole === 'DEPUTY_HEAD' || userRole === 'DEPUTY_HEAD_TEACHER') {
     return <DeputyDashboardView />;
   }
+  if (userRole === 'BURSAR') return <BursarWorkspace page="dashboard" />;
   if (userRole === 'DOS') {
     return <DosDashboardView />;
   }
@@ -138,6 +140,7 @@ const AppContent: React.FC = () => {
           <Route index element={<Navigate to="/overview" replace />} />
           <Route path="/overview" element={<OverviewDispatcher user={currentUser} />} />
 
+          {([['/learner-balances','balances'],['/outstanding-fees','outstanding'],['/expenses','expenses'],['/other-income','income'],['/financial-reports','reports'],['/finance-audit','audit']] as const).map(([path,page]) => <Route key={path} path={path} element={<RoleGuard allowedRoles={['BURSAR','HEAD_TEACHER']} user={currentUser}><BursarWorkspace page={page}/></RoleGuard>}/>)}
           {/* BATCH 1: Headteacher Routes */}
           <Route
             path="/settings"
