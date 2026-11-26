@@ -1791,6 +1791,7 @@ for (const width of [390, 768, 1366]) {
       await page.goto(origin + '/overview');
       await page.getByRole('heading', { name: 'Finance Dashboard', exact: true }).waitFor();
       await page.locator('[data-skeleton-layout="dashboard"]').waitFor();
+      await page.getByRole('link',{name:/^Record fee payment/}).waitFor();
       assert.equal(await page.getByRole('status', { name: 'Loading content' }).count(), 1);
       assert.equal(await page.getByText('Loading finance records…', { exact: true }).count(), 0);
       assert.equal(await page.locator('.animate-spin').count(), 0);
@@ -1833,3 +1834,39 @@ test('finance metadata placeholders match each destination layout', async () => 
     } finally {release(); await context.close();}
   }
 });
+
+for (const width of [390, 768, 1366]) {
+  for (const theme of ['light', 'dark']) {
+    test(`bursar overview shortcuts precede compact stats (${width}px, ${theme})`, async () => {
+      const {context, page} = await bursarWorkspace('BURSAR', width);
+      try {
+        await context.addInitScript(theme => localStorage.setItem('sms_theme', theme), theme);
+        await page.route('**/api/bursar/dashboard?*', route => route.fulfill({json:{success:true,data:{
+          collections:'12345678.90',today:'100.00',week:'200.00',month:'300.00',netPosition:'-12345678.90',paymentsToday:2,
+          outstanding:{outstanding:'23456789.10',learners:103,credits:'500.00'},
+          recentPayments:[{id:'recent-payment',title:'Aisha Finance',number:'REC-TEST',date:'2026-11-26',amount:'100.00'}],
+          recentExpenses:[{id:'recent-expense',title:'Teaching supplies',number:'VCH-TEST',date:'2026-11-26',amount:'50.00'}],
+        }}}));
+        await page.goto(origin + '/overview');
+        await page.getByRole('heading',{name:'Financial position',exact:true}).waitFor();
+        assert.equal(await page.getByRole('definition').count(), 8);
+        const actions=page.getByRole('region',{name:'Finance shortcuts',exact:true});
+        const stats=page.getByRole('region',{name:'Financial position',exact:true});
+        const actionBox=await actions.boundingBox(), statBox=await stats.boundingBox();
+        assert.ok(actionBox.y+actionBox.height<=statBox.y, 'Shortcuts must appear before the financial stats');
+        for (const [label,href] of [
+          ['Record fee payment','/finance'],['Record expense','/expenses'],
+          ['Find learner balance','/learner-balances'],['View reports','/financial-reports'],
+          ['Outstanding fees','/outstanding-fees'],['Other income','/other-income'],
+          ['Fee structures','/fee-structures'],['Finance audit','/finance-audit'],
+        ]) assert.equal(await actions.getByRole('link',{name:new RegExp(`^${label}`)}).getAttribute('href'),href);
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+        assert.equal(await page.locator('html').evaluate(el=>el.classList.contains('dark')),theme==='dark');
+        if(process.env.UI_REVIEW_DIR)await page.screenshot({path:`${process.env.UI_REVIEW_DIR}/bursar-overview-${width}-${theme}.png`,fullPage:true});
+        await actions.getByRole('link',{name:/^Other income/}).click();
+        await page.getByRole('heading',{name:'Other Income',exact:true,level:1}).waitFor();
+        assert.equal(new URL(page.url()).pathname,'/other-income');
+      } finally {await context.close();}
+    });
+  }
+}
