@@ -1,3 +1,4 @@
+import { RouteLoading } from './components/RouteLoading';
 import { WorkspaceErrorBoundary } from './components/WorkspaceErrorBoundary';
 import { getPublicSettings } from './lib/publicSettings';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
@@ -113,7 +114,7 @@ const AppContent: React.FC = () => {
   return (
     <PullToRefresh>
       <div className="min-h-screen bg-gradient-to-br from-sky-50/40 via-white to-sky-50/30 text-slate-800 antialiased selection:bg-sky-100 selection:text-sky-800 dark:from-[#060c18] dark:via-[#081020] dark:to-[#060c18] dark:text-slate-100 dark:selection:bg-sky-900/60 dark:selection:text-sky-200 transition-colors duration-200">
-        <WorkspaceErrorBoundary><Suspense fallback={<div role="status" className="p-6">Loading workspace…</div>}><Routes>
+        <WorkspaceErrorBoundary><Suspense fallback={<RouteLoading />}><Routes>
         {/* Public & Invitation Routes */}
         <Route
           path="/login"
