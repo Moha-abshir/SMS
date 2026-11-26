@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useEffect, useState } from 'react';
 import { useApiResource } from '../../hooks/useApiResource';
 import { RequestError } from '../../components/RequestError';
@@ -20,7 +21,7 @@ export function ReconciliationPanel({ period }: { period: string }) {
       {report.error && (
         <RequestError message={report.error} onRetry={report.refresh} />
       )}
-      {report.loading && <p role="status">Checking balances…</p>}
+      {report.loading && <ContentSkeleton rows={1}/>}
       {report.data && (
         <>
           <p
@@ -62,7 +63,7 @@ export function ReversalHistoryPanel({ period }: { period: string }) {
       {history.error && (
         <RequestError message={history.error} onRetry={history.refresh} />
       )}
-      {history.loading && <p role="status">Loading decisions…</p>}
+      {history.loading && <ContentSkeleton layout="cards" rows={4}/>}
       {history.data && !history.data.items.length && (
         <p className="text-sm text-slate-500">No decisions for this period.</p>
       )}

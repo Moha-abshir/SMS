@@ -1,3 +1,4 @@
+import { ContentSkeleton, layoutForPath } from '../../components/ContentSkeleton';
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { apiClient } from "../../lib/apiClient";
@@ -124,7 +125,7 @@ export function Entries({
         </p>
       </section>
       <section className={panel}>
-        <State resource={r}>
+        <State resource={r} skeleton={<ContentSkeleton layout="cards"/>}>
           <button
             className={`${button} mb-3`}
             onClick={() => csv(r.data.items, `${endpoint}-page.csv`)}

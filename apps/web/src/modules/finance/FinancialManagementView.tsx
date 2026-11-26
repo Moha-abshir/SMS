@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import { getPublicSettings } from '../../lib/publicSettings';
 import {
   ReconciliationPanel,
@@ -435,6 +436,7 @@ export const FinancialManagementView: React.FC = () => {
   return (
     <PageLoadingWrapper
       isLoading={loading}
+      variant="dashboard"
       title="Financial Management & Fee Accounting"
       subtitle="Auditing fee collections, billed balances, and payment transaction logs..."
       icon={GraduationCap}
@@ -1066,9 +1068,7 @@ export const FinancialManagementView: React.FC = () => {
               />
             )}
             {ledgerResource.error ? null : loadingLedger ? (
-              <div className="py-12 text-center text-slate-400">
-                Loading ledger records...
-              </div>
+              <ContentSkeleton layout="table" rows={4}/>
             ) : filteredPayments.length === 0 ? (
               <p className="text-xs text-slate-400 italic py-8 text-center">
                 No payment records found.
@@ -1218,9 +1218,7 @@ export const FinancialManagementView: React.FC = () => {
               />
             )}
             {reversalsResource.error ? null : loadingReversals ? (
-              <div className="py-12 text-center text-slate-400">
-                Loading pending reversals...
-              </div>
+              <ContentSkeleton layout="cards" rows={4}/>
             ) : pendingReversals.length === 0 ? (
               <div className="py-12 text-center text-slate-400">
                 <CheckCircle2 className="w-8 h-8 text-sky-500 mx-auto mb-2 opacity-60" />
@@ -1430,9 +1428,7 @@ export const FinancialManagementView: React.FC = () => {
                 onRetry={() => handleSearchStatement(statementStudentId)}
               />
             ) : loadingStatement ? (
-              <div className="py-12 text-center text-slate-400">
-                Loading statement...
-              </div>
+              <ContentSkeleton layout="statement" rows={4}/>
             ) : statementData ? (
               <div className="workspace-panel space-y-5">
                 {/* Statement Header Card */}

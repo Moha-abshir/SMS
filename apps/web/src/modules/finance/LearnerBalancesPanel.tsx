@@ -1,3 +1,4 @@
+import { ContentSkeleton, layoutForPath } from '../../components/ContentSkeleton';
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { apiClient } from "../../lib/apiClient";
@@ -114,7 +115,7 @@ export function Balances({ period, outstanding, options }: any) {
         </div>
       </section>
       <section className={panel}>
-        <State resource={r}>
+        <State resource={r} skeleton={<ContentSkeleton layout="table"/>}>
           <div className="mb-4 flex flex-wrap gap-2">
             <button
               className={button}
@@ -254,7 +255,7 @@ function Statement({ student, period, school, close }: any) {
       title="Learner fee statement"
       maxWidth="max-w-4xl"
     >
-      <State resource={r}>
+      <State resource={r} skeleton={<ContentSkeleton layout="statement"/>}>
         {r.data && (
           <>
             <button

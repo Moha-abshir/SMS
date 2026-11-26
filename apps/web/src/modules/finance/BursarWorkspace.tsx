@@ -1,3 +1,7 @@
+import {
+  ContentSkeleton,
+  type SkeletonLayout,
+} from "../../components/ContentSkeleton";
 import React, { useEffect, useState } from "react";
 import { useApiResource } from "../../hooks/useApiResource";
 import { WorkspaceHeader } from "../../components/WorkspaceHeader";
@@ -16,12 +20,22 @@ import {
   type Options,
   type Page,
 } from "./FinanceWorkspaceParts";
+const loadingLayouts: Record<Page, SkeletonLayout> = {
+  dashboard: "dashboard",
+  balances: "table",
+  outstanding: "table",
+  expenses: "cards",
+  income: "cards",
+  reports: "report",
+  audit: "audit",
+};
 export function BursarWorkspace({ page }: { page: Page }) {
   const options = useApiResource<Options>(
     "/api/bursar/options",
     (v) =>
       Array.isArray((v as Options)?.terms) &&
-      Array.isArray((v as Options)?.categories) && Array.isArray((v as Options)?.classes),
+      Array.isArray((v as Options)?.categories) &&
+      Array.isArray((v as Options)?.classes),
   );
   const [year, setYear] = useState(new Date().getFullYear()),
     [term, setTerm] = useState(""),
@@ -61,7 +75,10 @@ export function BursarWorkspace({ page }: { page: Page }) {
           Refresh settings
         </button>
       </WorkspaceHeader>
-      <State resource={options}>
+      <State
+        resource={options}
+        skeleton={<ContentSkeleton layout={loadingLayouts[page]} filters />}
+      >
         <div className={`${panel} grid gap-3 sm:grid-cols-2 lg:max-w-2xl`}>
           <Field title="Academic year">
             <select
@@ -82,21 +99,23 @@ export function BursarWorkspace({ page }: { page: Page }) {
                 ))}
             </select>
           </Field>
-          {page !== 'audit' && <Field title="Term">
-            <select
-              aria-label="Term"
-              className={input}
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-            >
-              <option value="">All terms</option>
-              {[1, 2, 3].map((t) => (
-                <option key={t} value={t}>
-                  Term {t}
-                </option>
-              ))}
-            </select>
-          </Field>}
+          {page !== "audit" && (
+            <Field title="Term">
+              <select
+                aria-label="Term"
+                className={input}
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+              >
+                <option value="">All terms</option>
+                {[1, 2, 3].map((t) => (
+                  <option key={t} value={t}>
+                    Term {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
         </div>
         {ready && options.data && (
           <React.Fragment key={page}>

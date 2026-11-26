@@ -1,3 +1,4 @@
+import { ContentSkeleton, layoutForPath } from '../../components/ContentSkeleton';
 import React, { useEffect, useState } from "react";
 import { useApiResource } from "../../hooks/useApiResource";
 import { Modal } from "../../components/Modal";
@@ -45,7 +46,7 @@ export function Audit({ period }: any) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <State resource={r}>
+      <State resource={r} skeleton={<ContentSkeleton layout="audit"/>}>
         <div className="space-y-3">
           {r.data?.items.map((row: any) => (
             <button

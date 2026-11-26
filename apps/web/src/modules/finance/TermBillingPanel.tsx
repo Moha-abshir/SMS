@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useApiResource } from '../../hooks/useApiResource';
@@ -34,9 +35,7 @@ export function TermBillingPanel({
         </p>
       )}
       {preview.loading && (
-        <p role="status" className="text-sm">
-          Checking billing coverage…
-        </p>
+        <ContentSkeleton rows={1}/>
       )}
       {preview.error && (
         <RequestError message={preview.error} onRetry={preview.refresh} />

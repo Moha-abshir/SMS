@@ -1,3 +1,4 @@
+import { ContentSkeleton, layoutForPath } from '../../components/ContentSkeleton';
 import React from "react";
 import { Link } from "react-router-dom";
 import { useApiResource } from "../../hooks/useApiResource";
@@ -24,7 +25,7 @@ export function Dashboard({ period }: any) {
   );
   const d = r.data;
   return (
-    <State resource={r}>
+    <State resource={r} skeleton={<ContentSkeleton layout="dashboard"/>}>
       {d && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -1,3 +1,4 @@
+import { ContentSkeleton } from '../../components/ContentSkeleton';
 import { getPublicSettings } from '../../lib/publicSettings';
 import React, { useEffect, useState } from 'react';
 import { Calculator } from 'lucide-react';
@@ -135,7 +136,7 @@ export const FeeStructureView: React.FC = () => {
       {resource.error && (
         <RequestError message={resource.error} onRetry={resource.refresh} />
       )}
-      {resource.loading && <p role="status">Loading fee schedules…</p>}
+      {resource.loading && <ContentSkeleton layout="fees" rows={4}/>}
       {resource.data && !resource.data.terms.length && (
         <p className="workspace-panel p-4 text-sm">
           No academic terms exist for {year}. Ask the head teacher to configure

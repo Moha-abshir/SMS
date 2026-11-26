@@ -1,3 +1,4 @@
+import { ContentSkeleton, layoutForPath } from '../../components/ContentSkeleton';
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useApiResource } from "../../hooks/useApiResource";
@@ -105,7 +106,7 @@ export function Reports({ period, school }: any) {
           </button>
         </div>
       </section>
-      <State resource={r}>
+      <State resource={r} skeleton={<ContentSkeleton layout="report"/>}>
         {d && (
           <section className={panel}>
             <div className="mb-4 flex flex-wrap gap-2">

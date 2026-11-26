@@ -1,3 +1,4 @@
+import { ContentSkeleton } from "../../components/ContentSkeleton";
 import React from "react";
 import { toast } from "react-toastify";
 import { RequestError } from "../../components/RequestError";
@@ -56,16 +57,16 @@ export function Field({
 export function State({
   resource,
   children,
+  skeleton,
 }: {
+  skeleton?: React.ReactNode;
   resource: any;
   children: React.ReactNode;
 }) {
   return resource.error ? (
     <RequestError message={resource.error} onRetry={resource.refresh} />
   ) : resource.loading ? (
-    <p role="status" className="p-5 text-sm text-slate-500">
-      Loading finance records…
-    </p>
+    skeleton || <ContentSkeleton />
   ) : resource.data ? (
     <>{children}</>
   ) : null;
