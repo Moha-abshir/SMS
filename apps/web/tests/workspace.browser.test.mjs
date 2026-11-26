@@ -1754,7 +1754,7 @@ test('expense outcome failure retains request key and excludes private details f
       .getByLabel('Supplier / recipient', { exact: true })
       .fill('Private supplier');
     await page
-      .getByLabel('Category', { exact: true })
+      .getByRole('combobox', { name: 'Category', exact: true })
       .selectOption('category-1');
     await page
       .getByRole('button', { name: 'Record transaction', exact: true })

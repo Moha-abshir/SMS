@@ -1097,7 +1097,7 @@ export const FinancialManagementView: React.FC = () => {
                     {filteredPayments.map((p) => (
                       <tr key={p.id} className="hover:bg-sky-50/40">
                         <td className="py-3 px-4 font-mono font-bold text-sky-600">
-                          {p.receiptNumber}
+                          <span>{p.receiptNumber}</span>
                           <button className="block mt-1 text-xs text-sky-600" onClick={async()=>{try{const res=await apiClient.get(`/api/finance/receipts/${p.id}`);setReceiptModalData(res.data.data);}catch{toast.error('Could not load receipt. Please retry.');}}}>View receipt</button>
                         </td>
                         <td className="py-3 px-4 font-bold text-slate-800">
