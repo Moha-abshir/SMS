@@ -1,3 +1,4 @@
+import { financeDate } from '../bursar/bursar.rules.js';
 import { FinanceValidationError } from './financeRules.js';
 import { z } from 'zod';
 import { publicErrorMessage, logServerError } from '../../utils/publicError.js';
@@ -47,6 +48,8 @@ export class FinanceController {
           limit: z.coerce.number().int().min(1).max(100).optional(),
           offset: z.coerce.number().int().min(0).max(1000000).optional(),
           search: z.string().max(100).optional(),
+          from: financeDate.optional(),
+          to: financeDate.optional(),
         })
         .parse(req.query);
       const payments = await FinanceService.paymentPage(filters);

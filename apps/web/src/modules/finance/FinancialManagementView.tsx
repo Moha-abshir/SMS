@@ -61,6 +61,7 @@ export const FinancialManagementView: React.FC = () => {
   }, []);
   const [term, setTerm] = useState('1');
   const [reversalPage, setReversalPage] = useState(0);
+  const [ledgerFrom,setLedgerFrom]=useState(''),[ledgerTo,setLedgerTo]=useState('');
   const [ledgerPage, setLedgerPage] = useState(0),
     [debouncedSearch, setDebouncedSearch] = useState('');
   const authUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
@@ -80,7 +81,7 @@ export const FinancialManagementView: React.FC = () => {
     offset: number;
   }>(
     activeTab === 'ledger'
-      ? `/api/finance/payments?${period}&limit=25&offset=${ledgerPage * 25}&search=${encodeURIComponent(debouncedSearch)}`
+      ? `/api/finance/payments?${period}&limit=25&offset=${ledgerPage * 25}&search=${encodeURIComponent(debouncedSearch)}${ledgerFrom?`&from=${ledgerFrom}`:''}${ledgerTo?`&to=${ledgerTo}`:''}`
       : null,
     (v: any) => Array.isArray(v?.items) && typeof v?.total === 'number',
   );
@@ -124,8 +125,10 @@ export const FinancialManagementView: React.FC = () => {
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amountPaid: '',
-    paymentMethod: 'CASH' as 'CASH' | 'MANUAL_MPESA',
+    paymentMethod: 'CASH' as 'CASH' | 'MANUAL_MPESA' | 'BANK_DEPOSIT' | 'CHEQUE' | 'OTHER',
     mpesaRefCode: '',
+    bankRefNumber: '',
+    paymentDate: '',
     paidBy: '',
     notes: '',
     academicYear: new Date().getFullYear(),
@@ -153,20 +156,20 @@ export const FinancialManagementView: React.FC = () => {
   useEffect(() => {
     setLedgerPage(0);
     setReversalPage(0);
-  }, [year, term]);
-
-  const fetchStudentsForSearch = async () => {
-    try {
-      const res = await apiClient.get('/api/admissions/students');
-      if (res.data.data) setStudentsList(res.data.data);
-    } catch (error) {
-      console.error('Failed to load students list for payment entry');
-    }
-  };
+  }, [year, term,ledgerFrom,ledgerTo]);
 
   useEffect(() => {
-    fetchStudentsForSearch();
-  }, []);
+    const query=activeTab==='statements'?statementStudentQuery:studentSearchQuery;
+    setStudentsList([]);
+    if(query.trim().length<2)return;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>{
+      apiClient.get(`/api/finance/learners?search=${encodeURIComponent(query.trim())}`,{signal:controller.signal})
+        .then(res=>{if(!controller.signal.aborted && Array.isArray(res.data?.data))setStudentsList(res.data.data);})
+        .catch(()=>{if(!controller.signal.aborted)toast.error('Could not search finance learners. Please retry.');});
+    },300);
+    return()=>{clearTimeout(timer);controller.abort();};
+  },[activeTab,studentSearchQuery,statementStudentQuery]);
 
   // Handle Record Payment Submission
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -192,7 +195,9 @@ export const FinancialManagementView: React.FC = () => {
         studentId: selectedStudent.student.id,
         amountPaid: paymentForm.amountPaid,
         paymentMethod: paymentForm.paymentMethod,
-        mpesaRefCode: paymentForm.mpesaRefCode || undefined,
+        mpesaRefCode: paymentForm.paymentMethod === 'MANUAL_MPESA' ? paymentForm.mpesaRefCode || undefined : undefined,
+        bankRefNumber: ['BANK_DEPOSIT','CHEQUE'].includes(paymentForm.paymentMethod) ? paymentForm.bankRefNumber || undefined : undefined,
+        paymentDate: paymentForm.paymentDate ? `${paymentForm.paymentDate}T12:00:00+03:00` : undefined,
         paidBy: paymentForm.paidBy,
         notes: paymentForm.notes || undefined,
         academicYear: year,
@@ -259,6 +264,8 @@ export const FinancialManagementView: React.FC = () => {
         amountPaid: '',
         paymentMethod: 'CASH',
         mpesaRefCode: '',
+        bankRefNumber: '',
+        paymentDate: '',
         paidBy: '',
         notes: '',
         academicYear: new Date().getFullYear(),
@@ -912,15 +919,16 @@ export const FinancialManagementView: React.FC = () => {
                       setPaymentForm({
                         ...paymentForm,
                         paymentMethod: e.target.value as
-                          'CASH' | 'MANUAL_MPESA',
+                          'CASH' | 'MANUAL_MPESA' | 'BANK_DEPOSIT' | 'CHEQUE' | 'OTHER',
                       })
                     }
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none focus:border-sky-500 transition-colors"
                   >
                     <option value="CASH">Cash Payment</option>
-                    <option value="MANUAL_MPESA">
-                      M-Pesa (Manual Code Entry)
-                    </option>
+                    <option value="MANUAL_MPESA">M-Pesa (Manual Code Entry)</option>
+                    <option value="BANK_DEPOSIT">Bank Deposit</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="OTHER">Other</option>
                   </select>
                 </div>
 
@@ -940,6 +948,8 @@ export const FinancialManagementView: React.FC = () => {
                   />
                 </div>
 
+                <div><label className="block text-xs font-semibold mb-1">Payment date (leave empty for today)</label><input aria-label="Payment date" type="date" className="w-full rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950" value={paymentForm.paymentDate} onChange={e=>setPaymentForm({...paymentForm,paymentDate:e.target.value})}/></div>
+                {['BANK_DEPOSIT','CHEQUE'].includes(paymentForm.paymentMethod) && <div><label className="block text-xs font-semibold mb-1">Bank / cheque reference *</label><input aria-label="Bank or cheque reference" required maxLength={50} className="w-full rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950" value={paymentForm.bankRefNumber} onChange={e=>setPaymentForm({...paymentForm,bankRefNumber:e.target.value})}/></div>}
                 {paymentForm.paymentMethod === 'MANUAL_MPESA' && (
                   <div className="sm:col-span-2 md:col-span-3">
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1048,6 +1058,7 @@ export const FinancialManagementView: React.FC = () => {
               </div>
             </div>
 
+            <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs">From date<input aria-label="Ledger from date" type="date" className="block w-full rounded-lg border border-slate-200 bg-white p-2 dark:bg-slate-950 dark:border-slate-700" value={ledgerFrom} onChange={e=>setLedgerFrom(e.target.value)}/></label><label className="text-xs">To date<input aria-label="Ledger to date" type="date" className="block w-full rounded-lg border border-slate-200 bg-white p-2 dark:bg-slate-950 dark:border-slate-700" value={ledgerTo} onChange={e=>setLedgerTo(e.target.value)}/></label></div>
             {ledgerResource.error && (
               <RequestError
                 message={ledgerResource.error}
@@ -1087,6 +1098,7 @@ export const FinancialManagementView: React.FC = () => {
                       <tr key={p.id} className="hover:bg-sky-50/40">
                         <td className="py-3 px-4 font-mono font-bold text-sky-600">
                           {p.receiptNumber}
+                          <button className="block mt-1 text-xs text-sky-600" onClick={async()=>{try{const res=await apiClient.get(`/api/finance/receipts/${p.id}`);setReceiptModalData(res.data.data);}catch{toast.error('Could not load receipt. Please retry.');}}}>View receipt</button>
                         </td>
                         <td className="py-3 px-4 font-bold text-slate-800">
                           {p.studentFirstName} {p.studentLastName}
@@ -1736,6 +1748,8 @@ export const FinancialManagementView: React.FC = () => {
                   </div>
                 </div>
 
+                <p className="text-sm">Received by: {receiptModalData.recordedByName || `${authUser.firstName || ''} ${authUser.lastName || ''}`} · {receiptModalData.academicYear} / Term {receiptModalData.termNumber}</p>
+                {receiptModalData.isReversed && <p className="font-bold text-red-700">REVERSED — retained for audit history</p>}
                 {/* Amount Box */}
                 <div className="p-4 bg-sky-50/70 border border-sky-200 rounded-xl flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-sky-800">

@@ -55,6 +55,8 @@ export interface PaymentFilters {
   limit?: number;
   offset?: number;
   search?: string;
+  from?: string;
+  to?: string;
 }
 export class FinanceService {
   private static async assertBillConsistent(
@@ -435,20 +437,22 @@ export class FinanceService {
     alreadyRecorded = false,
   ) {
     const [info] = await reader
-      .select({ student: students, class: classes, bill: studentBills })
+      .select({ student: students, class: classes, bill: studentBills, receiver: users })
       .from(students)
       .innerJoin(classes, eq(students.classId, classes.id))
+      .innerJoin(users, eq(users.id,payment.recordedById))
       .leftJoin(studentBills, eq(studentBills.id, payment.billId!))
       .where(eq(students.id, payment.studentId));
     return {
       ...payment,
       alreadyRecorded,
       studentName: info
-        ? `${info.student.firstName} ${info.student.lastName}`
+        ? [info.student.firstName,info.student.middleName,info.student.lastName].filter(Boolean).join(' ')
         : 'Learner',
       assessmentNumber: info?.student.assessmentNumber,
       className: info?.class.name,
       billTitle: info?.bill?.title,
+      recordedByName: info ? `${info.receiver.firstName} ${info.receiver.lastName}` : undefined,
     };
   }
   private static paymentConditions(filters: PaymentFilters) {
@@ -474,6 +478,8 @@ export class FinanceService {
       : undefined;
     return and(
       isNull(feePayments.deletedAt),
+      filters.from ? sql`(${feePayments.paymentDate} AT TIME ZONE 'Africa/Nairobi')::date >= ${filters.from}::date` : undefined,
+      filters.to ? sql`(${feePayments.paymentDate} AT TIME ZONE 'Africa/Nairobi')::date <= ${filters.to}::date` : undefined,
       filters.studentId
         ? eq(feePayments.studentId, filters.studentId)
         : undefined,
@@ -889,6 +895,11 @@ export class FinanceService {
   /**
    * Get student fee statement
    */
+  static async getReceipt(paymentId: string) {
+    const [payment] = await db.select().from(feePayments).where(and(eq(feePayments.id,paymentId),isNull(feePayments.deletedAt)));
+    if (!payment) throw new FinanceValidationError('Receipt not found.');
+    return this.receipt(payment,db);
+  }
   static async getStudentStatement(
     studentId: string,
     filters: Pick<PaymentFilters, 'academicYear' | 'termNumber'> = {},
@@ -963,7 +974,20 @@ export class FinanceService {
       totalBalance += Math.round(Number(b.balance) * 100);
     });
 
+    const reversalEvents = payments.length ? await db.select().from(paymentReversals).where(and(
+      inArray(paymentReversals.originalPaymentId,payments.map(p=>p.id)),
+      sql`${paymentReversals.approvedById} IS NOT NULL`,
+    )) : [];
+    const paymentById = new Map(payments.map(p=>[p.id,p]));
+    const events = [
+      ...bills.map(b=>({id:`bill:${b.id}`,date:b.createdAt,description:b.title,debit:cents(b.netAmount,true),credit:0,order:0})),
+      ...payments.map(p=>({id:`payment:${p.id}`,date:p.paymentDate,description:`${p.receiptNumber} · ${p.paymentMethod}`,debit:0,credit:cents(p.amountPaid),order:1})),
+      ...reversalEvents.map(r=>({id:`reversal:${r.id}`,date:r.decidedAt || r.updatedAt,description:`Reversal · ${paymentById.get(r.originalPaymentId)!.receiptNumber} · ${r.reason}`,debit:cents(paymentById.get(r.originalPaymentId)!.amountPaid),credit:0,order:2})),
+    ].sort((a,b)=>a.date.getTime()-b.date.getTime() || a.order-b.order || a.id.localeCompare(b.id));
+    let running = 0;
+    const ledger = events.map(event=>{running+=event.debit-event.credit;return {...event,debit:event.debit/100,credit:event.credit/100,balance:running/100};});
     return {
+      ledger,
       student: {
         id: student.student.id,
         fullName:
@@ -977,6 +1001,8 @@ export class FinanceService {
         totalBilled: totalBilled / 100,
         totalPaid: totalPaid / 100,
         totalBalance: totalBalance / 100,
+        ledgerBalance: running / 100,
+        ledgerReconciles: running === totalBalance,
       },
       bills,
       payments,
